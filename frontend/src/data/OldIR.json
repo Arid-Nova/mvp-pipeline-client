@@ -1,0 +1,2881 @@
+{
+  "type" : "MicroserviceSystem",
+  "name" : "microservices-workshop",
+  "metadata" : null,
+  "commitID" : "20c39bad6d3a95bc8240ec235d198afd0afc3c02",
+  "microservices" : [ {
+    "type" : "Microservice",
+    "name" : "discovery-server",
+    "metadata" : null,
+    "path" : "/discovery-server",
+    "controllers" : [ ],
+    "services" : [ ],
+    "repositories" : [ ],
+    "entities" : [ ],
+    "unknowns" : [ {
+      "type" : "JClass",
+      "name" : "DiscoveryServerApplicationTests",
+      "metadata" : null,
+      "path" : "/discovery-server/src/test/java/io/javabrains/discoveryserver/DiscoveryServerApplicationTests.java",
+      "classRole" : "UNKNOWN",
+      "classType" : "CLASS",
+      "packageName" : "io.javabrains.discoveryserver",
+      "protection" : "PUBLIC",
+      "isFinal" : false,
+      "isStatic" : false,
+      "isAbstract" : false,
+      "imports" : [ {
+        "type" : "Import",
+        "name" : "org.springframework.test.context.junit4.SpringRunner",
+        "metadata" : null,
+        "importPackage" : "org.springframework.test.context.junit4",
+        "importObject" : "SpringRunner",
+        "isStatic" : false,
+        "id" : "io.javabrains.discoveryserver.DiscoveryServerApplicationTests&org.springframework.test.context.junit4.SpringRunner"
+      }, {
+        "type" : "Import",
+        "name" : "org.junit.Test",
+        "metadata" : null,
+        "importPackage" : "org.junit",
+        "importObject" : "Test",
+        "isStatic" : false,
+        "id" : "io.javabrains.discoveryserver.DiscoveryServerApplicationTests&org.junit.Test"
+      }, {
+        "type" : "Import",
+        "name" : "org.junit.runner.RunWith",
+        "metadata" : null,
+        "importPackage" : "org.junit.runner",
+        "importObject" : "RunWith",
+        "isStatic" : false,
+        "id" : "io.javabrains.discoveryserver.DiscoveryServerApplicationTests&org.junit.runner.RunWith"
+      }, {
+        "type" : "Import",
+        "name" : "org.springframework.boot.test.context.SpringBootTest",
+        "metadata" : null,
+        "importPackage" : "org.springframework.boot.test.context",
+        "importObject" : "SpringBootTest",
+        "isStatic" : false,
+        "id" : "io.javabrains.discoveryserver.DiscoveryServerApplicationTests&org.springframework.boot.test.context.SpringBootTest"
+      } ],
+      "annotations" : [ {
+        "type" : "Annotation",
+        "name" : "SpringBootTest",
+        "metadata" : null,
+        "attributes" : { },
+        "id" : "io.javabrains.discoveryserver.DiscoveryServerApplicationTests&SpringBootTest"
+      }, {
+        "type" : "Annotation",
+        "name" : "RunWith",
+        "metadata" : null,
+        "attributes" : { },
+        "id" : "io.javabrains.discoveryserver.DiscoveryServerApplicationTests&RunWith"
+      }, {
+        "type" : "Annotation",
+        "name" : "Test",
+        "metadata" : null,
+        "attributes" : { },
+        "id" : "io.javabrains.discoveryserver.DiscoveryServerApplicationTests&Test"
+      } ],
+      "fields" : [ ],
+      "methods" : [ {
+        "type" : "Method",
+        "name" : "contextLoads",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ {
+          "type" : "Annotation",
+          "name" : "Test",
+          "metadata" : null,
+          "attributes" : { },
+          "id" : "io.javabrains.discoveryserver.DiscoveryServerApplicationTests&contextLoads&Test"
+        } ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.discoveryserver.DiscoveryServerApplicationTests&contextLoads"
+      } ],
+      "extendedType" : "",
+      "implementedTypes" : [ ],
+      "id" : "/discovery-server/src/test/java/io/javabrains/discoveryserver/DiscoveryServerApplicationTests.java"
+    }, {
+      "type" : "JClass",
+      "name" : "DiscoveryServerApplication",
+      "metadata" : null,
+      "path" : "/discovery-server/src/main/java/io/javabrains/discoveryserver/DiscoveryServerApplication.java",
+      "classRole" : "UNKNOWN",
+      "classType" : "CLASS",
+      "packageName" : "io.javabrains.discoveryserver",
+      "protection" : "PUBLIC",
+      "isFinal" : false,
+      "isStatic" : false,
+      "isAbstract" : false,
+      "imports" : [ {
+        "type" : "Import",
+        "name" : "org.springframework.boot.SpringApplication",
+        "metadata" : null,
+        "importPackage" : "org.springframework.boot",
+        "importObject" : "SpringApplication",
+        "isStatic" : false,
+        "id" : "io.javabrains.discoveryserver.DiscoveryServerApplication&org.springframework.boot.SpringApplication"
+      }, {
+        "type" : "Import",
+        "name" : "org.springframework.boot.autoconfigure.SpringBootApplication",
+        "metadata" : null,
+        "importPackage" : "org.springframework.boot.autoconfigure",
+        "importObject" : "SpringBootApplication",
+        "isStatic" : false,
+        "id" : "io.javabrains.discoveryserver.DiscoveryServerApplication&org.springframework.boot.autoconfigure.SpringBootApplication"
+      }, {
+        "type" : "Import",
+        "name" : "org.springframework.cloud.netflix.eureka.server.EnableEurekaServer",
+        "metadata" : null,
+        "importPackage" : "org.springframework.cloud.netflix.eureka.server",
+        "importObject" : "EnableEurekaServer",
+        "isStatic" : false,
+        "id" : "io.javabrains.discoveryserver.DiscoveryServerApplication&org.springframework.cloud.netflix.eureka.server.EnableEurekaServer"
+      } ],
+      "annotations" : [ {
+        "type" : "Annotation",
+        "name" : "SpringBootApplication",
+        "metadata" : null,
+        "attributes" : { },
+        "id" : "io.javabrains.discoveryserver.DiscoveryServerApplication&SpringBootApplication"
+      }, {
+        "type" : "Annotation",
+        "name" : "EnableEurekaServer",
+        "metadata" : null,
+        "attributes" : { },
+        "id" : "io.javabrains.discoveryserver.DiscoveryServerApplication&EnableEurekaServer"
+      } ],
+      "fields" : [ ],
+      "methods" : [ {
+        "type" : "Method",
+        "name" : "main",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ {
+          "type" : "Parameter",
+          "name" : "args",
+          "metadata" : null,
+          "parameterType" : "String[]",
+          "annotations" : [ ],
+          "isVariableParameter" : false,
+          "id" : "io.javabrains.discoveryserver.DiscoveryServerApplication&main&args"
+        } ],
+        "methodCalls" : [ {
+          "type" : "MethodCall",
+          "name" : "run",
+          "metadata" : null,
+          "objectName" : "SpringApplication",
+          "objectType" : "Solving SpringApplication",
+          "calledFrom" : "main",
+          "parameterContents" : "DiscoveryServerApplication.class,args",
+          "id" : "io.javabrains.discoveryserver.DiscoveryServerApplication&main&run"
+        } ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : true,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.discoveryserver.DiscoveryServerApplication&main"
+      } ],
+      "extendedType" : "",
+      "implementedTypes" : [ ],
+      "id" : "/discovery-server/src/main/java/io/javabrains/discoveryserver/DiscoveryServerApplication.java"
+    } ],
+    "feignClients" : [ ],
+    "files" : [ {
+      "type" : "ConfigFile",
+      "name" : "pom.xml",
+      "metadata" : null,
+      "path" : "/discovery-server/pom.xml",
+      "data" : {
+        "project" : {
+          "parent" : {
+            "relativePath" : "",
+            "groupId" : "org.springframework.boot",
+            "artifactId" : "spring-boot-starter-parent",
+            "version" : "2.1.2.RELEASE"
+          },
+          "dependencyManagement" : {
+            "dependencies" : {
+              "dependency" : {
+                "groupId" : "org.springframework.cloud",
+                "scope" : "import",
+                "artifactId" : "spring-cloud-dependencies",
+                "type" : "pom",
+                "version" : "${spring-cloud.version}"
+              }
+            }
+          },
+          "modelVersion" : "4.0.0",
+          "groupId" : "io.javabrains",
+          "xsi:schemaLocation" : "http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd",
+          "description" : "Service discovery server",
+          "xmlns:xsi" : "http://www.w3.org/2001/XMLSchema-instance",
+          "version" : "0.0.1-SNAPSHOT",
+          "dependencies" : {
+            "dependency" : [ {
+              "groupId" : "org.springframework.cloud",
+              "artifactId" : "spring-cloud-starter-netflix-eureka-server"
+            }, {
+              "groupId" : "javax.xml.bind",
+              "artifactId" : "jaxb-api",
+              "version" : "2.3.0"
+            }, {
+              "groupId" : "com.sun.xml.bind",
+              "artifactId" : "jaxb-impl",
+              "version" : "2.3.0"
+            }, {
+              "groupId" : "org.glassfish.jaxb",
+              "artifactId" : "jaxb-runtime",
+              "version" : "2.3.0"
+            }, {
+              "groupId" : "javax.activation",
+              "artifactId" : "activation",
+              "version" : "1.1.1"
+            }, {
+              "groupId" : "org.springframework.boot",
+              "scope" : "test",
+              "artifactId" : "spring-boot-starter-test"
+            } ]
+          },
+          "xmlns" : "http://maven.apache.org/POM/4.0.0",
+          "build" : {
+            "plugins" : {
+              "plugin" : {
+                "groupId" : "org.springframework.boot",
+                "artifactId" : "spring-boot-maven-plugin"
+              }
+            }
+          },
+          "repositories" : {
+            "repository" : {
+              "name" : "Spring Milestones",
+              "id" : "spring-milestones",
+              "url" : "https://repo.spring.io/milestone"
+            }
+          },
+          "name" : "discovery-server",
+          "artifactId" : "discovery-server",
+          "properties" : {
+            "java.version" : 11,
+            "spring-cloud.version" : "Greenwich.RELEASE"
+          }
+        }
+      }
+    } ]
+  }, {
+    "type" : "Microservice",
+    "name" : "movie-info-service",
+    "metadata" : null,
+    "path" : "/movie-info-service",
+    "controllers" : [ {
+      "type" : "JClass",
+      "name" : "MovieResource",
+      "metadata" : null,
+      "path" : "/movie-info-service/src/main/java/io/javabrains/movieinfoservice/resources/MovieResource.java",
+      "classRole" : "CONTROLLER",
+      "classType" : "CLASS",
+      "packageName" : "io.javabrains.movieinfoservice.resources",
+      "protection" : "PUBLIC",
+      "isFinal" : false,
+      "isStatic" : false,
+      "isAbstract" : false,
+      "imports" : [ {
+        "type" : "Import",
+        "name" : "org.springframework.web.bind.annotation.PathVariable",
+        "metadata" : null,
+        "importPackage" : "org.springframework.web.bind.annotation",
+        "importObject" : "PathVariable",
+        "isStatic" : false,
+        "id" : "io.javabrains.movieinfoservice.resources.MovieResource&org.springframework.web.bind.annotation.PathVariable"
+      }, {
+        "type" : "Import",
+        "name" : "org.springframework.web.bind.annotation.RequestMapping",
+        "metadata" : null,
+        "importPackage" : "org.springframework.web.bind.annotation",
+        "importObject" : "RequestMapping",
+        "isStatic" : false,
+        "id" : "io.javabrains.movieinfoservice.resources.MovieResource&org.springframework.web.bind.annotation.RequestMapping"
+      }, {
+        "type" : "Import",
+        "name" : "org.springframework.web.bind.annotation.RestController",
+        "metadata" : null,
+        "importPackage" : "org.springframework.web.bind.annotation",
+        "importObject" : "RestController",
+        "isStatic" : false,
+        "id" : "io.javabrains.movieinfoservice.resources.MovieResource&org.springframework.web.bind.annotation.RestController"
+      }, {
+        "type" : "Import",
+        "name" : "io.javabrains.movieinfoservice.models.Movie",
+        "metadata" : null,
+        "importPackage" : "io.javabrains.movieinfoservice.models",
+        "importObject" : "Movie",
+        "isStatic" : false,
+        "id" : "io.javabrains.movieinfoservice.resources.MovieResource&io.javabrains.movieinfoservice.models.Movie"
+      } ],
+      "annotations" : [ {
+        "type" : "Annotation",
+        "name" : "PathVariable",
+        "metadata" : null,
+        "attributes" : {
+          "default" : "movieId"
+        },
+        "id" : "io.javabrains.movieinfoservice.resources.MovieResource&PathVariable"
+      }, {
+        "type" : "Annotation",
+        "name" : "RestController",
+        "metadata" : null,
+        "attributes" : { },
+        "id" : "io.javabrains.movieinfoservice.resources.MovieResource&RestController"
+      }, {
+        "type" : "Annotation",
+        "name" : "RequestMapping",
+        "metadata" : null,
+        "attributes" : {
+          "default" : "/{movieId}"
+        },
+        "id" : "io.javabrains.movieinfoservice.resources.MovieResource&RequestMapping"
+      }, {
+        "type" : "Annotation",
+        "name" : "RequestMapping",
+        "metadata" : null,
+        "attributes" : {
+          "default" : "/movies"
+        },
+        "id" : "io.javabrains.movieinfoservice.resources.MovieResource&RequestMapping"
+      } ],
+      "fields" : [ ],
+      "methods" : [ {
+        "type" : "Endpoint",
+        "name" : "getMovieInfo",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ {
+          "type" : "Parameter",
+          "name" : "movieId",
+          "metadata" : null,
+          "parameterType" : "String",
+          "annotations" : [ {
+            "type" : "Annotation",
+            "name" : "PathVariable",
+            "metadata" : null,
+            "attributes" : {
+              "default" : "movieId"
+            },
+            "id" : "io.javabrains.movieinfoservice.resources.MovieResource&getMovieInfo&movieId&PathVariable"
+          } ],
+          "isVariableParameter" : false,
+          "id" : "io.javabrains.movieinfoservice.resources.MovieResource&getMovieInfo&movieId"
+        } ],
+        "methodCalls" : [ ],
+        "returnType" : "",
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "url" : "/movies/{?}",
+        "httpMethod" : "ALL",
+        "id" : "io.javabrains.movieinfoservice.resources.MovieResource&getMovieInfo"
+      } ],
+      "extendedType" : "",
+      "implementedTypes" : [ ],
+      "id" : "/movie-info-service/src/main/java/io/javabrains/movieinfoservice/resources/MovieResource.java"
+    } ],
+    "services" : [ ],
+    "repositories" : [ ],
+    "entities" : [ ],
+    "unknowns" : [ {
+      "type" : "JClass",
+      "name" : "Movie",
+      "metadata" : null,
+      "path" : "/movie-info-service/src/main/java/io/javabrains/movieinfoservice/models/Movie.java",
+      "classRole" : "UNKNOWN",
+      "classType" : "CLASS",
+      "packageName" : "io.javabrains.movieinfoservice.models",
+      "protection" : "PUBLIC",
+      "isFinal" : false,
+      "isStatic" : false,
+      "isAbstract" : false,
+      "imports" : [ ],
+      "annotations" : [ ],
+      "fields" : [ {
+        "type" : "Field",
+        "name" : "movieId",
+        "metadata" : null,
+        "fieldType" : "String",
+        "protection" : "PRIVATE",
+        "isStatic" : false,
+        "isFinal" : false,
+        "id" : "io.javabrains.movieinfoservice.models.Movie&movieId"
+      }, {
+        "type" : "Field",
+        "name" : "name",
+        "metadata" : null,
+        "fieldType" : "String",
+        "protection" : "PRIVATE",
+        "isStatic" : false,
+        "isFinal" : false,
+        "id" : "io.javabrains.movieinfoservice.models.Movie&name"
+      } ],
+      "methods" : [ {
+        "type" : "Method",
+        "name" : "setMovieId",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ {
+          "type" : "Parameter",
+          "name" : "movieId",
+          "metadata" : null,
+          "parameterType" : "String",
+          "annotations" : [ ],
+          "isVariableParameter" : false,
+          "id" : "io.javabrains.movieinfoservice.models.Movie&setMovieId&movieId"
+        } ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.movieinfoservice.models.Movie&setMovieId"
+      }, {
+        "type" : "Method",
+        "name" : "getName",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.movieinfoservice.models.Movie&getName"
+      }, {
+        "type" : "Method",
+        "name" : "setName",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ {
+          "type" : "Parameter",
+          "name" : "name",
+          "metadata" : null,
+          "parameterType" : "String",
+          "annotations" : [ ],
+          "isVariableParameter" : false,
+          "id" : "io.javabrains.movieinfoservice.models.Movie&setName&name"
+        } ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.movieinfoservice.models.Movie&setName"
+      }, {
+        "type" : "Method",
+        "name" : "getMovieId",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.movieinfoservice.models.Movie&getMovieId"
+      } ],
+      "extendedType" : "",
+      "implementedTypes" : [ ],
+      "id" : "/movie-info-service/src/main/java/io/javabrains/movieinfoservice/models/Movie.java"
+    }, {
+      "type" : "JClass",
+      "name" : "MovieInfoServiceApplication",
+      "metadata" : null,
+      "path" : "/movie-info-service/src/main/java/io/javabrains/movieinfoservice/MovieInfoServiceApplication.java",
+      "classRole" : "UNKNOWN",
+      "classType" : "CLASS",
+      "packageName" : "io.javabrains.movieinfoservice",
+      "protection" : "PUBLIC",
+      "isFinal" : false,
+      "isStatic" : false,
+      "isAbstract" : false,
+      "imports" : [ {
+        "type" : "Import",
+        "name" : "org.springframework.cloud.netflix.eureka.EnableEurekaClient",
+        "metadata" : null,
+        "importPackage" : "org.springframework.cloud.netflix.eureka",
+        "importObject" : "EnableEurekaClient",
+        "isStatic" : false,
+        "id" : "io.javabrains.movieinfoservice.MovieInfoServiceApplication&org.springframework.cloud.netflix.eureka.EnableEurekaClient"
+      }, {
+        "type" : "Import",
+        "name" : "org.springframework.boot.SpringApplication",
+        "metadata" : null,
+        "importPackage" : "org.springframework.boot",
+        "importObject" : "SpringApplication",
+        "isStatic" : false,
+        "id" : "io.javabrains.movieinfoservice.MovieInfoServiceApplication&org.springframework.boot.SpringApplication"
+      }, {
+        "type" : "Import",
+        "name" : "org.springframework.boot.autoconfigure.SpringBootApplication",
+        "metadata" : null,
+        "importPackage" : "org.springframework.boot.autoconfigure",
+        "importObject" : "SpringBootApplication",
+        "isStatic" : false,
+        "id" : "io.javabrains.movieinfoservice.MovieInfoServiceApplication&org.springframework.boot.autoconfigure.SpringBootApplication"
+      } ],
+      "annotations" : [ {
+        "type" : "Annotation",
+        "name" : "SpringBootApplication",
+        "metadata" : null,
+        "attributes" : { },
+        "id" : "io.javabrains.movieinfoservice.MovieInfoServiceApplication&SpringBootApplication"
+      }, {
+        "type" : "Annotation",
+        "name" : "EnableEurekaClient",
+        "metadata" : null,
+        "attributes" : { },
+        "id" : "io.javabrains.movieinfoservice.MovieInfoServiceApplication&EnableEurekaClient"
+      } ],
+      "fields" : [ ],
+      "methods" : [ {
+        "type" : "Method",
+        "name" : "main",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ {
+          "type" : "Parameter",
+          "name" : "args",
+          "metadata" : null,
+          "parameterType" : "String[]",
+          "annotations" : [ ],
+          "isVariableParameter" : false,
+          "id" : "io.javabrains.movieinfoservice.MovieInfoServiceApplication&main&args"
+        } ],
+        "methodCalls" : [ {
+          "type" : "MethodCall",
+          "name" : "run",
+          "metadata" : null,
+          "objectName" : "SpringApplication",
+          "objectType" : "Solving SpringApplication",
+          "calledFrom" : "main",
+          "parameterContents" : "MovieInfoServiceApplication.class,args",
+          "id" : "io.javabrains.movieinfoservice.MovieInfoServiceApplication&main&run"
+        }, {
+          "type" : "MethodCall",
+          "name" : "run",
+          "metadata" : null,
+          "objectName" : "SpringApplication",
+          "objectType" : "Solving SpringApplication",
+          "calledFrom" : "main",
+          "parameterContents" : "MovieInfoServiceApplication.class,args",
+          "id" : "io.javabrains.movieinfoservice.MovieInfoServiceApplication&main&run"
+        } ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : true,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.movieinfoservice.MovieInfoServiceApplication&main"
+      } ],
+      "extendedType" : "",
+      "implementedTypes" : [ ],
+      "id" : "/movie-info-service/src/main/java/io/javabrains/movieinfoservice/MovieInfoServiceApplication.java"
+    }, {
+      "type" : "JClass",
+      "name" : "MovieInfoServiceApplicationTests",
+      "metadata" : null,
+      "path" : "/movie-info-service/src/test/java/io/javabrains/movieinfoservice/MovieInfoServiceApplicationTests.java",
+      "classRole" : "UNKNOWN",
+      "classType" : "CLASS",
+      "packageName" : "io.javabrains.movieinfoservice",
+      "protection" : "PUBLIC",
+      "isFinal" : false,
+      "isStatic" : false,
+      "isAbstract" : false,
+      "imports" : [ {
+        "type" : "Import",
+        "name" : "org.springframework.test.context.junit4.SpringRunner",
+        "metadata" : null,
+        "importPackage" : "org.springframework.test.context.junit4",
+        "importObject" : "SpringRunner",
+        "isStatic" : false,
+        "id" : "io.javabrains.movieinfoservice.MovieInfoServiceApplicationTests&org.springframework.test.context.junit4.SpringRunner"
+      }, {
+        "type" : "Import",
+        "name" : "org.junit.Test",
+        "metadata" : null,
+        "importPackage" : "org.junit",
+        "importObject" : "Test",
+        "isStatic" : false,
+        "id" : "io.javabrains.movieinfoservice.MovieInfoServiceApplicationTests&org.junit.Test"
+      }, {
+        "type" : "Import",
+        "name" : "org.junit.runner.RunWith",
+        "metadata" : null,
+        "importPackage" : "org.junit.runner",
+        "importObject" : "RunWith",
+        "isStatic" : false,
+        "id" : "io.javabrains.movieinfoservice.MovieInfoServiceApplicationTests&org.junit.runner.RunWith"
+      }, {
+        "type" : "Import",
+        "name" : "org.springframework.boot.test.context.SpringBootTest",
+        "metadata" : null,
+        "importPackage" : "org.springframework.boot.test.context",
+        "importObject" : "SpringBootTest",
+        "isStatic" : false,
+        "id" : "io.javabrains.movieinfoservice.MovieInfoServiceApplicationTests&org.springframework.boot.test.context.SpringBootTest"
+      } ],
+      "annotations" : [ {
+        "type" : "Annotation",
+        "name" : "SpringBootTest",
+        "metadata" : null,
+        "attributes" : { },
+        "id" : "io.javabrains.movieinfoservice.MovieInfoServiceApplicationTests&SpringBootTest"
+      }, {
+        "type" : "Annotation",
+        "name" : "RunWith",
+        "metadata" : null,
+        "attributes" : { },
+        "id" : "io.javabrains.movieinfoservice.MovieInfoServiceApplicationTests&RunWith"
+      }, {
+        "type" : "Annotation",
+        "name" : "Test",
+        "metadata" : null,
+        "attributes" : { },
+        "id" : "io.javabrains.movieinfoservice.MovieInfoServiceApplicationTests&Test"
+      } ],
+      "fields" : [ ],
+      "methods" : [ {
+        "type" : "Method",
+        "name" : "contextLoads",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ {
+          "type" : "Annotation",
+          "name" : "Test",
+          "metadata" : null,
+          "attributes" : { },
+          "id" : "io.javabrains.movieinfoservice.MovieInfoServiceApplicationTests&contextLoads&Test"
+        } ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.movieinfoservice.MovieInfoServiceApplicationTests&contextLoads"
+      } ],
+      "extendedType" : "",
+      "implementedTypes" : [ ],
+      "id" : "/movie-info-service/src/test/java/io/javabrains/movieinfoservice/MovieInfoServiceApplicationTests.java"
+    } ],
+    "feignClients" : [ ],
+    "files" : [ {
+      "type" : "ConfigFile",
+      "name" : "pom.xml",
+      "metadata" : null,
+      "path" : "/movie-info-service/pom.xml",
+      "data" : {
+        "project" : {
+          "parent" : {
+            "relativePath" : "",
+            "groupId" : "org.springframework.boot",
+            "artifactId" : "spring-boot-starter-parent",
+            "version" : "2.1.2.RELEASE"
+          },
+          "modelVersion" : "4.0.0",
+          "groupId" : "io.javabrains",
+          "xsi:schemaLocation" : "http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd",
+          "description" : "Demo project for Spring Boot",
+          "xmlns:xsi" : "http://www.w3.org/2001/XMLSchema-instance",
+          "version" : "0.0.1-SNAPSHOT",
+          "dependencies" : {
+            "dependency" : [ {
+              "groupId" : "org.springframework.boot",
+              "artifactId" : "spring-boot-starter-web"
+            }, {
+              "groupId" : "org.springframework.boot",
+              "scope" : "test",
+              "artifactId" : "spring-boot-starter-test"
+            } ]
+          },
+          "xmlns" : "http://maven.apache.org/POM/4.0.0",
+          "build" : {
+            "plugins" : {
+              "plugin" : {
+                "groupId" : "org.springframework.boot",
+                "artifactId" : "spring-boot-maven-plugin"
+              }
+            }
+          },
+          "name" : "movie-info-service",
+          "artifactId" : "movie-info-service",
+          "properties" : {
+            "java.version" : 1.8
+          }
+        }
+      }
+    } ]
+  }, {
+    "type" : "Microservice",
+    "name" : "ratings-data-service",
+    "metadata" : null,
+    "path" : "/ratings-data-service",
+    "controllers" : [ {
+      "type" : "JClass",
+      "name" : "RatingsResource",
+      "metadata" : null,
+      "path" : "/ratings-data-service/src/main/java/io/javabrains/ratingsdataservice/resources/RatingsResource.java",
+      "classRole" : "CONTROLLER",
+      "classType" : "CLASS",
+      "packageName" : "io.javabrains.ratingsdataservice.resources",
+      "protection" : "PUBLIC",
+      "isFinal" : false,
+      "isStatic" : false,
+      "isAbstract" : false,
+      "imports" : [ {
+        "type" : "Import",
+        "name" : "org.springframework.web.bind.annotation.PathVariable",
+        "metadata" : null,
+        "importPackage" : "org.springframework.web.bind.annotation",
+        "importObject" : "PathVariable",
+        "isStatic" : false,
+        "id" : "io.javabrains.ratingsdataservice.resources.RatingsResource&org.springframework.web.bind.annotation.PathVariable"
+      }, {
+        "type" : "Import",
+        "name" : "org.springframework.web.bind.annotation.RequestMapping",
+        "metadata" : null,
+        "importPackage" : "org.springframework.web.bind.annotation",
+        "importObject" : "RequestMapping",
+        "isStatic" : false,
+        "id" : "io.javabrains.ratingsdataservice.resources.RatingsResource&org.springframework.web.bind.annotation.RequestMapping"
+      }, {
+        "type" : "Import",
+        "name" : "io.javabrains.ratingsdataservice.model.UserRating",
+        "metadata" : null,
+        "importPackage" : "io.javabrains.ratingsdataservice.model",
+        "importObject" : "UserRating",
+        "isStatic" : false,
+        "id" : "io.javabrains.ratingsdataservice.resources.RatingsResource&io.javabrains.ratingsdataservice.model.UserRating"
+      }, {
+        "type" : "Import",
+        "name" : "io.javabrains.ratingsdataservice.model.Rating",
+        "metadata" : null,
+        "importPackage" : "io.javabrains.ratingsdataservice.model",
+        "importObject" : "Rating",
+        "isStatic" : false,
+        "id" : "io.javabrains.ratingsdataservice.resources.RatingsResource&io.javabrains.ratingsdataservice.model.Rating"
+      }, {
+        "type" : "Import",
+        "name" : "org.springframework.web.bind.annotation.RestController",
+        "metadata" : null,
+        "importPackage" : "org.springframework.web.bind.annotation",
+        "importObject" : "RestController",
+        "isStatic" : false,
+        "id" : "io.javabrains.ratingsdataservice.resources.RatingsResource&org.springframework.web.bind.annotation.RestController"
+      } ],
+      "annotations" : [ {
+        "type" : "Annotation",
+        "name" : "PathVariable",
+        "metadata" : null,
+        "attributes" : {
+          "default" : "userId"
+        },
+        "id" : "io.javabrains.ratingsdataservice.resources.RatingsResource&PathVariable"
+      }, {
+        "type" : "Annotation",
+        "name" : "RequestMapping",
+        "metadata" : null,
+        "attributes" : {
+          "default" : "/user/{userId}"
+        },
+        "id" : "io.javabrains.ratingsdataservice.resources.RatingsResource&RequestMapping"
+      }, {
+        "type" : "Annotation",
+        "name" : "RequestMapping",
+        "metadata" : null,
+        "attributes" : {
+          "default" : "/ratingsdata"
+        },
+        "id" : "io.javabrains.ratingsdataservice.resources.RatingsResource&RequestMapping"
+      }, {
+        "type" : "Annotation",
+        "name" : "PathVariable",
+        "metadata" : null,
+        "attributes" : {
+          "default" : "movieId"
+        },
+        "id" : "io.javabrains.ratingsdataservice.resources.RatingsResource&PathVariable"
+      }, {
+        "type" : "Annotation",
+        "name" : "RestController",
+        "metadata" : null,
+        "attributes" : { },
+        "id" : "io.javabrains.ratingsdataservice.resources.RatingsResource&RestController"
+      }, {
+        "type" : "Annotation",
+        "name" : "RequestMapping",
+        "metadata" : null,
+        "attributes" : {
+          "default" : "/{movieId}"
+        },
+        "id" : "io.javabrains.ratingsdataservice.resources.RatingsResource&RequestMapping"
+      } ],
+      "fields" : [ ],
+      "methods" : [ {
+        "type" : "Endpoint",
+        "name" : "getMovieRating",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ {
+          "type" : "Parameter",
+          "name" : "movieId",
+          "metadata" : null,
+          "parameterType" : "String",
+          "annotations" : [ {
+            "type" : "Annotation",
+            "name" : "PathVariable",
+            "metadata" : null,
+            "attributes" : {
+              "default" : "movieId"
+            },
+            "id" : "io.javabrains.ratingsdataservice.resources.RatingsResource&getMovieRating&movieId&PathVariable"
+          } ],
+          "isVariableParameter" : false,
+          "id" : "io.javabrains.ratingsdataservice.resources.RatingsResource&getMovieRating&movieId"
+        } ],
+        "methodCalls" : [ ],
+        "returnType" : "",
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "url" : "/ratingsdata/movies/{?}",
+        "httpMethod" : "ALL",
+        "id" : "io.javabrains.ratingsdataservice.resources.RatingsResource&getMovieRating"
+      }, {
+        "type" : "Endpoint",
+        "name" : "getUserRatings",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ {
+          "type" : "Parameter",
+          "name" : "userId",
+          "metadata" : null,
+          "parameterType" : "String",
+          "annotations" : [ {
+            "type" : "Annotation",
+            "name" : "PathVariable",
+            "metadata" : null,
+            "attributes" : {
+              "default" : "userId"
+            },
+            "id" : "io.javabrains.ratingsdataservice.resources.RatingsResource&getUserRatings&userId&PathVariable"
+          } ],
+          "isVariableParameter" : false,
+          "id" : "io.javabrains.ratingsdataservice.resources.RatingsResource&getUserRatings&userId"
+        } ],
+        "methodCalls" : [ {
+          "type" : "MethodCall",
+          "name" : "initData",
+          "metadata" : null,
+          "objectName" : "userRating",
+          "objectType" : "UserRating",
+          "calledFrom" : "getUserRatings",
+          "parameterContents" : "userId",
+          "id" : "io.javabrains.ratingsdataservice.resources.RatingsResource&getUserRatings&initData"
+        }, {
+          "type" : "MethodCall",
+          "name" : "initData",
+          "metadata" : null,
+          "objectName" : "userRating",
+          "objectType" : "UserRating",
+          "calledFrom" : "getUserRatings",
+          "parameterContents" : "userId",
+          "id" : "io.javabrains.ratingsdataservice.resources.RatingsResource&getUserRatings&initData"
+        } ],
+        "returnType" : "",
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "url" : "/ratingsdata/user/{?}",
+        "httpMethod" : "ALL",
+        "id" : "io.javabrains.ratingsdataservice.resources.RatingsResource&getUserRatings"
+      }, {
+        "type" : "Endpoint",
+        "name" : "getRating",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ {
+          "type" : "Parameter",
+          "name" : "movieId",
+          "metadata" : null,
+          "parameterType" : "String",
+          "annotations" : [ {
+            "type" : "Annotation",
+            "name" : "PathVariable",
+            "metadata" : null,
+            "attributes" : {
+              "default" : "movieId"
+            },
+            "id" : "io.javabrains.ratingsdataservice.resources.RatingsResource&getRating&movieId&PathVariable"
+          } ],
+          "isVariableParameter" : false,
+          "id" : "io.javabrains.ratingsdataservice.resources.RatingsResource&getRating&movieId"
+        } ],
+        "methodCalls" : [ ],
+        "returnType" : "",
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "url" : "/ratingsdata/{?}",
+        "httpMethod" : "ALL",
+        "id" : "io.javabrains.ratingsdataservice.resources.RatingsResource&getRating"
+      } ],
+      "extendedType" : "",
+      "implementedTypes" : [ ],
+      "id" : "/ratings-data-service/src/main/java/io/javabrains/ratingsdataservice/resources/RatingsResource.java"
+    } ],
+    "services" : [ ],
+    "repositories" : [ ],
+    "entities" : [ ],
+    "unknowns" : [ {
+      "type" : "JClass",
+      "name" : "Rating",
+      "metadata" : null,
+      "path" : "/ratings-data-service/src/main/java/io/javabrains/ratingsdataservice/model/Rating.java",
+      "classRole" : "UNKNOWN",
+      "classType" : "CLASS",
+      "packageName" : "io.javabrains.ratingsdataservice.model",
+      "protection" : "PUBLIC",
+      "isFinal" : false,
+      "isStatic" : false,
+      "isAbstract" : false,
+      "imports" : [ ],
+      "annotations" : [ ],
+      "fields" : [ {
+        "type" : "Field",
+        "name" : "movieId",
+        "metadata" : null,
+        "fieldType" : "String",
+        "protection" : "PRIVATE",
+        "isStatic" : false,
+        "isFinal" : false,
+        "id" : "io.javabrains.ratingsdataservice.model.Rating&movieId"
+      }, {
+        "type" : "Field",
+        "name" : "rating",
+        "metadata" : null,
+        "fieldType" : "int",
+        "protection" : "PRIVATE",
+        "isStatic" : false,
+        "isFinal" : false,
+        "id" : "io.javabrains.ratingsdataservice.model.Rating&rating"
+      } ],
+      "methods" : [ {
+        "type" : "Method",
+        "name" : "setRating",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ {
+          "type" : "Parameter",
+          "name" : "rating",
+          "metadata" : null,
+          "parameterType" : "int",
+          "annotations" : [ ],
+          "isVariableParameter" : false,
+          "id" : "io.javabrains.ratingsdataservice.model.Rating&setRating&rating"
+        } ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.ratingsdataservice.model.Rating&setRating"
+      }, {
+        "type" : "Method",
+        "name" : "getRating",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.ratingsdataservice.model.Rating&getRating"
+      }, {
+        "type" : "Method",
+        "name" : "setMovieId",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ {
+          "type" : "Parameter",
+          "name" : "movieId",
+          "metadata" : null,
+          "parameterType" : "String",
+          "annotations" : [ ],
+          "isVariableParameter" : false,
+          "id" : "io.javabrains.ratingsdataservice.model.Rating&setMovieId&movieId"
+        } ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.ratingsdataservice.model.Rating&setMovieId"
+      }, {
+        "type" : "Method",
+        "name" : "getMovieId",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.ratingsdataservice.model.Rating&getMovieId"
+      } ],
+      "extendedType" : "",
+      "implementedTypes" : [ ],
+      "id" : "/ratings-data-service/src/main/java/io/javabrains/ratingsdataservice/model/Rating.java"
+    }, {
+      "type" : "JClass",
+      "name" : "RatingsDataServiceApplicationTests",
+      "metadata" : null,
+      "path" : "/ratings-data-service/src/test/java/io/javabrains/ratingsdataservice/RatingsDataServiceApplicationTests.java",
+      "classRole" : "UNKNOWN",
+      "classType" : "CLASS",
+      "packageName" : "io.javabrains.ratingsdataservice",
+      "protection" : "PUBLIC",
+      "isFinal" : false,
+      "isStatic" : false,
+      "isAbstract" : false,
+      "imports" : [ {
+        "type" : "Import",
+        "name" : "org.springframework.test.context.junit4.SpringRunner",
+        "metadata" : null,
+        "importPackage" : "org.springframework.test.context.junit4",
+        "importObject" : "SpringRunner",
+        "isStatic" : false,
+        "id" : "io.javabrains.ratingsdataservice.RatingsDataServiceApplicationTests&org.springframework.test.context.junit4.SpringRunner"
+      }, {
+        "type" : "Import",
+        "name" : "org.junit.Test",
+        "metadata" : null,
+        "importPackage" : "org.junit",
+        "importObject" : "Test",
+        "isStatic" : false,
+        "id" : "io.javabrains.ratingsdataservice.RatingsDataServiceApplicationTests&org.junit.Test"
+      }, {
+        "type" : "Import",
+        "name" : "org.junit.runner.RunWith",
+        "metadata" : null,
+        "importPackage" : "org.junit.runner",
+        "importObject" : "RunWith",
+        "isStatic" : false,
+        "id" : "io.javabrains.ratingsdataservice.RatingsDataServiceApplicationTests&org.junit.runner.RunWith"
+      }, {
+        "type" : "Import",
+        "name" : "org.springframework.boot.test.context.SpringBootTest",
+        "metadata" : null,
+        "importPackage" : "org.springframework.boot.test.context",
+        "importObject" : "SpringBootTest",
+        "isStatic" : false,
+        "id" : "io.javabrains.ratingsdataservice.RatingsDataServiceApplicationTests&org.springframework.boot.test.context.SpringBootTest"
+      } ],
+      "annotations" : [ {
+        "type" : "Annotation",
+        "name" : "SpringBootTest",
+        "metadata" : null,
+        "attributes" : { },
+        "id" : "io.javabrains.ratingsdataservice.RatingsDataServiceApplicationTests&SpringBootTest"
+      }, {
+        "type" : "Annotation",
+        "name" : "RunWith",
+        "metadata" : null,
+        "attributes" : { },
+        "id" : "io.javabrains.ratingsdataservice.RatingsDataServiceApplicationTests&RunWith"
+      }, {
+        "type" : "Annotation",
+        "name" : "Test",
+        "metadata" : null,
+        "attributes" : { },
+        "id" : "io.javabrains.ratingsdataservice.RatingsDataServiceApplicationTests&Test"
+      } ],
+      "fields" : [ ],
+      "methods" : [ {
+        "type" : "Method",
+        "name" : "contextLoads",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ {
+          "type" : "Annotation",
+          "name" : "Test",
+          "metadata" : null,
+          "attributes" : { },
+          "id" : "io.javabrains.ratingsdataservice.RatingsDataServiceApplicationTests&contextLoads&Test"
+        } ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.ratingsdataservice.RatingsDataServiceApplicationTests&contextLoads"
+      } ],
+      "extendedType" : "",
+      "implementedTypes" : [ ],
+      "id" : "/ratings-data-service/src/test/java/io/javabrains/ratingsdataservice/RatingsDataServiceApplicationTests.java"
+    }, {
+      "type" : "JClass",
+      "name" : "RatingsDataServiceApplication",
+      "metadata" : null,
+      "path" : "/ratings-data-service/src/main/java/io/javabrains/ratingsdataservice/RatingsDataServiceApplication.java",
+      "classRole" : "UNKNOWN",
+      "classType" : "CLASS",
+      "packageName" : "io.javabrains.ratingsdataservice",
+      "protection" : "PUBLIC",
+      "isFinal" : false,
+      "isStatic" : false,
+      "isAbstract" : false,
+      "imports" : [ {
+        "type" : "Import",
+        "name" : "org.springframework.cloud.netflix.eureka.EnableEurekaClient",
+        "metadata" : null,
+        "importPackage" : "org.springframework.cloud.netflix.eureka",
+        "importObject" : "EnableEurekaClient",
+        "isStatic" : false,
+        "id" : "io.javabrains.ratingsdataservice.RatingsDataServiceApplication&org.springframework.cloud.netflix.eureka.EnableEurekaClient"
+      }, {
+        "type" : "Import",
+        "name" : "org.springframework.boot.SpringApplication",
+        "metadata" : null,
+        "importPackage" : "org.springframework.boot",
+        "importObject" : "SpringApplication",
+        "isStatic" : false,
+        "id" : "io.javabrains.ratingsdataservice.RatingsDataServiceApplication&org.springframework.boot.SpringApplication"
+      }, {
+        "type" : "Import",
+        "name" : "org.springframework.boot.autoconfigure.SpringBootApplication",
+        "metadata" : null,
+        "importPackage" : "org.springframework.boot.autoconfigure",
+        "importObject" : "SpringBootApplication",
+        "isStatic" : false,
+        "id" : "io.javabrains.ratingsdataservice.RatingsDataServiceApplication&org.springframework.boot.autoconfigure.SpringBootApplication"
+      } ],
+      "annotations" : [ {
+        "type" : "Annotation",
+        "name" : "SpringBootApplication",
+        "metadata" : null,
+        "attributes" : { },
+        "id" : "io.javabrains.ratingsdataservice.RatingsDataServiceApplication&SpringBootApplication"
+      }, {
+        "type" : "Annotation",
+        "name" : "EnableEurekaClient",
+        "metadata" : null,
+        "attributes" : { },
+        "id" : "io.javabrains.ratingsdataservice.RatingsDataServiceApplication&EnableEurekaClient"
+      } ],
+      "fields" : [ ],
+      "methods" : [ {
+        "type" : "Method",
+        "name" : "main",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ {
+          "type" : "Parameter",
+          "name" : "args",
+          "metadata" : null,
+          "parameterType" : "String[]",
+          "annotations" : [ ],
+          "isVariableParameter" : false,
+          "id" : "io.javabrains.ratingsdataservice.RatingsDataServiceApplication&main&args"
+        } ],
+        "methodCalls" : [ {
+          "type" : "MethodCall",
+          "name" : "run",
+          "metadata" : null,
+          "objectName" : "SpringApplication",
+          "objectType" : "Solving SpringApplication",
+          "calledFrom" : "main",
+          "parameterContents" : "RatingsDataServiceApplication.class,args",
+          "id" : "io.javabrains.ratingsdataservice.RatingsDataServiceApplication&main&run"
+        }, {
+          "type" : "MethodCall",
+          "name" : "run",
+          "metadata" : null,
+          "objectName" : "SpringApplication",
+          "objectType" : "Solving SpringApplication",
+          "calledFrom" : "main",
+          "parameterContents" : "RatingsDataServiceApplication.class,args",
+          "id" : "io.javabrains.ratingsdataservice.RatingsDataServiceApplication&main&run"
+        } ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : true,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.ratingsdataservice.RatingsDataServiceApplication&main"
+      } ],
+      "extendedType" : "",
+      "implementedTypes" : [ ],
+      "id" : "/ratings-data-service/src/main/java/io/javabrains/ratingsdataservice/RatingsDataServiceApplication.java"
+    }, {
+      "type" : "JClass",
+      "name" : "UserRating",
+      "metadata" : null,
+      "path" : "/ratings-data-service/src/main/java/io/javabrains/ratingsdataservice/model/UserRating.java",
+      "classRole" : "UNKNOWN",
+      "classType" : "CLASS",
+      "packageName" : "io.javabrains.ratingsdataservice.model",
+      "protection" : "PUBLIC",
+      "isFinal" : false,
+      "isStatic" : false,
+      "isAbstract" : false,
+      "imports" : [ {
+        "type" : "Import",
+        "name" : "java.util.List",
+        "metadata" : null,
+        "importPackage" : "java.util",
+        "importObject" : "List",
+        "isStatic" : false,
+        "id" : "io.javabrains.ratingsdataservice.model.UserRating&java.util.List"
+      }, {
+        "type" : "Import",
+        "name" : "java.util.Arrays",
+        "metadata" : null,
+        "importPackage" : "java.util",
+        "importObject" : "Arrays",
+        "isStatic" : false,
+        "id" : "io.javabrains.ratingsdataservice.model.UserRating&java.util.Arrays"
+      } ],
+      "annotations" : [ ],
+      "fields" : [ {
+        "type" : "Field",
+        "name" : "ratings",
+        "metadata" : null,
+        "fieldType" : "List<Rating>",
+        "protection" : "PRIVATE",
+        "isStatic" : false,
+        "isFinal" : false,
+        "id" : "io.javabrains.ratingsdataservice.model.UserRating&ratings"
+      }, {
+        "type" : "Field",
+        "name" : "userId",
+        "metadata" : null,
+        "fieldType" : "String",
+        "protection" : "PRIVATE",
+        "isStatic" : false,
+        "isFinal" : false,
+        "id" : "io.javabrains.ratingsdataservice.model.UserRating&userId"
+      } ],
+      "methods" : [ {
+        "type" : "Method",
+        "name" : "initData",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ {
+          "type" : "Parameter",
+          "name" : "userId",
+          "metadata" : null,
+          "parameterType" : "String",
+          "annotations" : [ ],
+          "isVariableParameter" : false,
+          "id" : "io.javabrains.ratingsdataservice.model.UserRating&initData&userId"
+        } ],
+        "methodCalls" : [ {
+          "type" : "MethodCall",
+          "name" : "setUserId",
+          "metadata" : null,
+          "objectName" : "",
+          "objectType" : "UserRating",
+          "calledFrom" : "initData",
+          "parameterContents" : "userId",
+          "id" : "io.javabrains.ratingsdataservice.model.UserRating&initData&setUserId"
+        }, {
+          "type" : "MethodCall",
+          "name" : "setRatings",
+          "metadata" : null,
+          "objectName" : "",
+          "objectType" : "UserRating",
+          "calledFrom" : "initData",
+          "parameterContents" : "Arrays.asList(new Rating(\"1234\", 3), new Rating(\"5678\", 4))",
+          "id" : "io.javabrains.ratingsdataservice.model.UserRating&initData&setRatings"
+        }, {
+          "type" : "MethodCall",
+          "name" : "asList",
+          "metadata" : null,
+          "objectName" : "Arrays",
+          "objectType" : "Arrays",
+          "calledFrom" : "initData",
+          "parameterContents" : "new Rating(\"1234\", 3),new Rating(\"5678\", 4)",
+          "id" : "io.javabrains.ratingsdataservice.model.UserRating&initData&asList"
+        } ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.ratingsdataservice.model.UserRating&initData"
+      }, {
+        "type" : "Method",
+        "name" : "setRatings",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ {
+          "type" : "Parameter",
+          "name" : "ratings",
+          "metadata" : null,
+          "parameterType" : "List<Rating>",
+          "annotations" : [ ],
+          "isVariableParameter" : false,
+          "id" : "io.javabrains.ratingsdataservice.model.UserRating&setRatings&ratings"
+        } ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.ratingsdataservice.model.UserRating&setRatings"
+      }, {
+        "type" : "Method",
+        "name" : "getRatings",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.ratingsdataservice.model.UserRating&getRatings"
+      }, {
+        "type" : "Method",
+        "name" : "getUserId",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.ratingsdataservice.model.UserRating&getUserId"
+      }, {
+        "type" : "Method",
+        "name" : "setUserId",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ {
+          "type" : "Parameter",
+          "name" : "userId",
+          "metadata" : null,
+          "parameterType" : "String",
+          "annotations" : [ ],
+          "isVariableParameter" : false,
+          "id" : "io.javabrains.ratingsdataservice.model.UserRating&setUserId&userId"
+        } ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.ratingsdataservice.model.UserRating&setUserId"
+      } ],
+      "extendedType" : "",
+      "implementedTypes" : [ ],
+      "id" : "/ratings-data-service/src/main/java/io/javabrains/ratingsdataservice/model/UserRating.java"
+    } ],
+    "feignClients" : [ ],
+    "files" : [ {
+      "type" : "ConfigFile",
+      "name" : "pom.xml",
+      "metadata" : null,
+      "path" : "/ratings-data-service/pom.xml",
+      "data" : {
+        "project" : {
+          "parent" : {
+            "relativePath" : "",
+            "groupId" : "org.springframework.boot",
+            "artifactId" : "spring-boot-starter-parent",
+            "version" : "2.1.2.RELEASE"
+          },
+          "modelVersion" : "4.0.0",
+          "groupId" : "io.javabrains",
+          "xsi:schemaLocation" : "http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd",
+          "description" : "Demo project for Spring Boot",
+          "xmlns:xsi" : "http://www.w3.org/2001/XMLSchema-instance",
+          "version" : "0.0.1-SNAPSHOT",
+          "dependencies" : {
+            "dependency" : [ {
+              "groupId" : "org.springframework.boot",
+              "artifactId" : "spring-boot-starter-web"
+            }, {
+              "groupId" : "org.springframework.boot",
+              "scope" : "test",
+              "artifactId" : "spring-boot-starter-test"
+            } ]
+          },
+          "xmlns" : "http://maven.apache.org/POM/4.0.0",
+          "build" : {
+            "plugins" : {
+              "plugin" : {
+                "groupId" : "org.springframework.boot",
+                "artifactId" : "spring-boot-maven-plugin"
+              }
+            }
+          },
+          "name" : "ratings-data-service",
+          "artifactId" : "ratings-data-service",
+          "properties" : {
+            "java.version" : 1.8
+          }
+        }
+      }
+    } ]
+  }, {
+    "type" : "Microservice",
+    "name" : "movie-catalog-service",
+    "metadata" : null,
+    "path" : "/movie-catalog-service",
+    "controllers" : [ {
+      "type" : "JClass",
+      "name" : "CatalogResource",
+      "metadata" : null,
+      "path" : "/movie-catalog-service/src/main/java/io/javabrains/moviecatalogservice/resources/CatalogResource.java",
+      "classRole" : "CONTROLLER",
+      "classType" : "CLASS",
+      "packageName" : "io.javabrains.moviecatalogservice.resources",
+      "protection" : "PUBLIC",
+      "isFinal" : false,
+      "isStatic" : false,
+      "isAbstract" : false,
+      "imports" : [ {
+        "type" : "Import",
+        "name" : "org.springframework.web.bind.annotation.RequestMapping",
+        "metadata" : null,
+        "importPackage" : "org.springframework.web.bind.annotation",
+        "importObject" : "RequestMapping",
+        "isStatic" : false,
+        "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&org.springframework.web.bind.annotation.RequestMapping"
+      }, {
+        "type" : "Import",
+        "name" : "org.springframework.web.reactive.function.client.WebClient",
+        "metadata" : null,
+        "importPackage" : "org.springframework.web.reactive.function.client",
+        "importObject" : "WebClient",
+        "isStatic" : false,
+        "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&org.springframework.web.reactive.function.client.WebClient"
+      }, {
+        "type" : "Import",
+        "name" : "org.springframework.beans.factory.annotation.Autowired",
+        "metadata" : null,
+        "importPackage" : "org.springframework.beans.factory.annotation",
+        "importObject" : "Autowired",
+        "isStatic" : false,
+        "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&org.springframework.beans.factory.annotation.Autowired"
+      }, {
+        "type" : "Import",
+        "name" : "io.javabrains.moviecatalogservice.models.CatalogItem",
+        "metadata" : null,
+        "importPackage" : "io.javabrains.moviecatalogservice.models",
+        "importObject" : "CatalogItem",
+        "isStatic" : false,
+        "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&io.javabrains.moviecatalogservice.models.CatalogItem"
+      }, {
+        "type" : "Import",
+        "name" : "java.util.List",
+        "metadata" : null,
+        "importPackage" : "java.util",
+        "importObject" : "List",
+        "isStatic" : false,
+        "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&java.util.List"
+      }, {
+        "type" : "Import",
+        "name" : "org.springframework.web.client.RestTemplate",
+        "metadata" : null,
+        "importPackage" : "org.springframework.web.client",
+        "importObject" : "RestTemplate",
+        "isStatic" : false,
+        "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&org.springframework.web.client.RestTemplate"
+      }, {
+        "type" : "Import",
+        "name" : "java.util.Collections",
+        "metadata" : null,
+        "importPackage" : "java.util",
+        "importObject" : "Collections",
+        "isStatic" : false,
+        "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&java.util.Collections"
+      }, {
+        "type" : "Import",
+        "name" : "io.javabrains.moviecatalogservice.models.UserRating",
+        "metadata" : null,
+        "importPackage" : "io.javabrains.moviecatalogservice.models",
+        "importObject" : "UserRating",
+        "isStatic" : false,
+        "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&io.javabrains.moviecatalogservice.models.UserRating"
+      }, {
+        "type" : "Import",
+        "name" : "org.springframework.web.bind.annotation.PathVariable",
+        "metadata" : null,
+        "importPackage" : "org.springframework.web.bind.annotation",
+        "importObject" : "PathVariable",
+        "isStatic" : false,
+        "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&org.springframework.web.bind.annotation.PathVariable"
+      }, {
+        "type" : "Import",
+        "name" : "java.util.stream.Collectors",
+        "metadata" : null,
+        "importPackage" : "java.util.stream",
+        "importObject" : "Collectors",
+        "isStatic" : false,
+        "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&java.util.stream.Collectors"
+      }, {
+        "type" : "Import",
+        "name" : "io.javabrains.moviecatalogservice.models.Rating",
+        "metadata" : null,
+        "importPackage" : "io.javabrains.moviecatalogservice.models",
+        "importObject" : "Rating",
+        "isStatic" : false,
+        "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&io.javabrains.moviecatalogservice.models.Rating"
+      }, {
+        "type" : "Import",
+        "name" : "org.springframework.web.bind.annotation.RestController",
+        "metadata" : null,
+        "importPackage" : "org.springframework.web.bind.annotation",
+        "importObject" : "RestController",
+        "isStatic" : false,
+        "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&org.springframework.web.bind.annotation.RestController"
+      }, {
+        "type" : "Import",
+        "name" : "java.util.Arrays",
+        "metadata" : null,
+        "importPackage" : "java.util",
+        "importObject" : "Arrays",
+        "isStatic" : false,
+        "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&java.util.Arrays"
+      }, {
+        "type" : "Import",
+        "name" : "io.javabrains.moviecatalogservice.models.Movie",
+        "metadata" : null,
+        "importPackage" : "io.javabrains.moviecatalogservice.models",
+        "importObject" : "Movie",
+        "isStatic" : false,
+        "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&io.javabrains.moviecatalogservice.models.Movie"
+      } ],
+      "annotations" : [ {
+        "type" : "Annotation",
+        "name" : "PathVariable",
+        "metadata" : null,
+        "attributes" : {
+          "default" : "userId"
+        },
+        "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&PathVariable"
+      }, {
+        "type" : "Annotation",
+        "name" : "RestController",
+        "metadata" : null,
+        "attributes" : { },
+        "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&RestController"
+      }, {
+        "type" : "Annotation",
+        "name" : "RequestMapping",
+        "metadata" : null,
+        "attributes" : {
+          "default" : "/{userId}"
+        },
+        "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&RequestMapping"
+      }, {
+        "type" : "Annotation",
+        "name" : "RequestMapping",
+        "metadata" : null,
+        "attributes" : {
+          "default" : "/catalog"
+        },
+        "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&RequestMapping"
+      }, {
+        "type" : "Annotation",
+        "name" : "Autowired",
+        "metadata" : null,
+        "attributes" : { },
+        "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&Autowired"
+      } ],
+      "fields" : [ {
+        "type" : "Field",
+        "name" : "webClientBuilder",
+        "metadata" : null,
+        "fieldType" : "WebClient.Builder",
+        "protection" : "PACKAGE_PRIVATE",
+        "isStatic" : false,
+        "isFinal" : false,
+        "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&webClientBuilder"
+      }, {
+        "type" : "Field",
+        "name" : "restTemplate",
+        "metadata" : null,
+        "fieldType" : "RestTemplate",
+        "protection" : "PRIVATE",
+        "isStatic" : false,
+        "isFinal" : false,
+        "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&restTemplate"
+      } ],
+      "methods" : [ {
+        "type" : "Endpoint",
+        "name" : "getCatalog",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ {
+          "type" : "Parameter",
+          "name" : "userId",
+          "metadata" : null,
+          "parameterType" : "String",
+          "annotations" : [ {
+            "type" : "Annotation",
+            "name" : "PathVariable",
+            "metadata" : null,
+            "attributes" : {
+              "default" : "userId"
+            },
+            "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&userId&PathVariable"
+          } ],
+          "isVariableParameter" : false,
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&userId"
+        } ],
+        "methodCalls" : [ {
+          "type" : "MethodCall",
+          "name" : "singletonList",
+          "metadata" : null,
+          "objectName" : "Collections",
+          "objectType" : "Collections",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "new CatalogItem(\"Test\", \"Test Desc\", 4)",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&singletonList"
+        }, {
+          "type" : "MethodCall",
+          "name" : "getRating",
+          "metadata" : null,
+          "objectName" : "rating",
+          "objectType" : "ratingsList.stream()",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&getRating"
+        }, {
+          "type" : "MethodCall",
+          "name" : "asList",
+          "metadata" : null,
+          "objectName" : "Arrays",
+          "objectType" : "Arrays",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "new Rating(\"1234\", 3),new Rating(\"5678\", 4)",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&asList"
+        }, {
+          "type" : "MethodCall",
+          "name" : "stream",
+          "metadata" : null,
+          "objectName" : "ratingsList",
+          "objectType" : "Rating",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&stream"
+        }, {
+          "type" : "MethodCall",
+          "name" : "map",
+          "metadata" : null,
+          "objectName" : "",
+          "objectType" : "Rating",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "rating -> new CatalogItem(\"Name\", \"Desc\", rating.getRating())",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&map"
+        }, {
+          "type" : "MethodCall",
+          "name" : "toList",
+          "metadata" : null,
+          "objectName" : "Collectors",
+          "objectType" : "Collectors",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&toList"
+        }, {
+          "type" : "MethodCall",
+          "name" : "collect",
+          "metadata" : null,
+          "objectName" : "",
+          "objectType" : "ratingsList.stream()",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "Collectors.toList()",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&collect"
+        }, {
+          "type" : "MethodCall",
+          "name" : "getRating",
+          "metadata" : null,
+          "objectName" : "rating",
+          "objectType" : "ratingsList.stream()",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&getRating"
+        }, {
+          "type" : "MethodCall",
+          "name" : "asList",
+          "metadata" : null,
+          "objectName" : "Arrays",
+          "objectType" : "Arrays",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "new Rating(\"1234\", 3),new Rating(\"5678\", 4)",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&asList"
+        }, {
+          "type" : "MethodCall",
+          "name" : "stream",
+          "metadata" : null,
+          "objectName" : "ratingsList",
+          "objectType" : "Rating",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&stream"
+        }, {
+          "type" : "MethodCall",
+          "name" : "toList",
+          "metadata" : null,
+          "objectName" : "Collectors",
+          "objectType" : "Collectors",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&toList"
+        }, {
+          "type" : "MethodCall",
+          "name" : "collect",
+          "metadata" : null,
+          "objectName" : "",
+          "objectType" : "ratingsList.stream()",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "Collectors.toList()",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&collect"
+        }, {
+          "type" : "MethodCall",
+          "name" : "map",
+          "metadata" : null,
+          "objectName" : "",
+          "objectType" : "Rating",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "rating -> {\n    Movie movie = restTemplate.getForObject(\"http://localhost:8082/movies/\" + rating.getMovieId(), Movie.class);\n    return new CatalogItem(movie.getName(), \"Description\", rating.getRating());\n}",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&map"
+        }, {
+          "type" : "MethodCall",
+          "name" : "getName",
+          "metadata" : null,
+          "objectName" : "movie",
+          "objectType" : "Movie",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&getName"
+        }, {
+          "type" : "MethodCall",
+          "name" : "getMovieId",
+          "metadata" : null,
+          "objectName" : "rating",
+          "objectType" : "ratingsList.stream()",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&getMovieId"
+        }, {
+          "type" : "RestCall",
+          "name" : "getForObject",
+          "metadata" : null,
+          "objectName" : "restTemplate",
+          "objectType" : "RestTemplate",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "\"http://localhost:8082/movies/\" + rating.getMovieId(),Movie.class",
+          "url" : "/movies/{?}",
+          "httpMethod" : "GET",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&getForObject"
+        }, {
+          "type" : "MethodCall",
+          "name" : "toList",
+          "metadata" : null,
+          "objectName" : "Collectors",
+          "objectType" : "Collectors",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&toList"
+        }, {
+          "type" : "MethodCall",
+          "name" : "getRating",
+          "metadata" : null,
+          "objectName" : "rating",
+          "objectType" : "ratingsList.stream()",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&getRating"
+        }, {
+          "type" : "MethodCall",
+          "name" : "asList",
+          "metadata" : null,
+          "objectName" : "Arrays",
+          "objectType" : "Arrays",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "new Rating(\"1234\", 3),new Rating(\"5678\", 4)",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&asList"
+        }, {
+          "type" : "MethodCall",
+          "name" : "stream",
+          "metadata" : null,
+          "objectName" : "ratingsList",
+          "objectType" : "Rating",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&stream"
+        }, {
+          "type" : "MethodCall",
+          "name" : "toList",
+          "metadata" : null,
+          "objectName" : "Collectors",
+          "objectType" : "Collectors",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&toList"
+        }, {
+          "type" : "MethodCall",
+          "name" : "collect",
+          "metadata" : null,
+          "objectName" : "",
+          "objectType" : "ratingsList.stream()",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "Collectors.toList()",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&collect"
+        }, {
+          "type" : "MethodCall",
+          "name" : "map",
+          "metadata" : null,
+          "objectName" : "",
+          "objectType" : "Rating",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "rating -> {\n    Movie movie = restTemplate.getForObject(\"http://localhost:8082/movies/\" + rating.getMovieId(), Movie.class);\n    return new CatalogItem(movie.getName(), \"Description\", rating.getRating());\n}",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&map"
+        }, {
+          "type" : "MethodCall",
+          "name" : "getName",
+          "metadata" : null,
+          "objectName" : "movie",
+          "objectType" : "Movie",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&getName"
+        }, {
+          "type" : "MethodCall",
+          "name" : "collect",
+          "metadata" : null,
+          "objectName" : "",
+          "objectType" : "userRating.getRatings().stream()",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "Collectors.toList()",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&collect"
+        }, {
+          "type" : "MethodCall",
+          "name" : "getRating",
+          "metadata" : null,
+          "objectName" : "rating",
+          "objectType" : "userRating.getRatings().stream()",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&getRating"
+        }, {
+          "type" : "MethodCall",
+          "name" : "getMovieId",
+          "metadata" : null,
+          "objectName" : "rating",
+          "objectType" : "userRating.getRatings().stream()",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&getMovieId"
+        }, {
+          "type" : "MethodCall",
+          "name" : "stream",
+          "metadata" : null,
+          "objectName" : "",
+          "objectType" : "UserRating",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&stream"
+        }, {
+          "type" : "MethodCall",
+          "name" : "map",
+          "metadata" : null,
+          "objectName" : "",
+          "objectType" : "UserRating",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "rating -> {\n    Movie movie = restTemplate.getForObject(\"http://localhost:8082/movies/\" + rating.getMovieId(), Movie.class);\n    return new CatalogItem(movie.getName(), \"Description\", rating.getRating());\n}",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&map"
+        }, {
+          "type" : "RestCall",
+          "name" : "getForObject",
+          "metadata" : null,
+          "objectName" : "restTemplate",
+          "objectType" : "RestTemplate",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "\"http://localhost:8083/ratingsdata/user/\" + userId,UserRating.class",
+          "url" : "/ratingsdata/user/{?}",
+          "httpMethod" : "GET",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&getForObject"
+        }, {
+          "type" : "MethodCall",
+          "name" : "getRatings",
+          "metadata" : null,
+          "objectName" : "userRating",
+          "objectType" : "UserRating",
+          "calledFrom" : "getCatalog",
+          "parameterContents" : "",
+          "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog&getRatings"
+        } ],
+        "returnType" : "",
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "url" : "/catalog/{?}",
+        "httpMethod" : "ALL",
+        "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog"
+      }, {
+        "type" : "Endpoint",
+        "name" : "getCatalog",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ ],
+        "methodCalls" : [ ],
+        "returnType" : "",
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "url" : "/catalog/{?}",
+        "httpMethod" : "ALL",
+        "id" : "io.javabrains.moviecatalogservice.resources.CatalogResource&getCatalog"
+      } ],
+      "extendedType" : "",
+      "implementedTypes" : [ ],
+      "id" : "/movie-catalog-service/src/main/java/io/javabrains/moviecatalogservice/resources/CatalogResource.java"
+    } ],
+    "services" : [ ],
+    "repositories" : [ ],
+    "entities" : [ ],
+    "unknowns" : [ {
+      "type" : "JClass",
+      "name" : "MovieCatalogServiceApplicationTests",
+      "metadata" : null,
+      "path" : "/movie-catalog-service/src/test/java/io/javabrains/moviecatalogservice/MovieCatalogServiceApplicationTests.java",
+      "classRole" : "UNKNOWN",
+      "classType" : "CLASS",
+      "packageName" : "io.javabrains.moviecatalogservice",
+      "protection" : "PUBLIC",
+      "isFinal" : false,
+      "isStatic" : false,
+      "isAbstract" : false,
+      "imports" : [ {
+        "type" : "Import",
+        "name" : "org.springframework.test.context.junit4.SpringRunner",
+        "metadata" : null,
+        "importPackage" : "org.springframework.test.context.junit4",
+        "importObject" : "SpringRunner",
+        "isStatic" : false,
+        "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplicationTests&org.springframework.test.context.junit4.SpringRunner"
+      }, {
+        "type" : "Import",
+        "name" : "org.junit.Test",
+        "metadata" : null,
+        "importPackage" : "org.junit",
+        "importObject" : "Test",
+        "isStatic" : false,
+        "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplicationTests&org.junit.Test"
+      }, {
+        "type" : "Import",
+        "name" : "org.junit.runner.RunWith",
+        "metadata" : null,
+        "importPackage" : "org.junit.runner",
+        "importObject" : "RunWith",
+        "isStatic" : false,
+        "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplicationTests&org.junit.runner.RunWith"
+      }, {
+        "type" : "Import",
+        "name" : "org.springframework.boot.test.context.SpringBootTest",
+        "metadata" : null,
+        "importPackage" : "org.springframework.boot.test.context",
+        "importObject" : "SpringBootTest",
+        "isStatic" : false,
+        "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplicationTests&org.springframework.boot.test.context.SpringBootTest"
+      } ],
+      "annotations" : [ {
+        "type" : "Annotation",
+        "name" : "SpringBootTest",
+        "metadata" : null,
+        "attributes" : { },
+        "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplicationTests&SpringBootTest"
+      }, {
+        "type" : "Annotation",
+        "name" : "RunWith",
+        "metadata" : null,
+        "attributes" : { },
+        "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplicationTests&RunWith"
+      }, {
+        "type" : "Annotation",
+        "name" : "Test",
+        "metadata" : null,
+        "attributes" : { },
+        "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplicationTests&Test"
+      } ],
+      "fields" : [ ],
+      "methods" : [ {
+        "type" : "Method",
+        "name" : "contextLoads",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ {
+          "type" : "Annotation",
+          "name" : "Test",
+          "metadata" : null,
+          "attributes" : { },
+          "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplicationTests&contextLoads&Test"
+        } ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplicationTests&contextLoads"
+      } ],
+      "extendedType" : "",
+      "implementedTypes" : [ ],
+      "id" : "/movie-catalog-service/src/test/java/io/javabrains/moviecatalogservice/MovieCatalogServiceApplicationTests.java"
+    }, {
+      "type" : "JClass",
+      "name" : "Movie",
+      "metadata" : null,
+      "path" : "/movie-catalog-service/src/main/java/io/javabrains/moviecatalogservice/models/Movie.java",
+      "classRole" : "UNKNOWN",
+      "classType" : "CLASS",
+      "packageName" : "io.javabrains.moviecatalogservice.models",
+      "protection" : "PUBLIC",
+      "isFinal" : false,
+      "isStatic" : false,
+      "isAbstract" : false,
+      "imports" : [ ],
+      "annotations" : [ ],
+      "fields" : [ {
+        "type" : "Field",
+        "name" : "movieId",
+        "metadata" : null,
+        "fieldType" : "String",
+        "protection" : "PRIVATE",
+        "isStatic" : false,
+        "isFinal" : false,
+        "id" : "io.javabrains.moviecatalogservice.models.Movie&movieId"
+      }, {
+        "type" : "Field",
+        "name" : "name",
+        "metadata" : null,
+        "fieldType" : "String",
+        "protection" : "PRIVATE",
+        "isStatic" : false,
+        "isFinal" : false,
+        "id" : "io.javabrains.moviecatalogservice.models.Movie&name"
+      } ],
+      "methods" : [ {
+        "type" : "Method",
+        "name" : "setMovieId",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ {
+          "type" : "Parameter",
+          "name" : "movieId",
+          "metadata" : null,
+          "parameterType" : "String",
+          "annotations" : [ ],
+          "isVariableParameter" : false,
+          "id" : "io.javabrains.moviecatalogservice.models.Movie&setMovieId&movieId"
+        } ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.moviecatalogservice.models.Movie&setMovieId"
+      }, {
+        "type" : "Method",
+        "name" : "getName",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.moviecatalogservice.models.Movie&getName"
+      }, {
+        "type" : "Method",
+        "name" : "setName",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ {
+          "type" : "Parameter",
+          "name" : "name",
+          "metadata" : null,
+          "parameterType" : "String",
+          "annotations" : [ ],
+          "isVariableParameter" : false,
+          "id" : "io.javabrains.moviecatalogservice.models.Movie&setName&name"
+        } ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.moviecatalogservice.models.Movie&setName"
+      }, {
+        "type" : "Method",
+        "name" : "getMovieId",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.moviecatalogservice.models.Movie&getMovieId"
+      } ],
+      "extendedType" : "",
+      "implementedTypes" : [ ],
+      "id" : "/movie-catalog-service/src/main/java/io/javabrains/moviecatalogservice/models/Movie.java"
+    }, {
+      "type" : "JClass",
+      "name" : "UserRating",
+      "metadata" : null,
+      "path" : "/movie-catalog-service/src/main/java/io/javabrains/moviecatalogservice/models/UserRating.java",
+      "classRole" : "UNKNOWN",
+      "classType" : "CLASS",
+      "packageName" : "io.javabrains.moviecatalogservice.models",
+      "protection" : "PUBLIC",
+      "isFinal" : false,
+      "isStatic" : false,
+      "isAbstract" : false,
+      "imports" : [ {
+        "type" : "Import",
+        "name" : "java.util.List",
+        "metadata" : null,
+        "importPackage" : "java.util",
+        "importObject" : "List",
+        "isStatic" : false,
+        "id" : "io.javabrains.moviecatalogservice.models.UserRating&java.util.List"
+      }, {
+        "type" : "Import",
+        "name" : "java.util.Arrays",
+        "metadata" : null,
+        "importPackage" : "java.util",
+        "importObject" : "Arrays",
+        "isStatic" : false,
+        "id" : "io.javabrains.moviecatalogservice.models.UserRating&java.util.Arrays"
+      } ],
+      "annotations" : [ ],
+      "fields" : [ {
+        "type" : "Field",
+        "name" : "ratings",
+        "metadata" : null,
+        "fieldType" : "List<Rating>",
+        "protection" : "PRIVATE",
+        "isStatic" : false,
+        "isFinal" : false,
+        "id" : "io.javabrains.moviecatalogservice.models.UserRating&ratings"
+      }, {
+        "type" : "Field",
+        "name" : "userId",
+        "metadata" : null,
+        "fieldType" : "String",
+        "protection" : "PRIVATE",
+        "isStatic" : false,
+        "isFinal" : false,
+        "id" : "io.javabrains.moviecatalogservice.models.UserRating&userId"
+      } ],
+      "methods" : [ {
+        "type" : "Method",
+        "name" : "setRatings",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ {
+          "type" : "Parameter",
+          "name" : "ratings",
+          "metadata" : null,
+          "parameterType" : "List<Rating>",
+          "annotations" : [ ],
+          "isVariableParameter" : false,
+          "id" : "io.javabrains.moviecatalogservice.models.UserRating&setRatings&ratings"
+        } ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.moviecatalogservice.models.UserRating&setRatings"
+      }, {
+        "type" : "Method",
+        "name" : "getRatings",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.moviecatalogservice.models.UserRating&getRatings"
+      }, {
+        "type" : "Method",
+        "name" : "getUserId",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.moviecatalogservice.models.UserRating&getUserId"
+      }, {
+        "type" : "Method",
+        "name" : "setUserId",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ {
+          "type" : "Parameter",
+          "name" : "userId",
+          "metadata" : null,
+          "parameterType" : "String",
+          "annotations" : [ ],
+          "isVariableParameter" : false,
+          "id" : "io.javabrains.moviecatalogservice.models.UserRating&setUserId&userId"
+        } ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.moviecatalogservice.models.UserRating&setUserId"
+      } ],
+      "extendedType" : "",
+      "implementedTypes" : [ ],
+      "id" : "/movie-catalog-service/src/main/java/io/javabrains/moviecatalogservice/models/UserRating.java"
+    }, {
+      "type" : "JClass",
+      "name" : "MovieCatalogServiceApplication",
+      "metadata" : null,
+      "path" : "/movie-catalog-service/src/main/java/io/javabrains/moviecatalogservice/MovieCatalogServiceApplication.java",
+      "classRole" : "UNKNOWN",
+      "classType" : "CLASS",
+      "packageName" : "io.javabrains.moviecatalogservice",
+      "protection" : "PUBLIC",
+      "isFinal" : false,
+      "isStatic" : false,
+      "isAbstract" : false,
+      "imports" : [ {
+        "type" : "Import",
+        "name" : "org.springframework.cloud.netflix.eureka.EnableEurekaClient",
+        "metadata" : null,
+        "importPackage" : "org.springframework.cloud.netflix.eureka",
+        "importObject" : "EnableEurekaClient",
+        "isStatic" : false,
+        "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplication&org.springframework.cloud.netflix.eureka.EnableEurekaClient"
+      }, {
+        "type" : "Import",
+        "name" : "org.springframework.boot.SpringApplication",
+        "metadata" : null,
+        "importPackage" : "org.springframework.boot",
+        "importObject" : "SpringApplication",
+        "isStatic" : false,
+        "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplication&org.springframework.boot.SpringApplication"
+      }, {
+        "type" : "Import",
+        "name" : "org.springframework.cloud.client.loadbalancer.LoadBalanced",
+        "metadata" : null,
+        "importPackage" : "org.springframework.cloud.client.loadbalancer",
+        "importObject" : "LoadBalanced",
+        "isStatic" : false,
+        "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplication&org.springframework.cloud.client.loadbalancer.LoadBalanced"
+      }, {
+        "type" : "Import",
+        "name" : "org.springframework.boot.autoconfigure.SpringBootApplication",
+        "metadata" : null,
+        "importPackage" : "org.springframework.boot.autoconfigure",
+        "importObject" : "SpringBootApplication",
+        "isStatic" : false,
+        "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplication&org.springframework.boot.autoconfigure.SpringBootApplication"
+      }, {
+        "type" : "Import",
+        "name" : "org.springframework.context.annotation.Bean",
+        "metadata" : null,
+        "importPackage" : "org.springframework.context.annotation",
+        "importObject" : "Bean",
+        "isStatic" : false,
+        "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplication&org.springframework.context.annotation.Bean"
+      }, {
+        "type" : "Import",
+        "name" : "org.springframework.web.client.RestTemplate",
+        "metadata" : null,
+        "importPackage" : "org.springframework.web.client",
+        "importObject" : "RestTemplate",
+        "isStatic" : false,
+        "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplication&org.springframework.web.client.RestTemplate"
+      } ],
+      "annotations" : [ {
+        "type" : "Annotation",
+        "name" : "SpringBootApplication",
+        "metadata" : null,
+        "attributes" : { },
+        "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplication&SpringBootApplication"
+      }, {
+        "type" : "Annotation",
+        "name" : "LoadBalanced",
+        "metadata" : null,
+        "attributes" : { },
+        "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplication&LoadBalanced"
+      }, {
+        "type" : "Annotation",
+        "name" : "EnableEurekaClient",
+        "metadata" : null,
+        "attributes" : { },
+        "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplication&EnableEurekaClient"
+      }, {
+        "type" : "Annotation",
+        "name" : "Bean",
+        "metadata" : null,
+        "attributes" : { },
+        "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplication&Bean"
+      } ],
+      "fields" : [ ],
+      "methods" : [ {
+        "type" : "Method",
+        "name" : "getRestTemplate",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ {
+          "type" : "Annotation",
+          "name" : "Bean",
+          "metadata" : null,
+          "attributes" : { },
+          "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplication&getRestTemplate&Bean"
+        } ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplication&getRestTemplate"
+      }, {
+        "type" : "Method",
+        "name" : "main",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ {
+          "type" : "Parameter",
+          "name" : "args",
+          "metadata" : null,
+          "parameterType" : "String[]",
+          "annotations" : [ ],
+          "isVariableParameter" : false,
+          "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplication&main&args"
+        } ],
+        "methodCalls" : [ {
+          "type" : "MethodCall",
+          "name" : "run",
+          "metadata" : null,
+          "objectName" : "SpringApplication",
+          "objectType" : "Solving SpringApplication",
+          "calledFrom" : "main",
+          "parameterContents" : "MovieCatalogServiceApplication.class,args",
+          "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplication&main&run"
+        }, {
+          "type" : "MethodCall",
+          "name" : "run",
+          "metadata" : null,
+          "objectName" : "SpringApplication",
+          "objectType" : "Solving SpringApplication",
+          "calledFrom" : "main",
+          "parameterContents" : "MovieCatalogServiceApplication.class,args",
+          "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplication&main&run"
+        }, {
+          "type" : "MethodCall",
+          "name" : "run",
+          "metadata" : null,
+          "objectName" : "SpringApplication",
+          "objectType" : "Solving SpringApplication",
+          "calledFrom" : "main",
+          "parameterContents" : "MovieCatalogServiceApplication.class,args",
+          "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplication&main&run"
+        }, {
+          "type" : "MethodCall",
+          "name" : "run",
+          "metadata" : null,
+          "objectName" : "SpringApplication",
+          "objectType" : "Solving SpringApplication",
+          "calledFrom" : "main",
+          "parameterContents" : "MovieCatalogServiceApplication.class,args",
+          "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplication&main&run"
+        } ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : true,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplication&main"
+      }, {
+        "type" : "Method",
+        "name" : "main",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ {
+          "type" : "Parameter",
+          "name" : "args",
+          "metadata" : null,
+          "parameterType" : "String[]",
+          "annotations" : [ ],
+          "isVariableParameter" : false,
+          "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplication&main&args"
+        } ],
+        "methodCalls" : [ {
+          "type" : "MethodCall",
+          "name" : "run",
+          "metadata" : null,
+          "objectName" : "SpringApplication",
+          "objectType" : "Solving SpringApplication",
+          "calledFrom" : "main",
+          "parameterContents" : "MovieCatalogServiceApplication.class,args",
+          "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplication&main&run"
+        }, {
+          "type" : "MethodCall",
+          "name" : "run",
+          "metadata" : null,
+          "objectName" : "SpringApplication",
+          "objectType" : "Solving SpringApplication",
+          "calledFrom" : "main",
+          "parameterContents" : "MovieCatalogServiceApplication.class,args",
+          "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplication&main&run"
+        }, {
+          "type" : "MethodCall",
+          "name" : "run",
+          "metadata" : null,
+          "objectName" : "SpringApplication",
+          "objectType" : "Solving SpringApplication",
+          "calledFrom" : "main",
+          "parameterContents" : "MovieCatalogServiceApplication.class,args",
+          "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplication&main&run"
+        }, {
+          "type" : "MethodCall",
+          "name" : "run",
+          "metadata" : null,
+          "objectName" : "SpringApplication",
+          "objectType" : "Solving SpringApplication",
+          "calledFrom" : "main",
+          "parameterContents" : "MovieCatalogServiceApplication.class,args",
+          "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplication&main&run"
+        } ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : true,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplication&main"
+      }, {
+        "type" : "Method",
+        "name" : "getRestTemplate",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.moviecatalogservice.MovieCatalogServiceApplication&getRestTemplate"
+      } ],
+      "extendedType" : "",
+      "implementedTypes" : [ ],
+      "id" : "/movie-catalog-service/src/main/java/io/javabrains/moviecatalogservice/MovieCatalogServiceApplication.java"
+    }, {
+      "type" : "JClass",
+      "name" : "CatalogItem",
+      "metadata" : null,
+      "path" : "/movie-catalog-service/src/main/java/io/javabrains/moviecatalogservice/models/CatalogItem.java",
+      "classRole" : "UNKNOWN",
+      "classType" : "CLASS",
+      "packageName" : "io.javabrains.moviecatalogservice.models",
+      "protection" : "PUBLIC",
+      "isFinal" : false,
+      "isStatic" : false,
+      "isAbstract" : false,
+      "imports" : [ ],
+      "annotations" : [ ],
+      "fields" : [ {
+        "type" : "Field",
+        "name" : "desc",
+        "metadata" : null,
+        "fieldType" : "String",
+        "protection" : "PRIVATE",
+        "isStatic" : false,
+        "isFinal" : false,
+        "id" : "io.javabrains.moviecatalogservice.models.CatalogItem&desc"
+      }, {
+        "type" : "Field",
+        "name" : "name",
+        "metadata" : null,
+        "fieldType" : "String",
+        "protection" : "PRIVATE",
+        "isStatic" : false,
+        "isFinal" : false,
+        "id" : "io.javabrains.moviecatalogservice.models.CatalogItem&name"
+      }, {
+        "type" : "Field",
+        "name" : "rating",
+        "metadata" : null,
+        "fieldType" : "int",
+        "protection" : "PRIVATE",
+        "isStatic" : false,
+        "isFinal" : false,
+        "id" : "io.javabrains.moviecatalogservice.models.CatalogItem&rating"
+      } ],
+      "methods" : [ {
+        "type" : "Method",
+        "name" : "getDesc",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.moviecatalogservice.models.CatalogItem&getDesc"
+      }, {
+        "type" : "Method",
+        "name" : "setRating",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ {
+          "type" : "Parameter",
+          "name" : "rating",
+          "metadata" : null,
+          "parameterType" : "int",
+          "annotations" : [ ],
+          "isVariableParameter" : false,
+          "id" : "io.javabrains.moviecatalogservice.models.CatalogItem&setRating&rating"
+        } ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.moviecatalogservice.models.CatalogItem&setRating"
+      }, {
+        "type" : "Method",
+        "name" : "getRating",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.moviecatalogservice.models.CatalogItem&getRating"
+      }, {
+        "type" : "Method",
+        "name" : "getName",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.moviecatalogservice.models.CatalogItem&getName"
+      }, {
+        "type" : "Method",
+        "name" : "setDesc",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ {
+          "type" : "Parameter",
+          "name" : "desc",
+          "metadata" : null,
+          "parameterType" : "String",
+          "annotations" : [ ],
+          "isVariableParameter" : false,
+          "id" : "io.javabrains.moviecatalogservice.models.CatalogItem&setDesc&desc"
+        } ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.moviecatalogservice.models.CatalogItem&setDesc"
+      }, {
+        "type" : "Method",
+        "name" : "setName",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ {
+          "type" : "Parameter",
+          "name" : "name",
+          "metadata" : null,
+          "parameterType" : "String",
+          "annotations" : [ ],
+          "isVariableParameter" : false,
+          "id" : "io.javabrains.moviecatalogservice.models.CatalogItem&setName&name"
+        } ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.moviecatalogservice.models.CatalogItem&setName"
+      } ],
+      "extendedType" : "",
+      "implementedTypes" : [ ],
+      "id" : "/movie-catalog-service/src/main/java/io/javabrains/moviecatalogservice/models/CatalogItem.java"
+    }, {
+      "type" : "JClass",
+      "name" : "Rating",
+      "metadata" : null,
+      "path" : "/movie-catalog-service/src/main/java/io/javabrains/moviecatalogservice/models/Rating.java",
+      "classRole" : "UNKNOWN",
+      "classType" : "CLASS",
+      "packageName" : "io.javabrains.moviecatalogservice.models",
+      "protection" : "PUBLIC",
+      "isFinal" : false,
+      "isStatic" : false,
+      "isAbstract" : false,
+      "imports" : [ ],
+      "annotations" : [ ],
+      "fields" : [ {
+        "type" : "Field",
+        "name" : "movieId",
+        "metadata" : null,
+        "fieldType" : "String",
+        "protection" : "PRIVATE",
+        "isStatic" : false,
+        "isFinal" : false,
+        "id" : "io.javabrains.moviecatalogservice.models.Rating&movieId"
+      }, {
+        "type" : "Field",
+        "name" : "rating",
+        "metadata" : null,
+        "fieldType" : "int",
+        "protection" : "PRIVATE",
+        "isStatic" : false,
+        "isFinal" : false,
+        "id" : "io.javabrains.moviecatalogservice.models.Rating&rating"
+      } ],
+      "methods" : [ {
+        "type" : "Method",
+        "name" : "setRating",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ {
+          "type" : "Parameter",
+          "name" : "rating",
+          "metadata" : null,
+          "parameterType" : "int",
+          "annotations" : [ ],
+          "isVariableParameter" : false,
+          "id" : "io.javabrains.moviecatalogservice.models.Rating&setRating&rating"
+        } ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.moviecatalogservice.models.Rating&setRating"
+      }, {
+        "type" : "Method",
+        "name" : "getRating",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.moviecatalogservice.models.Rating&getRating"
+      }, {
+        "type" : "Method",
+        "name" : "setMovieId",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ {
+          "type" : "Parameter",
+          "name" : "movieId",
+          "metadata" : null,
+          "parameterType" : "String",
+          "annotations" : [ ],
+          "isVariableParameter" : false,
+          "id" : "io.javabrains.moviecatalogservice.models.Rating&setMovieId&movieId"
+        } ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.moviecatalogservice.models.Rating&setMovieId"
+      }, {
+        "type" : "Method",
+        "name" : "getMovieId",
+        "metadata" : null,
+        "protection" : "PUBLIC",
+        "parameters" : [ ],
+        "methodCalls" : [ ],
+        "returnType" : null,
+        "annotations" : [ ],
+        "isAbstract" : false,
+        "isStatic" : false,
+        "isFinal" : false,
+        "thrownExceptions" : [ ],
+        "id" : "io.javabrains.moviecatalogservice.models.Rating&getMovieId"
+      } ],
+      "extendedType" : "",
+      "implementedTypes" : [ ],
+      "id" : "/movie-catalog-service/src/main/java/io/javabrains/moviecatalogservice/models/Rating.java"
+    } ],
+    "feignClients" : [ ],
+    "files" : [ {
+      "type" : "ConfigFile",
+      "name" : "pom.xml",
+      "metadata" : null,
+      "path" : "/movie-catalog-service/pom.xml",
+      "data" : {
+        "project" : {
+          "parent" : {
+            "relativePath" : "",
+            "groupId" : "org.springframework.boot",
+            "artifactId" : "spring-boot-starter-parent",
+            "version" : "2.1.2.RELEASE"
+          },
+          "modelVersion" : "4.0.0",
+          "groupId" : "io.javabrains",
+          "xsi:schemaLocation" : "http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd",
+          "description" : "Demo project for Spring Boot",
+          "xmlns:xsi" : "http://www.w3.org/2001/XMLSchema-instance",
+          "version" : "0.0.1-SNAPSHOT",
+          "dependencies" : {
+            "dependency" : [ {
+              "groupId" : "org.springframework.boot",
+              "artifactId" : "spring-boot-starter-web"
+            }, {
+              "groupId" : "org.springframework.boot",
+              "scope" : "test",
+              "artifactId" : "spring-boot-starter-test"
+            } ]
+          },
+          "xmlns" : "http://maven.apache.org/POM/4.0.0",
+          "build" : {
+            "plugins" : {
+              "plugin" : {
+                "groupId" : "org.springframework.boot",
+                "artifactId" : "spring-boot-maven-plugin"
+              }
+            }
+          },
+          "name" : "movie-catalog-service",
+          "artifactId" : "movie-catalog-service",
+          "properties" : {
+            "java.version" : 1.8
+          }
+        }
+      }
+    } ]
+  } ],
+  "orphans" : [ ]
+}
