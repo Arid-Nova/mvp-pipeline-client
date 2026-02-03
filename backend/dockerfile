@@ -1,5 +1,5 @@
 # Stage 1: Build the application using Maven with Amazon Corretto 19
-FROM maven:3.8.7-amazoncorretto-19 AS build
+FROM maven:3.8.7-amazoncorretto-17 AS build
 WORKDIR /app
 
 # Copy the pom.xml and install dependencies
@@ -11,7 +11,7 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 # Stage 2: Create a lightweight image to run the application
-FROM amazoncorretto:19
+FROM amazoncorretto:17
 WORKDIR /app
 
 # Copy the Spring Boot application JAR from the build stage
