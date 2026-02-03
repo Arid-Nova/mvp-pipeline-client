@@ -8,7 +8,7 @@ const Footer: React.FC = () => {
       <div className="relative flex items-center justify-between text-sm">
         {/* Left section */}
         <div className="flex items-center space-x-4">
-          <span>© {currentYear} CloudHubs. All rights reserved.</span>
+          <span>© {currentYear} CloudHubs at University of Arizona. All rights reserved.</span>
         </div>
 
         {/* Center section - absolutely centered */}
@@ -29,7 +29,7 @@ const Footer: React.FC = () => {
 
         {/* Right section */}
         <div className="flex items-center space-x-4">
-          <span className="text-gray-300">Version 1.0.1</span>
+          <span className="text-gray-300">Version 1.1.0</span>
           <a
             href="https://github.com/UACloudVision"
             target="_blank"
@@ -51,7 +51,7 @@ const Footer: React.FC = () => {
           <a href="/terms" className="hover:text-blue-300 transition-colors">Terms</a>
           <a href="/support" className="hover:text-blue-300 transition-colors">Support</a>
         </div>
-        <div className="text-gray-300">© {currentYear} CIMET IR Visualizer • Version 1.0.1</div>
+        <div className="text-gray-300">© {currentYear} CloudHubs Explorer • Version 1.1.0</div>
       </div>
     </footer>
   );

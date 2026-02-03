@@ -1,0 +1,5 @@
+fastapi
+uvicorn
+pydantic
+gitpython
+z3-solver

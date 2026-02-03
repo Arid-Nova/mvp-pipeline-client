@@ -7,9 +7,6 @@ services:
       MYSQL_DATABASE: msGraph
     ports:
       - "3306:3306"
-    # Uncomment the following line to persist data
-    # volumes:
-    #   - mariadb_data:/var/lib/mysql
     networks:
       - app_network
 
@@ -19,7 +16,7 @@ services:
       dockerfile: Dockerfile
     container_name: mvp_backend
     ports:
-      - "8080:8080" # Expose Spring Boot on port 8080
+      - "8080:8080" 
     environment:
       SPRING_DATASOURCE_URL: jdbc:mariadb://mvp_db:3306/msGraph
       SPRING_DATASOURCE_USERNAME: root
@@ -42,8 +39,21 @@ services:
     environment:
       - NODE_ENV=production
 
+  verifier:
+    build:
+      context: ./formalmethod
+      dockerfile: Dockerfile
+    container_name: mvp_formalverifier
+    ports:
+      - "9000:9000"
+    networks:
+      - app_network
+    volumes:
+      - verifier_cache:/tmp/ms_verifier_cache
+
 volumes:
   mariadb_data:
+  verifier_cache:
 
 networks:
   app_network:
