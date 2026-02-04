@@ -108,9 +108,24 @@ const Graph: React.FC<Props> = ({
 
             let visibleNodes;
 
-            if (isHighLevelExpanded) {
+            // 1. Verification Mode Override: Ensure suggestions are visible
+            if (verificationSuggestions && verificationSuggestions.length > 0) {
+                const suggestedNodeNames = new Set(verificationSuggestions.map(s => s.endpoint_name));
+                
+                visibleNodes = allNodes.filter((node: any) => {
+                    // Always show structure (MS/Service/Controller) so endpoints aren't floating in void
+                    if (['microservice', 'controller', 'service'].includes(node.nodeType)) return true;
+                    // Show the specific endpoints involved in verification
+                    if (suggestedNodeNames.has(node.nodeName)) return true;
+                    return false;
+                });
+            } 
+            // 2. High Level Expansion (Hide Methods)
+            else if (isHighLevelExpanded) {
                 visibleNodes = allNodes.filter((node: any) => node.nodeType !== 'method');
-            } else {
+            } 
+            // 3. Selective Expansion (Default)
+            else {
                 const relevantUsesLinks = allLinks.filter((link: any) =>
                     link.nodeType === 'uses' && 
                     allNodes.find((n: any) => (n.nodeName === (link.source.nodeName || link.source)) && expandedNodes.has(n.parentMicroservice))
@@ -135,7 +150,7 @@ const Graph: React.FC<Props> = ({
             showRenderingError('Graph rendering failed!');
             return { nodes: [], links: [] };
         }
-    }, [sharedProps.graphData, expandedNodes]);
+    }, [sharedProps.graphData, expandedNodes, isHighLevelExpanded, verificationSuggestions]);
 
     const handleNodeHover = (node: any) => {
         const newHighlightNodes = new Set<string>();

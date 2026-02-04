@@ -5,8 +5,7 @@ import re
 from pathlib import Path
 from itertools import chain
 
-# Import core models
-from ..core.ms_system import (
+from core.ms_system import (
     MicroserviceSystem, 
     SystemConnectionGraph, 
     Microservice, 
@@ -14,7 +13,9 @@ from ..core.ms_system import (
     Repository
 )
 
-def rolesAlreadySet(endpoint):
+# --- Helper Functions ---
+
+def rolesAlreadySet(endpoint: Endpoint):
     return endpoint.allowedRoles != 0 or endpoint._allowAllRoles is True
 
 def addRoleToSystemRoles(systemRoles, roleName, ret=True):
@@ -33,25 +34,26 @@ def addRoleToSystemRoles(systemRoles, roleName, ret=True):
                 return key
 
 def findEndpointFromURL(fullIR, url):
-    endpoint = None
-    endpointMSIR = None
-    for ms in fullIR["microservices"]:
-        for controller in ms["controllers"]:
-            for method in controller["methods"]:
-                if method["type"] == "Endpoint":
-                    for annotation in method["annotations"]:
-                        for attribute in annotation["attributes"]:
-                            if attribute == "path":
-                                if attribute["path"] == url:
-                                    endpoint = method
-                                    endpointMSIR = ms
-                                    break
-    return endpoint, endpointMSIR
+    if "microservices" in fullIR:
+        for ms in fullIR["microservices"]:
+            if "controllers" in ms:
+                for controller in ms["controllers"]:
+                    if "methods" in controller:
+                        for method in controller["methods"]:
+                            # Support 'path' or 'value' attributes in annotations
+                            if "annotations" in method:
+                                for annotation in method["annotations"]:
+                                    if "attributes" in annotation:
+                                        attrs = annotation["attributes"]
+                                        # Check both 'path' and 'value' for the URL
+                                        if attrs.get("path") == url or attrs.get("value") == url:
+                                            return method, ms
+    return None, None
 
 def findClassInMicroservice(msIR, className, classLocation=None):
-    if not className: return None # Guard
+    if not className: return None
 
-    # PATCH: Handle Fully Qualified Names (e.g. com.test.Service -> Service)
+    # Handle FQN (e.g. seat.service.SeatService -> SeatService)
     simpleName = className.split('.')[-1]
 
     if classLocation is None:
@@ -66,47 +68,117 @@ def findClassInMicroservice(msIR, className, classLocation=None):
                         ret = findClassInMicroservice(msIR, className, "feignClients")
         return ret
     else:
-        theClass = None
-        if classLocation in msIR:
-            for cls in msIR[classLocation]:
-                # PATCH: Check Simple Name AND Full Name
-                targetName = cls["name"]
-                if (className == targetName or 
-                    simpleName == targetName or 
-                    className + "Impl" == targetName or
-                    simpleName + "Impl" == targetName):
+        # Safety fallback: if repositories requested but missing, try services
+        locations_to_check = [classLocation]
+        if classLocation == "repositories" and "repositories" not in msIR:
+             if "services" in msIR: locations_to_check.append("services")
+
+        candidate_interface = None
+
+        for loc in locations_to_check:
+            if loc in msIR:
+                for cls in msIR[loc]:
+                    targetName = cls.get("name")
+                    if not targetName: continue
+
+                    # Match against Simple Name or Full Name or Impl
+                    # e.g. "SeatService" matches "SeatServiceImpl"
+                    is_match = (className == targetName or 
+                                simpleName == targetName or 
+                                className + "Impl" == targetName or
+                                simpleName + "Impl" == targetName)
                     
-                    if classLocation == "services" and cls.get("fileType") != "JCLASS":
-                        continue
-                    theClass = cls
-                    break
-        return theClass
+                    if is_match:
+                        # --- ROBUST TYPE CHECKING ---
+                        # We trust the name match 'Impl' more than the 'type' field.
+                        # If we found "SeatServiceImpl" inside "services", we assume it's the class.
+                        
+                        if loc == "services":
+                            # Check if it's explicitly an interface
+                            is_interface = (cls.get("type") == "JInterface" or 
+                                            cls.get("classType") == "INTERFACE" or 
+                                            cls.get("isInterface") is True)
+                            
+                            # If it's an interface, save it but keep looking for the Impl class
+                            if is_interface:
+                                candidate_interface = cls
+                                continue 
+                            
+                            return cls
+                        
+                        elif loc == "repositories":
+                            # Repositories are Interfaces, so we accept them.
+                            return cls
+                        
+                        else:
+                            return cls
+        
+        # Fallback: If we only found an interface (no Impl), return the interface
+        if candidate_interface:
+            return candidate_interface
+            
+        return None
 
 def findMethodInClass(classIR, methodName):
-    met = None
     if "methods" in classIR:
         for method in classIR["methods"]:
             if method["name"] == methodName:
-                met = method
-                break
-    return met
+                return method
+    return None
 
-def findMethodCallsFromMethod(classIR, methodName, requireEndpoint=False):
+def is_call_match(called_from_val, target_method_name):
+    """
+    Robust matching for 'calledFrom'.
+    """
+    if not called_from_val or not target_method_name:
+        return False
+    
+    if called_from_val == target_method_name:
+        return True
+    
+    # Check for ID formats used in new IR
+    if called_from_val.endswith(f"&{target_method_name}"):
+        return True
+    if called_from_val.endswith(f"#{target_method_name}"):
+        return True
+    if called_from_val.endswith(f".{target_method_name}"):
+        return True
+        
+    return False
+
+def findMethodCallsFromMethod(classIR, methodName, methodIR=None, requireEndpoint=False):
+    """
+    Extracts method calls from either the Method Object (Nested) or the Class (Flat).
+    """
     mcs = []
+    
+    # STRATEGY 1: Check Nested Calls (New IR Schema)
+    # This is the most likely source for IR.json
+    if methodIR is not None and "methodCalls" in methodIR:
+        for methodCall in methodIR["methodCalls"]:
+            if requireEndpoint and methodCall.get("type") != "Endpoint":
+                continue
+            mcs.append(methodCall)
+        
+        # If we found nested calls, we return them immediately.
+        if len(mcs) > 0:
+            return mcs
+
+    # STRATEGY 2: Check Class-Level Calls (Old IR Schema)
+    # Filter by 'calledFrom'
     if "methodCalls" in classIR:
         for methodCall in classIR["methodCalls"]:
-            if methodCall["calledFrom"] == methodName:
-                if requireEndpoint and methodCall["type"] != "Endpoint":
+            if is_call_match(methodCall.get("calledFrom"), methodName):
+                if requireEndpoint and methodCall.get("type") != "Endpoint":
                     continue
                 mcs.append(methodCall)
+    
     return mcs
 
+# --- Recursion Logic ---
+
 def scanRestCalls(msIR, methodIR, scg, microserviceSystem, initialClassName):
-    # PATCH: We must track the Class Name context manually because the new Schema 
-    # removed 'className' from the method objects.
     toScan = collections.deque()
-    
-    # Store TUPLE: (MethodDict, ClassNameString)
     startClass = methodIR.get("className", initialClassName)
     toScan.append((methodIR, startClass))
     
@@ -114,27 +186,34 @@ def scanRestCalls(msIR, methodIR, scg, microserviceSystem, initialClassName):
 
     theURL = methodIR.get("url")
     theRequestMethod = methodIR.get("httpMethod")
+    
     if theURL is None or theRequestMethod is None:
         return
 
     while len(toScan) != 0:
-        # Unpack tuple
         method, currentClassName = toScan.pop()
 
+        # Track visited by object ID to prevent cycles
         if id(method) in visited:
             continue
-        else:
-            visited.append(id(method))
+        visited.append(id(method))
 
-        # PATCH: Use the propagated className
+        if not currentClassName:
+            continue
+
         theClass = findClassInMicroservice(msIR, currentClassName)
         
         if theClass is not None:
-            methodCalls = findMethodCallsFromMethod(theClass, method["name"])
+            # Pass 'method' (the dictionary) to find nested calls
+            methodCalls = findMethodCallsFromMethod(theClass, method["name"], methodIR=method)
+            
             for methodCall in methodCalls:
-                if methodCall["calledFrom"] != method["name"]:
+                # Prevent self-recursion
+                if methodCall.get("name") == method["name"]: 
                     continue
-                if methodCall["type"] == "RestCall":
+
+                # 1. External REST Calls
+                if methodCall.get("type") == "RestCall":
                     endpointFrom = microserviceSystem.findEndpoint(f"{theRequestMethod} {theURL}")
                     if endpointFrom is None:
                         continue
@@ -143,43 +222,41 @@ def scanRestCalls(msIR, methodIR, scg, microserviceSystem, initialClassName):
                     target_method = methodCall.get("httpMethod", "")
                     endpointTo = microserviceSystem.findEndpoint(f"{target_method} {target_url}")
                     
-                    if endpointTo is None:
-                        if "{?}" in target_url:
-                            firstParameter = methodCall.get("parameterContents", "").split(",")[0]
-                            fields = theClass.get("fields", [])
-                            for fie in fields:
-                                if fie["name"] in firstParameter:
-                                    constPieces = re.findall(r"\"(.+)\"", firstParameter)
-                                    sub = ""
-                                    candidatePart = fie.get("initializer", "").replace("\"", "")
-                                    candidatePart = re.sub(r'http[s]?://[^/]+', "", candidatePart)
-                                    candidateURL = ""
-                                    for c in firstParameter:
-                                        sub += c
-                                        if sub.find(fie["name"]) != -1:
-                                            candidateURL += candidatePart
-                                            sub = sub.replace(fie["name"], "")
-                                        for piece in constPieces:
-                                            if sub.find(piece) != -1:
-                                                candidateURL += piece
-                                                sub = sub.replace(piece, "")
-                                    if len(sub) != 0:
-                                        candidateURL += "{?}"
-
-                                    endpointTo = microserviceSystem.findEndpoint(
-                                        f"{target_method} {candidateURL}")
-                                    if endpointTo is not None:
-                                        break
-                    if endpointFrom is None or endpointTo is None:
-                        continue
+                    # Parameterized URL handling
+                    if endpointTo is None and "{?}" in target_url:
+                        firstParameter = methodCall.get("parameterContents", "").split(",")[0]
+                        fields = theClass.get("fields", [])
+                        for fie in fields:
+                            if fie["name"] in firstParameter:
+                                constPieces = re.findall(r"\"(.+)\"", firstParameter)
+                                sub = ""
+                                candidatePart = fie.get("initializer", "").replace("\"", "")
+                                candidatePart = re.sub(r'http[s]?://[^/]+', "", candidatePart)
+                                candidateURL = ""
+                                for c in firstParameter:
+                                    sub += c
+                                    if sub.find(fie["name"]) != -1:
+                                        candidateURL += candidatePart
+                                        sub = sub.replace(fie["name"], "")
+                                    for piece in constPieces:
+                                        if sub.find(piece) != -1:
+                                            candidateURL += piece
+                                            sub = sub.replace(piece, "")
+                                if len(sub) != 0:
+                                    candidateURL += "{?}"
+                                endpointTo = microserviceSystem.findEndpoint(f"{target_method} {candidateURL}")
+                                if endpointTo is not None:
+                                    break
                     
-                    scg.addSystemConnection(endpointFrom, endpointTo)
+                    if endpointFrom and endpointTo:
+                        scg.addSystemConnection(endpointFrom, endpointTo)
                     continue
 
+                # 2. Internal Method Calls
                 nextMethodName = methodCall["name"]
                 nextClassName = methodCall.get("objectType", "")
                 
-                # PATCH: If objectType is empty, it means local call -> keep current class
+                # If objectType is empty, it's a local call in the same class
                 if nextClassName == "":
                     nextClassName = currentClassName
                     nextClass = theClass
@@ -189,7 +266,6 @@ def scanRestCalls(msIR, methodIR, scg, microserviceSystem, initialClassName):
                 if nextClass is not None:
                     nextMethod = findMethodInClass(nextClass, nextMethodName)
                     if nextMethod is not None:
-                        # Propagate context
                         toScan.append((nextMethod, nextClassName))
 
 def parseRepositoryHelper(repositories, repo, bits):
@@ -205,7 +281,7 @@ def parseRepository(mcIR, repositories, originalMethod, repo):
     readWords = ["read", "find", "get", "query"]
     deleteWords = ["delete", "remove"]
 
-    name = mcIR["name"] # Keep case sensitivity logic
+    name = mcIR["name"]
 
     if any(keyword in name for keyword in createUpdateWords):
         if originalMethod == "POST":
@@ -218,23 +294,38 @@ def parseRepository(mcIR, repositories, originalMethod, repo):
         parseRepositoryHelper(repositories, repo, 0b0001)
 
 def parseServiceRecursively(msIR, parentMC, serv, repositories, originalMethod):
+    # Case 1: Direct Repository Call via Object Name (e.g., repo.save())
     if parentMC.get("objectName", "") != "":
-        repo = findClassInMicroservice(msIR, parentMC["objectType"], "repositories")
+        repo = findClassInMicroservice(msIR, parentMC.get("objectType"), "repositories")
         if repo is not None:
             parseRepository(parentMC, repositories, originalMethod, repo)
         return
     
-    if "methodCalls" in serv:
-        for mc in serv["methodCalls"]:
-            if mc["calledFrom"] == parentMC["name"] and mc["name"] != parentMC["name"]:
-                repo = findClassInMicroservice(msIR, mc["objectType"], "repositories")
-                if repo is not None:
-                    parseRepository(mc, repositories, originalMethod, repo)
-                parseServiceRecursively(msIR, mc, serv, repositories, originalMethod)
+    # Case 2: Nested calls inside the Service method
+    # Strategy 1: Nested calls in JSON (New IR)
+    nested_calls = []
+    if "methodCalls" in parentMC:
+        nested_calls = parentMC["methodCalls"]
+    # Strategy 2: Flat calls in Class (Old IR)
+    elif "methodCalls" in serv:
+         for mc in serv["methodCalls"]:
+            if is_call_match(mc.get("calledFrom"), parentMC["name"]):
+                nested_calls.append(mc)
+
+    for mc in nested_calls:
+        # Avoid recursion loop
+        if mc["name"] == parentMC["name"]: continue
+
+        # Check if this nested call is a repository call
+        repo = findClassInMicroservice(msIR, mc.get("objectType"), "repositories")
+        if repo is not None:
+            parseRepository(mc, repositories, originalMethod, repo)
+        else:
+            # If not a repository, Recurse deeper
+            parseServiceRecursively(msIR, mc, serv, repositories, originalMethod)
 
 def parseService(msIR, mcIR, originalMethod):
-    # PATCH: This will now succeed because findClassInMicroservice handles FQNs
-    serv = findClassInMicroservice(msIR, mcIR["objectType"], "services")
+    serv = findClassInMicroservice(msIR, mcIR.get("objectType"), "services")
     if serv is None:
         return []
 
@@ -243,64 +334,70 @@ def parseService(msIR, mcIR, originalMethod):
         return []
 
     repositories = []
-    if "methodCalls" in serv:
-        for methodCall in serv["methodCalls"]:
-            if methodCall["calledFrom"] == met["name"]:
-                parseServiceRecursively(msIR, methodCall, serv, repositories, originalMethod)
-
+    
+    # Use robust extractor
+    methodCalls = findMethodCallsFromMethod(serv, met["name"], methodIR=met)
+    
+    for methodCall in methodCalls:
+        parseServiceRecursively(msIR, methodCall, serv, repositories, originalMethod)
+            
     return repositories
 
 def parseEndpoint(msIR, controllerIR, endpointIR):
-    # PATCH: Fill in missing packageName/className from Parent Controller
-    pkg = endpointIR.get("packageName")
-    if not pkg: pkg = controllerIR.get("packageName", "")
-    
-    cls = endpointIR.get("className")
-    if not cls: cls = controllerIR["name"]
-    
-    name = endpointIR.get("name", "")
-    funcName = f"{pkg}.{cls}#{name}"
+    if "id" in endpointIR:
+        funcName = endpointIR["id"]
+        simple_name = funcName.split("&")[-1] if "&" in funcName else funcName
+    else:
+        pkg = endpointIR.get("packageName")
+        if not pkg: pkg = controllerIR.get("packageName", "")
+        
+        cls = endpointIR.get("className")
+        if not cls: cls = controllerIR.get("name", "")
+        
+        name = endpointIR.get("name", "")
+        funcName = f"{pkg}.{cls}#{name}"
+        simple_name = name
     
     endpoint = Endpoint([], 0, f"{endpointIR.get('httpMethod')} {endpointIR.get('url')}")
     endpoint.funcName = funcName
 
     repoTracker = {}
 
-    if "methodCalls" in controllerIR:
-        for methodCall in controllerIR["methodCalls"]:
-            # Match strictly on method name
-            target_method = funcName.split("#")[-1]
-            if methodCall["calledFrom"] == target_method:
-                repositories = parseService(msIR, methodCall, endpointIR.get("httpMethod"))
-                for repository in repositories:
-                    if repository.name in repoTracker:
-                        repoTracker[repository.name].accessedMethods |= repository.accessedMethods
-                    else:
-                        repoTracker[repository.name] = repository
-                        endpoint.repositories.append(repository)
+    # Extract calls from endpoint method
+    methodCalls = findMethodCallsFromMethod(controllerIR, simple_name, methodIR=endpointIR)
+    
+    for methodCall in methodCalls:
+        # We need to trace this call to Services/Repositories
+        repositories = parseService(msIR, methodCall, endpointIR.get("httpMethod"))
+        for repository in repositories:
+            if repository.name in repoTracker:
+                repoTracker[repository.name].accessedMethods |= repository.accessedMethods
+            else:
+                repoTracker[repository.name] = repository
+                endpoint.repositories.append(repository)
 
     return endpoint
 
 def parseMicroservice(msIR):
-    microservice = Microservice([], msIR["name"])
+    microservice = Microservice([], msIR.get("name", "Unknown"))
+
     if "controllers" in msIR:
         for controller in msIR["controllers"]:
             if "methods" in controller:
                 for method in controller["methods"]:
-                    if method["type"] == "Endpoint":
+                    if method.get("type") == "Endpoint" or method.get("httpMethod") is not None:
                         microservice.endpoints.append(parseEndpoint(msIR, controller, method))
+
     return microservice
 
-def parseConnections(msIR, scg, microserviceSystem):
+def parseConnections(msIR: dict, scg: SystemConnectionGraph, microserviceSystem: MicroserviceSystem):
     if "controllers" in msIR:
         for controller in msIR["controllers"]:
             if "methods" in controller:
                 for method in controller["methods"]:
-                    if method["type"] == "Endpoint":
-                        # PATCH: Pass controller name to seed the context
-                        scanRestCalls(msIR, method, scg, microserviceSystem, controller["name"])
+                    if method.get("type") == "Endpoint" or method.get("httpMethod") is not None:
+                        scanRestCalls(msIR, method, scg, microserviceSystem, controller.get("name"))
 
-# --- Helper for Security Logic ---
 def findAllEndpointsWithGenericPath(msSystem, partialPath, msName=None):
     found = []
     for ms in msSystem.microservices:
@@ -311,115 +408,12 @@ def findAllEndpointsWithGenericPath(msSystem, partialPath, msName=None):
                 found.append(endpoint)
     return found
 
-def getSecurityRoles(systemRoles, msIR, msSystem, codePath):
-    if not codePath: return
-    
-    repo_root = Path(codePath)
-    # Handle absolute paths in IR by stripping leading slash
-    relative_path = msIR.get("path", "").lstrip("/") 
-    msPath = repo_root / relative_path
-
-    files = chain(msPath.rglob("SecurityConfig.java"), msPath.rglob("WebSecurityConfig.java"))
-    
-    for path in files:
-        if path.is_file() and "config" in str(path).lower():
-            try:
-                with open(path, 'r', encoding="utf-8") as f:
-                    securityConfig = f.read()
-                    pattern = r"""\.antMatchers\((.*?)\)\.hasRole\(\"(.*?)\"\)|\.antMatchers\((.*?)\)\.hasAnyRole\((.*?)\)|\.antMatchers\((.*?)\)\.permitAll\(\)|\.(.*?)\.authenticated\(\)"""
-                    matches = re.findall(pattern, securityConfig)
-
-                    authenticated = False
-                    for match in matches:
-                        # hasRole
-                        if match[0] and match[1]:
-                            roleName = match[1].lower().replace("\"", "").replace(" ", "")
-                            roleBitVec = addRoleToSystemRoles(systemRoles, roleName)
-                            
-                            if "HttpMethod." in match[0]:
-                                methodBased = re.findall(r"HttpMethod.(.*), (.*)", match[0])
-                                for metRule in methodBased:
-                                    url = metRule[1].replace("\"", "")
-                                    httpMethod = metRule[0]
-                                    if "**" in url:
-                                        url = url.replace("*", "")
-                                        endpoints = findAllEndpointsWithGenericPath(msSystem, httpMethod + ' ' + url)
-                                    else:
-                                        url = url.replace("*", "{?}")
-                                        ep = msSystem.findEndpoint(httpMethod + ' ' + url)
-                                        endpoints = [ep] if ep else []
-                                    for endpoint in endpoints:
-                                        if not rolesAlreadySet(endpoint):
-                                            endpoint.allowedRoles |= roleBitVec
-                            else:
-                                urls = match[0].replace("\"", "").split(",")
-                                for url in urls:
-                                    endpoints = findAllEndpointsWithGenericPath(msSystem, url)
-                                    for endpoint in endpoints:
-                                        if not rolesAlreadySet(endpoint):
-                                            endpoint.allowedRoles |= roleBitVec
-                        # hasAnyRole
-                        elif match[2] and match[3]:
-                            roles = match[3].lower().replace("\"", "").replace(" ", "").split(",")
-                            for roleName in roles:
-                                roleBitVec = addRoleToSystemRoles(systemRoles, roleName)
-                                # Logic abbreviated to match original flow
-                        # permitAll
-                        elif match[4]:
-                            rule = match[4]
-                            if "HttpMethod." in rule:
-                                methodBased = re.findall(r"HttpMethod.(.*), (.*)", rule)
-                                for metRule in methodBased:
-                                    url = metRule[1].replace("\"", "")
-                                    httpMethod = metRule[0]
-                                    if "**" in url:
-                                        url = url.replace("*", "")
-                                        endpoints = findAllEndpointsWithGenericPath(msSystem, httpMethod + ' ' + url)
-                                    else:
-                                        url = url.replace("*", "{?}")
-                                        ep = msSystem.findEndpoint(httpMethod + ' ' + url)
-                                        endpoints = [ep] if ep else []
-                                    for endpoint in endpoints:
-                                        if not rolesAlreadySet(endpoint):
-                                            endpoint._allowAllRoles = True
-                                            for role_bit in msSystem.systemRoles:
-                                                endpoint.allowedRoles |= role_bit
-                            else:
-                                urls = rule.replace("\"", "").split(",")
-                                for url in urls:
-                                    endpoints = findAllEndpointsWithGenericPath(msSystem, url, msName=msIR["name"])
-                                    for endpoint in endpoints:
-                                        if not rolesAlreadySet(endpoint):
-                                            endpoint._allowAllRoles = True
-                                            for role_bit in msSystem.systemRoles:
-                                                endpoint.allowedRoles |= role_bit
-                        # authenticated
-                        elif match[5]:
-                            authenticated = True
-
-                    if authenticated is False:
-                        for ms in msSystem.microservices:
-                            if ms.name == msIR["name"]:
-                                for endpoint in ms.endpoints:
-                                    if not rolesAlreadySet(endpoint):
-                                        for role_bit in msSystem.systemRoles:
-                                            endpoint.allowedRoles |= role_bit
-                    else:
-                        for ms in msSystem.microservices:
-                            if ms.name == msIR["name"]:
-                                for endpoint in ms.endpoints:
-                                    if not rolesAlreadySet(endpoint):
-                                        for roleVec, roleName in systemRoles.items():
-                                            if roleName == "UnauthenticatedRole":
-                                                continue
-                                            endpoint.allowedRoles |= roleVec
-            except Exception:
-                pass
+# --- Security Parsing ---
 
 def preScanRoles(systemRoles, msIR, codePath):
     if not codePath: return
     repo_root = Path(codePath)
-    relative_path = msIR.get("path", "").lstrip("/")
+    relative_path = msIR.get("path", "").lstrip("/") 
     msPath = repo_root / relative_path
 
     files = chain(msPath.rglob("SecurityConfig.java"), msPath.rglob("WebSecurityConfig.java"))
@@ -442,6 +436,103 @@ def preScanRoles(systemRoles, msIR, codePath):
             except:
                 pass
 
+def getSecurityRoles(systemRoles, msIR, msSystem, codePath):
+    if not codePath: return
+    repo_root = Path(codePath)
+    relative_path = msIR.get("path", "").lstrip("/") 
+    msPath = repo_root / relative_path
+
+    files = chain(msPath.rglob("SecurityConfig.java"), msPath.rglob("WebSecurityConfig.java"))
+    
+    for path in files:
+        if path.is_file() and "config" in str(path).lower():
+            try:
+                with open(path, 'r', encoding="utf-8") as f:
+                    securityConfig = f.read()
+                    pattern = r"""\.antMatchers\((.*?)\)\.hasRole\(\"(.*?)\"\)|\.antMatchers\((.*?)\)\.hasAnyRole\((.*?)\)|\.antMatchers\((.*?)\)\.permitAll\(\)|\.(.*?)\.authenticated\(\)"""
+                    matches = re.findall(pattern, securityConfig)
+
+                    authenticated = False
+                    for match in matches:
+                        if match[0] and match[1]:
+                            roleName = match[1].lower().replace("\"", "").replace(" ", "")
+                            roleBitVec = addRoleToSystemRoles(systemRoles, roleName)
+                            if "HttpMethod." in match[0]:
+                                methodBased = re.findall(r"HttpMethod.(.*), (.*)", match[0])
+                                for metRule in methodBased:
+                                    url = metRule[1].replace("\"", "")
+                                    httpMethod = metRule[0]
+                                    if "**" in url:
+                                        url = url.replace("*", "")
+                                        endpoints = findAllEndpointsWithGenericPath(msSystem, httpMethod + ' ' + url)
+                                    else:
+                                        url = url.replace("*", "{?}")
+                                        ep = msSystem.findEndpoint(httpMethod + ' ' + url)
+                                        endpoints = [ep] if ep else []
+                                    for endpoint in endpoints:
+                                        if not rolesAlreadySet(endpoint):
+                                            endpoint.allowedRoles |= roleBitVec
+                            else:
+                                urls = match[0].replace("\"", "").split(",")
+                                for url in urls:
+                                    endpoints = findAllEndpointsWithGenericPath(msSystem, url)
+                                    for endpoint in endpoints:
+                                        if not rolesAlreadySet(endpoint):
+                                            endpoint.allowedRoles |= roleBitVec
+                        elif match[2] and match[3]:
+                            roles = match[3].lower().replace("\"", "").replace(" ", "").split(",")
+                            for roleName in roles:
+                                roleBitVec = addRoleToSystemRoles(systemRoles, roleName)
+                        elif match[4]:
+                            rule = match[4]
+                            if "HttpMethod." in rule:
+                                methodBased = re.findall(r"HttpMethod.(.*), (.*)", rule)
+                                for metRule in methodBased:
+                                    url = metRule[1].replace("\"", "")
+                                    httpMethod = metRule[0]
+                                    if "**" in url:
+                                        url = url.replace("*", "")
+                                        endpoints = findAllEndpointsWithGenericPath(msSystem, httpMethod + ' ' + url)
+                                    else:
+                                        url = url.replace("*", "{?}")
+                                        ep = msSystem.findEndpoint(httpMethod + ' ' + url)
+                                        endpoints = [ep] if ep else []
+                                    for endpoint in endpoints:
+                                        if not rolesAlreadySet(endpoint):
+                                            endpoint._allowAllRoles = True
+                                            for role_bit in msSystem.systemRoles:
+                                                endpoint.allowedRoles |= role_bit
+                            else:
+                                urls = rule.replace("\"", "").split(",")
+                                for url in urls:
+                                    endpoints = findAllEndpointsWithGenericPath(msSystem, url, msName=msIR.get("name"))
+                                    for endpoint in endpoints:
+                                        if not rolesAlreadySet(endpoint):
+                                            endpoint._allowAllRoles = True
+                                            for role_bit in msSystem.systemRoles:
+                                                endpoint.allowedRoles |= role_bit
+                        elif match[5]:
+                            authenticated = True
+
+                    if authenticated is False:
+                        for ms in msSystem.microservices:
+                            if ms.name == msIR.get("name"):
+                                for endpoint in ms.endpoints:
+                                    if not rolesAlreadySet(endpoint):
+                                        for role_bit in msSystem.systemRoles:
+                                            endpoint.allowedRoles |= role_bit
+                    else:
+                        for ms in msSystem.microservices:
+                            if ms.name == msIR.get("name"):
+                                for endpoint in ms.endpoints:
+                                    if not rolesAlreadySet(endpoint):
+                                        for roleVec, roleName in systemRoles.items():
+                                            if roleName == "UnauthenticatedRole":
+                                                continue
+                                            endpoint.allowedRoles |= roleVec
+            except Exception:
+                pass
+
 def getModelFromIRAndCode(ir_dict: dict, pathToCode: str):
     scg = SystemConnectionGraph()
     sysRoles = {}
@@ -450,24 +541,28 @@ def getModelFromIRAndCode(ir_dict: dict, pathToCode: str):
     
     msSystem.name = ir_dict.get("name", "Unknown")
 
-    for ms in ir_dict["microservices"]:
-        msSystem.microservices.append(parseMicroservice(ms))
-    for ms in ir_dict["microservices"]:
-        # PATCH: parseConnections now accepts ir_dict if needed, but signature matches original
-        parseConnections(ms, scg, msSystem)
-    for ms in ir_dict["microservices"]:
-        preScanRoles(sysRoles, ms, pathToCode)
+    if "microservices" in ir_dict:
+        for ms in ir_dict["microservices"]:
+            msSystem.microservices.append(parseMicroservice(ms))
+        
+        for ms in ir_dict["microservices"]:
+            parseConnections(ms, scg, msSystem)
+            
+        for ms in ir_dict["microservices"]:
+            preScanRoles(sysRoles, ms, pathToCode)
 
     if 2 in sysRoles and 4 in sysRoles and sysRoles[4] == "user" and sysRoles[2] == "admin":
         sysRoles[2] = "user"
         sysRoles[4] = "admin"
 
-    for ms in ir_dict["microservices"]:
-        getSecurityRoles(sysRoles, ms, msSystem, pathToCode)
+    if "microservices" in ir_dict:
+        for ms in ir_dict["microservices"]:
+            getSecurityRoles(sysRoles, ms, msSystem, pathToCode)
 
     msSystem.populateBackReferences()
 
     return msSystem
+
 
 # Following is entirely based on the old version of the parser. 
 # That version is optimized for the old IR scheme. 

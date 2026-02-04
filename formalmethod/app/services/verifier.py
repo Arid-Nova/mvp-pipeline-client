@@ -1,7 +1,7 @@
 import time
 from z3 import sat, unsat
-from ..core.solver.auth_solver import AuthorizationConsistencySolver
-from ..services.parser import getModelFromIRAndCode
+from core.solver.auth_solver import AuthorizationConsistencySolver
+from services.parser import getModelFromIRAndCode
 
 def run_verification(ir_data: dict, code_path: str):
     logs = []

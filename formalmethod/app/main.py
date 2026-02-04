@@ -1,8 +1,8 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from .models import VerificationRequest, VerificationResponse
-from .services.git_manager import GitManager
-from .services.verifier import run_verification
+from models import VerificationRequest, VerificationResponse
+from services.git_manager import GitManager
+from services.verifier import run_verification
 
 app = FastAPI(title="Formal Authorization Verifier")
 
@@ -44,6 +44,6 @@ def health():
     return {"status": "OK"}
 
 # Use for local testing
-# if __name__ == "__main__":
-#     import uvicorn
-#     uvicorn.run("main:app", host="0.0.0.0", port=9000)
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=9000)

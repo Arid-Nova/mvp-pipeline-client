@@ -1,6 +1,6 @@
 from z3 import *
 
-from ..ms_system import Endpoint, MicroserviceSystem
+from core.ms_system import Endpoint, MicroserviceSystem
 
 class AuthorizationConsistencySolver:
     def __init__(self, microserviceSystem: MicroserviceSystem):

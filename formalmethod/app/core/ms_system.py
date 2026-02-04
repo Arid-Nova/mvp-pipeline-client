@@ -1,9 +1,6 @@
 import typing
 from dataclasses import dataclass, field
-import json
-
 from z3 import *
-
 
 @dataclass
 class ObjectType:
@@ -26,15 +23,13 @@ class ObjectType:
 
     @staticmethod
     def fromDict(objDict: dict):
-        objType = ObjectType(objDict["name"], objDict["package"], {})
-        
+        objType = ObjectType(objDict["name"], objDict.get("package", ""), {})
         for key, value in objDict["fields"].items():
             if type(value) == str:
                 objType.fields[key] = value
             else:
                 objType.fields[key] = ObjectType.fromDict(value)
                 objType.fields[key].parent = objType
-        
         return objType
 
 
@@ -50,208 +45,159 @@ class Repository:
 
     @staticmethod
     def fromDict(objDict: dict):
-        repository = Repository(0, "")
-        repository.name = objDict["name"]
-        repository.accessedMethods = (objDict["accessedMethods"] if objDict["accessedMethods"] != 0b11111111
-                                      else BitVec(f"{repository.name}_accessedMethods", 4))
-
-        return repository
+        return Repository(objDict["accessedMethods"], objDict["name"])
 
 
 @dataclass
 class Endpoint:
-    repositories: list[Repository] = field(hash=False)
-    allowedRoles: int | BitVecRef
+    repositories: typing.List[Repository]
+    allowedRoles: typing.Union[int, BitVecRef]
     name: str
-    funcName: str = ""
     _allowAllRoles: bool = False
-    responseType: ObjectType = None
     parent: "Microservice" = None
+    funcName: str = "" 
+
+    # --- FIX 1: Make Endpoint Hashable for Dictionary Keys ---
+    def __hash__(self):
+        return hash(self.name)
+
+    def __eq__(self, other):
+        if not isinstance(other, Endpoint):
+            return False
+        return self.name == other.name
+    # ---------------------------------------------------------
 
     def asDict(self):
-        repos = [r.asDict() for r in self.repositories]
-        if type(self.allowedRoles) is int:
-            roles = self.allowedRoles
-        else:
-            roles = 0b11111111 | (self.allowedRoles.size() << 8)
-
+        val = self.allowedRoles
+        if not isinstance(val, int):
+            val = 0
         return {"name": self.name,
-                "funcName": self.funcName,
-                "allowedRoles": roles,
-                "repositories": repos}
+                "repositories": [r.asDict() for r in self.repositories],
+                "allowedRoles": val}
 
     @staticmethod
     def fromDict(objDict: dict):
-        endpoint = Endpoint([], [], "", "", False)
-        endpoint.name = objDict["name"]
-        endpoint.funcName = objDict["funcName"]
-        if int(objDict["allowedRoles"]) & 0b11111111 == 0b11111111:
-            endpoint.allowedRoles = BitVec(int(objDict["allowedRoles"]) >> 8,
-                                           f"{endpoint.name}.{endpoint.funcName}_allowedRoles")
-        else:
-            endpoint.allowedRoles = int(objDict["allowedRoles"])
-        endpoint.repositories = [Repository.fromDict(rObj) for rObj in objDict["repositories"]]
-        for repo in endpoint.repositories:
-            repo.parent = endpoint
-
-        return endpoint
-
-    def __hash__(self):
-        return hash(self.name)
-    
-    def __eq__(self, other):
-        return self.name == other.name
+        return Endpoint(
+            [Repository.fromDict(r) for r in objDict["repositories"]],
+            objDict.get("allowedRoles", 0),
+            objDict["name"]
+        )
 
 
 @dataclass
 class Microservice:
-    endpoints: list[Endpoint] = field(hash=False)
+    endpoints: typing.List[Endpoint]
     name: str
     parent: "MicroserviceSystem" = None
 
-    def addEndpoint(self, endpoint: Endpoint):
-        self.endpoints.append(endpoint)
-        endpoint.parent = self
-
     def asDict(self):
-        end = [en.asDict() for en in self.endpoints]
-
         return {"name": self.name,
-                "endpoints": end}
+                "endpoints": [e.asDict() for e in self.endpoints]}
 
     @staticmethod
     def fromDict(objDict: dict):
-        ms = Microservice([], "")
-        ms.name = objDict["name"]
-        ms.endpoints = [Endpoint.fromDict(eObj) for eObj in objDict["endpoints"]]
-        for endpoint in ms.endpoints:
-            endpoint.parent = ms
-
-        return ms
+        return Microservice(
+            [Endpoint.fromDict(e) for e in objDict["endpoints"]],
+            objDict["name"]
+        )
 
 
 @dataclass
 class SystemConnectionGraph:
-    connectionMap: dict = field(default_factory=lambda: {})
-    reverseConnectionMap: dict = field(default_factory=lambda: {})
+    connectionMap: typing.Dict[Endpoint, typing.List[Endpoint]] = field(default_factory=dict)
+    # --- FIX 2: Add Reverse Map ---
+    reverseConnectionMap: typing.Dict[Endpoint, typing.List[Endpoint]] = field(default_factory=dict)
+    # ------------------------------
     parent: "MicroserviceSystem" = None
 
-    def addSystemConnection(self, fromEndpoint: Endpoint, toEndpoint: Endpoint):
-        if fromEndpoint not in self.connectionMap:
-            self.connectionMap[fromEndpoint] = [toEndpoint]
-        else:
-            self.connectionMap[fromEndpoint].append(toEndpoint)
-        if toEndpoint not in self.reverseConnectionMap:
-            self.reverseConnectionMap[toEndpoint] = [fromEndpoint]
-        else:
-            self.reverseConnectionMap[toEndpoint].append(fromEndpoint)
+    def addSystemConnection(self, e1: Endpoint, e2: Endpoint):
+        # Forward connection
+        if e1 not in self.connectionMap:
+            self.connectionMap[e1] = []
+        if e2 not in self.connectionMap[e1]:
+            self.connectionMap[e1].append(e2)
+
+        # Reverse connection (Essential for Solver)
+        if e2 not in self.reverseConnectionMap:
+            self.reverseConnectionMap[e2] = []
+        if e1 not in self.reverseConnectionMap[e2]:
+            self.reverseConnectionMap[e2].append(e1)
 
     def asDict(self):
-        strMap = {}
-        for start, end in self.connectionMap.items():
-            strArray = []
-            for en in end:
-                strArray.append(en.name)
-            strMap[start.name] = strArray
-        return strMap
+        connections = {}
+        for source, targets in self.connectionMap.items():
+            connections[source.name] = [t.name for t in targets]
+        return connections
 
     @staticmethod
-    def fromDict(objDict: dict, parent):
+    def fromDict(objDict: dict, system: "MicroserviceSystem"):
         scg = SystemConnectionGraph()
-        for start, end in objDict.items():
-            for en in end:
-                scg.addSystemConnection(parent.findEndpoint(start), parent.findEndpoint(en))
-
+        for source_name, target_names in objDict.items():
+            source = system.findEndpoint(source_name)
+            if source:
+                for target_name in target_names:
+                    target = system.findEndpoint(target_name)
+                    if target:
+                        scg.addSystemConnection(source, target)
         return scg
 
 
 @dataclass
 class MicroserviceSystem:
-    microservices: list[Microservice] = field(hash=False)
+    microservices: typing.List[Microservice]
     systemConnections: SystemConnectionGraph
     name: str
-    systemRoles: dict[int | BitVecRef, str]
+    systemRoles: typing.Dict[int, str]
 
-    def findAllRepositoryInstances(self, repositoryName: str):
-        ret = []
+    def findEndpoint(self, name: str) -> typing.Union[Endpoint, None]:
         for ms in self.microservices:
             for endpoint in ms.endpoints:
-                for repo in endpoint.repositories:
-                    if repo.name == repositoryName:
-                        ret.append((endpoint, repo))
-        return ret
-
-    def findEndpoint(self, endpointName: str):
-        for ms in self.microservices:
-            for endpoint in ms.endpoints:
-                if endpoint.name == endpointName:
+                if endpoint.name == name:
                     return endpoint
         return None
 
-    def findEndpointByFuncName(self, funcName: str):
+    def findAllEndpointsWithGenericPath(self, partialPath: str, msName: str = None):
+        found = []
         for ms in self.microservices:
-            for endpoint in ms.endpoints:
-                if endpoint.funcName == funcName:
-                    return endpoint
-        return None
-
-    def findAllEndpointsWithGenericPath(self, endpointName: str, msName: str = ""):
-        endpoints = []
-        for ms in self.microservices:
-            if msName != "" and ms.name != msName:
+            if msName and ms.name != msName:
                 continue
             for endpoint in ms.endpoints:
-                name = endpoint.name
-                parts = endpointName.split("/**")
-                match = True
-                for part in parts:
-                    if part not in name:
-                        match = False
-                        break
-                    name = name[name.find(part) + len(part):]
-                if match and (name.startswith(("GET", "POST", "PUT", "DELETE", "PATCH", "/")) or name == ""):
-                    endpoints.append(endpoint)
-
-        return endpoints
+                if partialPath in endpoint.name:
+                    found.append(endpoint)
+        return found
 
     def populateBackReferences(self):
         self.systemConnections.parent = self
         for ms in self.microservices:
             ms.parent = self
             for endpoint in ms.endpoints:
-                ms.parent = endpoint
+                endpoint.parent = ms
                 for repo in endpoint.repositories:
                     repo.parent = endpoint
 
     def asDict(self):
         ms = [m.asDict() for m in self.microservices]
-
+        roles = {str(k): v for k, v in self.systemRoles.items()}
         return {"name": self.name,
-                "systemRoles": self.systemRoles,
+                "systemRoles": roles,
                 "microservices": ms,
                 "systemConnections": self.systemConnections.asDict()}
 
     @staticmethod
     def fromDict(objDict: dict):
-        msSystem = MicroserviceSystem([], SystemConnectionGraph(), "", {})
-        msSystem.name = objDict["name"]
-        for key, value in objDict["systemRoles"].items():
-            msSystem.systemRoles[int(key)] = value
-        msSystem.microservices = [Microservice.fromDict(msObj) for msObj in objDict["microservices"]]
-        msSystem.systemConnections = SystemConnectionGraph.fromDict(objDict["systemConnections"], msSystem)
-        for ms in msSystem.microservices:
-            ms.parent = msSystem
-        msSystem.systemConnections.parent = msSystem
-
+        roles = {}
+        if "systemRoles" in objDict:
+            for key, value in objDict["systemRoles"].items():
+                roles[int(key)] = value
+        
+        msSystem = MicroserviceSystem([], SystemConnectionGraph(), "", roles)
+        msSystem.name = objDict.get("name", "")
+        
+        if "microservices" in objDict:
+            msSystem.microservices = [Microservice.fromDict(msObj) for msObj in objDict["microservices"]]
+        
+        if "systemConnections" in objDict:
+            msSystem.systemConnections = SystemConnectionGraph.fromDict(objDict["systemConnections"], msSystem)
+        
+        msSystem.populateBackReferences()
         return msSystem
-
-
-def modelToJSON(filePath: str, model: MicroserviceSystem):
-    with open(filePath, "w") as outputFile:
-        json.dump(model.asDict(), outputFile, indent=3)
-
-
-def modelFromJSON(filePath: str) -> MicroserviceSystem:
-    with open(filePath, "r") as inputFile:
-        return MicroserviceSystem.fromDict(json.load(inputFile))
-
