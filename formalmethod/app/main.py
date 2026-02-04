@@ -1,8 +1,8 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks
-from app.models import VerificationRequest, VerificationResponse
-from app.services.git_manager import GitManager
-from app.services.verifier import run_verification
-import shutil
+from models import VerificationRequest, VerificationResponse
+from services.git_manager import GitManager
+from services.verifier import run_verification
+import traceback
 
 app = FastAPI(title="Formal Authorization Verifier")
 git_manager = GitManager()
@@ -24,8 +24,14 @@ def verify(request: VerificationRequest, background_tasks: BackgroundTasks):
         return result
 
     except Exception as e:
+        traceback.print_stack()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/health")
 def health():
     return {"status": "OK"}
+
+# Use for local testing
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=9000)

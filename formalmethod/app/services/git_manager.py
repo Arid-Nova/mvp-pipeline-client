@@ -33,8 +33,9 @@ class GitManager:
             else:
                 print(f"Checking out branch {branch}...")
                 repo.git.checkout(branch)
-                repo.remotes.origin.pull() # Pull latest if we are just on a branch
+                repo.remotes.origin.pull() 
 
+            print("Repo check out is successful.")
             return target_dir
 
         except Exception as e:

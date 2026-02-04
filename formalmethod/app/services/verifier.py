@@ -1,7 +1,7 @@
 import time
 from z3 import sat, unsat
-from app.core.solver.auth_solver import AuthorizationConsistencySolver
-from app.services.parser import getModelFromIRAndCode
+from core.solver.auth_solver import AuthorizationConsistencySolver
+from services.parser import getModelFromIRAndCode
 
 def run_verification(ir_data: dict, code_path: str):
     logs = []
@@ -11,6 +11,7 @@ def run_verification(ir_data: dict, code_path: str):
     logs.append("Building System Model...")
     msSystem = getModelFromIRAndCode(ir_data, code_path)
 
+    print(msSystem)
     logs.append("Initializing Solver...")
     solver_wrapper = AuthorizationConsistencySolver(msSystem)
     
