@@ -1,9 +1,23 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
 from .models import VerificationRequest, VerificationResponse
 from .services.git_manager import GitManager
 from .services.verifier import run_verification
 
 app = FastAPI(title="Formal Authorization Verifier")
+
+origins = [
+    "http://localhost:3000"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,   
+    allow_credentials=True,
+    allow_methods=["*"],        
+    allow_headers=["*"],        
+)
+
 git_manager = GitManager()
 
 @app.post("/verify", response_model=VerificationResponse)

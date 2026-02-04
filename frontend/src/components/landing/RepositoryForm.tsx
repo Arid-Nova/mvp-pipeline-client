@@ -131,7 +131,7 @@ const RepositoryForm: React.FC<Props> = ({ onIRLoaded, setLoading }) => {
 
                             {/* Commit ID */}
                             <div>
-                                <label className="block text-xs font-medium text-slate-300 mb-1">Commit ID (Optional)</label>
+                                <label className="block text-xs font-medium text-slate-300 mb-1">Commit ID</label>
                                 <input 
                                     type="text" 
                                     value={repo.commitID}

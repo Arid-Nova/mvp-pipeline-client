@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Routes, Route } from "react-router-dom";
 
+import VerificationResultPage from "./components/verification/VerificationResultPage";
 import {Notification, setNotificationCallback, showError, showSuccess} from "./utils/notifications"
 import getData from "./parsers/getData";
 import { setupAxios, setupLogger } from "./utils/axiosSetup";
@@ -324,13 +325,13 @@ function App(data: any) {
                 <Route 
                     path="/" 
                     element={
-                        // Logic: If no data, show Landing. If data exists, show Graph.
                         (typeof currentInstance === "undefined" || !graphData) 
                             ? renderLandingPage() 
                             : renderMainGraph()
                     } 
                 />
                 <Route path="/node" element={<NewPage />} />
+                <Route path="/verification-results" element={<VerificationResultPage />} />
             </Routes>
 
             {/* Toast is outside Routes to persist during navigation/state changes */}
