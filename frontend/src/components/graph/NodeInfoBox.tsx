@@ -9,6 +9,18 @@ type Props = {
     
 };
 
+const getRoleLabel = (mask: number) => {
+    switch (mask) {
+        case 0: return "None";
+        case 1: return "Unauthenticated";
+        case 2: return "User Only";
+        case 4: return "Admin Only ";
+        case 6: return "User + Admin Only";
+        case 7: return "Any Authenticated User";
+        default: return `Mask ${mask}`;
+    }
+};
+
 //Info box shown when you click on a link or a node
 export const InfoBox = (props: Props) => {
     const { anchorPoint, show, name, type, depends, 
@@ -248,6 +260,7 @@ export const InfoBox = (props: Props) => {
     // Check if type is not a microservice, which means it is a either a CONTROLLER or a SERVICE.
     else if (type != "microservice"){
         // Methods is not undefined if type is not a microservice and not a link.
+        const suggestion = props.focusNode?.suggestion;
         return(
         <ul
             className={`absolute flex-col top-[10%] left-[60%] z-50 p-4 max-h-96 w-96
@@ -282,6 +295,36 @@ export const InfoBox = (props: Props) => {
             </div>
 
             <div className="w-full h-px bg-slate-300 my-2"></div>
+
+            {suggestion && (
+                <div className="mb-4 mt-2 p-3 bg-red-50 border border-red-200 rounded-lg shadow-sm">
+                    <h5 className="text-red-600 font-bold text-sm flex items-center gap-2 mb-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                            <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
+                        </svg>
+                        Authorization Policy Violation
+                    </h5>
+                    
+                    <div className="grid grid-cols-2 gap-2 text-xs mb-3">
+                        <div className="bg-white p-2 rounded border border-red-100">
+                            <span className="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">Current</span>
+                            <span className="font-mono font-semibold text-slate-700">
+                                {getRoleLabel(suggestion.current_role_mask)}
+                            </span>
+                        </div>
+                        <div className="bg-white p-2 rounded border border-green-200 ring-1 ring-green-100">
+                            <span className="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">Suggested</span>
+                            <span className="font-mono font-bold text-green-600">
+                                {getRoleLabel(suggestion.suggested_role_mask)}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <p className="text-xs text-red-800 italic leading-relaxed">
+                        "{suggestion.description}"
+                    </p>
+                </div>
+            )}
             
             {type == 'method' ? (
                 <div>

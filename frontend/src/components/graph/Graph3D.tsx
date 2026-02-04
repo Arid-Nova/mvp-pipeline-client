@@ -39,6 +39,10 @@ type Props = {
     verificationSuggestions?: any[];
 };
 
+const cleanNodeId = (id: string) => {
+    if (!id) return "";
+    return id.replace(/_\d+$/, ''); 
+};
 const Graph: React.FC<Props> = ({
     width,
     height,
@@ -108,24 +112,25 @@ const Graph: React.FC<Props> = ({
 
             let visibleNodes;
 
-            // 1. Verification Mode Override: Ensure suggestions are visible
+            // VERIFICATION MODE OVERRIDE
             if (verificationSuggestions && verificationSuggestions.length > 0) {
-                const suggestedNodeNames = new Set(verificationSuggestions.map(s => s.endpoint_name));
+                const suggestedIds = new Set(verificationSuggestions.map(s => s.id));
                 
                 visibleNodes = allNodes.filter((node: any) => {
-                    // Always show structure (MS/Service/Controller) so endpoints aren't floating in void
-                    if (['microservice', 'controller', 'service'].includes(node.nodeType)) return true;
-                    // Show the specific endpoints involved in verification
-                    if (suggestedNodeNames.has(node.nodeName)) return true;
+                    // 1. Always show structure
+                    if (['microservice', 'controller', 'method'].includes(node.nodeType)) return true;
+                    
+                    // 2. Check for match on the ID
+                    const cleanName = cleanNodeId(node.nodeName);
+                    if (suggestedIds.has(node.nodeName) || suggestedIds.has(cleanName)) return true;
+
                     return false;
                 });
             } 
-            // 2. High Level Expansion (Hide Methods)
+            // STANDARD FILTER LOGIC
             else if (isHighLevelExpanded) {
                 visibleNodes = allNodes.filter((node: any) => node.nodeType !== 'method');
-            } 
-            // 3. Selective Expansion (Default)
-            else {
+            } else {
                 const relevantUsesLinks = allLinks.filter((link: any) =>
                     link.nodeType === 'uses' && 
                     allNodes.find((n: any) => (n.nodeName === (link.source.nodeName || link.source)) && expandedNodes.has(n.parentMicroservice))
@@ -201,6 +206,16 @@ const Graph: React.FC<Props> = ({
         document.dispatchEvent(event);
     }, []);
 
+        const getSuggestionForNode = (nodeName: string) => {
+        if (!suggestionMap) return null;
+        // 1. Exact Match
+        if (suggestionMap.has(nodeName)) return suggestionMap.get(nodeName);
+        // 2. Cleaned Match (remove _0)
+        const cleanName = cleanNodeId(nodeName);
+        if (suggestionMap.has(cleanName)) return suggestionMap.get(cleanName);
+        return null;
+    };
+
     // On node left click - zoom in on the node and pull up info box
     const handleNodeClick = useCallback((node: any) => {
         // If a timeout is already running, it means this is a double-click
@@ -218,27 +233,28 @@ const Graph: React.FC<Props> = ({
                         node,
                         1000
                     );
-                    
-                    const event = new CustomEvent("nodeClick", {
-                        detail: { node: node },
-                    });
+
+                    const suggestion = getSuggestionForNode(node.nodeName);
+                    const nodePayload = suggestion ? { ...node, suggestion } : node;
+
+                    const event = new CustomEvent("nodeClick", { detail: { node: nodePayload } });
                     document.dispatchEvent(event);
                 }
                 clickTimeoutRef.current = null;
             }, 300); // 300ms is a standard double-click threshold
         }
-    }, [graphRef, handleNodeDoubleClick]);
+    }, [graphRef, handleNodeDoubleClick, getSuggestionForNode]);
 
     // Verification suggestion map
     const suggestionMap = useMemo(() => {
         if (!verificationSuggestions) return null;
         const map = new Map();
         verificationSuggestions.forEach(sugg => {
-            map.set(sugg.endpoint_name, sugg);
+            map.set(sugg.id, sugg); 
         });
         return map;
     }, [verificationSuggestions]);
-    
+
     return (
         <ForceGraph3D
             ref={graphRef}
@@ -268,16 +284,21 @@ const Graph: React.FC<Props> = ({
             }}
             nodeThreeObject={(node: any) => {
                 // 1. Checking if in Verification Mode
-                const suggestion = suggestionMap ? suggestionMap.get(node.nodeName) : null;
+                const suggestion = getSuggestionForNode(node.nodeName);
                 const isVerificationMode = suggestionMap !== null;
 
                 // 2. Determine Color
                 let color;
                 if (isVerificationMode) {
                     if (suggestion) {
-                        color = "#ef4444"; // RED for violations
+                        color = "#f43e3e"; // RED for violations
                     } else {
-                        color = "#374151"; // GRAY (Dimmed) for non-relevant nodes
+                        color = getColor(
+                            node, sharedProps.graphData, threshold, highlightNodes,
+                            hoverNode, defNodeColor, setDefNodeColor, antiPattern,
+                            colorMode, selectedAntiPattern, trackNodes, focusNode, trackChanges
+                        );
+                        // color = "#acb8c8"; // GRAY (Dimmed) for non-relevant nodes
                     }
                 } else {
                     color = getColor(
@@ -295,7 +316,11 @@ const Graph: React.FC<Props> = ({
                 } else if (nodeType === "CONTROLLER" || nodeType === "SERVICE") {
                     geometry = new THREE.SphereGeometry(5);
                 } else if (nodeType === "METHOD") {
-                    geometry = new THREE.SphereGeometry(4);
+                    if(suggestion){
+                        geometry = new THREE.SphereGeometry(10);
+                    } else {
+                        geometry = new THREE.SphereGeometry(4);
+                    }
                 } else if (nodeType === "ENTITY") {
                     geometry = new THREE.BoxGeometry(10, 10, 10); 
                 } 
@@ -303,7 +328,7 @@ const Graph: React.FC<Props> = ({
                 // 4. Opacity Logic
                 let opacity = getNodeOpacity(node, search, highlightNodes, focusNode);
                 if (isVerificationMode && !suggestion) {
-                    opacity = 0.4; // Hiding irrelevant nodes in Verification Mode
+                    opacity = 0.6; 
                 }
 
                 const material = new THREE.MeshLambertMaterial({
@@ -316,9 +341,11 @@ const Graph: React.FC<Props> = ({
 
                 // 5. Label / Annotation Logic
                 let labelText = node.displayName || node.nodeName;
-                if (suggestion) {
-                    labelText += ` [Role: ${suggestion.current_role_mask} → ${suggestion.suggested_role_mask}]`;
-                }
+                // if (suggestion) {
+                //     const current = getRoleLabel(suggestion.current_role_mask);
+                //     const suggested = getRoleLabel(suggestion.suggested_role_mask);
+                //     labelText += ` need to change from ${current} → ${suggested}.`;
+                // }
 
                 const sprite = new SpriteText(labelText);
                 sprite.material.depthWrite = false;
@@ -328,8 +355,8 @@ const Graph: React.FC<Props> = ({
                 if (suggestion) {
                     sprite.color = "#ffffff"; 
                     sprite.textHeight = 18; 
-                    sprite.backgroundColor = "rgba(239, 68, 68, 0.5)"; 
-                    sprite.padding = 2;
+                    sprite.backgroundColor = "rgba(238, 91, 91, 0.5)"; 
+                    sprite.padding = 5;
                 } else {
                     sprite.color = textColor.getStyle();
                     sprite.material.opacity = material.opacity;
@@ -361,7 +388,7 @@ const Graph: React.FC<Props> = ({
             // 6. Link Styling for Verification Mode
             linkColor={(link) => {
                 if (suggestionMap) {
-                    return "rgba(100,100,100, 0.4)";
+                    return "rgba(215, 211, 211, 0.81)";
                 }
                 switch (link.nodeType) {
                     case 'uses': return 'rgba(65, 68, 249, 0.7)'; // Controller/Service -> Entity

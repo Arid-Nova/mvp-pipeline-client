@@ -215,7 +215,7 @@ const VerificationResultPage = () => {
                                 UNSAT Suggestions
                             </h3>
                             <p className="text-xs text-slate-300 mb-4">
-                                Red nodes represent endpoints violating security policies.
+                                Red nodes represent endpoints violate authorization policy consistency.
                                 <br/>Labels show [Current → Suggested] roles.
                             </p>
                             <div className="text-xs text-slate-500">
