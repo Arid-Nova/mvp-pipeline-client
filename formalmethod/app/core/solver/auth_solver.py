@@ -1,10 +1,8 @@
 from z3 import *
 
-from core.ms_system import Endpoint, MicroserviceSystem
+from ..ms_system import Endpoint, MicroserviceSystem
 
 class AuthorizationConsistencySolver:
-    # CONSTRUCTOR =================================================================================
-
     def __init__(self, microserviceSystem: MicroserviceSystem):
         self.microserviceSystem = copy.deepcopy(microserviceSystem)
         self.variableSystem = copy.deepcopy(microserviceSystem)
@@ -14,8 +12,7 @@ class AuthorizationConsistencySolver:
             for endpoint in ms.endpoints:
                 endpoint.allowedRoles = BitVec(f"{endpoint.name}_permittedRoles", len(self.variableSystem.systemRoles))
 
-    # HELPER FUNCTIONS ============================================================================
-
+    # Helper Function
     def bfs(self, exclude: list[str], current_endpoint: Endpoint):
         ret = []
         if current_endpoint not in self.variableSystem.systemConnections.connectionMap:
@@ -35,8 +32,7 @@ class AuthorizationConsistencySolver:
     def authorizedRoleMet(self, userRole, requiredRoles):
         return (userRole & requiredRoles) == userRole
 
-    # CONSTRAINTS =================================================================================
-
+    # Constraint Definition
     def addAtLeastOnePermittedRoleConstraints(self):
         for ms in self.variableSystem.microservices:
             for endpoint in ms.endpoints:
@@ -78,7 +74,7 @@ class AuthorizationConsistencySolver:
                             continue
                         otherEntitiesConstraints.append(self.notASuperSet(found.accessedMethods, extraRepo.accessedMethods))
 
-                    # Make sure that there's no admin-only endpoint, etc. calls that could cause a false positive
+                    # Making sure that there are no admin-only endpoint, etc. calls that could cause a false positive
                     if e2 not in skPermittedCache:
                         nextEndpoints = [e2]
                         visited = []
@@ -112,8 +108,7 @@ class AuthorizationConsistencySolver:
                                         Or(skPermittedConstraints),
                                         Or(otherEntitiesConstraints)]))
 
-    # SOLVERS =====================================================================================
-
+    # Solvers
     def clearSolver(self):
         self.constraints = []
 
