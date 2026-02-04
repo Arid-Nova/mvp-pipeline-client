@@ -36,6 +36,7 @@ type Props = {
     expandedNodes: Set<string>;
     isHighLevelExpanded: boolean;
     setExpandedNodes: React.Dispatch<React.SetStateAction<Set<string>>>;
+    verificationSuggestions?: any[];
 };
 
 const Graph: React.FC<Props> = ({
@@ -59,7 +60,8 @@ const Graph: React.FC<Props> = ({
     trackChanges,
     expandedNodes,
     setExpandedNodes,
-    isHighLevelExpanded
+    isHighLevelExpanded,
+    verificationSuggestions,
 }) => {
     const [highlightNodes, setHighlightNodes] = useState<Set<string>>(new Set());
     const [highlightLinks, setHighlightLinks] = useState<Set<string>>(new Set());
@@ -211,6 +213,16 @@ const Graph: React.FC<Props> = ({
             }, 300); // 300ms is a standard double-click threshold
         }
     }, [graphRef, handleNodeDoubleClick]);
+
+    // Verification suggestion map
+    const suggestionMap = useMemo(() => {
+        if (!verificationSuggestions) return null;
+        const map = new Map();
+        verificationSuggestions.forEach(sugg => {
+            map.set(sugg.endpoint_name, sugg);
+        });
+        return map;
+    }, [verificationSuggestions]);
     
     return (
         <ForceGraph3D
@@ -240,12 +252,27 @@ const Graph: React.FC<Props> = ({
                 document.dispatchEvent(event);
             }}
             nodeThreeObject={(node: any) => {
-                const color = getColor(
-                    node, sharedProps.graphData, threshold, highlightNodes,
-                    hoverNode, defNodeColor, setDefNodeColor, antiPattern,
-                    colorMode, selectedAntiPattern, trackNodes, focusNode, trackChanges
-                );
+                // 1. Checking if in Verification Mode
+                const suggestion = suggestionMap ? suggestionMap.get(node.nodeName) : null;
+                const isVerificationMode = suggestionMap !== null;
+
+                // 2. Determine Color
+                let color;
+                if (isVerificationMode) {
+                    if (suggestion) {
+                        color = "#ef4444"; // RED for violations
+                    } else {
+                        color = "#374151"; // GRAY (Dimmed) for non-relevant nodes
+                    }
+                } else {
+                    color = getColor(
+                        node, sharedProps.graphData, threshold, highlightNodes,
+                        hoverNode, defNodeColor, setDefNodeColor, antiPattern,
+                        colorMode, selectedAntiPattern, trackNodes, focusNode, trackChanges
+                    );
+                }
                 
+                // 3. Geometry Logic
                 let geometry;
                 let nodeType = node["nodeType"]?.toUpperCase();
                 if (nodeType === "MICROSERVICE") {
@@ -258,22 +285,47 @@ const Graph: React.FC<Props> = ({
                     geometry = new THREE.BoxGeometry(10, 10, 10); 
                 } 
 
+                // 4. Opacity Logic
+                let opacity = getNodeOpacity(node, search, highlightNodes, focusNode);
+                if (isVerificationMode && !suggestion) {
+                    opacity = 0.4; // Hiding irrelevant nodes in Verification Mode
+                }
+
                 const material = new THREE.MeshLambertMaterial({
                     transparent: true,
                     color: color,
-                    opacity: getNodeOpacity(node, search, highlightNodes, focusNode),
+                    opacity: opacity,
                 });
+
                 const mesh = new THREE.Mesh(geometry, material);
-                const sprite = new SpriteText(node.displayName || node.nodeName);
+
+                // 5. Label / Annotation Logic
+                let labelText = node.displayName || node.nodeName;
+                if (suggestion) {
+                    labelText += ` [Role: ${suggestion.current_role_mask} → ${suggestion.suggested_role_mask}]`;
+                }
+
+                const sprite = new SpriteText(labelText);
                 sprite.material.depthWrite = false;
                 const textColor = new THREE.Color(color);
-                sprite.color = textColor.getStyle();
-                sprite.material.opacity = material.opacity;
-                sprite.textHeight = 14;
+
+                // Making annotation bright white/red if suggested
+                if (suggestion) {
+                    sprite.color = "#ffffff"; 
+                    sprite.textHeight = 18; 
+                    sprite.backgroundColor = "rgba(239, 68, 68, 0.5)"; 
+                    sprite.padding = 2;
+                } else {
+                    sprite.color = textColor.getStyle();
+                    sprite.material.opacity = material.opacity;
+                    sprite.textHeight = 14;
+                }
+
                 sprite.position.set(0, 15, 0);
                 mesh.add(sprite);
                 return mesh;
             }}
+
             nodeThreeObjectExtend={false}
             onNodeDragEnd={(node) => {
                 if (node.x && node.y && node.z) {
@@ -290,7 +342,12 @@ const Graph: React.FC<Props> = ({
                     link, search, highlightLinks, antiPattern, selectedAntiPattern
                 )
             }
-            linkColor={(link) =>{
+
+            // 6. Link Styling for Verification Mode
+            linkColor={(link) => {
+                if (suggestionMap) {
+                    return "rgba(100,100,100, 0.4)";
+                }
                 switch (link.nodeType) {
                     case 'uses': return 'rgba(65, 68, 249, 0.7)'; // Controller/Service -> Entity
                     case 'dependency': return 'rgba(255, 165, 0, 0.7)'; // Controller -> Service
@@ -302,6 +359,7 @@ const Graph: React.FC<Props> = ({
                         );
                 }
             }}
+
             linkDirectionalArrowLength={(link) => link.nodeType === 'link' ? 10 : 0}
             linkDirectionalArrowRelPos={sharedProps.linkDirectionalArrowRelPos}
             linkDirectionalArrowColor={(link) =>
