@@ -75,6 +75,7 @@ def extract_suggestions(model, msSystem):
             if endpoint_obj and suggested_mask != endpoint_obj.allowedRoles:
                 results.append({
                     "endpoint_name": endpoint_name,
+                    "id": endpoint_obj.funcName,
                     "current_role_mask": endpoint_obj.allowedRoles,
                     "suggested_role_mask": suggested_mask,
                     "description": f"Change permitted roles for {endpoint_name} from {endpoint_obj.allowedRoles} to {suggested_mask}"

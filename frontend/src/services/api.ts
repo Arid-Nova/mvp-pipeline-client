@@ -24,6 +24,7 @@ export interface VerificationInput {
 
 export interface Suggestion {
     endpoint_name: string;
+    id: string;
     current_role_mask: number;
     suggested_role_mask: number;
     description: string;

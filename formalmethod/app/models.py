@@ -10,6 +10,7 @@ class VerificationRequest(BaseModel):
 
 class Suggestion(BaseModel):
     endpoint_name: str
+    id: str
     current_role_mask: int
     suggested_role_mask: int
     description: str
