@@ -1,8 +1,8 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from models import VerificationRequest, VerificationResponse
-from services.git_manager import GitManager
-from services.verifier import run_verification
+from .models import VerificationRequest, VerificationResponse
+from .services.git_manager import GitManager
+from .services.verifier import run_verification
 
 app = FastAPI(title="Formal Authorization Verifier")
 

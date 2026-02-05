@@ -6,7 +6,7 @@ from pathlib import Path
 from itertools import chain
 
 # Import core models
-from core.ms_system import (
+from ..core.ms_system import (
     MicroserviceSystem, 
     SystemConnectionGraph, 
     Microservice, 

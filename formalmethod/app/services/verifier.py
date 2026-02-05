@@ -1,7 +1,7 @@
 import time
 from z3 import sat, unsat
-from core.solver.auth_solver import AuthorizationConsistencySolver
-from services.parser import getModelFromIRAndCode
+from ..core.solver.auth_solver import AuthorizationConsistencySolver
+from ..services.parser import getModelFromIRAndCode
 
 def run_verification(ir_data: dict, code_path: str):
     logs = []
@@ -78,6 +78,15 @@ def extract_suggestions(model, msSystem):
                     "id": endpoint_obj.funcName,
                     "current_role_mask": endpoint_obj.allowedRoles,
                     "suggested_role_mask": suggested_mask,
-                    "description": f"Change permitted roles for {endpoint_name} from {endpoint_obj.allowedRoles} to {suggested_mask}"
+                    "description": f"Change permitted roles for {endpoint_name} from {roleMap(endpoint_obj.allowedRoles)} to {roleMap(suggested_mask)}"
                 })
     return results
+
+def roleMap(role_mask):
+    if role_mask == 0: return "None"
+    if role_mask == 1: return "Unauthenticated"
+    if role_mask == 2: return "User Only"
+    if role_mask == 4: return "Admin Only"
+    if role_mask == 6: return "User + Admin Only"
+    if role_mask == 7: return "Any Authenticated User"
+    return role_mask
