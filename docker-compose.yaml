@@ -58,12 +58,18 @@ services:
       - "7474:7474" 
       - "7687:7687" 
     environment:
-      - NEO4J_AUTH=neo4j/$BCrocks
+      - NEO4J_AUTH=neo4j/Test1234
       - NEO4J_dbms_memory_pagecache_size=512M
     networks:
       - app_network
     volumes:
       - neo4j_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   aegis_api:
     build:
@@ -75,16 +81,15 @@ services:
       - "8900:8900"
     environment:
       - PYTHONUNBUFFERED=1
-    volumes:
-      - ./security_analysis/config.ini:/app/config.ini
     depends_on:
-      - aegis_neo4j
+      aegis_neo4j:
+        condition: service_healthy
     networks:
       - app_network
 
   aegis_dashboard:
     build:
-      context: ./security_analysis
+      context: ./aegis
       dockerfile: Dockerfile
     container_name: aegis_dashboard
     command: flask run --host=0.0.0.0 --port=5600
@@ -94,12 +99,9 @@ services:
       - PYTHONUNBUFFERED=1
     ports:
       - "5600:5600"
-    volumes:
-      - ./aegis/config.ini:/app/config.ini
-      - ./aegis/configs:/app/configs
-      - ./aegis/sonar_results_2.json:/app/sonar_results_2.json
     depends_on:
-      - aegis_neo4j
+      aegis_neo4j:
+        condition: service_healthy
     networks:
       - app_network
 
