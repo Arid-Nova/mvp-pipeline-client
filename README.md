@@ -1,11 +1,24 @@
-# Microservice Visualization Platform (MVP)
+# CloudHubs Microservice System Tool Explorer
 
-Our architecture visualization proof-of-concept aims to provide an interactive visualization framework for cloud native systems. Currently, the web-based application takes a JSON file describing the microservice-based system in the abstract terms of nodes and links and generates a high-level 2D and 3D perspective of the system. The resulting perspectives are highly customizable and interactive to allow for control over the holistic system view.
 
-## Getting Started
-`node v18.x.x` `java 19`
+A comprehensive platform for visualizing, verifying, and introspecting microservice architectures. This tool combines 3D architectural visualization with formal verification and neuro-symbolic risk analysis to provide a holistic view of system posture and security.
 
-# Running the Microservice Visualization Platform (MVP) with Docker
+## Core Modules
+### 1. CIMET IR Visualizer
+
+An interactive 3D environment for exploring microservice architecture. We use 3D Force-Directed Graph to Visualize complex microservice relationships (nodes, databases, gateways) in a 3D space. Users can generate graphs by parsing code repositories or uploading custom Intermediate Representation (IR) JSON files.
+
+### 2. Formal Verification
+
+A solver-based module for ensuring security policy consistency. First and foremost, this feature verifies if authorization policies are consistent across the entire distributed system. If this identifies conflicting access controls between different microservices, we will suggest what, where the changes need to be made. These changes are shown either in a list view or in the 3D microservie archietcture graph. 
+
+### 3. Aegis Introspection Engine
+
+A neuro-symbolic analysis tool for detecting latent vulnerabilities and analyzing architectural risk. We present a Risk Cloud (2D/3D) that visualizes system risk using Subjective Logic (Belief, Disbelief, Uncertainty). Furtehr we visualize an interactive Call Graphs that Drill down into specific distributed paths to view method-level call chains and data access patterns.
+
+Another feature is Vulnerability Reporting. We display specific security findings with confidence scores, categorized by "Risk Increasing" or "Risk Decreasing" factors.
+
+# Running the MVP with Docker
 
 This guide will help you run the Microservice Visualization Platform (MVP) using Docker.
 
@@ -48,19 +61,29 @@ Ensure you have the following installed on your machine:
 
     ```
     http://localhost:8080
-	http://localhost:8080/graph/test (for testing the backend)
+	http://localhost:8900
+    http://localhost:5600
     ```
 
 	The MariaDB database will be running on port 3306. Please make sure the root password is set correctly and the database name is `msGraph`. The connection URL should be:
 	```
 	jdbc:mariadb://mvp_db:3306/msGraph
 	```
+    The Neo4J database will be running on port 7687. Please make sure the root password is set correctly and the database name is `neo4j`. The connection URL should be:
+	```
+	bolt://aegis_neo4j:7687
+	```
 
 ## Docker containers
 The following Docker containers are used in the MVP:
 - `mvp_frontend`: The frontend service built using React.
 - `mvp_backend`: The backend service built using Spring Boot.
+- `mvp_backend`: The service for executing formal verification of the microservice system.
+- `aegis_dashboard`: The frontend service of the Aegis introspection engine.
+- `aegis_api`: The backend service of the Aegis introspection engine.
 - `mvp_db`: The MariaDB database service.
+- `aegis_neo4j`: The Neo4J database service.
+
 You can view the logs of the running containers using the following command:
 ```sh
 docker-compose logs -f
