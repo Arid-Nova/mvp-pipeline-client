@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import IRFileUpload from '../IRFileUpload'; 
 import RepositoryForm from './RepositoryForm';
-import VerificationCard from './VerificationCard'; // New Component
+import VerificationCard from './VerificationCard'; 
 import { showError } from '../../utils/notifications';
 
 interface Props {
@@ -10,7 +10,7 @@ interface Props {
 
 const LandingPage: React.FC<Props> = ({ onIRLoaded }) => {
     // Top level mode: 'visualize' OR 'verify'
-    const [mode, setMode] = useState<'visualize' | 'verify'>('visualize');
+    const [mode, setMode] = useState<'visualize' | 'verify' | 'aegis'>('visualize');
     
     // Sub-tabs for Visualizer
     const [vizTab, setVizTab] = useState<'upload' | 'repo'>('upload');
@@ -28,6 +28,36 @@ const LandingPage: React.FC<Props> = ({ onIRLoaded }) => {
         }
     };
 
+    const handleAegisUpload = async (file: File) => {
+        setLoading(true);
+        try {
+            const text = await file.text();
+            const json = JSON.parse(text); 
+
+            const response = await fetch('http://localhost:8900/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(json)
+            });
+
+            if (response.ok) {
+                window.location.href = 'http://localhost:5600/visualize';
+            } else {
+                throw new Error(`Engine returned status ${response.status}`);
+            }
+
+        } catch (error: any) {
+            showError(`Aegis Analysis Failed: ${error.message}`);
+            setLoading(false); 
+        }
+    };
+
+    const getLoadingText = () => {
+        if (mode === 'verify') return "Running formal verification solver...";
+        if (mode === 'aegis') return "Aegis engine analyzing introspection data...";
+        return "Parsing system architecture...";
+    };
+
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 text-white">
@@ -36,7 +66,7 @@ const LandingPage: React.FC<Props> = ({ onIRLoaded }) => {
                     Processing...
                 </h2>
                 <p className="text-slate-400 mt-2">
-                    {mode === 'verify' ? "Running formal verification solver..." : "Parsing system architecture..."}
+                    {getLoadingText()}
                 </p>
             </div>
         );
@@ -46,9 +76,22 @@ const LandingPage: React.FC<Props> = ({ onIRLoaded }) => {
         <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 relative overflow-hidden font-sans">
              {/* Background Blob Decoration */}
             <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-                <div className={`absolute transition-all duration-1000 top-1/4 ${mode==='visualize'?'left-1/4 bg-blue-500/10':'left-3/4 bg-emerald-500/10'} w-96 h-96 rounded-full blur-3xl`}></div>
-                <div className={`absolute transition-all duration-1000 bottom-1/4 ${mode==='visualize'?'right-1/4 bg-violet-500/10':'right-3/4 bg-teal-500/10'} w-96 h-96 rounded-full blur-3xl`}></div>
+                <div className={`absolute transition-all duration-1000 top-1/4 w-96 h-96 rounded-full blur-3xl
+                    ${mode === 'visualize' ? 'left-1/4 bg-blue-500/10' : 
+                      mode === 'verify' ? 'left-3/4 bg-emerald-500/10' : 
+                      'left-1/2 bg-amber-500/10' }
+                `}></div>
+                <div className={`absolute transition-all duration-1000 bottom-1/4 w-96 h-96 rounded-full blur-3xl
+                    ${mode === 'visualize' ? 'right-1/4 bg-violet-500/10' : 
+                      mode === 'verify' ? 'right-3/4 bg-teal-500/10' : 
+                      'right-1/2 bg-rose-500/10'}
+                `}></div>
             </div>
+
+            {/* GLOBAL TITLE */}
+            <h1 className="relative z-10 text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-violet-400 to-emerald-400 mb-12 text-center drop-shadow-lg tracking-tight px-4">
+                CloudHubs Microservice System Tool Explorer
+            </h1>
 
             {/* MAIN CARD CONTAINER */}
             <div className="relative z-10 w-full max-w-5xl bg-slate-800/40 backdrop-blur-xl border border-slate-700/50 rounded-3xl shadow-2xl overflow-hidden flex flex-col">
@@ -72,6 +115,15 @@ const LandingPage: React.FC<Props> = ({ onIRLoaded }) => {
                             : 'bg-transparent text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}
                     >
                         Formal Verification
+                    </button>
+                    <button 
+                        onClick={() => setMode('aegis')}
+                        className={`flex-1 py-6 text-lg font-bold uppercase tracking-wider transition-all duration-300
+                        ${mode === 'aegis' 
+                            ? 'bg-slate-800/80 text-amber-400 border-b-4 border-amber-500' 
+                            : 'bg-transparent text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}
+                    >
+                        Aegis Introspection
                     </button>
                 </div>
 
@@ -110,6 +162,25 @@ const LandingPage: React.FC<Props> = ({ onIRLoaded }) => {
                                     Verify whether the microservice authorization policy is consistent across the system.
                                 </p>
                                 <VerificationCard setLoading={setLoading} />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* CARD 3: AEGIS */}
+                    {mode === 'aegis' && (
+                        <div className="animate-in fade-in slide-in-from-right-4 duration-300 h-full flex flex-col items-center flex-1">
+                            <div className="text-center mb-10 max-w-2xl">
+                                <h3 className="text-2xl font-semibold text-amber-400 mb-2">Neuro-Symbolic Introspection Engine</h3>
+                                <p className="text-slate-400">
+                                    Upload an Intermediate Representation to detect latent vulnerabilities via the Aegis engine.
+                                </p>
+                            </div>
+                            
+                            <div className="w-full max-w-3xl flex-1 flex flex-col justify-center">
+                                <IRFileUpload 
+                                    onFileSelect={handleAegisUpload} 
+                                    fullscreen={true}
+                                />
                             </div>
                         </div>
                     )}

@@ -50,10 +50,63 @@ services:
       - app_network
     volumes:
       - verifier_cache:/tmp/ms_verifier_cache
+  
+  aegis_neo4j:
+    image: neo4j:5-community
+    container_name: aegis_neo4j
+    ports:
+      - "7474:7474" 
+      - "7687:7687" 
+    environment:
+      - NEO4J_AUTH=neo4j/$BCrocks
+      - NEO4J_dbms_memory_pagecache_size=512M
+    networks:
+      - app_network
+    volumes:
+      - neo4j_data:/data
+
+  aegis_api:
+    build:
+      context: ./aegis
+      dockerfile: Dockerfile
+    container_name: aegis_api
+    command: uvicorn service:app --host 0.0.0.0 --port 8900
+    ports:
+      - "8900:8900"
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./security_analysis/config.ini:/app/config.ini
+    depends_on:
+      - aegis_neo4j
+    networks:
+      - app_network
+
+  aegis_dashboard:
+    build:
+      context: ./security_analysis
+      dockerfile: Dockerfile
+    container_name: aegis_dashboard
+    command: flask run --host=0.0.0.0 --port=5600
+    environment:
+      - FLASK_APP=frontend.py
+      - FLASK_DEBUG=1
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "5600:5600"
+    volumes:
+      - ./aegis/config.ini:/app/config.ini
+      - ./aegis/configs:/app/configs
+      - ./aegis/sonar_results_2.json:/app/sonar_results_2.json
+    depends_on:
+      - aegis_neo4j
+    networks:
+      - app_network
 
 volumes:
   mariadb_data:
   verifier_cache:
+  neo4j_data:
 
 networks:
   app_network:

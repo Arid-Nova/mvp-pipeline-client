@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Aegis - Visualization Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js"></script>
+    <style>
+        .viz-container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .controls {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .slider-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            width: 200px; 
+        }
+        
+        .slider-label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-light);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none; 
+            width: 100%;
+            background: transparent; 
+            padding: 0; 
+            border: none; 
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            cursor: pointer;
+            margin-top: -6px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: transform 0.1s;
+        }
+
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #E5E7EB; 
+            border-radius: 2px;
+        }
+
+        input[type=range]:focus {
+            outline: none;
+        }
+
+        input[type=range]::-moz-range-thumb {
+            height: 16px;
+            width: 16px;
+            border: none;
+            border-radius: 50%;
+            background: var(--primary-color);
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        input[type=range]::-moz-range-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #E5E7EB;
+            border-radius: 2px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .tab-btn {
+            background: white;
+            border: 1px solid var(--border-color);
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--text-light);
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .chart-card {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border-color);
+            height: 700px;
+            position: relative;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: var(--text-light);
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.2rem;
+            color: var(--text-light);
+        }
+
+        #call-graph-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            display: flex;
+            gap: 1rem;
+        }
+
+        #call-graph-container.hidden {
+            display: none !important;
+        }
+
+        #call-graph {
+            flex: 1;
+            min-width: 0;
+        }
+
+        #vulnerabilities-panel {
+            width: 350px;
+            background: white;
+            border-left: 2px solid var(--border-color);
+            padding: 1.5rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .vuln-header {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .vuln-stats {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .vuln-stat {
+            text-align: center;
+            flex: 1;
+        }
+
+        .vuln-stat-value {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--danger-color);
+        }
+
+        .vuln-stat-label {
+            font-size: 0.75rem;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .vuln-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .vuln-item {
+            background: #FEF2F2;
+            border-left: 4px solid var(--danger-color);
+            padding: 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+
+        .vuln-item:hover {
+            background: #FEE2E2;
+            transform: translateX(4px);
+        }
+
+        .vuln-item.positive {
+            background: #F0FDF4;
+            border-left-color: var(--success-color);
+        }
+
+        .vuln-item.positive:hover {
+            background: #DCFCE7;
+        }
+
+        .vuln-finding {
+            color: var(--text-primary);
+            line-height: 1.5;
+            margin-bottom: 0.5rem;
+        }
+
+        .vuln-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            color: var(--text-light);
+        }
+
+        .vuln-confidence {
+            background: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .vuln-context {
+            font-style: italic;
+        }
+
+        .empty-vulns {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-light);
+        }
+
+        .empty-vulns-icon {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+            opacity: 0.5;
+        }
+
+        .graph-header {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            z-index: 1000;
+            max-width: 400px;
+        }
+
+        .graph-header h3 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1rem;
+            color: var(--text-primary);
+        }
+
+        .graph-header p {
+            margin: 0;
+            font-size: 0.85rem;
+            color: var(--text-light);
+        }
+
+        .close-graph-btn {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+        }
+
+        .close-graph-btn:hover {
+            background: #2563EB;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        .graph-legend {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: white;
+            padding: 1.25rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            z-index: 1000;
+            font-size: 0.85rem;
+            border: 1px solid #E5E7EB;
+        }
+
+        .legend-title {
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+            color: #1F2937;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .legend-section {
+            margin-bottom: 1rem;
+        }
+
+        .legend-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .legend-section-title {
+            font-weight: 600;
+            font-size: 0.75rem;
+            color: #6B7280;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        .legend-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .legend-color {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            border: 2px solid;
+            flex-shrink: 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .legend-line {
+            width: 30px;
+            height: 3px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        .legend-line.dashed {
+            background: linear-gradient(to right, currentColor 50%, transparent 50%);
+            background-size: 8px 3px;
+        }
+
+        .legend-line.dotted {
+            background: linear-gradient(to right, currentColor 33%, transparent 33%);
+            background-size: 6px 3px;
+        }
+
+        .back-nav-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center; 
+            gap: 0.75rem;            
+            background: white;
+            color: var(--text-light);
+            border: 1px solid var(--border-color);
+            padding: 0.75rem 2rem;   
+            min-width: 180px;      
+            border-radius: 8px;
+            font-weight: 600;
+            text-decoration: none;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .back-nav-btn:hover {
+            background: #F3F4F6;
+            color: var(--primary-color);
+            transform: translateX(-3px); 
+            border-color: var(--primary-color);
+        }
+
+        .back-nav-btn.bottom {
+            margin-top: 2rem;
+            margin-bottom: 0;
+        }
+        
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="viz-container">
+        <a href="http://localhost:3000" class="back-nav-btn">
+            ← Back to Home
+        </a>
+
+        <div class="dashboard-header">
+            <div>
+                <h1>System Introspection</h1>
+                <p>Visualizing Metaphoric Risk & Architectural Posture</p>
+            </div>
+            
+            <div class="controls">
+                <div class="slider-container">
+                    <label class="slider-label" for="base-rate">Base Rate (a): <span id="base-rate-val">0.5</span></label>
+                    <input type="range" id="base-rate" name="base-rate" min="0" max="1" step="0.1" value="0.5" oninput="updateBaseRate(this.value)">
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="stat-endpoints">0</div>
+                <div class="stat-label">Analyzed Call Graphs</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-risk">0.0</div>
+                <div class="stat-label">Avg. Probability Expectation E(O)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-critical">0</div>
+                <div class="stat-label">Critical Findings (Low E(O))</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-conflicts">0</div>
+                <div class="stat-label">Technical-Business Conflicts</div>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('risk-cloud')">☁️ Risk Cloud (2D)</button>
+            <button class="tab-btn" onclick="switchTab('arch-map')">☁️ Risk Cloud (3D)</button>
+            <button class="tab-btn hidden" id="call-graph-tab" onclick="switchTab('call-graph')">🔗 Call Graph</button>
+        </div>
+
+        <div class="chart-card">
+            <div id="loading">Loading analysis data...</div>
+            <div id="risk-cloud-chart" style="width:100%; height:100%;"></div>
+            <div id="arch-map-chart" style="width:100%; height:100%;" class="hidden"></div>
+            <div id="call-graph-container" class="hidden">
+                <button class="close-graph-btn" onclick="closeCallGraph()">← Back to Overview</button>
+                <div id="call-graph"></div>
+                <div id="vulnerabilities-panel">
+                    <div class="vuln-header">
+                        Security Findings
+                    </div>
+                    <div class="vuln-stats">
+                        <div class="vuln-stat">
+                            <div class="vuln-stat-value" id="vuln-count-risk">0</div>
+                            <div class="vuln-stat-label">Risk</div>
+                        </div>
+                        <div class="vuln-stat">
+                            <div class="vuln-stat-value" style="color: var(--success-color);" id="vuln-count-safe">0</div>
+                            <div class="vuln-stat-label">Safe</div>
+                        </div>
+                    </div>
+                    <div id="vuln-list" class="vuln-list">
+                        <div class="empty-vulns">
+                            <div class="empty-vulns-icon">🔍</div>
+                            <p>Click a point to view vulnerabilities</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="graph-legend">
+                    <div class="legend-title">Graph Legend</div>
+                    
+                    <div class="legend-section">
+                        <div class="legend-section-title">Node Types</div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: linear-gradient(135deg, #3B82F6, #2563EB); border-color: #2563EB;"></div>
+                            <span>Endpoint</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: linear-gradient(135deg, #10B981, #059669); border-color: #059669;"></div>
+                            <span>Method</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: linear-gradient(135deg, #F59E0B, #D97706); border-color: #D97706;"></div>
+                            <span>Data Entity</span>
+                        </div>
+                    </div>
+                    
+                    <div class="legend-section">
+                        <div class="legend-section-title">Relationships</div>
+                        <div class="legend-item">
+                            <div class="legend-line" style="background: #3B82F6;"></div>
+                            <span>Calls</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-line dashed" style="color: #EF4444;"></div>
+                            <span>External Call</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-line dotted" style="color: #8B5CF6;"></div>
+                            <span>Accesses</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <a href="http://localhost:3000" class="back-nav-btn bottom">
+            ← Back to Home
+        </a>
+    </div>
+
+    <script>
+        let globalData = [];
+        let currentBaseRate = 0.5;
+        let currentEndpointId = null;
+        let cy = null; // Cytoscape instance
+
+        async function fetchData() {
+            try {
+                const response = await fetch('/api/results'); 
+                globalData = await response.json();
+                
+                refreshViews();
+                
+                document.getElementById('loading').classList.add('hidden');
+            } catch (error) {
+                console.error("Error loading data:", error);
+                document.getElementById('loading').textContent = "Error loading data. Ensure analysis has run.";
+            }
+        }
+
+        function updateBaseRate(val) {
+            currentBaseRate = parseFloat(val);
+            document.getElementById('base-rate-val').textContent = currentBaseRate;
+            refreshViews();
+        }
+
+        function refreshViews() {
+            updateStats(globalData);
+            renderRiskCloud(globalData);
+            renderArchMap(globalData);
+        }
+
+        function switchTab(tabId) {
+            // Don't use event.target if called programmatically
+            const targetButton = event?.target || document.querySelector(`[onclick*="${tabId}"]`);
+            
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            if (targetButton) {
+                targetButton.classList.add('active');
+            }
+
+            document.getElementById('risk-cloud-chart').classList.add('hidden');
+            document.getElementById('arch-map-chart').classList.add('hidden');
+            document.getElementById('call-graph-container').classList.add('hidden');
+            
+            if (tabId === 'risk-cloud') {
+                document.getElementById('risk-cloud-chart').classList.remove('hidden');
+                setTimeout(() => Plotly.Plots.resize('risk-cloud-chart'), 100);
+            } else if (tabId === 'arch-map') {
+                document.getElementById('arch-map-chart').classList.remove('hidden');
+                setTimeout(() => Plotly.Plots.resize('arch-map-chart'), 100);
+            } else if (tabId === 'call-graph') {
+                document.getElementById('call-graph-container').classList.remove('hidden');
+                if (cy) {
+                    setTimeout(() => {
+                        cy.resize();
+                        cy.fit();
+                    }, 100);
+                }
+            }
+        }
+
+        function calculateExpectation(opinion) {
+            const b = opinion?.belief || 0;
+            const u = opinion?.uncertainty || 1;
+            return b + (currentBaseRate * u);
+        }
+
+        function formatTooltip(d) {
+            const E = calculateExpectation(d.fused_opinion).toFixed(3);
+            let info = `<b>${d.method_name}</b><br>Path: ${d.path_template}<br>E(O): ${E}`;
+            info += `<br><b>b=${d.fused_opinion.belief.toFixed(3)}, d=${d.fused_opinion.disbelief.toFixed(3)}, u=${d.fused_opinion.uncertainty.toFixed(3)}</b>`;
+            
+            if (d.neuro_evidence && d.neuro_evidence.length > 0) {
+                const safeEvidence = d.neuro_evidence.filter(e => e.polarity == 'risk-increasing');
+                if (safeEvidence.length > 0) {
+                    info += '<br><i><b>Identified Vulnerabilities:</b></i><br>' + safeEvidence.slice(0, 3).map(e => `- ${e.finding}`).join('<br>');
+                    if (safeEvidence.length > 3) {
+                        info += `<br>... and ${safeEvidence.length - 3} more`;
+                    }
+                }
+            }
+            return info;
+        }
+
+        function updateStats(data) {
+            document.getElementById('stat-endpoints').textContent = data.length;
+            
+            const totalExpectation = data.reduce((acc, curr) => acc + calculateExpectation(curr.fused_opinion), 0);
+            const avgExpectation = data.length ? (totalExpectation / data.length).toFixed(3) : 0.0;
+            document.getElementById('stat-risk').textContent = avgExpectation;
+
+            const criticalCount = data.filter(d => calculateExpectation(d.fused_opinion) < 0.3).length;
+            document.getElementById('stat-critical').textContent = criticalCount;
+
+            const conflictCount = data.filter(d => {
+                const op = d.fused_opinion || {belief: 0, disbelief: 0};
+                return op.belief > 0.3 && op.disbelief > 0.3;
+            }).length;
+            document.getElementById('stat-conflicts').textContent = conflictCount;
+        }
+
+        function renderRiskCloud(data) {
+            const belief = data.map(d => d.fused_opinion?.belief || 0);
+            const disbelief = data.map(d => d.fused_opinion?.disbelief || 0);
+            const uncertainty = data.map(d => d.fused_opinion?.uncertainty || 1);
+            const textLabels = data.map(d => formatTooltip(d));
+            const expectations = data.map(d => calculateExpectation(d.fused_opinion));
+            const endpointIds = data.map(d => d.id);
+
+            const trace = {
+                type: 'scatterternary',
+                mode: 'markers',
+                a: belief,
+                b: disbelief,
+                c: uncertainty,
+                text: textLabels,
+                customdata: endpointIds,
+                marker: {
+                    color: expectations,
+                    colorscale: [
+                        [0, 'red'],
+                        [0.5, 'orange'],
+                        [1, 'green']
+                    ],
+                    cmin: 0,
+                    cmax: 1,
+                    size: 10,
+                    line: { width: 1, color: 'white' },
+                    opacity: 0.8,
+                    showscale: true,
+                    colorbar: { title: 'E(O)' }
+                },
+                hoverinfo: 'text'
+            };
+
+            const layout = {
+                ternary: {
+                    sum: 1,
+                    aaxis: { title: 'Belief', color: '#10B981' },
+                    baxis: { title: 'Disbelief', color: '#EF4444' },
+                    caxis: { title: 'Uncertainty', color: '#6B7280' },
+                    bgcolor: '#F9FAFB'
+                },
+                title: 'Subjective Logic Risk Cloud',
+                font: { family: 'Inter, sans-serif' },
+                paper_bgcolor: 'white',
+            };
+
+            const config = {responsive: true};
+            
+            Plotly.newPlot('risk-cloud-chart', [trace], layout, config);
+            
+            // Add click event
+            document.getElementById('risk-cloud-chart').on('plotly_click', function(data) {
+                const pointIndex = data.points[0].pointIndex;
+                const endpointId = endpointIds[pointIndex];
+                loadCallGraph(endpointId);
+            });
+        }
+
+        function renderArchMap(data) {
+            const belief = data.map(d => d.fused_opinion?.belief || 0);
+            const disbelief = data.map(d => d.fused_opinion?.disbelief || 0);
+            const uncertainty = data.map(d => d.fused_opinion?.uncertainty || 1);
+            const textLabels = data.map(d => formatTooltip(d));
+            const expectations = data.map(d => calculateExpectation(d.fused_opinion));
+            const endpointIds = data.map(d => d.id);
+
+            const trace = {
+                x: belief, y: disbelief, z: uncertainty,
+                mode: 'markers',
+                marker: {
+                    size: 7,
+                    color: expectations,
+                    colorscale: [
+                        [0, 'red'],
+                        [0.5, 'orange'],
+                        [1, 'green']
+                    ],
+                    cmin: 0,
+                    cmax: 1,
+                    opacity: 0.8,
+                    showscale: true,
+                    colorbar: { title: 'E(O)', len: 0.7 }
+                },
+                text: textLabels,
+                customdata: endpointIds,
+                hoverinfo: 'text',
+                type: 'scatter3d'
+            };
+
+            const layout = {
+                margin: { l: 0, r: 0, b: 0, t: 0 },
+                scene: {
+                    xaxis: { title: 'Belief (b)' },
+                    yaxis: { title: 'Disbelief (d)' },
+                    zaxis: { title: 'Uncertainty (u)' },
+                },
+                font: { family: 'Inter, sans-serif' }
+            };
+
+            Plotly.newPlot('arch-map-chart', [trace], layout, {responsive: true});
+            
+            // Add click event
+            document.getElementById('arch-map-chart').on('plotly_click', function(data) {
+                const pointIndex = data.points[0].pointIndex;
+                const endpointId = endpointIds[pointIndex];
+                loadCallGraph(endpointId);
+            });
+        }
+
+        async function loadCallGraph(endpointId) {
+            try {
+                currentEndpointId = endpointId;
+                
+                // Find the endpoint data
+                const endpointData = globalData.find(d => d.id === endpointId);
+                
+                // Fetch call graph data for this endpoint
+                const response = await fetch(`/api/callgraph/${encodeURIComponent(endpointId)}`);
+                const graphData = await response.json();
+                
+                // Show call graph tab
+                const callGraphTab = document.getElementById('call-graph-tab');
+                callGraphTab.classList.remove('hidden');
+                
+                // Manually trigger tab switch
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                callGraphTab.classList.add('active');
+                
+                document.getElementById('risk-cloud-chart').classList.add('hidden');
+                document.getElementById('arch-map-chart').classList.add('hidden');
+                document.getElementById('call-graph-container').classList.remove('hidden');
+                
+                // Render the call graph
+                renderCallGraph(graphData);
+                
+                // Render vulnerabilities
+                renderVulnerabilities(endpointData);
+                
+            } catch (error) {
+                console.error("Error loading call graph:", error);
+                alert("Failed to load call graph data: " + error.message);
+            }
+        }
+
+        function renderVulnerabilities(endpointData) {
+            const vulnList = document.getElementById('vuln-list');
+            
+            if (!endpointData || !endpointData.neuro_evidence || endpointData.neuro_evidence.length === 0) {
+                vulnList.innerHTML = `
+                    <div class="empty-vulns">
+                        <div class="empty-vulns-icon">✅</div>
+                        <p>No security findings detected</p>
+                    </div>
+                `;
+                document.getElementById('vuln-count-risk').textContent = '0';
+                document.getElementById('vuln-count-safe').textContent = '0';
+                return;
+            }
+            
+            const evidence = endpointData.neuro_evidence;
+            const riskEvidence = evidence.filter(e => e.polarity === 'risk-increasing');
+            const safeEvidence = evidence.filter(e => e.polarity === 'risk-decreasing');
+            
+            document.getElementById('vuln-count-risk').textContent = riskEvidence.length;
+            document.getElementById('vuln-count-safe').textContent = safeEvidence.length;
+            
+            let html = '';
+            
+            // Risk-increasing findings first
+            riskEvidence.forEach(vuln => {
+                html += `
+                    <div class="vuln-item">
+                        <div class="vuln-finding">🔴 ${vuln.finding}</div>
+                        <div class="vuln-meta">
+                            <span class="vuln-context">${vuln.context || 'General'}</span>
+                            <span class="vuln-confidence">Confidence: ${(vuln.confidence * 100).toFixed(0)}%</span>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            // Risk-decreasing findings
+            safeEvidence.forEach(vuln => {
+                html += `
+                    <div class="vuln-item positive">
+                        <div class="vuln-finding">🟢 ${vuln.finding}</div>
+                        <div class="vuln-meta">
+                            <span class="vuln-context">${vuln.context || 'General'}</span>
+                            <span class="vuln-confidence">Confidence: ${(vuln.confidence * 100).toFixed(0)}%</span>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            vulnList.innerHTML = html;
+        }
+
+        function renderCallGraph(graphData) {
+            // Clear existing graph
+            document.getElementById('call-graph').innerHTML = '';
+            
+            // Parse the graph data (array with nodes and relationships)
+            const data = graphData[0];
+            const nodes = data.nodes;
+            const edges = data.relationships;
+            
+            // Convert to Cytoscape format
+            const elements = [];
+            
+            // Add nodes
+            nodes.forEach(node => {
+                const labels = node.labels || [];
+                const props = node.properties || {};
+                
+                let nodeColor = '#10B981';
+                let nodeShape = 'ellipse';
+                let nodeIcon = '⚙️';
+                let borderColor = '#059669';
+                
+                if (labels.includes('Endpoint')) {
+                    nodeColor = '#3B82F6';
+                    borderColor = '#2563EB';
+                    nodeShape = 'round-rectangle';
+                } else if (labels.includes('DataEntity')) {
+                    nodeColor = '#F59E0B';
+                    borderColor = '#D97706';
+                    nodeShape = 'round-diamond';
+                } else if (labels.includes('Method')) {
+                    nodeColor = '#10B981';
+                    borderColor = '#059669';
+                    nodeShape = 'ellipse';
+                }
+                
+                elements.push({
+                    data: {
+                        id: node.elementId,
+                        label: props.name || 'Unknown',
+                        icon: nodeIcon,
+                        type: labels.join(', '),
+                        role: props.role || '',
+                        protection: props.protection || '',
+                        complexity: props.cyclomaticComplexity || 0,
+                        httpMethod: props.httpMethod || '',
+                        url: props.url || '',
+                        color: nodeColor,
+                        borderColor: borderColor,
+                        shape: nodeShape
+                    }
+                });
+            });
+            
+            // Add edges
+            edges.forEach(edge => {
+                let edgeColor = '#94A3B8';
+                let edgeWidth = 2;
+                let edgeStyle = 'solid';
+                
+                if (edge.type === 'CALLS_EXTERNAL') {
+                    edgeColor = '#EF4444';
+                    edgeWidth = 3;
+                    edgeStyle = 'dashed';
+                } else if (edge.type === 'CALLS') {
+                    edgeColor = '#3B82F6';
+                    edgeWidth = 2.5;
+                } else if (edge.type === 'ACCESSES') {
+                    edgeColor = '#8B5CF6';
+                    edgeWidth = 2;
+                    edgeStyle = 'dotted';
+                }
+                
+                elements.push({
+                    data: {
+                        id: edge.elementId,
+                        source: edge.startNodeElementId,
+                        target: edge.endNodeElementId,
+                        type: edge.type,
+                        edgeColor: edgeColor,
+                        edgeWidth: edgeWidth,
+                        edgeStyle: edgeStyle
+                    }
+                });
+            });
+            
+            // Initialize Cytoscape
+            cy = cytoscape({
+                container: document.getElementById('call-graph'),
+                elements: elements,
+                style: [
+                    {
+                        selector: 'node',
+                        style: {
+                            'background-color': 'data(color)',
+                            'label': 'data(label)',
+                            'text-valign': 'bottom',
+                            'text-halign': 'center',
+                            'text-margin-y': 8,
+                            'font-size': '11px',
+                            'font-weight': '600',
+                            'color': '#1F2937',
+                            'text-background-color': '#ffffff',
+                            'text-background-opacity': 0.9,
+                            'text-background-padding': '4px',
+                            'text-background-shape': 'roundrectangle',
+                            'border-width': 3,
+                            'border-color': 'data(borderColor)',
+                            'border-opacity': 1,
+                            'width': 50,
+                            'height': 50,
+                            'shape': 'data(shape)'
+                        }
+                    },
+                    {
+                        selector: 'node:selected',
+                        style: {
+                            'width': 60,
+                            'height': 60,
+                            'border-width': 4
+                        }
+                    },
+                    {
+                        selector: 'edge',
+                        style: {
+                            'width': 'data(edgeWidth)',
+                            'line-color': 'data(edgeColor)',
+                            'line-style': 'data(edgeStyle)',
+                            'target-arrow-color': 'data(edgeColor)',
+                            'target-arrow-shape': 'triangle',
+                            'curve-style': 'bezier',
+                            'arrow-scale': 1.3,
+                            'opacity': 0.8
+                        }
+                    },
+                    {
+                        selector: 'edge:selected',
+                        style: {
+                            'width': 4,
+                            'opacity': 1
+                        }
+                    }
+                ],
+                layout: {
+                    name: 'breadthfirst',
+                    directed: true,
+                    spacingFactor: 1.8,
+                    padding: 60,
+                    avoidOverlap: true,
+                    nodeDimensionsIncludeLabels: true
+                },
+                minZoom: 0.3,
+                maxZoom: 3,
+                wheelSensitivity: 0.2
+            });
+            
+            // Enhanced tooltips with better formatting
+            let tooltip = null;
+            
+            cy.on('mouseover', 'node', function(evt) {
+                const node = evt.target;
+                const data = node.data();
+                const pos = node.renderedPosition();
+                
+                // Remove existing tooltip
+                if (tooltip) tooltip.remove();
+                
+                // Create tooltip
+                tooltip = document.createElement('div');
+                tooltip.style.cssText = `
+                    position: absolute;
+                    left: ${pos.x + 80}px;
+                    top: ${pos.y - 20}px;
+                    background: white;
+                    border: 2px solid ${data.borderColor};
+                    border-radius: 8px;
+                    padding: 12px 16px;
+                    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+                    z-index: 10000;
+                    font-family: Inter, sans-serif;
+                    font-size: 13px;
+                    max-width: 300px;
+                    pointer-events: none;
+                `;
+                
+                let html = `<div style="font-weight: 700; color: ${data.color}; margin-bottom: 8px; font-size: 14px;">${data.icon} ${data.label}</div>`;
+                html += `<div style="color: #6B7280; font-size: 12px; margin-bottom: 4px;"><strong>Type:</strong> ${data.type}</div>`;
+                if (data.role) html += `<div style="color: #6B7280; font-size: 12px; margin-bottom: 4px;"><strong>Role:</strong> ${data.role}</div>`;
+                if (data.protection) html += `<div style="color: #6B7280; font-size: 12px; margin-bottom: 4px;"><strong>Protection:</strong> ${data.protection}</div>`;
+                if (data.complexity) html += `<div style="color: #6B7280; font-size: 12px; margin-bottom: 4px;"><strong>Complexity:</strong> ${data.complexity}</div>`;
+                if (data.httpMethod) html += `<div style="color: #6B7280; font-size: 12px; margin-bottom: 4px;"><strong>Method:</strong> <span style="background: ${data.color}; color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;">${data.httpMethod}</span></div>`;
+                if (data.url) html += `<div style="color: #6B7280; font-size: 11px; margin-top: 6px; font-family: monospace; background: #F3F4F6; padding: 4px 8px; border-radius: 4px;">${data.url}</div>`;
+                
+                tooltip.innerHTML = html;
+                document.getElementById('call-graph-container').appendChild(tooltip);
+            });
+            
+            cy.on('mouseout', 'node', function() {
+                if (tooltip) {
+                    tooltip.remove();
+                    tooltip = null;
+                }
+            });
+            
+            cy.on('mouseover', 'edge', function(evt) {
+                const edge = evt.target;
+                const data = edge.data();
+                const pos = edge.renderedMidpoint();
+                
+                // Remove existing tooltip
+                if (tooltip) tooltip.remove();
+                
+                // Create tooltip
+                tooltip = document.createElement('div');
+                tooltip.style.cssText = `
+                    position: absolute;
+                    left: ${pos.x + 20}px;
+                    top: ${pos.y - 30}px;
+                    background: white;
+                    border: 2px solid ${data.edgeColor};
+                    border-radius: 8px;
+                    padding: 8px 12px;
+                    box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+                    z-index: 10000;
+                    font-family: Inter, sans-serif;
+                    font-size: 12px;
+                    font-weight: 600;
+                    color: ${data.edgeColor};
+                    pointer-events: none;
+                `;
+                
+                tooltip.textContent = data.type.replace(/_/g, ' ');
+                document.getElementById('call-graph-container').appendChild(tooltip);
+            });
+            
+            cy.on('mouseout', 'edge', function() {
+                if (tooltip) {
+                    tooltip.remove();
+                    tooltip = null;
+                }
+            });
+            
+            // Fit and center the graph
+            cy.fit(50);
+            cy.center();
+        }
+
+        function closeCallGraph() {
+            // Hide call graph tab and switch back to risk cloud
+            document.getElementById('call-graph-tab').classList.add('hidden');
+            
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelector('.tab-btn').classList.add('active');
+            
+            document.getElementById('call-graph-container').classList.add('hidden');
+            document.getElementById('risk-cloud-chart').classList.remove('hidden');
+            
+            Plotly.Plots.resize('risk-cloud-chart');
+            currentEndpointId = null;
+        }
+
+        // Init
+        fetchData();
+    </script>
+</body>
+</html>

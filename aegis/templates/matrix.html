@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AHP Calibration</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <div class="container">
+        <h1>AHP Calibration Tool</h1>
+        <h2>{{ title }}</h2>
+        <p>Using Saaty's 1-9 scale, compare the relative importance of the criteria.</p>
+        
+        <form action="/calculate_weights" method="POST">
+            <input type="hidden" name="criteria-,{{ criteria_keys|join(',') }}" value="{{ criteria_keys|join(',') }}">
+            <input type="hidden" name="criteria_type" value="{{ criteria_type }}">
+            
+            {% for i in range(criteria|length) %}
+                {% for j in range(i + 1, criteria|length) %}
+                    
+                    <div class="criterion-card criterion-compare"> 
+                        
+                        <div class="criterion-item">
+                            <b>{{ criteria[i].key }}</b> 
+                            <span class="desc">{{ criteria[i].description }}</span>
+                        </div>
+                        
+                        <div class="criterion-connector">
+                            is
+                            <select name="{{ criteria[i].key }}_vs_{{ criteria[j].key }}">
+                                <option value="9">9 (Extremely)</option>
+                                <option value="7">7 (Very Strongly)</option>
+                                <option value="5">5 (Strongly)</option>
+                                <option value="3">3 (Moderately)</option>
+                                <option value="1" selected>1 (Equally)</option>
+                                <option value="0.333">1/3 (Moderately less)</option>
+                                <option value="0.2">1/5 (Strongly less)</option>
+                                <option value="0.143">1/7 (Very Strongly less)</option>
+                                <option value="0.111">1/9 (Extremely less)</option>
+                            </select>
+                            important than
+                        </div>
+                        
+                        <div class="criterion-item">
+                            <b>{{ criteria[j].key }}</b>
+                            <span class="desc">{{ criteria[j].description }}</span>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endfor %}
+            
+            <button type="submit">Calculate Weights & Next Step</button>
+        </form>
+    </div>
+</body>
+</html>

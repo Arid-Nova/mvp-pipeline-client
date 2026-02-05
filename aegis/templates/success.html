@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Calibration Success!</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <div class="container">
+        <h1>Success!</h1>
+        <p>Your calibration has been saved. You can now run the main analysis pipeline (`main.py`).</p>
+        
+        <h2>ahp_benchmarks.json</h2>
+        <pre>{{ content_ahp }}</pre>
+        
+        <h2>metric_thresholds.json</h2>
+        <pre>{{ content_metrics }}</pre>
+        
+        <a href="/ahp" class="button-link">Start Over</a>
+    </div>
+</body>
+</html>

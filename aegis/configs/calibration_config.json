@@ -1,0 +1,56 @@
+{
+  "binary_negative": [
+    {
+      "key": "LDA",
+      "description": "Lack of Definite Authorization (e.g., missing @Secured)"
+    },
+    {
+      "key": "HARDCODED_SECRET",
+      "description": "A hardcoded password, token, or secret key"
+    },
+    {
+      "key": "SQL_INJECTION_SINK",
+      "description": "Data flows to a raw, un-parameterized SQL query"
+    },
+    {
+      "key": "UNPROTECTED_ENDPOINT",
+      "description": "The endpoint is public"
+    }
+  ],
+  "binary_positive": [
+    {
+      "key": "REQUIRES_AUTH",
+      "description": "Basic authentication/authorization is present"
+    },
+    {
+      "key": "REQUIRES_ADMIN",
+      "description": "High-privilege (e.g., Admin) authorization is present"
+    },
+    {
+      "key": "INPUT_VALIDATION",
+      "description": "Input is sanitized or validated (e.g., @Valid)"
+    }
+  ],
+  "variable_metrics": [
+    {
+      "key": "SSE",
+      "description": "Shared Sensitive Entities (across services)"
+    },
+    {
+      "key": "AC",
+      "description": "Aggregated Cyclomatic Complexity (in path)"
+    },
+    {
+      "key": "DAC",
+      "description": "Database Access Count (in path)"
+    },
+    {
+      "key": "PL",
+      "description": "Path Length (inter-service call depth)"
+    },
+    {
+      "key": "ECC",
+      "description": "External Call Count (in path)"
+    }
+  ]
+}
