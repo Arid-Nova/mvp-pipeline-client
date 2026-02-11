@@ -101,7 +101,7 @@ async def analyze_endpoint(payload: Dict[str, Any]):
         if original_path:
             facade.config['REPOSITORY']['ir_path'] = original_path
 
-        # facade.save_results(results, 'opinion_vector_results.json')
+        facade.save_results(results, 'opinion_vector_results.json')
 
         return {"status": "success", "results": results}
 
