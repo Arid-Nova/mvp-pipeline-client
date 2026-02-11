@@ -370,7 +370,13 @@ def findAllEndpointsWithGenericPath(msSystem, partialPath, msName=None):
 def preScanRoles(systemRoles, msIR, codePath):
     if not codePath: return
     repo_root = Path(codePath)
-    relative_path = msIR.get("path", "").lstrip("/") 
+    
+    # Clean path for older IR version compatibility (file:// prefix)
+    raw_path = msIR.get("path", "")
+    if raw_path.startswith("file://"):
+        raw_path = raw_path.replace("file://", "")
+        
+    relative_path = raw_path.lstrip("/") 
     msPath = repo_root / relative_path
 
     files = chain(msPath.rglob("SecurityConfig.java"), msPath.rglob("WebSecurityConfig.java"))
@@ -396,7 +402,13 @@ def preScanRoles(systemRoles, msIR, codePath):
 def getSecurityRoles(systemRoles, msIR, msSystem, codePath):
     if not codePath: return
     repo_root = Path(codePath)
-    relative_path = msIR.get("path", "").lstrip("/") 
+    
+    # Clean path for older IR version compatibility (file:// prefix)
+    raw_path = msIR.get("path", "")
+    if raw_path.startswith("file://"):
+        raw_path = raw_path.replace("file://", "")
+
+    relative_path = raw_path.lstrip("/") 
     msPath = repo_root / relative_path
 
     files = chain(msPath.rglob("SecurityConfig.java"), msPath.rglob("WebSecurityConfig.java"))
