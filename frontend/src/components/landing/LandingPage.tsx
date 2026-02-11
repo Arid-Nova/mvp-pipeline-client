@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import IRFileUpload from '../IRFileUpload'; 
 import RepositoryForm from './RepositoryForm';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import VerificationCard from './VerificationCard'; 
 import { showError } from '../../utils/notifications';
 
@@ -13,10 +13,21 @@ const LandingPage: React.FC<Props> = ({ onIRLoaded }) => {
     // Top level mode: 'visualize' OR 'verify'
     const [mode, setMode] = useState<'visualize' | 'verify' | 'aegis' | 'pipeline'>('visualize');
     const navigate = useNavigate();
+    const location = useLocation();
     
     // Sub-tabs for Visualizer
     const [vizTab, setVizTab] = useState<'upload' | 'repo'>('upload');
     const [loading, setLoading] = useState(false);
+
+    // Check for incoming IR data from Pipeline
+    useEffect(() => {
+        if (location.state && location.state.irData) {
+            console.log("IR Data received from navigation state", location.state.irData);
+            onIRLoaded(location.state.irData);
+            // Clear state to prevent loop on refresh
+            window.history.replaceState({}, document.title);
+        }
+    }, [location.state, onIRLoaded]);
 
     const handleFileSelect = async (file: File) => {
         setLoading(true);
