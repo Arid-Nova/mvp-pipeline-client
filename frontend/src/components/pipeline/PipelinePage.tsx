@@ -54,6 +54,13 @@ interface Connection {
 
 // --- CONFIGURATION ---
 
+const CATEGORIES: Record<string, CardType[]> = {
+    "Input": ['MULTI_REPO', 'UPLOAD_IR'],
+    "Intermediate Results": ['IR_HOLDER'],
+    "Processes": ['FORMAL_VERIFY'],
+    "Visualization": ['VISUALIZATION', 'AEGIS', 'FORMAL_VIZ']
+};
+
 const CARD_CONFIG: Record<CardType, { title: string; color: string; icon: JSX.Element; description: string }> = {
     MULTI_REPO: { 
         title: "Generate IR", 
@@ -684,27 +691,35 @@ const PipelinePage: React.FC = () => {
                 {/* Toolbox */}
                 <div className="w-64 bg-slate-800 border-r border-slate-700 p-4 overflow-y-auto z-10 shadow-xl">
                     <h3 className="text-xs font-bold text-slate-500 uppercase mb-4 tracking-wider">Components</h3>
-                    <div className="space-y-3">
-                        {Object.keys(CARD_CONFIG).map((key) => {
-                            const type = key as CardType;
-                            const config = CARD_CONFIG[type];
-                            return (
-                                <div 
-                                    key={type}
-                                    onClick={() => addNode(type)}
-                                    className={`p-3 rounded-xl border border-slate-700 bg-slate-700/30 hover:bg-slate-700 hover:border-slate-500 cursor-pointer transition-all flex items-center gap-3 group`}
-                                >
-                                    <div className={`${config.color.split(' ')[1]} p-2 rounded-lg text-slate-200 shadow-sm`}>
-                                        {config.icon}
-                                    </div>
-                                    <div>
-                                        <div className="font-bold text-sm text-slate-200">{config.title}</div>
-                                        <div className="text-[10px] text-slate-400 leading-tight">{config.description}</div>
-                                    </div>
-                                    <div className="ml-auto opacity-0 group-hover:opacity-100 text-indigo-400 text-lg font-bold">+</div>
+                    <div className="space-y-6">
+                        {Object.entries(CATEGORIES).map(([category, types]) => (
+                            <div key={category}>
+                                <h4 className="text-[10px] font-bold text-indigo-400 uppercase mb-2 px-1 tracking-wider border-b border-indigo-500/20 pb-1">
+                                    {category}
+                                </h4>
+                                <div className="space-y-3">
+                                    {types.map((type) => {
+                                        const config = CARD_CONFIG[type];
+                                        return (
+                                            <div 
+                                                key={type}
+                                                onClick={() => addNode(type)}
+                                                className={`p-3 rounded-xl border border-slate-700 bg-slate-700/30 hover:bg-slate-700 hover:border-slate-500 cursor-pointer transition-all flex items-center gap-3 group`}
+                                            >
+                                                <div className={`${config.color.split(' ')[1]} p-2 rounded-lg text-slate-200 shadow-sm`}>
+                                                    {config.icon}
+                                                </div>
+                                                <div>
+                                                    <div className="font-bold text-sm text-slate-200">{config.title}</div>
+                                                    <div className="text-[10px] text-slate-400 leading-tight">{config.description}</div>
+                                                </div>
+                                                <div className="ml-auto opacity-0 group-hover:opacity-100 text-indigo-400 text-lg font-bold">+</div>
+                                            </div>
+                                        )
+                                    })}
                                 </div>
-                            )
-                        })}
+                            </div>
+                        ))}
                     </div>
                 </div>
 
