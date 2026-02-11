@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import { saveAs } from 'file-saver';
@@ -15,7 +15,6 @@ type CardType =
     | 'AEGIS' 
     | 'FORMAL_VIZ';
 
-// Data packet containing IR (Passed from Input -> IR Holder -> Verify/Viz)
 interface PipelinePayload {
     irJson: any;
     metadata: {
@@ -31,19 +30,13 @@ interface NodeData {
     type: CardType;
     x: number;
     y: number;
-    // Stores inputs (form data) or outputs (results)
     data: {
-        // Input fields
         systemName?: string;
         repoUrl?: string;
         branch?: string;
         commit?: string;
-        
-        // Stored Data (Input or Computed)
         payload?: PipelinePayload; 
         verificationResult?: VerificationResponse;
-        
-        // Context for Visualizations (Result + IR)
         systemInfo?: {
             systemName: string;
             ir: any;
@@ -65,7 +58,7 @@ const CARD_CONFIG: Record<CardType, { title: string; color: string; icon: JSX.El
     MULTI_REPO: { 
         title: "Generate IR", 
         color: "border-blue-500 bg-blue-900/20", 
-        description: "Generate IR from Git repository",
+        description: "Generate IR from GIT repository",
         icon: <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
     },
     UPLOAD_IR: { 
@@ -89,19 +82,19 @@ const CARD_CONFIG: Record<CardType, { title: string; color: string; icon: JSX.El
     VISUALIZATION: { 
         title: "IR Visualization", 
         color: "border-green-500 bg-green-900/20", 
-        description: "Launch Graph Visualizer",
+        description: "Launch graph visualizer",
         icon: <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
     },
     AEGIS: { 
         title: "Aegis", 
         color: "border-red-500 bg-red-900/20", 
-        description: "Launch Aegis Engine",
+        description: "Launch Aegis engine",
         icon: <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
     },
     FORMAL_VIZ: { 
         title: "Verification Visualization", 
         color: "border-pink-500 bg-pink-900/20", 
-        description: "View Verification Results",
+        description: "View verification results",
         icon: <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
     }
 };
@@ -152,8 +145,80 @@ const InlineDropzone = ({ onFileSelect }: { onFileSelect: (file: File) => void }
 
 const PipelinePage: React.FC = () => {
     const navigate = useNavigate();
-    const [nodes, setNodes] = useState<NodeData[]>([]);
-    const [connections, setConnections] = useState<Connection[]>([]);
+    
+    // --- PERSISTENCE LOGIC ---
+    // Initialize from session storage if available
+    const [nodes, setNodes] = useState<NodeData[]>(() => {
+        try {
+            const savedNodes = sessionStorage.getItem('pipeline_nodes');
+            return savedNodes ? JSON.parse(savedNodes) : [];
+        } catch (e) {
+            console.warn("Failed to load pipeline state", e);
+            return [];
+        }
+    });
+    
+    const [connections, setConnections] = useState<Connection[]>(() => {
+        try {
+            const savedConns = sessionStorage.getItem('pipeline_connections');
+            return savedConns ? JSON.parse(savedConns) : [];
+        } catch (e) {
+            return [];
+        }
+    });
+
+    useEffect(() => {
+        try {
+            const nodesToSave = nodes.map(node => {
+                // Create a shallow copy of data
+                const cleanData = { ...node.data };
+
+                // Strip heavy payloads before saving to avoid QuotaExceededError
+                if (cleanData.payload) {
+                    cleanData.payload = {
+                        ...cleanData.payload,
+                        irJson: null // Don't persist IR JSON
+                    };
+                }
+                if (cleanData.verificationResult) {
+                    cleanData.verificationResult = undefined; // Don't persist results
+                }
+                if (cleanData.systemInfo) {
+                    cleanData.systemInfo = undefined; // Don't persist context
+                }
+
+                // If we strip data, we should reset status if it was 'completed' 
+                // so the user knows they need to re-run/re-upload on refresh.
+                let cleanStatus = node.status;
+                if (node.type === 'UPLOAD_IR' || node.type === 'MULTI_REPO') {
+                    // Inputs need to stay 'idle' if data is missing
+                    if (node.status === 'completed') cleanStatus = 'idle';
+                }
+
+                return {
+                    ...node,
+                    data: cleanData,
+                    status: cleanStatus
+                };
+            });
+
+            sessionStorage.setItem('pipeline_nodes', JSON.stringify(nodesToSave));
+            sessionStorage.setItem('pipeline_connections', JSON.stringify(connections));
+        } catch (e) {
+            console.warn("Failed to save pipeline state to session storage:", e);
+        }
+    }, [nodes, connections]);
+
+    const clearPipeline = () => {
+        if(window.confirm("Are you sure you want to clear the pipeline? This cannot be undone.")) {
+            setNodes([]);
+            setConnections([]);
+            sessionStorage.removeItem('pipeline_nodes');
+            sessionStorage.removeItem('pipeline_connections');
+        }
+    };
+    // -------------------------
+
     const [isLinking, setIsLinking] = useState<string | null>(null);
     const [isRunning, setIsRunning] = useState(false);
     
@@ -174,7 +239,7 @@ const PipelinePage: React.FC = () => {
             status: 'idle',
             logs: []
         };
-        setNodes([...nodes, newNode]);
+        setNodes(prev => [...prev, newNode]);
     };
 
     const deleteNode = (id: string) => {
@@ -242,6 +307,7 @@ const PipelinePage: React.FC = () => {
 
     const runPipeline = async () => {
         setIsRunning(true);
+        // Reset logs but keep data
         const updatedNodes = nodes.map(n => ({ ...n, status: 'idle' as const, logs: [] }));
         setNodes(updatedNodes);
 
@@ -527,7 +593,7 @@ const PipelinePage: React.FC = () => {
                 return (
                      <button 
                         disabled={!node.data.payload?.irJson} 
-                        onClick={() => navigate('/', { state: { irData: node.data.payload?.irJson } })} 
+                        onClick={() => navigate('/', { state: { irData: node.data.payload?.irJson, fromPipeline: true } })} 
                         className="mt-2 w-full py-1.5 text-xs bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded font-medium shadow transition-colors"
                     >
                         Launch Visualizer
@@ -550,7 +616,8 @@ const PipelinePage: React.FC = () => {
                         onClick={() => navigate('/verification-results', { 
                             state: { 
                                 result: node.data.verificationResult,
-                                systemInfo: node.data.systemInfo 
+                                systemInfo: node.data.systemInfo,
+                                fromPipeline: true 
                             } 
                         })}
                         className="mt-2 w-full py-1.5 text-xs bg-pink-600 hover:bg-pink-500 disabled:opacity-50 text-white rounded font-medium shadow transition-colors"
@@ -572,7 +639,7 @@ const PipelinePage: React.FC = () => {
                         Back
                     </button>
                     <h1 className="font-bold text-xl bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-cyan-400">
-                        Custom Microservice Analysis Pipeline Builder
+                        Custom Microservice System Analysis Pipeline Builder
                     </h1>
                 </div>
                 <div className="flex items-center gap-4">
@@ -589,6 +656,15 @@ const PipelinePage: React.FC = () => {
                             </>
                         )}
                     </div>
+                    {nodes.length > 0 && (
+                        <button 
+                            onClick={clearPipeline}
+                            disabled={isRunning}
+                            className="text-xs text-slate-500 hover:text-red-400 transition-colors mr-2"
+                        >
+                            Clear All
+                        </button>
+                    )}
                     <button 
                         onClick={runPipeline}
                         disabled={isRunning || nodes.length === 0}
