@@ -11,6 +11,7 @@ import LandingPage from "./components/landing/LandingPage";
 import IRFileUpload from "./components/IRFileUpload";
 import Footer from "./components/generic/Footer";
 
+import PipelinePage from "./components/pipeline/PipelinePage";
 import GraphMenu from "./components/graphControlMenu/GraphMenu";
 import TrackNodeMenu from "./components/generic/TrackNodeMenu";
 import Instructions from "./components/generic/Instructions";
@@ -332,6 +333,7 @@ function App(data: any) {
                 />
                 <Route path="/node" element={<NewPage />} />
                 <Route path="/verification-results" element={<VerificationResultPage />} />
+                <Route path="/pipeline" element={<PipelinePage/>}/>
             </Routes>
 
             {/* Toast is outside Routes to persist during navigation/state changes */}

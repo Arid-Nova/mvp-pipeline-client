@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import IRFileUpload from '../IRFileUpload'; 
 import RepositoryForm from './RepositoryForm';
+import { useNavigate } from 'react-router-dom';
 import VerificationCard from './VerificationCard'; 
 import { showError } from '../../utils/notifications';
 
@@ -10,7 +11,8 @@ interface Props {
 
 const LandingPage: React.FC<Props> = ({ onIRLoaded }) => {
     // Top level mode: 'visualize' OR 'verify'
-    const [mode, setMode] = useState<'visualize' | 'verify' | 'aegis'>('visualize');
+    const [mode, setMode] = useState<'visualize' | 'verify' | 'aegis' | 'pipeline'>('visualize');
+    const navigate = useNavigate();
     
     // Sub-tabs for Visualizer
     const [vizTab, setVizTab] = useState<'upload' | 'repo'>('upload');
@@ -105,7 +107,7 @@ const LandingPage: React.FC<Props> = ({ onIRLoaded }) => {
                             ? 'bg-slate-800/80 text-blue-400 border-b-4 border-blue-500' 
                             : 'bg-transparent text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}
                     >
-                        CIMET IR Visualizer
+                        IR Visualizer
                     </button>
                     <button 
                         onClick={() => setMode('verify')}
@@ -123,7 +125,16 @@ const LandingPage: React.FC<Props> = ({ onIRLoaded }) => {
                             ? 'bg-slate-800/80 text-amber-400 border-b-4 border-amber-500' 
                             : 'bg-transparent text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}
                     >
-                        Aegis Introspection
+                        Aegis
+                    </button>
+                    <button 
+                        onClick={() => setMode('pipeline')}
+                        className={`flex-1 py-6 text-lg font-bold uppercase tracking-wider transition-all duration-300
+                        ${mode === 'pipeline' 
+                            ? 'bg-slate-800/80 text-indigo-400 border-b-4 border-indigo-500' 
+                            : 'bg-transparent text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}
+                    >
+                        Create Pipeline
                     </button>
                 </div>
 
@@ -181,6 +192,49 @@ const LandingPage: React.FC<Props> = ({ onIRLoaded }) => {
                                     onFileSelect={handleAegisUpload} 
                                     fullscreen={true}
                                 />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* CARD 4: PIPELINE */}
+                     {mode === 'pipeline' && (
+                        <div className="animate-in fade-in slide-in-from-right-4 duration-300 h-full flex flex-col items-center flex-1 justify-center">
+                             <div className="text-center mb-10 max-w-2xl">
+                                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-indigo-500/20 text-indigo-400 mb-6">
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className="h-10 w-10"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth={1.5}
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                    >
+                                        {/* Pipeline stages */}
+                                        <circle cx="4" cy="12" r="2" />
+                                        <circle cx="12" cy="12" r="2" />
+                                        <circle cx="20" cy="12" r="2" />
+
+                                        {/* Connections */}
+                                        <line x1="6" y1="12" x2="10" y2="12" />
+                                        <line x1="14" y1="12" x2="18" y2="12" />
+                                    </svg>
+                                </div>
+                                <h3 className="text-2xl font-semibold text-indigo-400 mb-2">Create Your Pipeline</h3>
+                                <p className="text-slate-400 mb-8">
+                                    Create your own microservice system analysis pipeline using our tools.
+                                </p>
+                                
+                                <button 
+                                    onClick={() => navigate('/pipeline')}
+                                    className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold rounded-2xl shadow-lg shadow-indigo-900/30 transform hover:scale-[1.02] transition-all flex items-center gap-2 mx-auto"
+                                >
+                                    <span>Launch Pipeline Dashboard</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                                    </svg>
+                                </button>
                             </div>
                         </div>
                     )}
