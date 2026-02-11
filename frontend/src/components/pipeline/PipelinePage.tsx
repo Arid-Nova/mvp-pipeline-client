@@ -572,7 +572,7 @@ const PipelinePage: React.FC = () => {
                         Back
                     </button>
                     <h1 className="font-bold text-xl bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-cyan-400">
-                        Pipeline Builder
+                        Custom Microservice Analysis Pipeline Builder
                     </h1>
                 </div>
                 <div className="flex items-center gap-4">

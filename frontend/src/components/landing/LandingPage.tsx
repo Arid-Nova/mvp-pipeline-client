@@ -162,7 +162,7 @@ const LandingPage: React.FC<Props> = ({ onIRLoaded }) => {
                                 </button>
                                 <button onClick={() => setVizTab('repo')}
                                     className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${vizTab === 'repo' ? 'bg-slate-700 text-white shadow' : 'text-slate-400 hover:text-white'}`}>
-                                    Import Repository
+                                    Import Repositories
                                 </button>
                             </div>
                             

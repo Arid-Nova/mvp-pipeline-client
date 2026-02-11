@@ -90,7 +90,7 @@ const VerificationCard: React.FC<Props> = ({ setLoading }) => {
 
             {/* Right Column: File Upload */}
             <div className="flex-1 flex flex-col">
-                <label className="block text-sm font-bold text-emerald-400 mb-2 uppercase tracking-wide">Attach IR JSON</label>
+                <label className="block text-sm font-bold text-emerald-400 mb-2 uppercase tracking-wide">Upload IR JSON</label>
                 <div className="flex-1 min-h-[250px] relative">
                     <IRFileUpload onFileSelect={handleFileSelect} fullscreen={true} />
                     
