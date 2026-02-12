@@ -1,0 +1,18 @@
+# Analysis / Core
+neo4j
+gitpython
+javalang
+openai
+transformers
+torch
+numpy
+
+# Analysis API
+fastapi
+uvicorn
+pydantic
+python-multipart
+
+# Frontend
+Flask
+flask-cors

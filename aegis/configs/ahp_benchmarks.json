@@ -1,0 +1,58 @@
+{
+  "HARDCODED_SECRET": {
+    "finding": "A hardcoded password, token, or secret key",
+    "opinion": {
+      "belief": 0.02,
+      "disbelief": 0.9,
+      "uncertainty": 0.08
+    }
+  },
+  "LDA": {
+    "finding": "Lack of Definite Authorization (e.g., missing @Secured)",
+    "opinion": {
+      "belief": 0.1,
+      "disbelief": 0.6,
+      "uncertainty": 0.3
+    }
+  },
+  "SQL_INJECTION_SINK": {
+    "finding": "Data flows to a raw, un-parameterized SQL query",
+    "opinion": {
+      "belief": 0.05,
+      "disbelief": 0.85,
+      "uncertainty": 0.1
+    }
+  },
+  "UNPROTECTED_ENDPOINT": {
+    "finding": "The endpoint is public",
+    "opinion": {
+      "belief": 0.1,
+      "disbelief": 0.6,
+      "uncertainty": 0.3
+    }
+  },
+  "INPUT_VALIDATION": {
+    "finding": "Input is sanitized or validated (e.g., @Valid)",
+    "opinion": {
+      "belief": 0.75,
+      "disbelief": 0.05,
+      "uncertainty": 0.2
+    }
+  },
+  "REQUIRES_ADMIN": {
+    "finding": "High-privilege (e.g., Admin) authorization is present",
+    "opinion": {
+      "belief": 0.8,
+      "disbelief": 0.05,
+      "uncertainty": 0.15
+    }
+  },
+  "REQUIRES_AUTH": {
+    "finding": "Basic authentication/authorization is present",
+    "opinion": {
+      "belief": 0.85,
+      "disbelief": 0.03,
+      "uncertainty": 0.12
+    }
+  }
+}

@@ -7,9 +7,6 @@ services:
       MYSQL_DATABASE: msGraph
     ports:
       - "3306:3306"
-    # Uncomment the following line to persist data
-    # volumes:
-    #   - mariadb_data:/var/lib/mysql
     networks:
       - app_network
 
@@ -19,7 +16,7 @@ services:
       dockerfile: Dockerfile
     container_name: mvp_backend
     ports:
-      - "8080:8080" # Expose Spring Boot on port 8080
+      - "8080:8080" 
     environment:
       SPRING_DATASOURCE_URL: jdbc:mariadb://mvp_db:3306/msGraph
       SPRING_DATASOURCE_USERNAME: root
@@ -42,8 +39,76 @@ services:
     environment:
       - NODE_ENV=production
 
+  verifier:
+    build:
+      context: ./formalmethod
+      dockerfile: Dockerfile
+    container_name: mvp_formalverifier
+    ports:
+      - "9000:9000"
+    networks:
+      - app_network
+    volumes:
+      - verifier_cache:/tmp/ms_verifier_cache
+  
+  aegis_neo4j:
+    image: neo4j:5-community
+    container_name: aegis_neo4j
+    ports:
+      - "7474:7474" 
+      - "7687:7687" 
+    environment:
+      - NEO4J_AUTH=neo4j/Test1234
+      - NEO4J_dbms_memory_pagecache_size=512M
+    networks:
+      - app_network
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  aegis_api:
+    build:
+      context: ./aegis
+      dockerfile: Dockerfile
+    container_name: aegis_api
+    command: uvicorn service:app --host 0.0.0.0 --port 8900
+    ports:
+      - "8900:8900"
+    environment:
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      aegis_neo4j:
+        condition: service_healthy
+    networks:
+      - app_network
+
+  aegis_dashboard:
+    build:
+      context: ./aegis
+      dockerfile: Dockerfile
+    container_name: aegis_dashboard
+    command: flask run --host=0.0.0.0 --port=5600
+    environment:
+      - FLASK_APP=frontend.py
+      - FLASK_DEBUG=1
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "5600:5600"
+    depends_on:
+      aegis_neo4j:
+        condition: service_healthy
+    networks:
+      - app_network
+
 volumes:
   mariadb_data:
+  verifier_cache:
+  neo4j_data:
 
 networks:
   app_network:

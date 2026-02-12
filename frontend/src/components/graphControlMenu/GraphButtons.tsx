@@ -106,13 +106,6 @@ const GraphButtonMenu: React.FC<Props> = ({
             replacer
         );
 
-        /*axios.post("http://localhost:8080/graph/new", {
-            headers: {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "http://localhost:3000",
-                "Access-Control-Allow-Methods": "GET, POST, PATCH, PUT, DELETE, OPTIONS",
-                "Access-Control-Allow-Headers": "Origin, Content-Type, X-Auth-Token, Authorization, Accept,charset,boundary,Content-Length"
-            }, data: { id: 1, data: dataStr}});*/
         var config = {
             method: 'post',
             url: 'http://localhost:8080/graph/instance',
@@ -188,6 +181,18 @@ const GraphButtonMenu: React.FC<Props> = ({
         //graphRef.current.refresh();
     }
 
+    function downloadIR() {
+        const cleanData = {
+            nodes: graphData.nodes,
+            links: graphData.links
+        };
+
+        const dataStr = JSON.stringify(cleanData, replacer, 2);
+        
+        const blob = new Blob([dataStr], { type: "application/json;charset=utf-8" });
+        saveAs(blob, "cimet_ir.json");
+    }
+
     function screenshotGraph() {
         const now = new Date();
         window.requestAnimationFrame(() => {
@@ -204,7 +209,9 @@ const GraphButtonMenu: React.FC<Props> = ({
 
     return (
         <div className="flex flex-col gap-2 w-full h-fit">
+          
             <GraphButton onClick={exportGraph}>Export</GraphButton>
+            <GraphButton onClick={downloadIR}>Download Graph JSON</GraphButton>
             <GraphButton onClick={screenshotGraph}>Capture Graph</GraphButton>
             {/*<GraphButton onClick={toggleTrack}>Track Menu</GraphButton>*/}
             <GraphButton onClick={forceReset}>Reset</GraphButton>

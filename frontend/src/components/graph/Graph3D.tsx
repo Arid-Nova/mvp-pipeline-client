@@ -36,6 +36,24 @@ type Props = {
     expandedNodes: Set<string>;
     isHighLevelExpanded: boolean;
     setExpandedNodes: React.Dispatch<React.SetStateAction<Set<string>>>;
+    verificationSuggestions?: any[];
+};
+
+const cleanNodeId = (id: string) => {
+    if (!id) return "";
+    return id.replace(/_\d+$/, ''); 
+};
+
+const getRoleLabel = (mask: number) => {
+    switch (mask) {
+        case 0: return "None";
+        case 1: return "Unauthenticated";
+        case 2: return "User Only";
+        case 4: return "Admin Only";
+        case 6: return "User + Admin Only";
+        case 7: return "Any Authenticated User";
+        default: return `Mask ${mask}`;
+    }
 };
 
 const Graph: React.FC<Props> = ({
@@ -59,7 +77,8 @@ const Graph: React.FC<Props> = ({
     trackChanges,
     expandedNodes,
     setExpandedNodes,
-    isHighLevelExpanded
+    isHighLevelExpanded,
+    verificationSuggestions,
 }) => {
     const [highlightNodes, setHighlightNodes] = useState<Set<string>>(new Set());
     const [highlightLinks, setHighlightLinks] = useState<Set<string>>(new Set());
@@ -106,7 +125,47 @@ const Graph: React.FC<Props> = ({
 
             let visibleNodes;
 
-            if (isHighLevelExpanded) {
+            // VERIFICATION MODE OVERRIDE
+            if (verificationSuggestions && verificationSuggestions.length > 0) {
+                const suggestedIds = new Set(verificationSuggestions.map(s => s.id));
+
+                // 1. Pre-calculate: Find methods that are actually attached to a controller
+                // We need to look at 'allLinks' to determine this relationship.
+                const validMethodIds = new Set();
+                const nodeTypeMap = new Map(allNodes.map((n: any) => [n.id, n.nodeType]));
+
+                allLinks.forEach((link: any) => {
+                    // Handle links whether they are raw objects (strings) or processed D3 objects
+                    const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+                    const targetId = typeof link.target === 'object' ? link.target.id : link.target;
+                    
+                    const sourceType = nodeTypeMap.get(sourceId);
+                    const targetType = nodeTypeMap.get(targetId);
+
+                    // Record the method ID if it comes from a controller
+                    if (sourceType === 'controller' && targetType === 'method') {
+                        validMethodIds.add(targetId);
+                    }
+                });
+
+                // 2. Filter the nodes
+                visibleNodes = allNodes.filter((node: any) => {
+                    // Rule A: Always show Microservices and Controllers (the backbone)
+                    if (['microservice', 'controller'].includes(node.nodeType)) return true;
+
+                    // Rule B: Only show Methods if they are linked to a Controller
+                    if (node.nodeType === 'method' && validMethodIds.has(node.id)) return true;
+                    
+                    // Rule C: Always show nodes that specifically have a suggestion (even if orphaned/weird)
+                    // This ensures you don't accidentally hide the very thing you need to fix.
+                    const cleanName = cleanNodeId(node.nodeName);
+                    if (suggestedIds.has(node.nodeName) || suggestedIds.has(cleanName)) return true;
+
+                    return false;
+                });
+            }
+            // STANDARD FILTER LOGIC
+            else if (isHighLevelExpanded) {
                 visibleNodes = allNodes.filter((node: any) => node.nodeType !== 'method');
             } else {
                 const relevantUsesLinks = allLinks.filter((link: any) =>
@@ -133,7 +192,7 @@ const Graph: React.FC<Props> = ({
             showRenderingError('Graph rendering failed!');
             return { nodes: [], links: [] };
         }
-    }, [sharedProps.graphData, expandedNodes]);
+    }, [sharedProps.graphData, expandedNodes, isHighLevelExpanded, verificationSuggestions]);
 
     const handleNodeHover = (node: any) => {
         const newHighlightNodes = new Set<string>();
@@ -184,6 +243,24 @@ const Graph: React.FC<Props> = ({
         document.dispatchEvent(event);
     }, []);
 
+        // Verification suggestion map
+    const suggestionMap = useMemo(() => {
+        if (!verificationSuggestions) return null;
+        const map = new Map();
+        verificationSuggestions.forEach(sugg => {
+            map.set(sugg.id, sugg); 
+        });
+        return map;
+    }, [verificationSuggestions]);
+
+    const getSuggestionForNode = useCallback((nodeName: string) => {
+        if (!suggestionMap) return null;
+        if (suggestionMap.has(nodeName)) return suggestionMap.get(nodeName);
+        const cleanName = cleanNodeId(nodeName);
+        if (suggestionMap.has(cleanName)) return suggestionMap.get(cleanName);
+        return null;
+    }, [suggestionMap]);
+
     // On node left click - zoom in on the node and pull up info box
     const handleNodeClick = useCallback((node: any) => {
         // If a timeout is already running, it means this is a double-click
@@ -201,17 +278,18 @@ const Graph: React.FC<Props> = ({
                         node,
                         1000
                     );
-                    
-                    const event = new CustomEvent("nodeClick", {
-                        detail: { node: node },
-                    });
+
+                    const suggestion = getSuggestionForNode(node.nodeName);
+                    const nodePayload = suggestion ? { ...node, suggestion } : node;
+
+                    const event = new CustomEvent("nodeClick", { detail: { node: nodePayload } });
                     document.dispatchEvent(event);
                 }
                 clickTimeoutRef.current = null;
             }, 300); // 300ms is a standard double-click threshold
         }
-    }, [graphRef, handleNodeDoubleClick]);
-    
+    }, [graphRef, getSuggestionForNode, handleNodeDoubleClick]);
+
     return (
         <ForceGraph3D
             ref={graphRef}
@@ -240,12 +318,31 @@ const Graph: React.FC<Props> = ({
                 document.dispatchEvent(event);
             }}
             nodeThreeObject={(node: any) => {
-                const color = getColor(
-                    node, sharedProps.graphData, threshold, highlightNodes,
-                    hoverNode, defNodeColor, setDefNodeColor, antiPattern,
-                    colorMode, selectedAntiPattern, trackNodes, focusNode, trackChanges
-                );
+                // 1. Checking if in Verification Mode
+                const suggestion = getSuggestionForNode(node.nodeName);
+                const isVerificationMode = suggestionMap !== null;
+
+                // 2. Determine Color
+                let color;
+                if (isVerificationMode) {
+                    if (suggestion) {
+                        color = "#f43e3e"; // RED for violations
+                    } else {
+                        color = getColor(
+                            node, sharedProps.graphData, threshold, highlightNodes,
+                            hoverNode, defNodeColor, setDefNodeColor, antiPattern,
+                            colorMode, selectedAntiPattern, trackNodes, focusNode, trackChanges
+                        );
+                    }
+                } else {
+                    color = getColor(
+                        node, sharedProps.graphData, threshold, highlightNodes,
+                        hoverNode, defNodeColor, setDefNodeColor, antiPattern,
+                        colorMode, selectedAntiPattern, trackNodes, focusNode, trackChanges
+                    );
+                }
                 
+                // 3. Geometry Logic
                 let geometry;
                 let nodeType = node["nodeType"]?.toUpperCase();
                 if (nodeType === "MICROSERVICE") {
@@ -253,27 +350,71 @@ const Graph: React.FC<Props> = ({
                 } else if (nodeType === "CONTROLLER" || nodeType === "SERVICE") {
                     geometry = new THREE.SphereGeometry(5);
                 } else if (nodeType === "METHOD") {
-                    geometry = new THREE.SphereGeometry(4);
+                    if(suggestion){
+                        geometry = new THREE.SphereGeometry(10);
+                    } else {
+                        geometry = new THREE.SphereGeometry(4);
+                    }
                 } else if (nodeType === "ENTITY") {
                     geometry = new THREE.BoxGeometry(10, 10, 10); 
                 } 
 
+                // 4. Opacity Logic
+                let opacity = getNodeOpacity(node, search, highlightNodes, focusNode);
+                if (isVerificationMode && !suggestion) {
+                    opacity = 0.6; 
+                }
+
                 const material = new THREE.MeshLambertMaterial({
                     transparent: true,
                     color: color,
-                    opacity: getNodeOpacity(node, search, highlightNodes, focusNode),
+                    opacity: opacity,
                 });
+
                 const mesh = new THREE.Mesh(geometry, material);
-                const sprite = new SpriteText(node.displayName || node.nodeName);
+
+                // 5. Label / Annotation Logic
+                let labelText = node.displayName || node.nodeName;
+                let textColor = node.color || 'rgba(255, 255, 255, 0.8)';
+                let bgColor = 'rgba(0, 0, 0, 0)'; // Transparent by default
+                let borderColor = 'rgba(0,0,0,0)';
+                let borderWidth = 0;
+                let padding = 0;
+
+                // 2. If Security Violation exists, Apply Styling
+                if (suggestion) {
+                    const current = getRoleLabel(suggestion.current_role_mask);
+                    const suggested = getRoleLabel(suggestion.suggested_role_mask);
+                    
+                    // Add newlines to stack the text neatly
+                    labelText += `\n`;
+                    labelText += `\nCurrent: ${current}`;
+                    labelText += `\nRequired: ${suggested}`;
+
+                    // "Security Card" styling
+                    textColor = 'red';                  
+                    bgColor = 'rgba(255, 255, 255, 0.85)'; 
+                    borderColor = 'red';                 
+                    borderWidth = 1;                     
+                    padding = 4;                         
+                }
+
+                const sprite = new SpriteText(labelText);
+                sprite.color = textColor;
+                sprite.textHeight = suggestion ? 12 : 10; 
+                sprite.backgroundColor = bgColor;
+                sprite.padding = padding;
+                sprite.borderWidth = borderWidth;
+                sprite.borderColor = borderColor;
+                sprite.borderRadius = 4; 
+
                 sprite.material.depthWrite = false;
-                const textColor = new THREE.Color(color);
-                sprite.color = textColor.getStyle();
-                sprite.material.opacity = material.opacity;
-                sprite.textHeight = 14;
+
                 sprite.position.set(0, 15, 0);
                 mesh.add(sprite);
                 return mesh;
             }}
+
             nodeThreeObjectExtend={false}
             onNodeDragEnd={(node) => {
                 if (node.x && node.y && node.z) {
@@ -290,7 +431,12 @@ const Graph: React.FC<Props> = ({
                     link, search, highlightLinks, antiPattern, selectedAntiPattern
                 )
             }
-            linkColor={(link) =>{
+
+            // 6. Link Styling for Verification Mode
+            linkColor={(link) => {
+                if (suggestionMap) {
+                    return "rgba(215, 211, 211, 0.81)";
+                }
                 switch (link.nodeType) {
                     case 'uses': return 'rgba(65, 68, 249, 0.7)'; // Controller/Service -> Entity
                     case 'dependency': return 'rgba(255, 165, 0, 0.7)'; // Controller -> Service
@@ -302,6 +448,7 @@ const Graph: React.FC<Props> = ({
                         );
                 }
             }}
+
             linkDirectionalArrowLength={(link) => link.nodeType === 'link' ? 10 : 0}
             linkDirectionalArrowRelPos={sharedProps.linkDirectionalArrowRelPos}
             linkDirectionalArrowColor={(link) =>

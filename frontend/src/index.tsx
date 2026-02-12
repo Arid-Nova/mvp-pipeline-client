@@ -4,6 +4,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import reportWebVitals from './reportWebVitals';
 import { setupAxios, setupLogger } from "./utils/axiosSetup";
+import { BrowserRouter } from 'react-router-dom';
 
 setupLogger();
 setupAxios();
@@ -17,7 +18,9 @@ const root = ReactDOM.createRoot(
 );
 root.render(
     <React.StrictMode>
-        <App data={null}/>
+        <BrowserRouter> 
+            <App />
+        </BrowserRouter>
     </React.StrictMode>
 );
 

@@ -2,3 +2,7 @@
 backend/src/main/resources/application.yml
 backend/src/main/resources/application.yml
 frontend-ejected/
+formalmethod/app/__pycache__
+formalmethod/app/core/__pycache__
+formalmethod/app/core/solver/__pycache__
+formalmethod/app/services/__pycache__

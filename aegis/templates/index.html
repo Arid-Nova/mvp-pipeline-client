@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Aegis - Security Introspection</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='homestyle.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        /* Specific styles for the landing page */
+        .landing-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        
+        .logo-mark {
+            font-size: 4rem;
+            margin-bottom: 0.5rem;
+            display: inline-block;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 900;
+        }
+
+        .landing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            width: 100%;
+        }
+
+        .feature-card {
+            background: white;
+            border-radius: 16px;
+            padding: 2.5rem;
+            text-align: center;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-md);
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-lg);
+            border-color: var(--primary-color);
+        }
+
+        .icon {
+            font-size: 3rem;
+            margin-bottom: 1.5rem;
+            display: inline-block;
+            padding: 1rem;
+            background-color: #F3F4F6;
+            border-radius: 50%;
+            width: 80px;
+            height: 80px;
+            line-height: 80px;
+        }
+
+        .feature-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-card p {
+            color: var(--text-light);
+            font-size: 1rem;
+            margin-bottom: 2rem;
+            flex-grow: 1; /* Pushes the button down */
+        }
+        
+        .footer {
+            margin-top: 4rem;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="landing-header">
+            <span class="logo-mark">Aegis</span>
+            <p>Next-Generation Automated Security Introspection for Microservices</p>
+        </header>
+
+        <div class="landing-grid">
+            <!-- AHP Calibration Card -->
+            <div class="feature-card">
+                <div class="icon" style="align-self: center;">⚖️</div>
+                <h3>Risk Model Calibration</h3>
+                <p>
+                    Configure the <b>Metaphoric Risk Calculus</b>. Use the Analytic Hierarchy Process (AHP) to formally weight conflicting evidence from static analysis and LLM inference.
+                </p>
+                <a href="/ahp" class="btn btn-outline">Configure Model</a>
+            </div>
+
+            <!-- Visualization Card -->
+            <div class="feature-card">
+                <div class="icon" style="align-self: center;">🔍</div>
+                <h3>Introspection Dashboard</h3>
+                <p>
+                    Visualize the system's holistic security posture. Explore the <b>Risk Cloud</b>, identify authorization drift, and view architectural heat maps.
+                </p>
+                <a href="/visualize" class="btn btn-primary">Launch Visualization</a>
+            </div>
+
+            <!-- SonarQube Benchmark -->
+            <!-- <div class="feature-card">
+                <div class="icon" style="align-self:center;">
+                    <svg width="80" height="80" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+                        <path fill="#4E9BD4" d="M204.8 51.2c-40-40-105.1-40-145.1 0c-40 40-40 105.1 0 145.1l14.1-14.1c-32.2-32.2-32.2-84.6 0-116.8s84.6-32.2 116.8 0s32.2 84.6 0 116.8l14.1 14.1c40-40 40-105.1 0-145.1z"/>
+                        <path fill="#3A82B4" d="M182 74c-27.5-27.5-72.1-27.5-99.6 0s-27.5 72.1 0 99.6l12.1-12.1c-20.8-20.8-20.8-54.6 0-75.4s54.6-20.8 75.4 0s20.8 54.6 0 75.4l12.1 12.1c27.5-27.5 27.5-72.1 0-99.6z"/>
+                        <path fill="#1E6C9C" d="M158.5 97.5c-14.9-14.9-39.1-14.9-54 0s-14.9 39.1 0 54l10.7-10.7c-8.9-8.9-8.9-23.5 0-32.4s23.5-8.9 32.4 0s8.9 23.5 0 32.4l10.7 10.7c14.9-14.9 14.9-39.1 0-54z"/>
+                    </svg>
+                </div>
+                <h3>SonarQube Benchmark</h3>
+                <p>
+                    Visualize the system's security analysis results derived from <b>SonarQube</b> - the traditional SAST tool that is standard in security analysis of systems.
+                </p>
+                <a href="/sonar" class="btn btn-outline">Go Compare</a>
+            </div> -->
+        </div>
+        
+        <footer class="footer">
+            &copy; 2026 CloudHubs. University of Arizona.
+        </footer>
+    </div>
+</body>
+</html>
