@@ -189,7 +189,31 @@ def save_configs():
 @app.route('/visualize')
 def visualize():
     commit_id = request.args.get('commitID')
-    return render_template('visualize.html', commitID=commit_id)
+    if not commit_id:
+        return render_template('errorpage.html')
+
+    config = configparser.ConfigParser()
+    config.read('config.ini')
+    config_dict = {s: dict(config.items(s)) for s in config.sections()}
+    
+    mongo_service = MongoService(
+        uri=config_dict['MONGO']['URI'],
+        db_name=config_dict['MONGO']['DB_NAME']
+    )
+    
+    try:
+        mongo_query = {}
+        if commit_id:
+            mongo_query['commit_id'] = commit_id
+
+        existing = mongo_service.find(
+            config_dict['MONGO']['collection_name'], 
+            mongo_query)
+        
+        if existing:
+            return render_template('visualize.html', commitID=commit_id)
+    except Exception:
+        return render_template('errorpage.html')
 
 @app.route('/api/results')
 def get_results():
