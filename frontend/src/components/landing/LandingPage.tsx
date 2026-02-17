@@ -214,7 +214,7 @@ const LandingPage: React.FC<Props> = ({ onIRLoaded }) => {
                                 </p>
                             </div>
                             
-                            <div className="w-full max-w-2xl mb-10 flex flex-col gap-4">
+                            <div className="w-full max-w-3xl mb-10 flex flex-col gap-4">
                                 <div className="flex flex-col gap-2">
                                     <label className="text-sm font-bold text-slate-300">Repository URL</label>
                                     <input 
