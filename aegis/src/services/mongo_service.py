@@ -11,7 +11,7 @@ class MongoService:
             self.db = self.client[db_name]
             # print(f"MongoDB connection successful to database: {db_name}")
             
-        except (ConnectionFailure, ServerSelectionTimeoutError) as e:
+        except (ConnectionFailure, ServerSelectionTimeoutError):
             # print(f"Could not connect to MongoDB at {uri}. {e}")
             exit(1)
 

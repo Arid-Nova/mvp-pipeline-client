@@ -4,6 +4,7 @@ import numpy as np
 import configparser
 import os
 from flask_cors import CORS
+from src.services.mongo_service import MongoService
 from src.services.neo4j_service import Neo4jService
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from src.ahp_calculator import AHPCalculator
@@ -187,17 +188,37 @@ def save_configs():
 
 @app.route('/visualize')
 def visualize():
-    return render_template('visualize.html')
+    commit_id = request.args.get('commitID')
+    return render_template('visualize.html', commitID=commit_id)
 
 @app.route('/api/results')
 def get_results():
-    results_path = 'opinion_vector_results.json'
-    if not os.path.exists(results_path):
-        return json.dumps([]) 
+    config = configparser.ConfigParser()
+    config.read('config.ini')
+    config_dict = {s: dict(config.items(s)) for s in config.sections()}
     
-    with open(results_path, 'r') as f:
-        data = json.load(f)
-    return json.dumps(data)
+    mongo_service = MongoService(
+        uri=config_dict['MONGO']['URI'],
+        db_name=config_dict['MONGO']['DB_NAME']
+    )
+
+    try:
+        commit_id = request.args.get('commitID')
+
+        mongo_query = {}
+        if commit_id:
+            mongo_query['commit_id'] = commit_id
+
+        existing = mongo_service.find(
+            config_dict['MONGO']['collection_name'], 
+            mongo_query)
+        
+        if existing:
+            return existing[0]['results']
+    except Exception as e:
+        print(f"Error retrieving results: {e}")
+
+    return []
 
 @app.route('/api/callgraph/<path:endpoint_id>')
 def get_callgraph(endpoint_id):

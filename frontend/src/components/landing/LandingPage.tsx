@@ -70,7 +70,7 @@ const LandingPage: React.FC<Props> = ({ onIRLoaded }) => {
             });
 
             if (response.ok) {
-                window.location.href = 'http://localhost:5600/visualize';
+                window.location.href = `http://localhost:5600/visualize?commitID=${encodeURIComponent(irJson.commitID)}`;
             } else {
                 throw new Error(`Engine returned status ${response.status}`);
             }
