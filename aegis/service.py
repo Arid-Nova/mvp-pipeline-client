@@ -5,6 +5,7 @@ import configparser
 import dataclasses
 from contextlib import asynccontextmanager
 
+from time import time
 from typing import Dict, Any, List
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -69,40 +70,10 @@ async def analyze_endpoint(payload: Dict[str, Any]):
     if not facade:
         raise HTTPException(status_code=500, detail="Analysis service not initialized. Check server logs.")
 
-    # 1. Write the incoming JSON to a temporary file.
-    temp_file = tempfile.NamedTemporaryFile(mode='w+', suffix='.json', delete=False)
-    json.dump(payload, temp_file)
-    temp_file.close()
-    temp_path = temp_file.name
-
     try:
-        # 2. Dynamically override the 'ir_path' in the loaded configuration
-        original_path = facade.config.get('REPOSITORY', {}).get('ir_path')
-        
-        if 'REPOSITORY' not in facade.config:
-            facade.config['REPOSITORY'] = {}
-            
-        facade.config['REPOSITORY']['ir_path'] = temp_path
-
-        # 3. Run the analysis using your existing logic
-        print(f"[INFO] Starting analysis on temp file: {temp_path}")
-        analyzed_paths = facade.run_analysis()
-
-        # 4. Format the output
-        results = []
-        if analyzed_paths:
-            for path in analyzed_paths:
-                # Convert dataclass to dict
-                path_dict = dataclasses.asdict(path)
-                path_dict.pop("method_flow", None)             
-                results.append(path_dict)
-
-        # Restore the configuration
-        if original_path:
-            facade.config['REPOSITORY']['ir_path'] = original_path
-
-        facade.save_results(results, 'opinion_vector_results.json')
-
+        # Run the analysis using your existing logic
+        print("[INFO] Starting introspection!")
+        results = facade.run_analysis(payload)
         return {"status": "success", "results": results}
 
     except Exception as e:

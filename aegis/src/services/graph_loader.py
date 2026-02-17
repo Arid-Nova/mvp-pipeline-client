@@ -184,28 +184,20 @@ class GraphLoader:
         # as they are handled by the framework and use parameterized statements.
         return False
     
-    def load_graph_from_ir(self, ir_file_path: Path, temp_dir: Path) -> List[ExecutionPath]:
+    def load_graph_from_ir(self, ir_data: Dict[str, Any], temp_dir: Path) -> List[ExecutionPath]:
         self.temp_dir = temp_dir
         # print(f"Loading IR from {ir_file_path} into Neo4j.")
-        try:
-            with open(ir_file_path, 'r', encoding='utf-8') as f:
-                ir_data = json.load(f)
-        except Exception as e:
-            # print(f"Error reading or parsing IR file: {e}")
-            return []
-            
         self.neo4j.clear_database()
-        
         execution_paths = []
         try:
             with self.neo4j.get_session() as session:
                 session.execute_write(self._load_nodes_transaction, ir_data, execution_paths)
-            # print("Successfully created all nodes (System, Microservice, JClass, JMethod, Endpoint, DataEntity, Annotation).")
+                # print("Successfully created all nodes (System, Microservice, JClass, JMethod, Endpoint, DataEntity, Annotation).")
         
             with self.neo4j.get_session() as session:
                 # Second transaction: Link all nodes
                 session.execute_write(self._link_nodes_transaction, ir_data)
-        except Exception as e:
+        except Exception:
             traceback.print_exc()
             sys.exit(1)
         
