@@ -19,6 +19,10 @@ const LandingPage: React.FC<Props> = ({ onIRLoaded }) => {
     const [vizTab, setVizTab] = useState<'upload' | 'repo'>('upload');
     const [loading, setLoading] = useState(false);
 
+    // Aegis specific state
+    const [aegisRepoUrl, setAegisRepoUrl] = useState('');
+    const [aegisBranch, setAegisBranch] = useState('');
+
     // Check for incoming IR data from Pipeline
     useEffect(() => {
         if (location.state && location.state.irData) {
@@ -42,15 +46,27 @@ const LandingPage: React.FC<Props> = ({ onIRLoaded }) => {
     };
 
     const handleAegisUpload = async (file: File) => {
+        if (!aegisRepoUrl || !aegisBranch) {
+            showError("Please specify both Repository URL and Branch Name.");
+            return;
+        }
+
         setLoading(true);
         try {
             const text = await file.text();
-            const json = JSON.parse(text); 
+            const irJson = JSON.parse(text); 
+
+            // Construct the specific payload wrapper for Aegis
+            const payload = {
+                branch: aegisBranch,
+                repoUrl: aegisRepoUrl,
+                ir: irJson
+            };
 
             const response = await fetch('http://localhost:8900/analyze', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(json)
+                body: JSON.stringify(payload)
             });
 
             if (response.ok) {
@@ -196,6 +212,29 @@ const LandingPage: React.FC<Props> = ({ onIRLoaded }) => {
                                 <p className="text-slate-400">
                                     Upload an Intermediate Representation to detect latent vulnerabilities via the Aegis engine.
                                 </p>
+                            </div>
+                            
+                            <div className="w-full max-w-2xl mb-10 flex flex-col gap-4">
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-sm font-bold text-slate-300">Repository URL</label>
+                                    <input 
+                                        type="text" 
+                                        className="bg-slate-900/60 border border-slate-600 text-white rounded-lg p-3 focus:border-amber-500 focus:outline-none transition-colors w-full"
+                                        placeholder="https://github.com/..."
+                                        value={aegisRepoUrl}
+                                        onChange={(e) => setAegisRepoUrl(e.target.value)}
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-sm font-bold text-slate-300">Branch Name</label>
+                                    <input 
+                                        type="text" 
+                                        className="bg-slate-900/60 border border-slate-600 text-white rounded-lg p-3 focus:border-amber-500 focus:outline-none transition-colors w-full"
+                                        placeholder="master"
+                                        value={aegisBranch}
+                                        onChange={(e) => setAegisBranch(e.target.value)}
+                                    />
+                                </div>
                             </div>
                             
                             <div className="w-full max-w-3xl flex-1 flex flex-col justify-center">
