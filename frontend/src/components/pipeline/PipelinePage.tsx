@@ -467,7 +467,33 @@ const PipelinePage: React.FC = () => {
                     updateStatus(targetNode.id, 'completed', 'Ready to Visualize.', { payload: irPayload });
                 }
                 else if (targetNode.type === 'AEGIS') {
-                    updateStatus(targetNode.id, 'completed', 'Ready for Aegis.');
+                    // Type Guard
+                    const irPayload = payload as PipelinePayload;
+                    if (!irPayload.irJson) throw new Error("Invalid input: Expected IR JSON");
+
+                    updateStatus(targetNode.id, 'running', 'Analyzing with Aegis Engine...');
+
+                    // Construct payload for the Neuro-Symbolic Engine
+                    // Matches the format used in LandingPage.tsx
+                    const enginePayload = {
+                        branch: irPayload.metadata.branch,
+                        repoUrl: irPayload.metadata.repoUrl,
+                        ir: irPayload.irJson
+                    };
+
+                    // Call the Python/Engine API
+                    const response = await fetch('http://localhost:8900/analyze', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(enginePayload)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Engine Status: ${response.status}`);
+                    }
+
+                    // Mark complete and pass payload through so the button has access to metadata
+                    updateStatus(targetNode.id, 'completed', 'Analysis Complete. Click to View.', { payload: irPayload });
                 }
                 else if (targetNode.type === 'FORMAL_VIZ') {
                     // Expects Combined Result Packet from FORMAL_VERIFY
@@ -608,12 +634,25 @@ const PipelinePage: React.FC = () => {
                 );
             case 'AEGIS':
                 return (
-                     <button 
-                        disabled={!node.data.payload?.irJson}
-                        className="mt-2 w-full py-1.5 text-xs bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white rounded font-medium shadow transition-colors"
-                        onClick={() => alert("Redirecting to Aegis System...")}
+                    <button 
+                        disabled={!node.data.payload?.irJson || node.status !== 'completed'}
+                        className={`
+                            mt-2 w-full py-1.5 text-xs text-white rounded font-medium shadow transition-colors
+                            ${node.status === 'completed' 
+                                ? 'bg-red-600 hover:bg-red-500' 
+                                : 'bg-slate-700 opacity-50 cursor-not-allowed'}
+                        `}
+                        onClick={() => {
+                            const meta = node.data.payload?.metadata;
+                            if (!meta) return;
+                            const params = new URLSearchParams({
+                                commitID: meta.commitId
+                            }).toString();
+
+                            window.open(`http://localhost:5600/visualize?${params}`);
+                        }}
                     >
-                        Launch Aegis
+                        {node.status === 'running' ? 'Analyzing...' : 'Launch Aegis'}
                     </button>
                 );
             case 'FORMAL_VIZ':
