@@ -108,6 +108,14 @@ function getColor(
         return "rgb(25,200,25)";
     }
 
+    if (antipattern && node.antiPattern) {
+        const isActive = !selectedAntiPattern || selectedAntiPattern === "ALL" || selectedAntiPattern === "none" || selectedAntiPattern === node.antiPattern;
+        if (isActive) {
+            if (node.antiPattern === 'SHARED_DB') return RED; 
+            if (node.antiPattern === 'GOD_SERVICE') return ORANGE; 
+        }
+    }
+
     if (antipattern && selectedAntiPattern != "none") {
         switch (selectedAntiPattern) {
             case "Cyclic Dependency":
@@ -483,6 +491,15 @@ function getLinkColor(
     }
 
     if (antiPattern) {
+        if (link.antiPattern) {
+            const isActive = !selectedAntiPattern || selectedAntiPattern === "ALL" || selectedAntiPattern === "none" || selectedAntiPattern === link.antiPattern;
+            if (isActive) {
+                if (link.antiPattern === 'CYCLIC_DEPENDENCY' || link.antiPattern === 'CHATTY_SERVICE') {
+                    return `rgba(255, 0, 0, 0.99)`; 
+                }
+            }
+        }
+        
         if (selectedAntiPattern == "coupling") {
             return `rgba(102,102,153, ${getLinkOpacity(
                 link,
@@ -546,6 +563,13 @@ function getLinkWidth(
 
     let size = (link.requests?.length ?? 0) + 2;
     if (antiPattern) {
+        if (link.antiPattern) {
+            const isActive = !selectedAntiPattern || selectedAntiPattern === "ALL" || selectedAntiPattern === "none" || selectedAntiPattern === link.antiPattern;
+            if (isActive && (link.antiPattern === 'CYCLIC_DEPENDENCY' || link.antiPattern === 'CHATTY_SERVICE')) {
+                size *= 3; 
+            }
+        }
+
         if (
             selectedAntiPattern == "Cyclic Dependency" &&
             linkInAntiPattern(link, selectedAntiPattern)

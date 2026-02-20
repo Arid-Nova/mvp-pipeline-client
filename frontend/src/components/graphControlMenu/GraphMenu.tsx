@@ -20,8 +20,12 @@ type Props = {
     setIsDark: React.Dispatch<React.SetStateAction<boolean>>;
     trackChanges: boolean;
     setTrackChanges: React.Dispatch<React.SetStateAction<boolean>>;
+
     antiPattern: boolean;
+    setAntiPattern: React.Dispatch<React.SetStateAction<boolean>>;
     selectedAntiPattern: string;
+    setSelectedAntiPattern: React.Dispatch<React.SetStateAction<string>>;
+
     currentInstance: any;
     graphTimeline: any;
     isExpandedAll: boolean;
@@ -54,7 +58,9 @@ const GraphMenu: React.FC<Props> = ({
     trackChanges,
     setTrackChanges,
     antiPattern,
+    setAntiPattern,
     selectedAntiPattern,
+    setSelectedAntiPattern,
     currentInstance,
     graphTimeline,
     isExpandedAll,
@@ -194,6 +200,60 @@ const GraphMenu: React.FC<Props> = ({
                     </div>
                 </label>
             </div>
+            
+            {/* Anti-pattern Switch */}
+            <div className="flex flex-col gap-3 mt-2">
+                <span className="text-sm font-bold text-slate-300 flex items-center gap-2 uppercase tracking-wider">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    Anti-Patterns
+                </span>
+                
+                {/* Master Toggle - Now perfectly matches your other toggles */}
+                <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-slate-300">
+                        <strong>Highlight:</strong> {antiPattern ? 'Active' : 'Off'}
+                    </span>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={antiPattern}
+                            className="sr-only peer"
+                            onChange={(e) => setAntiPattern(e.target.checked)}
+                        />
+                        <div className="w-11 h-6 bg-slate-600 rounded-full peer peer-focus:ring-2 peer-focus:ring-red-400 transition-colors duration-300
+                                        peer-checked:bg-red-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white
+                                        after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all
+                                        peer-checked:after:translate-x-full after:duration-300">
+                        </div>
+                    </label>
+                </div>
+
+                {/* Dropdown Selection - Stylized with custom chevron and focus states */}
+                {antiPattern && (
+                    <div className="relative mt-1 animate-fade-in">
+                        <select 
+                            value={selectedAntiPattern} 
+                            onChange={(e) => setSelectedAntiPattern(e.target.value)}
+                            className="w-full appearance-none bg-slate-700/80 border border-slate-600 text-sm rounded-lg px-3 py-2.5 text-slate-200 outline-none transition-all duration-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/40 hover:bg-slate-600 cursor-pointer shadow-sm"
+                        >
+                            <option value="none">None</option>
+                            <option value="ALL">Show All Anti-Patterns</option>
+                            <option value="GOD_SERVICE">God Service (Megaservice)</option>
+                            <option value="SHARED_DB">Shared Database</option>
+                            <option value="CHATTY_SERVICE">Chatty Services</option>
+                            <option value="CYCLIC_DEPENDENCY">Cyclic Dependencies</option>
+                        </select>
+                        {/* Custom SVG Chevron overlaying the default dropdown arrow */}
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </div>
+                    </div>
+                )}
+            </div>
 
             {/* Horizontal divider */}
             <div className="w-full h-px bg-slate-700"></div>
@@ -206,7 +266,7 @@ const GraphMenu: React.FC<Props> = ({
                             xmlns="http://www.w3.org/2000/svg"
                             fill="none"
                             viewBox="0 0 24 24"
-                            strokeWidth={1.5}
+                            strokeWidth={1.5} 
                             stroke="currentColor"
                             className="w-5 h-5 text-teal-400"
                             >

@@ -11,6 +11,7 @@ export interface Method {
     className: string;
     annotations: any[];
     methodCalls: MethodCall[];
+    antiPattern: string | null;
 }
 
 export interface MethodCall {
@@ -19,6 +20,7 @@ export interface MethodCall {
     calledFrom: string;
     name: string;
     parameterContents: any[];
+    antiPattern: string | null;
 }
 
 export interface Controller {
@@ -26,6 +28,7 @@ export interface Controller {
     implementedTypes: string[];
     name: string;
     imports: any[];
+    antiPattern: string | null;
 }
 
 export interface Service extends Controller {}
@@ -34,6 +37,7 @@ export interface Microservice {
     name: string;
     controllers: Controller[];
     services: Service[]; // Services have the same structure as controllers
+    antiPattern: string | null;
 }
 
 export interface IRData {
@@ -41,6 +45,7 @@ export interface IRData {
     commitID?: string;
     createDate: string | null;
     modifyDate: string | null;
+    antiPattern: string | null;
 }
 
 function findMethodByUrl(callUrl: string, methodsDict: { [key: string]: any }): any | null {
@@ -72,7 +77,8 @@ export default function getData(myData: IRData | null, nodes_array?: string[] | 
             parentController: string | null;
             parentService: string | null; 
             parameters: any[] | null;
-            returnType: string | null }> = [];
+            returnType: string | null;
+            antiPattern: string | null; }> = [];
         
         let links: any[] = [];
         let entitySet = new Set<string>();
@@ -103,7 +109,8 @@ export default function getData(myData: IRData | null, nodes_array?: string[] | 
                     "parentController": null,
                     "parentService": null,
                     "parameters": [],
-                    "returnType": null
+                    "returnType": null,
+                    "antiPattern": microservice.antiPattern || null
                 });
 
             }
@@ -122,7 +129,8 @@ export default function getData(myData: IRData | null, nodes_array?: string[] | 
                     "parentController": null,
                     "parentService": null,
                     "parameters": null,
-                    "returnType": null
+                    "returnType": null,
+                    "antiPattern": controller.antiPattern || null
                 });
 
                 let functions = controller["methods"];
@@ -144,7 +152,8 @@ export default function getData(myData: IRData | null, nodes_array?: string[] | 
                         "parentMicroservice": nodeName,
                         "parentService": null,
                         "parameters": parameters,
-                        "returnType": returnType
+                        "returnType": returnType,
+                        "antiPattern": method.antiPattern || null
                     });
                     
                     //Check if this method has a default annotation, then also add that url
@@ -184,7 +193,8 @@ export default function getData(myData: IRData | null, nodes_array?: string[] | 
                     "parentController": null,
                     "parentService": null,
                     "parameters": null,
-                    "returnType": null
+                    "returnType": null,
+                    "antiPattern": service.antiPattern || null
                 });
                 
                 let services = service.methods;
@@ -199,7 +209,8 @@ export default function getData(myData: IRData | null, nodes_array?: string[] | 
                         "parentService": serviceUniqueName, 
                         "parentMicroservice": nodeName,
                         "parameters": method.parameters,
-                        "returnType": method.returnType
+                        "returnType": method.returnType,
+                        "antiPattern": method.antiPattern || null
                     });
                 }
             }
@@ -214,10 +225,10 @@ export default function getData(myData: IRData | null, nodes_array?: string[] | 
             let msServices = nodes.filter(n => n.nodeType === 'service' && n.parentMicroservice === msName);
 
             msControllers.forEach(controller => {
-                links.push({ source: msName, target: controller.nodeName, nodeType: "hierarchy" });
+                links.push({ source: msName, target: controller.nodeName, nodeType: "hierarchy", antiPattern: null });
                 // Link controller to its methods
                 nodes.filter(n => n.nodeType === 'method' && n.parentController === controller.nodeName)
-                     .forEach(method => links.push({ source: controller.nodeName, target: method.nodeName, nodeType: "hierarchy" }));
+                     .forEach(method => links.push({ source: controller.nodeName, target: method.nodeName, nodeType: "hierarchy", antiPattern: null }));
 
                 // Creating Dependency Links (Controller -> Service).
                 msServices.forEach(service => {
@@ -225,7 +236,8 @@ export default function getData(myData: IRData | null, nodes_array?: string[] | 
                         source: controller.nodeName,
                         target: service.nodeName,
                         name: `${controller.displayName} -> ${service.displayName}`,
-                        nodeType: "dependency"
+                        nodeType: "dependency",
+                        antiPattern: null
                     });
                 });
             });
@@ -258,7 +270,8 @@ export default function getData(myData: IRData | null, nodes_array?: string[] | 
                                 "parentController": null, 
                                 "parentService": null,
                                 "parameters": null, 
-                                "returnType": null
+                                "returnType": null,
+                                "antiPattern": imp.antiPattern || null
                             });
                         }
 
@@ -267,7 +280,8 @@ export default function getData(myData: IRData | null, nodes_array?: string[] | 
                             source: componentName,
                             target: entityName,
                             name: `${componentName} -> ${entityName}`,
-                            nodeType: "uses" 
+                            nodeType: "uses",
+                            antiPattern: imp.antiPattern || null 
                         });
                     }
                 }
@@ -296,10 +310,16 @@ export default function getData(myData: IRData | null, nodes_array?: string[] | 
                                         target: destinationMs,
                                         nodeType: "link",
                                         requests: [],
-                                        name: connectionKey
+                                        name: connectionKey,
+                                        antiPattern: null
                                     });
                                 }
                                 const linkIndex = connections.get(connectionKey)!;
+
+                                if (methodCall.antiPattern) {
+                                    links[linkIndex].antiPattern = methodCall.antiPattern;
+                                }
+
                                 links[linkIndex].requests.push({
                                     "destinationUrl": methodCall.url,
                                     "sourceMethod": methodCall.calledFrom,
