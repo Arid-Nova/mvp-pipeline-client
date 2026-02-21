@@ -69,19 +69,6 @@ export const InfoBox = (props: Props) => {
                 ${show ? `flex` : `hidden`}`}
             style={{ top: anchorPoint.y, left: anchorPoint.x }}
         >
-            {currentAntiPattern && (
-                <div className="bg-red-50 border-l-4 border-red-500 text-red-800 p-3 mb-4 rounded shadow-sm w-full">
-                    <div className="font-bold flex items-center gap-2 text-sm">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-600" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                        Anti-Pattern
-                    </div>
-                    <span className="text-xs mt-1 block font-mono bg-red-100 p-1 rounded">
-                        {currentAntiPattern.replace(/_/g, ' ')}
-                    </span>
-                </div>
-            )}
 
             <div className="flex flex-col gap-2">
                 <h4 className="text-lg font-semibold border-b border-slate-300 pb-2 flex items-center gap-2">
@@ -102,6 +89,21 @@ export const InfoBox = (props: Props) => {
                     </div>
                 )}
             </div>
+
+            {currentAntiPattern && <br/>}
+            {currentAntiPattern && (
+                <div className="bg-red-50 border-l-4 border-red-500 text-red-800 p-3 mb-4 rounded shadow-sm w-full">
+                    <div className="font-bold flex items-center gap-2 text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-600" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        Anti-Pattern
+                    </div>
+                    <span className="text-xs mt-1 block font-mono bg-red-100 p-1 rounded">
+                        {currentAntiPattern.replace(/_/g, ' ')}
+                    </span>
+                </div>
+            )}
             
             {type == 'link' && (
                 <div className="w-full h-px bg-slate-300 my-2"></div>
@@ -207,6 +209,7 @@ export const InfoBox = (props: Props) => {
                 </div>
 
                 {/* --- ANTI-PATTERN WARNING --- */}
+                {currentAntiPattern && <br/>}
                 {currentAntiPattern && (
                     <div className="bg-red-50 border-l-4 border-red-500 text-red-800 p-3 mb-4 rounded shadow-sm w-full">
                         <div className="font-bold flex items-center gap-2 text-sm">
@@ -290,27 +293,26 @@ export const InfoBox = (props: Props) => {
                 </div>
             </div>
 
+            {/* ANTI-PATTERN WARNING */}
+            {currentAntiPattern && <br/>}
+            {currentAntiPattern && (
+                <div className="bg-red-50 border-l-4 border-red-500 text-red-800 p-3 rounded shadow-sm w-full shrink-0">
+                    <div className="font-bold flex items-center gap-2 text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-600" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        Anti-Pattern
+                    </div>
+                    <span className="text-xs mt-1 block font-mono bg-red-100 p-1 rounded">
+                        {currentAntiPattern.replace(/_/g, ' ')}
+                    </span>
+                </div>
+            )}
+
             <div className="w-full h-px bg-slate-300 my-2 shrink-0"></div>
 
             {/* SCROLLABLE BODY (Contains warnings and details) */}
             <div className="flex-1 overflow-y-auto dark-scrollbar pr-2 flex flex-col gap-3">
-                
-                {/* ANTI-PATTERN WARNING */}
-                {currentAntiPattern && (
-                    <div className="bg-red-50 border-l-4 border-red-500 text-red-800 p-3 rounded shadow-sm w-full shrink-0">
-                        <div className="font-bold flex items-center gap-2 text-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-600" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                            </svg>
-                            Anti-Pattern
-                        </div>
-                        <span className="text-xs mt-1 block font-mono bg-red-100 p-1 rounded">
-                            {currentAntiPattern.replace(/_/g, ' ')}
-                        </span>
-                    </div>
-                )}
-
-                {/* SUGGESTION / VIOLATION BOX */}
                 {suggestion && (
                     <div className="p-3 bg-red-50 border border-red-200 rounded-lg shadow-sm shrink-0">
                         <h5 className="text-red-600 font-bold text-sm flex items-center gap-2 mb-3">
@@ -431,9 +433,8 @@ export const InfoBox = (props: Props) => {
                 </div>
             </div>
 
-            <div className="w-full h-px bg-slate-300 my-2"></div>
-
             {/* --- ANTI-PATTERN WARNING --- */}
+            {currentAntiPattern && <br/>}
             {currentAntiPattern && (
                 <div className="bg-red-50 border-l-4 border-red-500 text-red-800 p-3 mb-4 rounded shadow-sm w-full">
                     <div className="font-bold flex items-center gap-2 text-sm">
@@ -447,6 +448,8 @@ export const InfoBox = (props: Props) => {
                     </span>
                 </div>
             )}
+
+            {/* <div className="w-full h-px bg-slate-300 my-2"></div> */}
 
             <div className="max-h-96 w-96 overflow-y-scroll dark-scrollbar">
                 <h5 className="font-semibold text-sm mt-4">Dependencies</h5>

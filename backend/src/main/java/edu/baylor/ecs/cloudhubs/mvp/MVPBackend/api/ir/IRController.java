@@ -1,11 +1,11 @@
 package edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.ir;
 
 import lombok.RequiredArgsConstructor;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.model.Errors;
-import edu.university.ecs.lab.common.models.ir.MicroserviceSystem;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.model.ForbiddenException;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.ir.IRRequestModel;
 
@@ -20,7 +20,7 @@ public class IRController {
     @PostMapping("/create")
     @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
     public ResponseEntity<?> createIR(@RequestBody IRRequestModel irRequestModel) {
-        MicroserviceSystem responseModel;
+        JsonNode responseModel;
         try {
             responseModel = irService.createAndWrite(irRequestModel);
         } catch (ForbiddenException e) {
