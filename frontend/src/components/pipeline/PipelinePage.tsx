@@ -35,6 +35,7 @@ interface NodeData {
         repoUrl?: string;
         branch?: string;
         commit?: string;
+        repositories?: { repoUrl: string; branch: string; commit: string }[];
         payload?: PipelinePayload; 
         verificationResult?: VerificationResponse;
         systemInfo?: {
@@ -342,21 +343,25 @@ const PipelinePage: React.FC = () => {
                 
                 // 1. EXECUTE INPUT NODES
                 if (node.type === 'MULTI_REPO') {
-                    if (!node.data.repoUrl || !node.data.systemName) {
-                        updateStatus(node.id, 'failed', 'System Name and Repository URL are required.');
+                    const reposToProcess = node.data.repositories || [{ repoUrl: node.data.repoUrl, branch: node.data.branch, commit: node.data.commit }];
+    
+                    // Validate we have a system name and at least one valid repo
+                    if (!node.data.systemName || reposToProcess.length === 0 || !reposToProcess[0].repoUrl) {
+                        updateStatus(node.id, 'failed', 'System Name and at least one Repository URL are required.');
                         continue;
                     }
                     
                     try {
                         const input: RepositoryInput = {
                             systemName: node.data.systemName,
-                            systemRepositories: [{
+                            // Map the frontend array directly into the backend format
+                            systemRepositories: reposToProcess.map(repo => ({
                                 repoBranchPair: {
-                                    repositoryURL: node.data.repoUrl,
-                                    branchName: node.data.branch || "master"
+                                    repositoryURL: repo.repoUrl || "",
+                                    branchName: repo.branch || "master"
                                 },
-                                commitID: node.data.commit
-                            }]
+                                commitID: repo.commit || undefined
+                            }))
                         };
 
                         updateStatus(node.id, 'running', 'Fetching from API...');
@@ -366,9 +371,9 @@ const PipelinePage: React.FC = () => {
                             irJson: ir,
                             metadata: {
                                 systemName: node.data.systemName,
-                                repoUrl: node.data.repoUrl,
-                                branch: node.data.branch || "master",
-                                commitId: node.data.commit || "HEAD"
+                                repoUrl: reposToProcess[0].repoUrl || "",
+                                branch: reposToProcess[0].branch || "master",
+                                commitId: reposToProcess[0].commit || "HEAD"
                             }
                         };
                         updateStatus(node.id, 'completed', 'IR generated successfully.', { payload });
@@ -518,9 +523,32 @@ const PipelinePage: React.FC = () => {
     const renderCardContent = (node: NodeData) => {
         switch (node.type) {
             case 'MULTI_REPO':
+                const repositories = node.data.repositories || [{ repoUrl: node.data.repoUrl || '', branch: node.data.branch || 'master', commit: node.data.commit || '' }];
+
+                const updateRepo = (index: number, field: string, value: string) => {
+                    const newRepos = [...repositories];
+                    newRepos[index] = { ...newRepos[index], [field]: value };
+                    // We also sync index 0 to the top-level legacy fields so other pipeline logic doesn't break
+                    const legacyData = index === 0 ? { [field]: value } : {};
+                    
+                    setNodes(nodes.map(n => n.id === node.id ? { 
+                        ...n, 
+                        data: { ...n.data, ...legacyData, repositories: newRepos } 
+                    } : n));
+                };
+
+                const addRepo = () => {
+                    const newRepos = [...repositories, { repoUrl: '', branch: 'master', commit: '' }];
+                    setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, repositories: newRepos } } : n));
+                };
+
+                const removeRepo = (index: number) => {
+                    const newRepos = repositories.filter((_, i) => i !== index);
+                    setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, repositories: newRepos } } : n));
+                };
                 return (
-                    <div className="space-y-2 mt-2">
-                         <input 
+                    <div className="space-y-3 mt-2">
+                        <input 
                             type="text" 
                             placeholder="System Name"
                             value={node.data.systemName || ''}
@@ -529,35 +557,51 @@ const PipelinePage: React.FC = () => {
                                 setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, systemName: e.target.value }} : n));
                             }}
                         />
-                        <input 
-                            type="text" 
-                            placeholder="Repository URL"
-                            value={node.data.repoUrl || ''}
-                            className="w-full text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none"
-                            onChange={(e) => {
-                                setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, repoUrl: e.target.value }} : n));
-                            }}
-                        />
-                        <div className="flex gap-1">
-                            <input 
-                                type="text" 
-                                placeholder="Branch (master)" 
-                                value={node.data.branch || ''}
-                                className="w-1/2 text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none" 
-                                onChange={(e) => {
-                                    setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, branch: e.target.value }} : n));
-                                }}
-                            />
-                            <input 
-                                type="text" 
-                                placeholder="Commit (Latest)" 
-                                value={node.data.commit || ''}
-                                className="w-1/2 text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none" 
-                                onChange={(e) => {
-                                    setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, commit: e.target.value }} : n));
-                                }}
-                            />
+
+                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
+                            {repositories.map((repo, index) => (
+                                <div key={index} className="space-y-2 p-2 border border-slate-800 bg-slate-900 rounded relative">
+                                    {repositories.length > 1 && (
+                                        <button 
+                                            onClick={() => removeRepo(index)}
+                                            className="absolute top-1 right-2 text-slate-500 hover:text-red-500 text-xs font-bold"
+                                        >
+                                            ✕
+                                        </button>
+                                    )}
+                                    <input 
+                                        type="text" 
+                                        placeholder="Repository URL"
+                                        value={repo.repoUrl || ''}
+                                        className="w-full text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none pr-6"
+                                        onChange={(e) => updateRepo(index, 'repoUrl', e.target.value)}
+                                    />
+                                    <div className="flex gap-1">
+                                        <input 
+                                            type="text" 
+                                            placeholder="Branch (master)" 
+                                            value={repo.branch || ''}
+                                            className="w-1/2 text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none" 
+                                            onChange={(e) => updateRepo(index, 'branch', e.target.value)}
+                                        />
+                                        <input 
+                                            type="text" 
+                                            placeholder="Commit (Latest)" 
+                                            value={repo.commit || ''}
+                                            className="w-1/2 text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none" 
+                                            onChange={(e) => updateRepo(index, 'commit', e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                            ))}
                         </div>
+
+                        <button 
+                            onClick={addRepo}
+                            className="w-full py-1.5 text-xs text-blue-400 border border-dashed border-blue-800 rounded hover:bg-blue-900/30 transition-colors"
+                        >
+                            + Add Repository
+                        </button>
                     </div>
                 );
             case 'UPLOAD_IR':
