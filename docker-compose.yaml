@@ -10,6 +10,20 @@ services:
     networks:
       - app_network
 
+  mongodb:
+    image: mongo:latest
+    container_name: mvp_mongo
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: aeGis2026Rocks
+    networks:
+      - app_network
+    volumes:
+      - mongo_data:/data/db
+
   backend:
     build:
       context: ./backend
@@ -50,6 +64,17 @@ services:
       - app_network
     volumes:
       - verifier_cache:/tmp/ms_verifier_cache
+
+  components:
+    build:
+      context: ./componentanalysis
+      dockerfile: Dockerfile
+    container_name: mvp_components
+    ports:
+      - "8060:8060" 
+    networks:
+      - app_network
+    restart: always
   
   aegis_neo4j:
     image: neo4j:5-community
@@ -109,6 +134,7 @@ volumes:
   mariadb_data:
   verifier_cache:
   neo4j_data:
+  mongo_data:
 
 networks:
   app_network:

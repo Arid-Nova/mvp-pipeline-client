@@ -457,7 +457,7 @@
         .hidden { display: none; }
     </style>
 </head>
-<body>
+<body data-commit-id="{{ commitID }}">
     <div class="viz-container">
         <a href="http://localhost:3000" class="back-nav-btn">
             ← Back to Home
@@ -578,9 +578,15 @@
         let currentEndpointId = null;
         let cy = null; // Cytoscape instance
 
+        const COMMIT_ID = document.body.getAttribute('data-commit-id');
+
         async function fetchData() {
+            if (!COMMIT_ID) {
+                throw new Error("Missing commitID");
+            }
+
             try {
-                const response = await fetch('/api/results'); 
+                const response = await fetch(`/api/results?commitID=${encodeURIComponent(COMMIT_ID)}`); 
                 globalData = await response.json();
                 
                 refreshViews();

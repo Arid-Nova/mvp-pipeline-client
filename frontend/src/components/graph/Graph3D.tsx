@@ -70,6 +70,7 @@ const Graph: React.FC<Props> = ({
     defNodeColor,
     setDefNodeColor,
     setGraphData,
+    isDarkMode,
     selectedAntiPattern,
     trackNodes,
     focusNode,
@@ -98,6 +99,37 @@ const Graph: React.FC<Props> = ({
             graphRef.current.d3Force("link").distance(80);
         }
     }, []);
+
+    useEffect(() => {
+        if (!sharedProps.graphData?.nodes) return;
+
+        sharedProps.graphData.nodes.forEach((node: any) => {
+            if (node.__mesh) {
+                // 1. Dynamically update Scale (Size)
+                let sizeScale = 1;
+                if (antiPattern && node.antiPattern) {
+                    const isActive = !selectedAntiPattern || selectedAntiPattern === "ALL" || selectedAntiPattern === "none" || selectedAntiPattern === node.antiPattern;
+                    if (isActive) {
+                        if (node.antiPattern === 'GOD_SERVICE') sizeScale = 4;
+                        if (node.antiPattern === 'SHARED_DB') sizeScale = 2;
+                    }
+                }
+                node.__mesh.scale.set(sizeScale, sizeScale, sizeScale);
+
+                // 2. Dynamically update Color
+                let newColor;
+                if (verificationSuggestions && getSuggestionForNode(node.nodeName)) {
+                    newColor = "#f43e3e";
+                } else {
+                    newColor = getColor(node, sharedProps.graphData, threshold, highlightNodes, hoverNode, defNodeColor, setDefNodeColor, antiPattern, colorMode, selectedAntiPattern, trackNodes, focusNode, trackChanges);
+                }
+                node.__mesh.material.color.set(newColor);
+                
+                // 3. Dynamically update Opacity
+                node.__mesh.material.opacity = getNodeOpacity(node, search, highlightNodes, focusNode);
+            }
+        });
+    }, [antiPattern, selectedAntiPattern, highlightNodes, hoverNode, colorMode, search, sharedProps.graphData]);
 
     // Double-click handler to expand/collapse nodes.
     const handleNodeDoubleClick = useCallback((node: any) => {
@@ -299,7 +331,7 @@ const Graph: React.FC<Props> = ({
             height={height}
             onNodeClick={handleNodeClick}
             
-            // Your Custom Node Logic (unchanged)
+            // Custom Node Logic
             nodeVisibility={(node) => getVisibility(node, hideNodes)}
             onNodeRightClick={(node: any) => {
                 const event = new CustomEvent("nodecontextmenu", {
@@ -317,6 +349,7 @@ const Graph: React.FC<Props> = ({
                 });
                 document.dispatchEvent(event);
             }}
+
             nodeThreeObject={(node: any) => {
                 // 1. Checking if in Verification Mode
                 const suggestion = getSuggestionForNode(node.nodeName);
@@ -341,28 +374,48 @@ const Graph: React.FC<Props> = ({
                         colorMode, selectedAntiPattern, trackNodes, focusNode, trackChanges
                     );
                 }
-                
-                // 3. Geometry Logic
+
+                let sizeScale = 1;
+                if (antiPattern && node.antiPattern) {
+                    const isActive = !selectedAntiPattern || selectedAntiPattern === "ALL" || selectedAntiPattern === "none" || selectedAntiPattern === node.antiPattern;
+                    if (isActive) {
+                        if (node.antiPattern === 'GOD_SERVICE') sizeScale = 4; // Massive scale
+                        if (node.antiPattern === 'SHARED_DB') sizeScale = 2;  // Large scale
+                    }
+                }
+
+                // 3. Geometry Logic (Updated to use sizeScale)
                 let geometry;
                 let nodeType = node["nodeType"]?.toUpperCase();
+                
                 if (nodeType === "MICROSERVICE") {
-                    geometry = new THREE.SphereGeometry(8);
+                    geometry = new THREE.SphereGeometry(8 * sizeScale);
                 } else if (nodeType === "CONTROLLER" || nodeType === "SERVICE") {
-                    geometry = new THREE.SphereGeometry(5);
+                    geometry = new THREE.SphereGeometry(5 * sizeScale);
                 } else if (nodeType === "METHOD") {
-                    if(suggestion){
-                        geometry = new THREE.SphereGeometry(10);
+                    if (suggestion) {
+                        geometry = new THREE.SphereGeometry(10 * sizeScale);
                     } else {
-                        geometry = new THREE.SphereGeometry(4);
+                        geometry = new THREE.SphereGeometry(4 * sizeScale);
                     }
                 } else if (nodeType === "ENTITY") {
-                    geometry = new THREE.BoxGeometry(10, 10, 10); 
-                } 
+                    geometry = new THREE.BoxGeometry(10 * sizeScale, 10 * sizeScale, 10 * sizeScale);
+                }
 
                 // 4. Opacity Logic
                 let opacity = getNodeOpacity(node, search, highlightNodes, focusNode);
                 if (isVerificationMode && !suggestion) {
                     opacity = 0.6; 
+                }
+
+                if (suggestionMap && getSuggestionForNode(node.nodeName)) {
+                    color = "#f43e3e"; // RED for violations
+                } else {
+                    color = getColor(
+                        node, sharedProps.graphData, threshold, highlightNodes, 
+                        hoverNode, defNodeColor, setDefNodeColor, antiPattern, 
+                        colorMode, selectedAntiPattern, trackNodes, focusNode, 
+                        trackChanges);
                 }
 
                 const material = new THREE.MeshLambertMaterial({
@@ -381,7 +434,7 @@ const Graph: React.FC<Props> = ({
                 let borderWidth = 0;
                 let padding = 0;
 
-                // 2. If Security Violation exists, Apply Styling
+                // 6. If Security Violation exists, Apply Styling
                 if (suggestion) {
                     const current = getRoleLabel(suggestion.current_role_mask);
                     const suggested = getRoleLabel(suggestion.suggested_role_mask);
@@ -412,6 +465,8 @@ const Graph: React.FC<Props> = ({
 
                 sprite.position.set(0, 15, 0);
                 mesh.add(sprite);
+                
+                node.__mesh = mesh;
                 return mesh;
             }}
 
@@ -437,6 +492,14 @@ const Graph: React.FC<Props> = ({
                 if (suggestionMap) {
                     return "rgba(215, 211, 211, 0.81)";
                 }
+
+                if (antiPattern && link.antiPattern) {
+                    const isActive = !selectedAntiPattern || selectedAntiPattern === "ALL" || selectedAntiPattern === "none" || selectedAntiPattern === link.antiPattern;
+                    if (isActive) {
+                        return "rgba(255, 0, 0, 0.99)"; 
+                    }
+                }
+
                 switch (link.nodeType) {
                     case 'uses': return 'rgba(65, 68, 249, 0.7)'; // Controller/Service -> Entity
                     case 'dependency': return 'rgba(255, 165, 0, 0.7)'; // Controller -> Service
@@ -457,15 +520,27 @@ const Graph: React.FC<Props> = ({
                     selectedAntiPattern, focusNode, trackChanges
                 )
             }
+
             linkDirectionalParticles={(link: any) => {
+                // Adding heavy particle traffic for Chatty/Cyclic services
+                if (antiPattern && link.antiPattern) {
+                    const isActive = !selectedAntiPattern || selectedAntiPattern === "ALL" || selectedAntiPattern === "none" || selectedAntiPattern === link.antiPattern;
+                    if (isActive) {
+                        if (link.antiPattern === 'CHATTY_SERVICE') return 10;
+                        if (link.antiPattern === 'CYCLIC_DEPENDENCY') return 5; 
+                    }
+                }
+
                 if (link.nodeType === 'hierarchy') return 0;
                 return highlightLinks.has(link.name) || endpointCalls.includes(link.name) ? 4 : 0;
             }}
+
             linkDirectionalParticleWidth={(link) =>
                 getLinkWidth(
                     link, search, highlightLinks, antiPattern, selectedAntiPattern
                 )
             }
+
             linkDirectionalParticleSpeed={(link:any) =>{
                 if (highlightLinks.has(link.name)){
                     return 0.01;
@@ -474,6 +549,27 @@ const Graph: React.FC<Props> = ({
                     return 0;
                 }
                 return 0.01;
+            }}
+
+            nodeVal={(node: any) => {
+                // Scaling up specific anti-patterns so they visually dominate the graph
+                if (antiPattern && node.antiPattern) {
+                    const isActive = !selectedAntiPattern || selectedAntiPattern === "ALL" || selectedAntiPattern === "none" || selectedAntiPattern === node.antiPattern;
+                    if (isActive) {
+                        if (node.antiPattern === 'GOD_SERVICE') return 400; // Massive scale
+                        if (node.antiPattern === 'SHARED_DB') return 200;  // Large scale
+                    }
+                }
+                // Fallback to your default logic
+                return node.nodeType === 'microservice' ? 10 : 3; 
+            }}
+            
+            linkDirectionalParticleColor={(link: any) => {
+                if (antiPattern && link.antiPattern && (link.antiPattern === 'CHATTY_SERVICE' || link.antiPattern === 'CYCLIC_DEPENDENCY')) {
+                    const isActive = !selectedAntiPattern || selectedAntiPattern === "ALL" || selectedAntiPattern === "none" || selectedAntiPattern === link.antiPattern;
+                    if (isActive) return 'rgba(255, 0, 0, 0.99)'; // Red alert particles
+                }
+                return isDarkMode ? '#FFFFFF' : '#000000';
             }}
             
             // General props

@@ -43,6 +43,22 @@ export const InfoBox = (props: Props) => {
         }
     };
     
+    let activeItem: any = null;
+    if (type === "link" || type === "sublink") {
+        activeItem = props.graphData?.links?.find((l: any) => 
+            l.name === name || 
+            (l.source?.nodeName === source && l.target?.nodeName === destination) ||
+            (l.source === source && l.target === destination)
+        );
+    } else {
+        activeItem = props.graphData?.nodes?.find((n: any) => 
+            n.nodeName === name || n.displayName === name
+        );
+    }
+    
+    // Safely grab the anti-pattern from the raw graph data
+    const currentAntiPattern = activeItem?.antiPattern || props.focusNode?.antiPattern;
+    
     // --- 1. POPUP FOR LINKS ---
     if (type == "link" || type == "sublink"){
         return (
@@ -53,6 +69,7 @@ export const InfoBox = (props: Props) => {
                 ${show ? `flex` : `hidden`}`}
             style={{ top: anchorPoint.y, left: anchorPoint.x }}
         >
+
             <div className="flex flex-col gap-2">
                 <h4 className="text-lg font-semibold border-b border-slate-300 pb-2 flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-gray-400">
@@ -72,6 +89,21 @@ export const InfoBox = (props: Props) => {
                     </div>
                 )}
             </div>
+
+            {currentAntiPattern && <br/>}
+            {currentAntiPattern && (
+                <div className="bg-red-50 border-l-4 border-red-500 text-red-800 p-3 mb-4 rounded shadow-sm w-full">
+                    <div className="font-bold flex items-center gap-2 text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-600" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        Anti-Pattern
+                    </div>
+                    <span className="text-xs mt-1 block font-mono bg-red-100 p-1 rounded">
+                        {currentAntiPattern.replace(/_/g, ' ')}
+                    </span>
+                </div>
+            )}
             
             {type == 'link' && (
                 <div className="w-full h-px bg-slate-300 my-2"></div>
@@ -176,6 +208,22 @@ export const InfoBox = (props: Props) => {
                     </div>
                 </div>
 
+                {/* --- ANTI-PATTERN WARNING --- */}
+                {currentAntiPattern && <br/>}
+                {currentAntiPattern && (
+                    <div className="bg-red-50 border-l-4 border-red-500 text-red-800 p-3 mb-4 rounded shadow-sm w-full">
+                        <div className="font-bold flex items-center gap-2 text-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-600" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                            Anti-Pattern
+                        </div>
+                        <span className="text-xs mt-1 block font-mono bg-red-100 p-1 rounded">
+                            {currentAntiPattern.replace(/_/g, ' ')}
+                        </span>
+                    </div>
+                )}
+
                 <div className="w-full h-px bg-slate-300 my-2"></div>
                 <div className="overflow-y-auto dark-scrollbar">
                     <h5 className="font-semibold text-sm mb-2">Used By (Microservices):</h5>
@@ -216,7 +264,7 @@ export const InfoBox = (props: Props) => {
         );
     }
 
-    // --- 3. POPUP FOR METHODS / CONTROLLERS / SERVICES ---
+    // 3. POPUP FOR METHODS / CONTROLLERS / SERVICES 
     else if (type != "microservice"){
         
         // Retrieve suggestion directly from the passed prop (not the hook)
@@ -224,13 +272,14 @@ export const InfoBox = (props: Props) => {
         
         return(
         <ul
-            className={`absolute flex-col top-[10%] left-[60%] z-50 p-4 max-h-96 w-96
+            className={`absolute flex-col top-[10%] left-[60%] z-50 p-4 max-h-[85vh] w-96
                 bg-white/90 text-slate-800 rounded-xl shadow-lg backdrop-blur-sm 
                 transition-colors duration-300
                 ${show ? `flex` : `hidden`}`}
             style={{ top: anchorPoint.y, left: anchorPoint.x }}
         >
-            <div className="flex flex-col gap-2">
+            {/* FIXED HEADER */}
+            <div className="flex flex-col gap-2 shrink-0">
                 <h4 className="text-lg font-semibold border-b border-slate-300 pb-2 flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-gray-400">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-9-4.5-9 4.5M21 7.5v9l-9 4.5m9-13.5l-9 4.5m-9-4.5v9l9 4.5m-9-13.5l9 4.5" />
@@ -244,102 +293,120 @@ export const InfoBox = (props: Props) => {
                 </div>
             </div>
 
-            <div className="w-full h-px bg-slate-300 my-2"></div>
-
-            {/* --- SUGGESTION / VIOLATION BOX --- */}
-            {suggestion && (
-                <div className="mb-4 mt-2 p-3 bg-red-50 border border-red-200 rounded-lg shadow-sm">
-                    <h5 className="text-red-600 font-bold text-sm flex items-center gap-2 mb-3">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                            <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
+            {/* ANTI-PATTERN WARNING */}
+            {currentAntiPattern && <br/>}
+            {currentAntiPattern && (
+                <div className="bg-red-50 border-l-4 border-red-500 text-red-800 p-3 rounded shadow-sm w-full shrink-0">
+                    <div className="font-bold flex items-center gap-2 text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-600" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                         </svg>
-                        Authorization Policy Violation
-                    </h5>
-                    
-                    <div className="grid grid-cols-2 gap-2 text-xs mb-3">
-                        <div className="bg-white p-2 rounded border border-red-100">
-                            <span className="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">Current</span>
-                            <span className="font-mono font-semibold text-slate-700">
-                                {getRoleLabel(suggestion.current_role_mask)}
-                            </span>
-                        </div>
-                        <div className="bg-white p-2 rounded border border-green-200 ring-1 ring-green-100">
-                            <span className="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">Suggested</span>
-                            <span className="font-mono font-bold text-green-600">
-                                {getRoleLabel(suggestion.suggested_role_mask)}
-                            </span>
-                        </div>
+                        Anti-Pattern
                     </div>
-                    
-                    <p className="text-xs text-red-800 italic leading-relaxed">
-                        "{suggestion.description}"
-                    </p>
+                    <span className="text-xs mt-1 block font-mono bg-red-100 p-1 rounded">
+                        {currentAntiPattern.replace(/_/g, ' ')}
+                    </span>
                 </div>
             )}
-            
-            {/* --- METHOD / CONTROLLER SPECIFIC DETAILS --- */}
-            {type == 'method' ? (
-                <div>
-                    <div className="font-medium mb-2">Parameters:</div>
-                    <div className="max-h-20 overflow-y-scroll dark-scrollbar p-4 rounded-xl border border-slate-300 shadow-sm bg-white/90 backdrop-blur-sm">
-                        {parameters && parameters.length > 0 ? (
-                            <span className="text-sm break-words whitespace-pre-wrap">
-                                {JSON.stringify(parameters, null, 2)}
-                            </span>
-                        ) : (
-                            <span className="text-sm text-slate-500">None</span>
-                        )}
+
+            <div className="w-full h-px bg-slate-300 my-2 shrink-0"></div>
+
+            {/* SCROLLABLE BODY (Contains warnings and details) */}
+            <div className="flex-1 overflow-y-auto dark-scrollbar pr-2 flex flex-col gap-3">
+                {suggestion && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg shadow-sm shrink-0">
+                        <h5 className="text-red-600 font-bold text-sm flex items-center gap-2 mb-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                                <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
+                            </svg>
+                            Authorization Policy Violation
+                        </h5>
+                        
+                        <div className="grid grid-cols-2 gap-2 text-xs mb-3">
+                            <div className="bg-white p-2 rounded border border-red-100">
+                                <span className="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">Current</span>
+                                <span className="font-mono font-semibold text-slate-700">
+                                    {getRoleLabel(suggestion.current_role_mask)}
+                                </span>
+                            </div>
+                            <div className="bg-white p-2 rounded border border-green-200 ring-1 ring-green-100">
+                                <span className="text-slate-500 block text-[10px] uppercase font-bold tracking-wider">Suggested</span>
+                                <span className="font-mono font-bold text-green-600">
+                                    {getRoleLabel(suggestion.suggested_role_mask)}
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <p className="text-xs text-red-800 italic leading-relaxed">
+                            "{suggestion.description}"
+                        </p>
                     </div>
-                </div>
-            ) : (
-                <div className="max-h-96 w-96 overflow-y-scroll dark-scrollbar">
-                <div className="font-medium mb-2">Methods:</div>
-                    {methods && methods.length > 0 ? (
-                        methods.map((method: any) => (
-                            <CollapsableBox
-                                key={method.id}
-                                title={(method.name || method.displayName)}
-                                svg={arrowSvg}
-                                body={
-                                    method ? (
-                                        <ul className="mb-4 p-4 rounded-xl border border-slate-300 shadow-sm bg-white/90 backdrop-blur-sm">
-                                            <div className="flex flex-col gap-3">
-                                                {method.url && method.httpMethod && (
-                                                    <>
-                                                        <div className="flex flex-col">
-                                                            <span className="font-medium text-xs text-slate-500">HTTP Method</span>
-                                                            <span className="font-semibold text-sm text-slate-700">{method.httpMethod}</span>
-                                                        </div>
-                                                        <div className="flex flex-col">
-                                                            <span className="font-medium text-xs text-slate-500">URL</span>
-                                                            <span className="font-normal text-sm break-words">{method.url}</span>
-                                                        </div>
-                                                    </>
-                                                )}
-                                                <div className="flex flex-col">
-                                                    <span className="font-medium text-xs text-slate-500">Return Type</span>
-                                                    <span className="font-mono text-cyan-600 text-sm break-words">{method.returnType ? method.returnType : 'None'}</span>
+                )}
+                
+                {/* --- METHOD / CONTROLLER SPECIFIC DETAILS --- */}
+                {type == 'method' ? (
+                    <div className="shrink-0">
+                        <div className="font-medium mb-2">Parameters:</div>
+                        <div className="p-4 rounded-xl border border-slate-300 shadow-sm bg-white/90 backdrop-blur-sm">
+                            {parameters && parameters.length > 0 ? (
+                                <span className="text-sm break-words whitespace-pre-wrap">
+                                    {JSON.stringify(parameters, null, 2)}
+                                </span>
+                            ) : (
+                                <span className="text-sm text-slate-500">None</span>
+                            )}
+                        </div>
+                    </div>
+                ) : (
+                    <div className="w-full shrink-0">
+                    <div className="font-medium mb-2">Methods:</div>
+                        {methods && methods.length > 0 ? (
+                            methods.map((method: any) => (
+                                <CollapsableBox
+                                    key={method.id}
+                                    title={(method.name || method.displayName)}
+                                    svg={arrowSvg}
+                                    body={
+                                        method ? (
+                                            <ul className="mb-4 p-4 rounded-xl border border-slate-300 shadow-sm bg-white/90 backdrop-blur-sm">
+                                                <div className="flex flex-col gap-3">
+                                                    {method.url && method.httpMethod && (
+                                                        <>
+                                                            <div className="flex flex-col">
+                                                                <span className="font-medium text-xs text-slate-500">HTTP Method</span>
+                                                                <span className="font-semibold text-sm text-slate-700">{method.httpMethod}</span>
+                                                            </div>
+                                                            <div className="flex flex-col">
+                                                                <span className="font-medium text-xs text-slate-500">URL</span>
+                                                                <span className="font-normal text-sm break-words">{method.url}</span>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                    <div className="flex flex-col">
+                                                        <span className="font-medium text-xs text-slate-500">Return Type</span>
+                                                        <span className="font-mono text-cyan-600 text-sm break-words">{method.returnType ? method.returnType : 'None'}</span>
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className="font-medium text-xs text-slate-500">Parameters</span>
+                                                        <span className="text-sm break-words whitespace-pre-wrap">{JSON.stringify(method.parameters, null, 2)}</span>
+                                                    </div>
                                                 </div>
-                                                <div className="flex flex-col">
-                                                    <span className="font-medium text-xs text-slate-500">Parameters</span>
-                                                    <span className="text-sm break-words whitespace-pre-wrap">{JSON.stringify(method.parameters, null, 2)}</span>
-                                                </div>
-                                            </div>
-                                        </ul>
-                                    ) : ( <div>None</div> )
-                                }
-                                initOpen={false}
-                            />
-                        ))
-                    ) : ( <div>None</div> )}
-                </div>
-            )}
+                                            </ul>
+                                        ) : ( <div>None</div> )
+                                    }
+                                    initOpen={false}
+                                />
+                            ))
+                        ) : ( <div>None</div> )}
+                    </div>
+                )}
+            </div>
             
-            <div className="w-full h-px bg-slate-300 my-2"></div>
+            <div className="w-full h-px bg-slate-300 my-2 shrink-0"></div>
             
             <button
                 onClick={() => { props.setFocusNode(null); setShow(false); }}
-                className="mt-2 w-full rounded-xl px-4 py-2 text-center text-sm font-semibold transition-all duration-200 bg-slate-300 hover:bg-slate-400 text-slate-800"
+                className="w-full shrink-0 rounded-xl px-4 py-2 text-center text-sm font-semibold transition-all duration-200 bg-slate-300 hover:bg-slate-400 text-slate-800"
             >
                 Close Box
             </button>
@@ -366,7 +433,23 @@ export const InfoBox = (props: Props) => {
                 </div>
             </div>
 
-            <div className="w-full h-px bg-slate-300 my-2"></div>
+            {/* --- ANTI-PATTERN WARNING --- */}
+            {currentAntiPattern && <br/>}
+            {currentAntiPattern && (
+                <div className="bg-red-50 border-l-4 border-red-500 text-red-800 p-3 mb-4 rounded shadow-sm w-full">
+                    <div className="font-bold flex items-center gap-2 text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-600" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        Anti-Pattern
+                    </div>
+                    <span className="text-xs mt-1 block font-mono bg-red-100 p-1 rounded">
+                        {currentAntiPattern.replace(/_/g, ' ')}
+                    </span>
+                </div>
+            )}
+
+            {/* <div className="w-full h-px bg-slate-300 my-2"></div> */}
 
             <div className="max-h-96 w-96 overflow-y-scroll dark-scrollbar">
                 <h5 className="font-semibold text-sm mt-4">Dependencies</h5>

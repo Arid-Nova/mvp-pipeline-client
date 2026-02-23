@@ -249,6 +249,8 @@ function App(data: any) {
                     setTrackChanges={setTrackChanges}
                     antiPattern={antiPattern}
                     selectedAntiPattern={selectedAntiPattern}
+                    setAntiPattern={setAntiPattern}
+                    setSelectedAntiPattern={setSelectedAntiPattern}
                     currentInstance={currentInstance}
                     graphTimeline={graphTimeline}
                     isExpandedAll={isExpandedAll}
