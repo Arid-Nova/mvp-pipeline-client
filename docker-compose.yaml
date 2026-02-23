@@ -64,6 +64,17 @@ services:
       - app_network
     volumes:
       - verifier_cache:/tmp/ms_verifier_cache
+
+  components:
+    build:
+      context: ./componentanalysis
+      dockerfile: Dockerfile
+    container_name: mvp_components
+    ports:
+      - "8060:8060" 
+    networks:
+      - app_network
+    restart: always
   
   aegis_neo4j:
     image: neo4j:5-community

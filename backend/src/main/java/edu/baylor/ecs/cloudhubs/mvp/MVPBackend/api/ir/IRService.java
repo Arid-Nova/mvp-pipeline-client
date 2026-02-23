@@ -2,6 +2,7 @@ package edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.ir;
 
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.ir.IRRequestModel;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.ir.SystemRepository;
+
 import edu.university.ecs.lab.common.config.Config;
 import edu.university.ecs.lab.common.config.RepositoryBranchPair;
 import edu.university.ecs.lab.common.config.RepositoryConfig;
@@ -29,12 +30,8 @@ public class IRService {
 
     public JsonNode createAndWrite(IRRequestModel irRequestModel)
             throws Exception {
-        IRExtractionService extractionService = getIrExtractionService(irRequestModel);
-        MicroserviceSystem microserviceSystem = new MicroserviceSystem(irRequestModel.systemName,
-                new HashSet<>(), new HashSet<>());
-
         // 1. Library generates the base IR
-        extractionService.cloneAndScanMultiRepositoryServices(microserviceSystem, true);
+        MicroserviceSystem microserviceSystem = basicCreate(irRequestModel);
 
         // 2. Convert to a mutable JSON Tree so we can inject custom fields
         JsonNode rootNode = objectMapper.valueToTree(microserviceSystem);
@@ -43,6 +40,16 @@ public class IRService {
         enrichWithAntiPatterns(rootNode);
 
         return rootNode;
+    }
+
+    private MicroserviceSystem basicCreate(IRRequestModel irRequestModel)
+            throws Exception {
+        IRExtractionService extractionService = getIrExtractionService(irRequestModel);
+        MicroserviceSystem microserviceSystem = new MicroserviceSystem(irRequestModel.systemName,
+                new HashSet<>(), new HashSet<>());
+        extractionService.cloneAndScanMultiRepositoryServices(microserviceSystem, true);
+
+        return microserviceSystem;
     }
 
     private void enrichWithAntiPatterns(JsonNode rootNode) {
