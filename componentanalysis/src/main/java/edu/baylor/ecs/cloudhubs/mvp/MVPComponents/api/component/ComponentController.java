@@ -8,7 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.model.Errors;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.model.ForbiddenException;
-import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.persistence.component.IRRequestModel;
+import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.persistence.request.IRRequestModel;
 
 @RestController
 @RequiredArgsConstructor(onConstructor = @__(@Autowired))

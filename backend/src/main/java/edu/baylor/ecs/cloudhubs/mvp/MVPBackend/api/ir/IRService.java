@@ -1,9 +1,9 @@
 package edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.ir;
 
-import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.ir.IRRequestModel;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.request.IRRequestModel;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.ir.MicroserviceEntity;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.ir.MicroserviceIRRepository;
-import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.ir.SystemRepository;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.request.SystemRepository;
 
 import edu.university.ecs.lab.common.config.Config;
 import edu.university.ecs.lab.common.config.RepositoryBranchPair;

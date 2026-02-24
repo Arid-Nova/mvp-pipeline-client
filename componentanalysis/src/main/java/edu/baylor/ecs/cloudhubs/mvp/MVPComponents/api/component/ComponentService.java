@@ -4,8 +4,8 @@ import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.Component
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.EndpointIndex;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.ComponentIndexer;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.EndpointIndexer;
-import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.persistence.component.IRRequestModel;
-import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.persistence.component.SystemRepository;
+import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.persistence.request.IRRequestModel;
+import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.persistence.request.SystemRepository;
 
 import edu.university.ecs.lab.common.config.Config;
 import edu.university.ecs.lab.common.models.ir.MicroserviceSystem;
@@ -20,8 +20,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
-import java.util.*;
 
 @Log4j2
 @Service
