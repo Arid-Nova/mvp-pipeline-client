@@ -1,6 +1,8 @@
 package edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.ir;
 
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.ir.IRRequestModel;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.ir.MicroserviceEntity;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.ir.MicroserviceIRRepository;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.ir.SystemRepository;
 
 import edu.university.ecs.lab.common.config.Config;
@@ -8,16 +10,19 @@ import edu.university.ecs.lab.common.config.RepositoryBranchPair;
 import edu.university.ecs.lab.common.config.RepositoryConfig;
 import edu.university.ecs.lab.common.models.ir.MicroserviceSystem;
 import edu.university.ecs.lab.intermediate.create.services.IRExtractionService;
-import lombok.RequiredArgsConstructor;
+
 import lombok.extern.log4j.Log4j2;
+import lombok.RequiredArgsConstructor;
+
 import org.jetbrains.annotations.NotNull;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.util.*;
 
@@ -26,10 +31,17 @@ import java.util.*;
 @RequiredArgsConstructor(onConstructor = @__(@Autowired))
 public class IRService {
 
+    @Autowired
+    private MicroserviceIRRepository repository;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public JsonNode createAndWrite(IRRequestModel irRequestModel)
             throws Exception {
+        // Pre-checking if the IR already exists
+        if(irRequestModel.getId() != null)
+            return getIRById(irRequestModel.getId());
+
         // 1. Library generates the base IR
         MicroserviceSystem microserviceSystem = basicCreate(irRequestModel);
 
@@ -38,6 +50,9 @@ public class IRService {
 
         // 3. Run generic Anti-Pattern Analysis
         enrichWithAntiPatterns(rootNode);
+
+        // 4. Save the IR in DB and return the ID
+        ((ObjectNode) rootNode).put("id", saveIR(rootNode));
 
         return rootNode;
     }
@@ -195,4 +210,29 @@ public class IRService {
         Config config = new Config(irRequestModel.systemName, systemRepositories);
         return new IRExtractionService(config);
     }
+
+    // Repository operations
+    private String saveIR(JsonNode rootNode) {
+        Map<String, Object> jsonMap = objectMapper.convertValue(rootNode, new TypeReference<>() {});
+        MicroserviceEntity entity = new MicroserviceEntity(jsonMap);
+
+        MicroserviceEntity savedEntity = repository.save(entity);
+        return savedEntity.getId();
+    }
+
+    private JsonNode getIRById(String id) {
+        Optional<MicroserviceEntity> optionalEntity = repository.findById(id);
+
+        if (optionalEntity.isPresent()) {
+            MicroserviceEntity entity = optionalEntity.get();
+            JsonNode rootNode = objectMapper.valueToTree(entity.getPayload());
+            if (rootNode.isObject()) {
+                ((ObjectNode) rootNode).put("id", entity.getId());
+            }
+            return rootNode;
+        } else {
+            throw new IllegalArgumentException("No microservice system found with ID: " + id);
+        }
+    }
+
 }

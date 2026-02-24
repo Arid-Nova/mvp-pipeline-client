@@ -7,6 +7,8 @@ import lombok.Setter;
 @Setter
 public class IRRequestModel {
 
+    public String id;
+
     public String systemName;
 
     public SystemRepository[] systemRepositories;
