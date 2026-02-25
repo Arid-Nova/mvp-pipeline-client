@@ -14,7 +14,9 @@ import java.util.stream.Collectors;
 @Setter
 @NoArgsConstructor
 public class ComponentIndex {
-    
+
+    public String id;
+
     /**
      * Constructor with components and metadata
      */

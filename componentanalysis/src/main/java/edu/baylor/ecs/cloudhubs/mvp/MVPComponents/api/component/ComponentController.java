@@ -19,7 +19,11 @@ public class ComponentController {
     protected final ComponentService componentService;
 
     @PostMapping("/create")
-    @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
+    @CrossOrigin(
+            origins = {"http://localhost:3000", "http://localhost:8080"},
+            maxAge = 3600,
+            allowedHeaders = "*"
+    )
     public ResponseEntity<?> createIndexedIR(@RequestBody IRRequestModel irRequestModel) {
         JsonNode responseModel;
         try {
@@ -35,5 +39,39 @@ public class ComponentController {
             return Errors.Response500InternalServerError(e.getCause(), e.getMessage());
         }
         return ResponseEntity.ok(responseModel);
+    }
+
+    @GetMapping("/{id}")
+    @CrossOrigin(
+            origins = {"http://localhost:3000", "http://localhost:8080"},
+            maxAge = 3600,
+            allowedHeaders = "*"
+    )
+    public ResponseEntity<?> getComponent(@PathVariable String id) {
+        try {
+            JsonNode response = componentService.getComponentById(id);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return Errors.Response400BadRequest(e.getMessage());
+        } catch (Exception e) {
+            return Errors.Response500InternalServerError(e.getCause(), e.getMessage());
+        }
+    }
+
+    @GetMapping("/endpoints/{id}")
+    @CrossOrigin(
+            origins = {"http://localhost:3000", "http://localhost:8080"},
+            maxAge = 3600,
+            allowedHeaders = "*"
+    )
+    public ResponseEntity<?> getEndpoints(@PathVariable String id) {
+        try {
+            JsonNode response = componentService.getEndpointsById(id);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return Errors.Response400BadRequest(e.getMessage());
+        } catch (Exception e) {
+            return Errors.Response500InternalServerError(e.getCause(), e.getMessage());
+        }
     }
 }

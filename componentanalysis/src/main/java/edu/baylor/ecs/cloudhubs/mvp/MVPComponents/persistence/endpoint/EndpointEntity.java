@@ -4,7 +4,7 @@ import lombok.Getter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import java.util.Map;
+import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.EndpointIndex;
 
 @Document(collection = "microservice_endpoints")
 public class EndpointEntity {
@@ -12,9 +12,9 @@ public class EndpointEntity {
     private String id;
 
     @Getter
-    private final Map<String, Object> payload;
+    private EndpointIndex payload;
 
-    public EndpointEntity(Map<String, Object> payload){
+    public EndpointEntity(EndpointIndex payload){
         this.payload = payload;
     }
 
