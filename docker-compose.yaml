@@ -75,6 +75,17 @@ services:
     networks:
       - app_network
     restart: always
+
+  vectorgenerator:
+    build:
+      context: ./vectorgenerator
+      dockerfile: Dockerfile
+    container_name: mvp_vectorgenerator
+    ports:
+      - "8050:8050" 
+    networks:
+      - app_network
+    restart: always
   
   aegis_neo4j:
     image: neo4j:5-community

@@ -97,7 +97,7 @@ public class ComponentService {
         response.componentIndex = result_2;
 
         // Phase 3: Indexing the 2 response pair
-        response.id = saveIndex(result_1.id, result_2.id);
+        response.id = saveIndex(result_2.id, result_1.id);
 
         return objectMapper.valueToTree(response);
     }
