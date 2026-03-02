@@ -9,18 +9,23 @@ class MongoService:
     _instance = None
     _lock = threading.Lock()
     
-    def __new__(cls, uri: str, db_name: str):
+    def __new__(cls, uri: str, db_name: str, username: str = None, password: str = None):
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
                     cls._instance = super(MongoService, cls).__new__(cls)
-                    cls._instance._connect(uri, db_name)
+                    cls._instance._connect(uri, db_name, username, password)
         
         return cls._instance
 
-    def _connect(self, uri: str, db_name: str):
+    def _connect(self, uri: str, db_name: str, username: str = None, password: str = None):
         try:
-            self.client = MongoClient(uri, serverSelectionTimeoutMS=5000)
+            self.client = MongoClient(
+                uri, 
+                username=username, 
+                password=password, 
+                serverSelectionTimeoutMS=5000
+            )
             self.client.admin.command('ping')
             self.db = self.client[db_name]           
         

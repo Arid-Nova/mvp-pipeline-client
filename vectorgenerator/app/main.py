@@ -74,8 +74,8 @@ async def generate_all(request: GenerateAllRequest):
                 for endpoint_id, vector in vectors.items()
             }
         }
-
-        response_data['id'] = df_service.add_auth_vectors(collection="auth_vectors", data=response_data)
+        
+        response_data['_id'] = df_service.add_auth_vectors(collection="auth_vectors", data=response_data)
         
         return response_data
 
@@ -211,6 +211,6 @@ async def get_stats(request: GeneratedOutputData):
 app.include_router(router)
 
 # Only for local testing, not for production deployment
-# if __name__ == '__main__':
-#     import uvicorn
-#     uvicorn.run("main:app", host="0.0.0.0", port=8050, reload=True)
+if __name__ == '__main__':
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8050, reload=True)
