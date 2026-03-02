@@ -1,0 +1,135 @@
+from .mongo_service import MongoService
+from ..models.generatescenarios import GenerateScenariosRequest, FullGenerateScenariosRequest
+
+from bson.objectid import ObjectId
+from typing import Any, Dict, List
+
+import base64
+import gzip
+import json
+
+class DataService:
+    def __init__(self):
+        self.mongo_service = MongoService(uri="mongodb://mvp_mongo:27017/", db_name="aegis")
+
+    def fetch_index_data(self, request: GenerateScenariosRequest):
+        response = self.fetch_endpoint_component_indexes(request.index_id)
+
+        response = FullGenerateScenariosRequest(
+            all_vectors=self.fetch_auth_vectors(request.vectors_id),
+            endpoints=self.fetch_endpoints(response.get("endpointId")),
+            components=self.fetch_components(response.get("componentId"))
+        )
+
+        return response
+
+    def fetch_endpoint_component_indexes(self, index_id: str) -> dict:
+        try:
+            query = {"_id": ObjectId(index_id)}
+        except Exception as e:
+            print(f"Invalid ID format provided: {e}")
+            return {} 
+
+        results = self.mongo_service.find(collection="microservice_index", query=query)
+
+        if results:
+            document = results[0] 
+            return {
+                "endpointId": document.get("endpointId"),
+                "componentId": document.get("componentId")
+            }
+        
+        print(f"No index found with ID: {index_id}")
+        return {}
+    
+    def fetch_endpoints(self, endpoint_id: str) -> dict:
+        try:
+            query = {"_id": ObjectId(endpoint_id)}
+        except Exception as e:
+            print(f"Invalid endpoint ID format provided: {e}")
+            return {}
+        
+        results = self.mongo_service.find(collection="microservice_endpoints", query=query)
+
+        if results:
+            document = results[0] 
+            return document.get("payload", {})
+        
+        print(f"No endpoint found with ID: {endpoint_id}")
+        return {}
+
+    def fetch_components(self, component_id: str) -> dict:
+        try:
+            query = {"_id": ObjectId(component_id)}
+        except Exception as e:
+            print(f"Invalid component ID format provided: {e}")
+            return {}
+        
+        results = self.mongo_service.find(collection="microservice_components", query=query)
+
+        if not results:
+            print(f"No component found with ID: {component_id}")
+            return {}
+
+        document = results[0] 
+        
+        if "compressedPayload" in document:
+            compressed_data = document["compressedPayload"]
+            
+            try:
+                if isinstance(compressed_data, dict) and "$binary" in compressed_data:
+                    b64_string = compressed_data["$binary"].get("base64", "")
+                    compressed_bytes = base64.b64decode(b64_string)
+                    
+                elif isinstance(compressed_data, (bytes, bytearray)):
+                    compressed_bytes = compressed_data
+                    
+                elif isinstance(compressed_data, str):
+                    compressed_bytes = base64.b64decode(compressed_data)
+                    
+                else:
+                    raise ValueError("Unknown format for compressedPayload")
+
+                decompressed_bytes = gzip.decompress(compressed_bytes)
+                
+                decompressed_string = decompressed_bytes.decode('utf-8')
+                return json.loads(decompressed_string)
+                
+            except Exception as e:
+                print(f"Error decompressing payload for component {component_id}: {e}")
+                return {}
+        
+        return {}
+    
+    def fetch_auth_vectors(self, auth_vectors_id: str) -> dict:
+        try:
+            query = {"_id": ObjectId(auth_vectors_id)}
+        except Exception as e:
+            print(f"Invalid auth_vectors ID format provided: {e}")
+            return {}
+        
+        results = self.mongo_service.find(collection="auth_vectors", query=query)
+
+        if results:
+            document = results[0] 
+            return document.get("payload", {})
+        
+        print(f"No auth_vectors document found with ID: {auth_vectors_id}")
+        return {}
+    
+    def add_scenarios(self, scenarios: list):
+        try:
+            self.mongo_service.insert_many(collection="generated_scenarios", documents=scenarios)
+        except Exception as e:
+            print(f"Error inserting scenarios into database: {e}")
+    
+    def fetch_scenarios_by_ids(self, scenario_ids: List[str]) -> List[Dict[str, Any]]:
+        query = {"scenario_id": {"$in": scenario_ids}}
+        results = self.mongo_service.find(collection="generated_scenarios", query=query)
+
+        if not results:
+            print("No scenarios found for the provided IDs.")
+            return []
+
+        return list(results)
+    

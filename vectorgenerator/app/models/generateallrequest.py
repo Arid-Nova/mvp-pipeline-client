@@ -1,6 +1,7 @@
 from .systemdata import SystemData
+from typing import Optional
 
 class GenerateAllRequest(SystemData):
     lean: bool = False
-    indexId: str 
+    indexId: Optional[str] = None
     

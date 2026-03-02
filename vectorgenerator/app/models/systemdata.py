@@ -1,6 +1,6 @@
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from pydantic import BaseModel
 
 class SystemData(BaseModel):
-    components: Dict[str, Any]
-    endpoints: Dict[str, Any]
+    components: Optional[Dict[str, Any]] = None
+    endpoints: Optional[Dict[str, Any]] = None

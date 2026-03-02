@@ -86,6 +86,17 @@ services:
     networks:
       - app_network
     restart: always
+
+  scenariogenerator:
+    build:
+      context: ./scenariogenerator
+      dockerfile: Dockerfile
+    container_name: mvp_scenariogenerator
+    ports:
+      - "8040:8040" 
+    networks:
+      - app_network
+    restart: always
   
   aegis_neo4j:
     image: neo4j:5-community
