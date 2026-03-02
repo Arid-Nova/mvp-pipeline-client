@@ -1,5 +1,6 @@
 from .models.generatescenarios import GenerateScenariosRequest
 from .services.data_service import DataService
+from ir_feature_extractor import analyze_ir_node
 
 from .scenario_generator import (
     generate_scenarios,

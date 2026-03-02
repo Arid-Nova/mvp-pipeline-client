@@ -63,6 +63,13 @@ class MongoService:
         except Exception as e:
             print(f"Error inserting multiple documents into {collection}: {e}")
             return False
+    
+    def aggregate(self, collection: str, pipeline: list):
+        try:
+            return list(self.db[collection].aggregate(pipeline))
+        except Exception as e:
+            print(f"MongoDB Aggregate Error: {e}")
+            return []
 
     def clear_database(self):
         # print("Clearing MongoDB database...")
