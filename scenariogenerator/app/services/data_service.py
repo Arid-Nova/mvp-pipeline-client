@@ -7,10 +7,22 @@ from typing import Any, Dict, List
 import base64
 import gzip
 import json
+import os
 
 class DataService:
-    def __init__(self):
-        self.mongo_service = MongoService(uri="mongodb://mvp_mongo:27017/", db_name="aegis")
+    def __init__(self, uri: str = None, db_name: str = None, username: str = None, password: str = None):
+        
+        uri = uri or os.getenv("MONGO_URI", "mongodb://localhost:27017/")
+        db_name = db_name or os.getenv("MONGO_DB", "aegis")
+        username = username or os.getenv("MONGO_USER", "root")
+        password = password or os.getenv("MONGO_PASSWORD", "aeGis2026Rocks")
+        
+        self.mongo_service = MongoService(
+            uri=uri,
+            db_name=db_name,
+            username=username,
+            password=password,
+        )
 
     def fetch_index_data(self, request: GenerateScenariosRequest):
         response = self.fetch_endpoint_component_indexes(request.index_id)

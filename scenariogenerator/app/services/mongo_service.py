@@ -29,8 +29,7 @@ class MongoService:
             self.client.admin.command('ping')
             self.db = self.client[db_name]           
         
-        except (ConnectionFailure, ServerSelectionTimeoutError) as e:
-            print(f"Failed to connect to MongoDB: {e}")
+        except (ConnectionFailure, ServerSelectionTimeoutError):
             exit(1)
 
     def close(self):

@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, APIRouter, HTTPException
 
-from scenariogenerator.app.logic import scenario_generation_pipeline
+from .logic import scenario_generation_pipeline
 
 from .services.data_service import DataService
 
