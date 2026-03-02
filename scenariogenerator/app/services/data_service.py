@@ -15,7 +15,7 @@ class DataService:
         uri = uri or os.getenv("MONGO_URI", "mongodb://localhost:27017/")
         db_name = db_name or os.getenv("MONGO_DB", "aegis")
         username = username or os.getenv("MONGO_USER", "root")
-        password = password or os.getenv("MONGO_PASSWORD", "aeGis2026Rocks")
+        password = password or os.getenv("MONGO_PASSWORD")
         
         self.mongo_service = MongoService(
             uri=uri,
