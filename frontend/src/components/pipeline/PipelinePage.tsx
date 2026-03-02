@@ -7,13 +7,21 @@ import { fetchIRFromRepo, verifySystem, RepositoryInput, VerificationInput, Veri
 // --- TYPES ---
 
 type CardType = 
+    | 'SYSTEM_INPUT'
     | 'MULTI_REPO' 
+    | 'COMPONENT_GENERATE'
     | 'UPLOAD_IR' 
     | 'IR_HOLDER' 
     | 'FORMAL_VERIFY' 
     | 'VISUALIZATION' 
     | 'AEGIS' 
     | 'FORMAL_VIZ';
+
+interface SystemPayload {
+    type: 'SYSTEM_PAYLOAD';
+    systemName: string;
+    repositories: { repoUrl: string; branch: string; commit: string }[];
+}
 
 interface PipelinePayload {
     irJson: any;
@@ -36,6 +44,7 @@ interface NodeData {
         branch?: string;
         commit?: string;
         repositories?: { repoUrl: string; branch: string; commit: string }[];
+        rolePriorities?: { role: string; priority: number }[];
         payload?: PipelinePayload; 
         verificationResult?: VerificationResponse;
         systemInfo?: {
@@ -56,13 +65,20 @@ interface Connection {
 // --- CONFIGURATION ---
 
 const CATEGORIES: Record<string, CardType[]> = {
-    "Input": ['MULTI_REPO', 'UPLOAD_IR'],
+    "Input": ['SYSTEM_INPUT', 'UPLOAD_IR'],
     "Intermediate Results": ['IR_HOLDER'],
+    "Generators": ['MULTI_REPO', 'COMPONENT_GENERATE'],
     "Processes": ['FORMAL_VERIFY'],
     "Visualization": ['VISUALIZATION', 'AEGIS', 'FORMAL_VIZ']
 };
 
 const CARD_CONFIG: Record<CardType, { title: string; color: string; icon: JSX.Element; description: string }> = {
+    SYSTEM_INPUT: { 
+        title: "System Source", 
+        color: "border-blue-500 bg-blue-900/20", 
+        description: "Define GIT repositories",
+        icon: <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
+    },
     MULTI_REPO: { 
         title: "Generate IR", 
         color: "border-blue-500 bg-blue-900/20", 
@@ -74,6 +90,12 @@ const CARD_CONFIG: Record<CardType, { title: string; color: string; icon: JSX.El
         color: "border-blue-500 bg-blue-900/20", 
         description: "Upload local JSON file",
         icon: <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+    },
+    COMPONENT_GENERATE: { 
+        title: "Get Components", 
+        color: "border-teal-500 bg-teal-900/20", 
+        description: "Extract components",
+        icon: <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
     },
     IR_HOLDER: { 
         title: "IR Card", 
@@ -108,8 +130,10 @@ const CARD_CONFIG: Record<CardType, { title: string; color: string; icon: JSX.El
 };
 
 const VALID_CONNECTIONS: Record<CardType, CardType[]> = {
+    SYSTEM_INPUT: ['MULTI_REPO', 'COMPONENT_GENERATE'],
     MULTI_REPO: ['IR_HOLDER', 'FORMAL_VERIFY'],
     UPLOAD_IR: ['IR_HOLDER'],
+    COMPONENT_GENERATE: [],
     IR_HOLDER: ['FORMAL_VERIFY', 'VISUALIZATION', 'AEGIS'],
     FORMAL_VERIFY: ['FORMAL_VIZ'],
     VISUALIZATION: [], 
@@ -335,54 +359,30 @@ const PipelinePage: React.FC = () => {
 
         try {
             // Find Start Nodes
-            const inputNodes = nodes.filter(n => n.type === 'MULTI_REPO' || n.type === 'UPLOAD_IR');
+            const inputNodes = nodes.filter(n => n.type === 'SYSTEM_INPUT' || n.type === 'UPLOAD_IR');
             
             for (const node of inputNodes) {
                 updateStatus(node.id, 'running', 'Starting input processing...');
-                let payload: PipelinePayload | null = null;
+                let payload: any | null = null;
                 
                 // 1. EXECUTE INPUT NODES
-                if (node.type === 'MULTI_REPO') {
+                if (node.type === 'SYSTEM_INPUT') {
                     const reposToProcess = node.data.repositories || [{ repoUrl: node.data.repoUrl, branch: node.data.branch, commit: node.data.commit }];
-    
-                    // Validate we have a system name and at least one valid repo
+                    
                     if (!node.data.systemName || reposToProcess.length === 0 || !reposToProcess[0].repoUrl) {
                         updateStatus(node.id, 'failed', 'System Name and at least one Repository URL are required.');
                         continue;
                     }
                     
-                    try {
-                        const input: RepositoryInput = {
-                            systemName: node.data.systemName,
-                            // Map the frontend array directly into the backend format
-                            systemRepositories: reposToProcess.map(repo => ({
-                                repoBranchPair: {
-                                    repositoryURL: repo.repoUrl || "",
-                                    branchName: repo.branch || "master"
-                                },
-                                commitID: repo.commit || undefined
-                            }))
-                        };
-
-                        updateStatus(node.id, 'running', 'Fetching from API...');
-                        const ir = await fetchIRFromRepo(input);
-                        
-                        payload = {
-                            irJson: ir,
-                            metadata: {
-                                systemName: node.data.systemName,
-                                repoUrl: reposToProcess[0].repoUrl || "",
-                                branch: reposToProcess[0].branch || "master",
-                                commitId: reposToProcess[0].commit || "HEAD"
-                            }
-                        };
-                        updateStatus(node.id, 'completed', 'IR generated successfully.', { payload });
-
-                    } catch (error: any) {
-                        updateStatus(node.id, 'failed', `API Error: ${error.message}`);
-                        continue;
-                    }
-                } 
+                    // Package up the repo details and pass them downstream!
+                    payload = {
+                        type: 'SYSTEM_PAYLOAD',
+                        systemName: node.data.systemName,
+                        repositories: reposToProcess
+                    } as SystemPayload;
+                    
+                    updateStatus(node.id, 'completed', 'System source ready.', { payload });
+                }
                 else if (node.type === 'UPLOAD_IR') {
                     if (!node.data.payload?.irJson) {
                         updateStatus(node.id, 'failed', 'No File Uploaded');
@@ -426,6 +426,73 @@ const PipelinePage: React.FC = () => {
             updateStatus(targetNode.id, 'running', `Receiving data...`);
             
             try {
+                if (targetNode.type === 'MULTI_REPO') {
+                    if (payload.type !== 'SYSTEM_PAYLOAD') throw new Error("Expected System Source");
+                    const sysPayload = payload as SystemPayload;
+
+                    const input: RepositoryInput = {
+                        systemName: sysPayload.systemName,
+                        systemRepositories: sysPayload.repositories.map(repo => ({
+                            repoBranchPair: { repositoryURL: repo.repoUrl, branchName: repo.branch || "master" },
+                            commitID: repo.commit || undefined
+                        }))
+                    };
+
+                    updateStatus(targetNode.id, 'running', 'Generating Base IR...');
+                    const ir = await fetchIRFromRepo(input);
+                    
+                    const nextPayload: PipelinePayload = {
+                        irJson: ir,
+                        metadata: {
+                            systemName: sysPayload.systemName,
+                            repoUrl: sysPayload.repositories[0].repoUrl || "",
+                            branch: sysPayload.repositories[0].branch || "master",
+                            commitId: sysPayload.repositories[0].commit || "HEAD"
+                        }
+                    };
+                    updateStatus(targetNode.id, 'completed', 'IR generated.', { payload: nextPayload });
+                    await processNextNodes(targetNode.id, nextPayload, updateStatus);
+                }
+                else if (targetNode.type === 'COMPONENT_GENERATE') {
+                    if (payload.type !== 'SYSTEM_PAYLOAD') throw new Error("Expected System Source");
+                    const sysPayload = payload as SystemPayload;
+
+                    const rolesToProcess = targetNode.data.rolePriorities || [{ role: 'ROLE_ADMIN', priority: 1 }, { role: 'ROLE_USER', priority: 10 }];
+                    const rolePriorityMap: Record<string, number> = {};
+                    rolesToProcess.forEach(r => { if (r.role) rolePriorityMap[r.role] = r.priority; });
+
+                    const reqBody = {
+                        systemName: sysPayload.systemName,
+                        systemRepositories: sysPayload.repositories.map(repo => ({
+                            repoBranchPair: { repositoryURL: repo.repoUrl, branchName: repo.branch || "master" },
+                            commitID: repo.commit || undefined
+                        })),
+                        rolePriority: rolePriorityMap,
+                        defaultRolePriority: 50
+                    };
+
+                    updateStatus(targetNode.id, 'running', 'Calling Component API...');
+                    const response = await fetch('http://localhost:8060/component/create', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(reqBody)
+                    });
+
+                    if (!response.ok) throw new Error(`API error ${response.status}`);
+                    const generatedIr = await response.json();
+
+                    const nextPayload: PipelinePayload = {
+                        irJson: generatedIr,
+                        metadata: {
+                            systemName: sysPayload.systemName,
+                            repoUrl: sysPayload.repositories[0].repoUrl || "",
+                            branch: sysPayload.repositories[0].branch || "master",
+                            commitId: sysPayload.repositories[0].commit || "HEAD"
+                        }
+                    };
+                    updateStatus(targetNode.id, 'completed', 'Components generated.', { payload: nextPayload });
+                    await processNextNodes(targetNode.id, nextPayload, updateStatus);
+                }
                 if (targetNode.type === 'IR_HOLDER') {
                     // Type Guard: Expects IR
                     const irPayload = payload as PipelinePayload;
@@ -522,88 +589,78 @@ const PipelinePage: React.FC = () => {
 
     const renderCardContent = (node: NodeData) => {
         switch (node.type) {
-            case 'MULTI_REPO':
+            case 'SYSTEM_INPUT': {
                 const repositories = node.data.repositories || [{ repoUrl: node.data.repoUrl || '', branch: node.data.branch || 'master', commit: node.data.commit || '' }];
 
                 const updateRepo = (index: number, field: string, value: string) => {
                     const newRepos = [...repositories];
                     newRepos[index] = { ...newRepos[index], [field]: value };
-                    // We also sync index 0 to the top-level legacy fields so other pipeline logic doesn't break
                     const legacyData = index === 0 ? { [field]: value } : {};
-                    
-                    setNodes(nodes.map(n => n.id === node.id ? { 
-                        ...n, 
-                        data: { ...n.data, ...legacyData, repositories: newRepos } 
-                    } : n));
+                    setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, ...legacyData, repositories: newRepos } } : n));
                 };
 
-                const addRepo = () => {
-                    const newRepos = [...repositories, { repoUrl: '', branch: 'master', commit: '' }];
-                    setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, repositories: newRepos } } : n));
-                };
-
-                const removeRepo = (index: number) => {
-                    const newRepos = repositories.filter((_, i) => i !== index);
-                    setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, repositories: newRepos } } : n));
-                };
                 return (
                     <div className="space-y-3 mt-2">
                         <input 
-                            type="text" 
-                            placeholder="System Name"
-                            value={node.data.systemName || ''}
+                            type="text" placeholder="System Name" value={node.data.systemName || ''}
                             className="w-full text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none"
-                            onChange={(e) => {
-                                setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, systemName: e.target.value }} : n));
-                            }}
+                            onChange={(e) => setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, systemName: e.target.value }} : n))}
                         />
-
                         <div className="space-y-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
                             {repositories.map((repo, index) => (
-                                <div key={index} className="space-y-2 p-2 border border-slate-800 bg-slate-900 rounded relative">
+                                <div key={`repo-${index}`} className="space-y-2 p-2 border border-slate-800 bg-slate-900 rounded relative">
                                     {repositories.length > 1 && (
-                                        <button 
-                                            onClick={() => removeRepo(index)}
-                                            className="absolute top-1 right-2 text-slate-500 hover:text-red-500 text-xs font-bold"
-                                        >
-                                            ✕
-                                        </button>
+                                        <button onClick={() => setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, repositories: repositories.filter((_, i) => i !== index) } } : n))} className="absolute top-1 right-2 text-slate-500 hover:text-red-500 text-xs font-bold">✕</button>
                                     )}
-                                    <input 
-                                        type="text" 
-                                        placeholder="Repository URL"
-                                        value={repo.repoUrl || ''}
-                                        className="w-full text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none pr-6"
-                                        onChange={(e) => updateRepo(index, 'repoUrl', e.target.value)}
-                                    />
+                                    <input type="text" placeholder="Repository URL" value={repo.repoUrl || ''} className="w-full text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none pr-6" onChange={(e) => updateRepo(index, 'repoUrl', e.target.value)} />
                                     <div className="flex gap-1">
-                                        <input 
-                                            type="text" 
-                                            placeholder="Branch (master)" 
-                                            value={repo.branch || ''}
-                                            className="w-1/2 text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none" 
-                                            onChange={(e) => updateRepo(index, 'branch', e.target.value)}
-                                        />
-                                        <input 
-                                            type="text" 
-                                            placeholder="Commit (Latest)" 
-                                            value={repo.commit || ''}
-                                            className="w-1/2 text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none" 
-                                            onChange={(e) => updateRepo(index, 'commit', e.target.value)}
-                                        />
+                                        <input type="text" placeholder="Branch (master)" value={repo.branch || ''} className="w-1/2 text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none" onChange={(e) => updateRepo(index, 'branch', e.target.value)} />
+                                        <input type="text" placeholder="Commit (Latest)" value={repo.commit || ''} className="w-1/2 text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none" onChange={(e) => updateRepo(index, 'commit', e.target.value)} />
                                     </div>
                                 </div>
                             ))}
                         </div>
-
-                        <button 
-                            onClick={addRepo}
-                            className="w-full py-1.5 text-xs text-blue-400 border border-dashed border-blue-800 rounded hover:bg-blue-900/30 transition-colors"
-                        >
+                        <button onClick={() => setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, repositories: [...repositories, { repoUrl: '', branch: 'master', commit: '' }] } } : n))} className="w-full py-1.5 text-xs text-blue-400 border border-dashed border-blue-800 rounded hover:bg-blue-900/30 transition-colors">
                             + Add Repository
                         </button>
                     </div>
                 );
+            }
+            case 'MULTI_REPO':
+                return (
+                    <div className="mt-2 text-center p-3 border border-dashed border-slate-700 bg-slate-800/50 rounded-lg">
+                        <span className="text-xs text-slate-400 italic">Link to a System Source</span>
+                    </div>
+                );
+            case 'COMPONENT_GENERATE': {
+                const rolePriorities = node.data.rolePriorities || [{ role: 'ROLE_ADMIN', priority: 1 }, { role: 'ROLE_USER', priority: 10 }];
+
+                const updateRole = (index: number, field: string, value: string) => {
+                    const newRoles = [...rolePriorities];
+                    newRoles[index] = { ...newRoles[index], [field]: field === 'priority' ? parseInt(value) || 0 : value };
+                    setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, rolePriorities: newRoles } } : n));
+                };
+
+                return (
+                    <div className="space-y-3 mt-2">
+                        <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Role Priorities</div>
+                        <div className="space-y-1 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
+                            {rolePriorities.map((role, index) => (
+                                <div key={`role-${index}`} className="flex gap-1 items-center relative">
+                                    <input type="text" placeholder="ROLE_NAME" value={role.role} className="w-2/3 text-[10px] bg-slate-950 border border-slate-700 rounded p-1 focus:border-teal-500 outline-none font-mono" onChange={(e) => updateRole(index, 'role', e.target.value.toUpperCase())} />
+                                    <input type="number" placeholder="Pri" value={role.priority} className="w-1/3 text-[10px] bg-slate-950 border border-slate-700 rounded p-1 focus:border-teal-500 outline-none text-center" onChange={(e) => updateRole(index, 'priority', e.target.value)} />
+                                    {rolePriorities.length > 1 && (
+                                        <button onClick={() => setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, rolePriorities: rolePriorities.filter((_, i) => i !== index) } } : n))} className="text-slate-500 hover:text-red-500 text-xs font-bold px-1">✕</button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                        <button onClick={() => setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, rolePriorities: [...rolePriorities, { role: 'ROLE_NEW', priority: 50 }] } } : n))} className="w-full py-1 text-[10px] text-teal-400 border border-dashed border-teal-800 rounded hover:bg-teal-900/30 transition-colors">
+                            + Add Role
+                        </button>
+                    </div>
+                );
+            }
             case 'UPLOAD_IR':
                 return (
                     <div className="mt-2">
