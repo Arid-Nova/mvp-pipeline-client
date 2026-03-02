@@ -124,8 +124,19 @@ class DataService:
             print(f"Error inserting scenarios into database: {e}")
     
     def fetch_scenarios_by_ids(self, scenario_ids: List[str]) -> List[Dict[str, Any]]:
-        query = {"scenario_id": {"$in": scenario_ids}}
-        results = self.mongo_service.find(collection="generated_scenarios", query=query)
+        pipeline = [
+            {"$match": {"scenario_id": {"$in": scenario_ids}}},
+            {"$sort": {"_id": -1}},
+            {
+                "$group": {
+                    "_id": "$scenario_id",
+                    "latest_document": {"$first": "$$ROOT"}
+                }
+            },
+            {"$replaceRoot": {"newRoot": "$latest_document"}}
+        ]
+
+        results = self.mongo_service.aggregate(collection="generated_scenarios", pipeline=pipeline)
 
         if not results:
             print("No scenarios found for the provided IDs.")
