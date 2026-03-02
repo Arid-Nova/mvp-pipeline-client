@@ -7,7 +7,7 @@ specific endpoints, conditioned on scenario type and template class.
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 ENV_CONFIG_TEMPLATE = """
 Environment Configuration:
@@ -340,13 +340,18 @@ def build_prompt_for_scenario(s: Dict[str, Any]) -> str:
     return header + base_context + chain_permissions_block + entity_schema_block + ENV_CONFIG_TEMPLATE + body
 
 
-def generate_prompts(scenarios: List[Dict[str, Any]], template_filter: str | None = None) -> List[Dict[str, str]]:
+def generate_prompts(
+    scenarios: List[Dict[str, Any]], 
+    template_filter: Optional[str] = None
+) -> List[Dict[str, str]]:
     items: List[Dict[str, str]] = []
 
     for scenario in scenarios:
         tid = scenario.get("prompt_template_id") or scenario.get("prompt_context", {}).get("template_id")
+        
         if template_filter and tid != template_filter:
             continue
+            
         prompt = build_prompt_for_scenario(scenario)
         items.append({
             "scenario_id": scenario.get("scenario_id", ""),

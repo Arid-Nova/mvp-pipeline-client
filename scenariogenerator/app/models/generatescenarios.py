@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Dict, Any, Optional
+from typing import Any, Optional
 
 class GenerateScenariosRequest(BaseModel):
     vectors_id: str

@@ -123,17 +123,30 @@ class DataService:
         results = self.mongo_service.find(collection="auth_vectors", query=query)
 
         if results:
-            document = results[0] 
-            return document.get("payload", {})
+            return results[0] 
         
         print(f"No auth_vectors document found with ID: {auth_vectors_id}")
         return {}
     
-    def add_scenarios(self, scenarios: list):
+    def add_scenarios(self, scenarios: list) -> list:
         try:
-            self.mongo_service.insert_many(collection="generated_scenarios", documents=scenarios)
+            self.mongo_service.insert_many(
+                collection="generated_scenarios", 
+                documents=scenarios
+            )
+
+            returned_docs = []
+            for doc in scenarios:
+                doc_copy = dict(doc)
+                if "_id" in doc_copy:
+                    doc_copy["_id"] = str(doc_copy["_id"])
+                    
+                returned_docs.append(doc_copy)
+            
+            return returned_docs
         except Exception as e:
             print(f"Error inserting scenarios into database: {e}")
+            return scenarios
     
     def fetch_scenarios_by_ids(self, scenario_ids: List[str]) -> List[Dict[str, Any]]:
         pipeline = [

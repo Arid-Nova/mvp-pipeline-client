@@ -10,7 +10,6 @@ from .scenario_generator import (
     categorize_scenario,
     select_prompt_template_id,
     build_prompt_context,
-    analyze_ir_node,
     normalize_input_data
 )
 
@@ -23,7 +22,7 @@ def scenario_generation_pipeline(request: GenerateScenariosRequest, df_service: 
 
     # Step 2. Retreive and normalize inputs
     endpoints_list = normalize_input_data(full_data.endpoints)
-    components_list = normalize_input_data(full_data.components)
+    components_list = normalize_input_data(full_data.components['components'] if 'components' in full_data.components else full_data.components)
 
     # Step 3. Run the enrichment pipeline
     for s in base_scenarios:
@@ -60,10 +59,10 @@ def scenario_generation_pipeline(request: GenerateScenariosRequest, df_service: 
         ]
 
     # Step 5. Record the scenarios in the database
-    df_service.add_scenarios(enriched_scenarios)
+    response_list = df_service.add_scenarios(enriched_scenarios)
 
     return {
         "status": "success",
-        "count": len(enriched_scenarios),
-        "scenarios": enriched_scenarios
+        "count": len(response_list),
+        "scenarios": response_list
     }

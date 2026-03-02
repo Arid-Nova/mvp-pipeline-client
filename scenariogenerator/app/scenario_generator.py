@@ -24,9 +24,7 @@ preventing privilege escalation or inconsistent access control.
 """
 
 import json
-from pathlib import Path
 from typing import Dict, List, Any, Tuple
-from .ir_feature_extractor import analyze_ir_node
 
 StatusMap = {1: "2xx", 0: "403", -1: "UNKNOWN"}
 
