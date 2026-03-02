@@ -1,4 +1,4 @@
-package edu.baylor.ecs.cloudhubs.mvp.MVPComponents.persistence.component;
+package edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.request;
 
 import lombok.Getter;
 import lombok.Setter;

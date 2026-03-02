@@ -35,6 +35,8 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 public class EndpointIndex {
 
+    public String id;
+
     /**
      * Map of endpoint IDs to endpoint information.
      * Key format: "serviceName:hash" (endpoint ID, API-based)
@@ -51,6 +53,12 @@ public class EndpointIndex {
      * Includes system name, commit info, timestamp, counts, etc.
      */
     private IndexMetadata metadata;
+
+    public EndpointIndex(Map<String, EndpointInfo> endpoints, IndexMetadata metadata) {
+        this.id = null;
+        this.endpoints = endpoints;
+        this.metadata = metadata;
+    }
 
     // ============== LOOKUP METHODS ==============
 

@@ -1,0 +1,10 @@
+spring:
+  data:
+    mongodb:
+      uri: mongodb://root:aeGis2026Rocks@mvp_mongo:27017/aegis?authSource=admin
+
+  datasource:
+    url: jdbc:mariadb://mvp_db:3306/msGraph
+    username: root
+    password: csi3335rocks
+    driver-class-name: org.mariadb.jdbc.Driver

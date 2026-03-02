@@ -1,0 +1,6 @@
+click
+typing-extensions
+fastapi
+uvicorn
+pydantic
+pymongo

@@ -1,16 +1,11 @@
-import os
-import json
-import tempfile
 import configparser
-import dataclasses
 from contextlib import asynccontextmanager
 
 from time import time
-from typing import Dict, Any, List
+from typing import Dict, Any
 from fastapi.middleware.cors import CORSMiddleware
 
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
 
 from main import AnalysisFacade
 

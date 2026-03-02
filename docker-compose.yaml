@@ -75,6 +75,38 @@ services:
     networks:
       - app_network
     restart: always
+
+  vectorgenerator:
+    build:
+      context: ./vectorgenerator
+      dockerfile: Dockerfile
+    container_name: mvp_vectorgenerator
+    ports:
+      - "8050:8050" 
+    environment:
+      - MONGO_URI=mongodb://mvp_mongo:27017
+      - MONGO_DB=aegis
+      - MONGO_USER=root
+      - MONGO_PASSWORD=aeGis2026Rocks
+    networks:
+      - app_network
+    restart: always
+
+  scenariogenerator:
+    build:
+      context: ./scenariogenerator
+      dockerfile: Dockerfile
+    container_name: mvp_scenariogenerator
+    ports:
+      - "8040:8040" 
+    environment:
+      - MONGO_URI=mongodb://mvp_mongo:27017
+      - MONGO_DB=aegis
+      - MONGO_USER=root
+      - MONGO_PASSWORD=aeGis2026Rocks
+    networks:
+      - app_network
+    restart: always
   
   aegis_neo4j:
     image: neo4j:5-community
