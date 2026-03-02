@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 import traceback
 
 from fastapi import FastAPI, APIRouter, HTTPException
@@ -5,12 +6,25 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .analyzers.role_analyzer import RoleAnalyzer
 from .generators.vector_generator import VectorGenerator
+from .services.data_service import DataService
 
 from .models.generateallrequest import GenerateAllRequest
 from .models.generateoutputdata import GeneratedOutputData
-from .models.systemdata import SystemData
 
-app = FastAPI(title="Auth-Role Vector Generator API")
+df_service = None
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global df_service
+    
+    try:
+        df_service = DataService()
+    except Exception as e:
+        print(f"CRITICAL ERROR during startup: {e}")
+
+    yield 
+
+app = FastAPI(title="Auth-Role Vector Generator API", lifespan=lifespan)
 
 origins = [
     "http://localhost:3000",
@@ -32,8 +46,13 @@ router = APIRouter(prefix="/vectors")
                  500: {"description": "Generation failed"}
                  })
 async def generate_all(request: GenerateAllRequest):
-    """Generate auth-role vectors for all endpoints based on provided payload."""
+    global df_service
+
     try:
+        # First check of the payload comprise of the Index ID and lean flag.
+        if request.indexId:
+            df_service.fetch_index_data(request)
+
         endpoints_map = request.endpoints.get("endpoints", {})
 
         # 1. Extract Roles
@@ -48,13 +67,17 @@ async def generate_all(request: GenerateAllRequest):
         metadata = generator.generate_metadata(vectors, lean=request.lean)
 
         # 4. Return generated data directly
-        return {
+        response_data = {
             "metadata": metadata,
             "vectors": {
                 endpoint_id: vector.to_dict(lean=request.lean)
                 for endpoint_id, vector in vectors.items()
             }
         }
+
+        response_data['id'] = df_service.add_auth_vectors(collection="auth_vectors", data=response_data)
+        
+        return response_data
 
     except Exception as e:
         traceback.print_exc()
@@ -66,9 +89,14 @@ async def generate_all(request: GenerateAllRequest):
                  404: {"description": "Endpoint ID not found"}, 
                  500: {"description": "Error processing endpoint"}
                  })
-async def generate_single(endpoint_id: str, request: SystemData):
+async def generate_single(endpoint_id: str, request: GenerateAllRequest):
     """Generate auth-role vector for a specific endpoint."""
+    global df_service
+
     try:
+        if request.indexId:
+            df_service.fetch_index_data(request)
+
         endpoints_map = request.endpoints.get("endpoints", {})
 
         role_analyzer = RoleAnalyzer(request.components)
@@ -91,9 +119,14 @@ async def generate_single(endpoint_id: str, request: SystemData):
                  404: {"description": "Endpoint ID not found"},
                  500: {"description": "Error fetching chain"}
                  })
-async def show_chain(endpoint_id: str, request: SystemData):
+async def show_chain(endpoint_id: str, request: GenerateAllRequest):
     """Display remote call chain for a specific endpoint."""
+    global df_service
+
     try:
+        if request.indexId:
+            df_service.fetch_index_data(request)
+
         endpoints_map = request.endpoints.get("endpoints", {})
 
         role_analyzer = RoleAnalyzer(request.components)
@@ -136,7 +169,12 @@ async def show_chain(endpoint_id: str, request: SystemData):
                  })
 async def get_stats(request: GeneratedOutputData):
     """Show statistics from a previously generated vector payload."""
+    global df_service
+
     try:
+        if request.id:
+            df_service.fetch_vector_data(request)
+
         metadata = request.metadata
         vectors = request.vectors
         stats_data = metadata.get("statistics", {})
