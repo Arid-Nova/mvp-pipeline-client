@@ -12,6 +12,7 @@ type CardType =
     | 'COMPONENT_GENERATE'
     | 'UPLOAD_IR' 
     | 'IR_HOLDER' 
+    | 'COMPONENT_HOLDER'
     | 'FORMAL_VERIFY' 
     | 'VISUALIZATION' 
     | 'AEGIS' 
@@ -21,6 +22,12 @@ interface SystemPayload {
     type: 'SYSTEM_PAYLOAD';
     systemName: string;
     repositories: { repoUrl: string; branch: string; commit: string }[];
+}
+
+interface ComponentPayload {
+    id: string;
+    endpoints: any;
+    components: any;
 }
 
 interface PipelinePayload {
@@ -45,6 +52,7 @@ interface NodeData {
         commit?: string;
         repositories?: { repoUrl: string; branch: string; commit: string }[];
         rolePriorities?: { role: string; priority: number }[];
+        componentPayload?: ComponentPayload;
         payload?: PipelinePayload; 
         verificationResult?: VerificationResponse;
         systemInfo?: {
@@ -66,8 +74,8 @@ interface Connection {
 
 const CATEGORIES: Record<string, CardType[]> = {
     "Input": ['SYSTEM_INPUT', 'UPLOAD_IR'],
-    "Intermediate Results": ['IR_HOLDER'],
     "Generators": ['MULTI_REPO', 'COMPONENT_GENERATE'],
+    "Intermediate Results": ['IR_HOLDER', 'COMPONENT_HOLDER'],
     "Processes": ['FORMAL_VERIFY'],
     "Visualization": ['VISUALIZATION', 'AEGIS', 'FORMAL_VIZ']
 };
@@ -103,6 +111,12 @@ const CARD_CONFIG: Record<CardType, { title: string; color: string; icon: JSX.El
         description: "Stores and exposes IR JSON",
         icon: <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" /></svg>
     },
+    COMPONENT_HOLDER: { 
+        title: "Component Card", 
+        color: "border-orange-500 bg-orange-900/20", 
+        description: "Stores Components & Endpoints",
+        icon: <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
+    },
     FORMAL_VERIFY: { 
         title: "Formal Verification", 
         color: "border-purple-500 bg-purple-900/20", 
@@ -133,7 +147,8 @@ const VALID_CONNECTIONS: Record<CardType, CardType[]> = {
     SYSTEM_INPUT: ['MULTI_REPO', 'COMPONENT_GENERATE'],
     MULTI_REPO: ['IR_HOLDER', 'FORMAL_VERIFY'],
     UPLOAD_IR: ['IR_HOLDER'],
-    COMPONENT_GENERATE: [],
+    COMPONENT_GENERATE: ['COMPONENT_HOLDER'],
+    COMPONENT_HOLDER: [],
     IR_HOLDER: ['FORMAL_VERIFY', 'VISUALIZATION', 'AEGIS'],
     FORMAL_VERIFY: ['FORMAL_VIZ'],
     VISUALIZATION: [], 
@@ -217,6 +232,13 @@ const PipelinePage: React.FC = () => {
                 }
                 if (cleanData.systemInfo) {
                     cleanData.systemInfo = undefined; // Don't persist context
+                }
+                if (cleanData.componentPayload) {
+                    cleanData.componentPayload = { 
+                        ...cleanData.componentPayload, 
+                        components: null, 
+                        endpoints: null
+                    };
                 }
 
                 // If we strip data, we should reset status if it was 'completed' 
@@ -493,6 +515,28 @@ const PipelinePage: React.FC = () => {
                     updateStatus(targetNode.id, 'completed', 'Components generated.', { payload: nextPayload });
                     await processNextNodes(targetNode.id, nextPayload, updateStatus);
                 }
+                else if (targetNode.type === 'COMPONENT_HOLDER') {
+                    // Type Guard: Expects payload from COMPONENT_GENERATE
+                    const incomingPayload = payload as PipelinePayload;
+                    if (!incomingPayload.irJson) throw new Error("Invalid input: Expected Component JSON");
+
+                    const rawJson = incomingPayload.irJson;
+                    
+                    // Safely extract the data based on the sample.json structure
+                    const extractedId = rawJson.id || "Unknown ID";
+                    const endpointsData = rawJson.endpointIndex?.endpoints || rawJson.endpoints || {};
+                    const componentsData = rawJson.componentIndex?.components || rawJson.components || {};
+
+                    const compPayload: ComponentPayload = {
+                        id: extractedId,
+                        endpoints: endpointsData,
+                        components: componentsData
+                    };
+
+                    updateStatus(targetNode.id, 'completed', 'Components Stored.', { componentPayload: compPayload });
+                    
+                    await processNextNodes(targetNode.id, incomingPayload, updateStatus);
+                }
                 if (targetNode.type === 'IR_HOLDER') {
                     // Type Guard: Expects IR
                     const irPayload = payload as PipelinePayload;
@@ -661,6 +705,44 @@ const PipelinePage: React.FC = () => {
                     </div>
                 );
             }
+            case 'COMPONENT_HOLDER': {
+                return (
+                    <div className="mt-2 space-y-2">
+                         {node.data.componentPayload? (
+                            <>
+                                <div className="p-2 bg-slate-950 border border-slate-700 rounded mb-2 flex flex-col gap-1 text-center">
+                                    <span className="text-[9px] text-slate-500 uppercase tracking-widest font-bold">Component Index ID</span>
+                                    <span className="font-mono text-xs text-orange-400 break-all">
+                                        {node.data.componentPayload.id}
+                                    </span>
+                                </div>
+
+                                <button 
+                                    onClick={() => {
+                                        const blob = new Blob([JSON.stringify(node.data.componentPayload?.components, null, 2)], {type: "application/json"});
+                                        saveAs(blob, "components.json");
+                                    }}
+                                    className="w-full py-1.5 text-xs bg-orange-600 hover:bg-orange-500 text-white rounded font-medium shadow transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                    Download Components
+                                </button>
+                                
+                                <button 
+                                    onClick={() => {
+                                        const blob = new Blob([JSON.stringify(node.data.componentPayload?.endpoints, null, 2)], {type: "application/json"});
+                                        saveAs(blob, "endpoints.json");
+                                    }}
+                                    className="w-full py-1.5 text-xs bg-rose-600 hover:bg-rose-500 text-white rounded font-medium shadow transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                    Download Endpoints
+                                </button>
+                            </>
+                         ) : <span className="text-xs text-slate-500 italic block text-center py-2">Waiting for Component Generation...</span>}
+                    </div>
+                );
+            } 
             case 'UPLOAD_IR':
                 return (
                     <div className="mt-2">
