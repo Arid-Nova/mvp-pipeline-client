@@ -12,7 +12,8 @@ export type CardType =
     | 'PROMPT_GENERATE'
     | 'VISUALIZATION' 
     | 'AEGIS' 
-    | 'FORMAL_VIZ';
+    | 'FORMAL_VIZ'
+    | 'TEST_GENERATE';
 
 export interface SystemPayload {
     type: 'SYSTEM_PAYLOAD';
@@ -54,6 +55,8 @@ export interface NodeData {
         scenarioPayload?: ScenarioPayload;
         selectedScenarios?: string[];
         promptPayload?: PromptPayload;
+        testSuitePayload?: TestSuitePayload;
+        selectedLlm?: string;
         systemInfo?: {
             systemName: string;
             ir: any;
@@ -89,4 +92,14 @@ export interface PromptItem {
 
 export interface PromptPayload {
     prompts: PromptItem[];
+}
+
+export interface TestSuiteItem {
+    scenario_id: string;
+    test_code: string;
+}
+
+export interface TestSuitePayload {
+    status: string;
+    tests: TestSuiteItem[];
 }

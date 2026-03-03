@@ -107,6 +107,24 @@ services:
     networks:
       - app_network
     restart: always
+
+  testgenerator:
+    build:
+      context: ./testgenerator
+      dockerfile: Dockerfile
+    container_name: mvp_testgenerator
+    ports:
+      - "8030:8030" 
+    environment:
+      - OPENAI_API_KEY=22hsgSpZGYB83odKbOaAtrZd82MWLOo6MSzIKypkd12Xx0yZQyMAJQQJ99BLACMsfrFXJ3w3AAAAACOGD7qp
+      - OPENAI_BASE_URL=https://posturaneuroengine.cognitiveservices.azure.com/openai/v1/
+      - ANTHROPIC_API_KEY=anthropic-key
+      - GROQ_API_KEY=groq-key
+      - LLM_TEMPERATURE=0.3
+      - MAX_TOKENS=10000
+    networks:
+      - app_network
+    restart: always
   
   aegis_neo4j:
     image: neo4j:5-community

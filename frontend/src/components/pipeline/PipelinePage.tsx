@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import { saveAs } from 'file-saver';
+import JSZip from 'jszip';
 import { fetchIRFromRepo, verifySystem, RepositoryInput, VerificationInput } from '../../services/api';
 import { CardType, SystemPayload, ComponentPayload, PipelinePayload, NodeData, Connection, ScenarioItem, ScenarioPayload} from './models'
 
@@ -11,7 +12,7 @@ const CATEGORIES: Record<string, CardType[]> = {
     "Input": ['SYSTEM_INPUT', 'UPLOAD_IR'],
     "Generators": ['MULTI_REPO', 'COMPONENT_GENERATE'],
     "Intermediate Results": ['IR_HOLDER', 'COMPONENT_HOLDER'],
-    "Processes": ['FORMAL_VERIFY', 'SCENARIO_GENERATE', 'PROMPT_GENERATE'],
+    "Processes": ['FORMAL_VERIFY', 'SCENARIO_GENERATE', 'PROMPT_GENERATE', 'TEST_GENERATE'],
     "Visualization": ['VISUALIZATION', 'AEGIS', 'FORMAL_VIZ']
 };
 
@@ -70,6 +71,12 @@ const CARD_CONFIG: Record<CardType, { title: string; color: string; icon: JSX.El
         description: "Prepares LLM prompts for scenarios",
         icon: <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
     },
+    TEST_GENERATE: { 
+        title: "Test Suite Generation", 
+        color: "border-purple-500 bg-purple-900/20", 
+        description: "Generate Tests via LLM",
+        icon: <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M12 15a3 3 0 100-6 3 3 0 000 6z" /></svg>
+    },
     VISUALIZATION: { 
         title: "IR Visualization", 
         color: "border-green-500 bg-green-900/20", 
@@ -98,7 +105,8 @@ const VALID_CONNECTIONS: Record<CardType, CardType[]> = {
     COMPONENT_HOLDER: ['SCENARIO_GENERATE'],
     IR_HOLDER: ['FORMAL_VERIFY', 'VISUALIZATION', 'AEGIS'],
     SCENARIO_GENERATE: ['PROMPT_GENERATE'],
-    PROMPT_GENERATE: [],
+    PROMPT_GENERATE: ['TEST_GENERATE'],
+    TEST_GENERATE: [],
     FORMAL_VERIFY: ['FORMAL_VIZ', 'SCENARIO_GENERATE'],
     VISUALIZATION: [], 
     AEGIS: [],        
@@ -658,6 +666,41 @@ const PipelinePage: React.FC = () => {
 
                     await processNextNodes(targetNode.id, { ...incomingPayload, scenarioPayload }, updateStatus);
                 }
+                else if (targetNode.type === 'TEST_GENERATE') {
+                    // Find upstream prompt node
+                    const promptNode = nodes.find(n => 
+                        n.type === 'PROMPT_GENERATE' && 
+                        connections.some(c => c.source === n.id && c.target === targetNode.id)
+                    );
+
+                    const prompts = promptNode?.data.promptPayload?.prompts;
+
+                    if (!prompts || prompts.length === 0) {
+                        throw new Error("No prompts available. Please generate prompts first.");
+                    }
+
+                    const selectedLlm = targetNode.data.selectedLlm || 'gpt-4o-mini'; 
+                    updateStatus(targetNode.id, 'running', `Sending ${prompts.length} prompts to ${selectedLlm}...`);
+
+                    const response = await fetch('http://localhost:8030/testsuites/generate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            llm_model: selectedLlm,
+                            prompts: prompts 
+                        })
+                    });
+
+                    if (!response.ok) throw new Error(`Test Generation API error: ${response.status}`);
+                    
+                    const data = await response.json(); // Assumes { status: "success", tests: [...] }
+                    
+                    updateStatus(targetNode.id, 'completed', 'Test Suite Generated Successfully.', { 
+                        testSuitePayload: data 
+                    });
+
+                    await processNextNodes(targetNode.id, { ...payload, testSuitePayload: data }, updateStatus);
+                }
                 else if (targetNode.type === 'PROMPT_GENERATE') {
                     const scenarioNode = nodes.find(n => 
                         n.type === 'SCENARIO_GENERATE' && 
@@ -1078,6 +1121,128 @@ const PipelinePage: React.FC = () => {
                                         className="w-full py-1.5 text-[10px] border border-emerald-800 text-emerald-500 hover:bg-emerald-900/20 rounded font-bold transition-all"
                                     >
                                         {node.status === 'running' ? 'Updating...' : 'Regenerate'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            }
+            case 'TEST_GENERATE': {
+                const promptNode = nodes.find(n => 
+                    n.type === 'PROMPT_GENERATE' && 
+                    connections.some(c => c.source === n.id && c.target === node.id)
+                );
+                const availablePrompts = promptNode?.data.promptPayload?.prompts?.length || 0;
+                const hasTests = !!node.data.testSuitePayload;
+                const selectedLlm = node.data.selectedLlm || 'gpt-4o-mini';
+
+                // Helper to update dropdown state locally
+                const handleLlmChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+                    setNodes(nodes.map(n => n.id === node.id ? { 
+                        ...n, 
+                        data: { ...n.data, selectedLlm: e.target.value } 
+                    } : n));
+                };
+
+                return (
+                    <div className="mt-2 space-y-3">
+                        {/* LLM Selection Dropdown */}
+                        <div className="space-y-1">
+                            <label className="text-[9px] text-slate-500 uppercase tracking-wider font-bold">Select LLM Engine</label>
+                            <select 
+                                value={selectedLlm}
+                                onChange={handleLlmChange}
+                                disabled={node.status === 'running'}
+                                className="w-full bg-slate-950 border border-slate-700 text-xs text-slate-300 p-1.5 rounded outline-none focus:border-purple-500 transition-colors disabled:opacity-50"
+                            >
+                                <option value="gpt-4o-mini">OpenAI GPT-4o-mini</option>
+                                <option value="gpt-4-turbo">OpenAI GPT-4 Turbo</option>
+                                <option value="claude-3-5-sonnet">Anthropic Claude 3.5 Sonnet</option>
+                                <option value="claude-3-opus">Anthropic Claude 3 Opus</option>
+                                <option value="llama-3-70b">Meta Llama 3 70B</option>
+                            </select>
+                        </div>
+
+                        {!hasTests ? (
+                            <div className="space-y-2">
+                                <div className="text-center py-2 px-3 border border-dashed border-slate-700 bg-slate-800/30 rounded-lg">
+                                    <span className="text-[10px] text-slate-400 italic">
+                                        {availablePrompts > 0 
+                                            ? `${availablePrompts} prompts ready for execution` 
+                                            : "Connect to Prompts Card"}
+                                    </span>
+                                </div>
+                                <button 
+                                    disabled={availablePrompts === 0 || node.status === 'running'}
+                                    onClick={() => runFromNode(node.id)}
+                                    className={`
+                                        w-full py-2 text-xs rounded font-bold transition-all flex items-center justify-center gap-2
+                                        ${availablePrompts > 0 
+                                            ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-lg' 
+                                            : 'bg-slate-800 text-slate-500 cursor-not-allowed'}
+                                    `}
+                                >
+                                    {node.status === 'running' ? (
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    ) : (
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                        </svg>
+                                    )}
+                                    Execute LLM
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                <div className="p-3 bg-slate-950 border border-purple-500/30 rounded-lg text-center">
+                                    <div className="text-[10px] text-purple-400 font-bold uppercase tracking-widest mb-1">Generated</div>
+                                    <div className="text-xs text-white">
+                                        {node.data.testSuitePayload?.tests?.length || 0} Test Classes
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <button 
+                                        onClick={async () => {
+                                            const tests = node.data.testSuitePayload?.tests || [];
+                                            if (tests.length === 0) return;
+
+                                            // 1. Create a new zip instance
+                                            const zip = new JSZip();
+                                            const folder = zip.folder(`test_suite_${selectedLlm}`);
+
+                                            // 2. Add each test to the zip as a .java file
+                                            tests.forEach((test, index) => {
+                                                // Try to extract the Java class name from the code
+                                                const classMatch = test.test_code.match(/public\s+(?:final\s+)?class\s+([A-Za-z0-9_]+)/);
+                                                
+                                                // Fallback name if the regex fails to find a class name
+                                                let className = classMatch && classMatch[1] 
+                                                    ? classMatch[1] 
+                                                    : `GeneratedTest_${index + 1}_${test.scenario_id.replace(/[^a-zA-Z0-9]/g, '')}`;
+
+                                                // Add the file to our zip folder
+                                                folder?.file(`${className}.java`, test.test_code);
+                                            });
+
+                                            // 3. Generate the zip blob and trigger download
+                                            try {
+                                                const blob = await zip.generateAsync({ type: "blob" });
+                                                saveAs(blob, `test_suite_${selectedLlm}_${Date.now()}.zip`);
+                                            } catch (error) {
+                                                console.error("Failed to generate zip file", error);
+                                            }
+                                        }}
+                                        className="w-full py-1.5 text-[10px] bg-purple-600 hover:bg-purple-500 text-white rounded font-bold shadow transition-all"
+                                    >
+                                        Download Test Suite (.zip)
+                                    </button>
+                                    <button 
+                                        disabled={node.status === 'running'}
+                                        onClick={() => runFromNode(node.id)}
+                                        className="w-full py-1.5 text-[10px] border border-purple-800 text-purple-500 hover:bg-purple-900/20 rounded font-bold transition-all"
+                                    >
+                                        {node.status === 'running' ? 'Executing...' : 'Regenerate Tests'}
                                     </button>
                                 </div>
                             </div>
