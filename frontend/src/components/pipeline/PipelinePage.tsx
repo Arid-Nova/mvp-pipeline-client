@@ -141,6 +141,47 @@ const InlineDropzone = ({ onFileSelect }: { onFileSelect: (file: File) => void }
 
 const PipelinePage: React.FC = () => {
     const navigate = useNavigate();
+
+    // Zoom and Pan State
+    const [scale, setScale] = useState(1);
+    const [offset, setOffset] = useState({ x: 0, y: 0 });
+    const [isPanning, setIsPanning] = useState(false);
+
+    // Zoom constants
+    const MIN_SCALE = 0.2;
+    const MAX_SCALE = 2;
+    const ZOOM_SENSITIVITY = 0.001;
+
+    // Zoom handling
+    const handleWheel = (e: React.WheelEvent) => {
+        if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            const delta = -e.deltaY * ZOOM_SENSITIVITY;
+            setScale(prev => Math.min(Math.max(prev + delta, MIN_SCALE), MAX_SCALE));
+        } else {
+            // Normal scroll pans the canvas
+            setOffset(prev => ({
+                x: prev.x - e.deltaX,
+                y: prev.y - e.deltaY
+            }));
+        }
+    };
+
+    const handleCanvasMouseDown = (e: React.MouseEvent) => {
+        // Pan with Middle Mouse or Space + Left Click
+        if (e.button === 1 || (e.button === 0 && (e.target as HTMLElement).id === 'canvas-grid')) {
+            setIsPanning(true);
+        }
+    };
+
+    const handleCanvasMouseMove = (e: React.MouseEvent) => {
+        if (isPanning) {
+            setOffset(prev => ({
+                x: prev.x + e.movementX,
+                y: prev.y + e.movementY
+            }));
+        }
+    };
     
     // --- PERSISTENCE LOGIC ---
     // Initialize from session storage if available
@@ -276,8 +317,10 @@ const PipelinePage: React.FC = () => {
         if (!dragNodeId || !canvasRef.current) return;
 
         const rect = canvasRef.current.getBoundingClientRect();
-        const x = e.clientX - rect.left - 150; 
-        const y = e.clientY - rect.top - 50;
+        
+        // Adjust coordinates for Scale and Offset
+        const x = (e.clientX - rect.left - offset.x) / scale - 150; 
+        const y = (e.clientY - rect.top - offset.y) / scale - 50;
 
         setNodes(nodes.map(n => n.id === dragNodeId ? { ...n, x, y } : n));
         setDragNodeId(null);
@@ -1105,7 +1148,7 @@ const PipelinePage: React.FC = () => {
                         Back
                     </button>
                     <h1 className="font-bold text-xl bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-cyan-400">
-                        Custom Microservice System Analysis Pipeline Builder
+                        Microservice System Analysis Pipeline Builder
                     </h1>
                 </div>
                 <div className="flex items-center gap-4">
@@ -1205,146 +1248,173 @@ const PipelinePage: React.FC = () => {
                 {/* Canvas */}
                 <div 
                     ref={canvasRef}
-                    className="flex-1 relative bg-slate-900 overflow-hidden"
-                    style={{ 
-                        backgroundImage: 'radial-gradient(#334155 1px, transparent 1px)', 
-                        backgroundSize: '24px 24px' 
-                    }}
+                    className="flex-1 relative overflow-hidden bg-slate-950 cursor-grab active:cursor-grabbing"
                     onDragOver={handleCanvasDragOver}
                     onDrop={handleCanvasDrop}
+                    onWheel={handleWheel}
+                    onMouseDown={handleCanvasMouseDown}
+                    onMouseMove={handleCanvasMouseMove}
+                    onMouseUp={() => setIsPanning(false)}
+                    onMouseLeave={() => setIsPanning(false)}
                 >
-                    {/* Connections Layer */}
-                    <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
-                        {connections.map(conn => {
-                            const start = nodes.find(n => n.id === conn.source);
-                            const end = nodes.find(n => n.id === conn.target);
-                            if (!start || !end) return null;
-                            
-                            const startX = start.x + 160; 
-                            const startY = start.y + 60;
-                            const endX = end.x;
-                            const endY = end.y + 60;
+                    <div 
+                        id="canvas-grid"
+                        className="absolute inset-0 opacity-20 pointer-events-auto"
+                        style={{
+                            backgroundImage: `radial-gradient(circle, #475569 1px, transparent 1px)`,
+                            backgroundSize: `${20 * scale}px ${20 * scale}px`,
+                            backgroundPosition: `${offset.x}px ${offset.y}px`
+                        }}
+                    />
 
-                            return (
-                                <g key={conn.id}>
-                                    <path 
-                                        d={`M ${startX} ${startY} C ${startX + 80} ${startY}, ${endX - 80} ${endY}, ${endX} ${endY}`}
-                                        stroke="#64748b" 
-                                        strokeWidth="2" 
-                                        fill="none" 
-                                        strokeDasharray="8,4"
-                                        className="animate-[dash_30s_linear_infinite]"
-                                    />
-                                    <circle cx={(startX + endX)/2} cy={(startY+endY)/2} r="8" fill="#1e293b" stroke="#ef4444" strokeWidth={1} className="pointer-events-auto cursor-pointer hover:fill-red-900" onClick={() => deleteConnection(conn.id)} />
-                                    <text x={(startX + endX)/2} y={(startY+endY)/2} dy="3" textAnchor="middle" fill="#ef4444" fontSize="10" className="pointer-events-none font-bold">×</text>
-                                </g>
-                            );
-                        })}
-                        <style>{`@keyframes dash { to { stroke-dashoffset: -1000; } }`}</style>
-                    </svg>
-
-                    {/* Nodes Layer */}
-                    {nodes.map(node => {
-                        const config = CARD_CONFIG[node.type];
-                        const isSource = isLinking === node.id;
-                        
-                        return (
-                            <div
-                                key={node.id}
-                                draggable
-                                onDragStart={(e) => handleNodeDragStart(e, node.id)}
-                                className={`
-                                    absolute w-80 rounded-xl border backdrop-blur-md transition-all duration-200
-                                    ${config.color} 
-                                    ${isSource ? 'ring-2 ring-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.3)]' : 'ring-1 ring-white/10 shadow-2xl'}
-                                    ${node.status === 'running' ? 'ring-2 ring-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.4)]' : ''}
-                                    ${node.status === 'failed' ? 'ring-2 ring-red-500 bg-red-900/40' : ''}
-                                `}
-                                style={{ left: node.x, top: node.y, zIndex: 10 }}
-                            >
-                                {/* Card Header */}
-                                <div className="p-3 border-b border-white/10 flex items-center justify-between bg-slate-900/60 rounded-t-xl cursor-move handle">
-                                    <div className="flex items-center gap-2">
-                                        {config.icon}
-                                        <span className="font-bold text-sm text-white tracking-tight">{config.title}</span>
-                                    </div>
-
-                                    <div className="flex items-center gap-1">
-                                        {/* Run Button */}
-                                        {node.status !== 'running' && (
-                                            <button 
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    runFromNode(node.id);
-                                                }}
-                                                className="p-2 rounded-full hover:bg-green-500/20 text-slate-400 hover:text-green-400 transition-all border border-transparent hover:border-green-500/30 active:scale-90 group/run flex items-center justify-center"
-                                                title="Run this step"
-                                            >
-                                                {/* Large, Rounded-Corner Play Icon */}
-                                                <svg 
-                                                    className="w-7 h-7 fill-current ml-1" 
-                                                    viewBox="0 0 24 24" 
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                >
-                                                    <path 
-                                                        d="M8.5 6.1C7.8 5.7 7 6.2 7 7V17c0 .8.8 1.3 1.5.9l8.6-5c.7-.4.7-1.4 0-1.8l-8.6-5z" 
-                                                        stroke="currentColor"
-                                                        strokeWidth="1.5"
-                                                        strokeLinejoin="round" 
-                                                    />
-                                                </svg>
-                                            </button>
-                                        )}
-
-                                        {/* Link Button */}
-                                        <button 
-                                            title="Link to..."
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleLinkClick(node.id, node.type);
-                                            }}
-                                            className={`p-1.5 rounded-lg transition-colors ${isLinking === node.id ? 'bg-yellow-500/20 text-yellow-400' : 'hover:bg-white/10 text-slate-400 hover:text-white'}`}
-                                        >
-                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                                            </svg>
-                                        </button>
-
-                                        {/* Delete Button */}
-                                        <button 
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                deleteNode(node.id);
-                                            }}
-                                            className="p-1.5 rounded-lg hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors"
-                                        >
-                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Card Body */}
-                                <div className="p-4 bg-slate-900/90 rounded-b-xl min-h-[100px]">
-                                    <p className="text-[10px] text-slate-400 mb-2 uppercase tracking-wider font-bold">{config.description}</p>
+                    {/* Transformation Layer */}
+                    <div 
+                        style={{ 
+                            transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
+                            transformOrigin: '0 0'
+                        }}
+                        className="absolute inset-0 pointer-events-none"
+                    >
+                        <div className="pointer-events-auto">
+                            {/* Connections Layer */}
+                            <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
+                                {connections.map(conn => {
+                                    const start = nodes.find(n => n.id === conn.source);
+                                    const end = nodes.find(n => n.id === conn.target);
+                                    if (!start || !end) return null;
                                     
-                                    {renderCardContent(node)}
+                                    const startX = start.x + 160; 
+                                    const startY = start.y + 60;
+                                    const endX = end.x;
+                                    const endY = end.y + 60;
 
-                                    {/* Logs */}
-                                    {node.logs.length > 0 && (
-                                        <div className="mt-3 pt-2 border-t border-slate-700/50 max-h-24 overflow-y-auto dark-scrollbar bg-black/20 rounded p-2">
-                                            {node.logs.map((log, i) => (
-                                                <div key={i} className="text-[10px] font-mono text-slate-300 truncate">
-                                                    <span className="text-indigo-400 mr-1">›</span>{log}
-                                                </div>
-                                            ))}
+                                    return (
+                                        <g key={conn.id}>
+                                            <path 
+                                                d={`M ${startX} ${startY} C ${startX + 80} ${startY}, ${endX - 80} ${endY}, ${endX} ${endY}`}
+                                                stroke="#64748b" 
+                                                strokeWidth="2" 
+                                                fill="none" 
+                                                strokeDasharray="8,4"
+                                                className="animate-[dash_30s_linear_infinite]"
+                                            />
+                                            <circle cx={(startX + endX)/2} cy={(startY+endY)/2} r="8" fill="#1e293b" stroke="#ef4444" strokeWidth={1} className="pointer-events-auto cursor-pointer hover:fill-red-900" onClick={() => deleteConnection(conn.id)} />
+                                            <text x={(startX + endX)/2} y={(startY+endY)/2} dy="3" textAnchor="middle" fill="#ef4444" fontSize="10" className="pointer-events-none font-bold">×</text>
+                                        </g>
+                                    );
+                                })}
+                                <style>{`@keyframes dash { to { stroke-dashoffset: -1000; } }`}</style>
+                            </svg>
+
+                            {/* Nodes Layer */}
+                            {nodes.map(node => {
+                                const config = CARD_CONFIG[node.type];
+                                const isSource = isLinking === node.id;
+                                
+                                return (
+                                    <div
+                                        key={node.id}
+                                        draggable
+                                        onDragStart={(e) => handleNodeDragStart(e, node.id)}
+                                        className={`
+                                            absolute w-80 rounded-xl border backdrop-blur-md transition-all duration-200
+                                            ${config.color} 
+                                            ${isSource ? 'ring-2 ring-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.3)]' : 'ring-1 ring-white/10 shadow-2xl'}
+                                            ${node.status === 'running' ? 'ring-2 ring-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.4)]' : ''}
+                                            ${node.status === 'failed' ? 'ring-2 ring-red-500 bg-red-900/40' : ''}
+                                        `}
+                                        style={{ left: node.x, top: node.y, zIndex: 10 }}
+                                    >
+                                        {/* Card Header */}
+                                        <div className="p-3 border-b border-white/10 flex items-center justify-between bg-slate-900/60 rounded-t-xl cursor-move handle">
+                                            <div className="flex items-center gap-2">
+                                                {config.icon}
+                                                <span className="font-bold text-sm text-white tracking-tight">{config.title}</span>
+                                            </div>
+
+                                            <div className="flex items-center gap-1">
+                                                {/* Run Button */}
+                                                {node.status !== 'running' && (
+                                                    <button 
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            runFromNode(node.id);
+                                                        }}
+                                                        className="p-2 rounded-full hover:bg-green-500/20 text-slate-400 hover:text-green-400 transition-all border border-transparent hover:border-green-500/30 active:scale-90 group/run flex items-center justify-center"
+                                                        title="Run this step"
+                                                    >
+                                                        {/* Large, Rounded-Corner Play Icon */}
+                                                        <svg 
+                                                            className="w-7 h-7 fill-current ml-1" 
+                                                            viewBox="0 0 24 24" 
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                        >
+                                                            <path 
+                                                                d="M8.5 6.1C7.8 5.7 7 6.2 7 7V17c0 .8.8 1.3 1.5.9l8.6-5c.7-.4.7-1.4 0-1.8l-8.6-5z" 
+                                                                stroke="currentColor"
+                                                                strokeWidth="1.5"
+                                                                strokeLinejoin="round" 
+                                                            />
+                                                        </svg>
+                                                    </button>
+                                                )}
+
+                                                {/* Link Button */}
+                                                <button 
+                                                    title="Link to..."
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleLinkClick(node.id, node.type);
+                                                    }}
+                                                    className={`p-1.5 rounded-lg transition-colors ${isLinking === node.id ? 'bg-yellow-500/20 text-yellow-400' : 'hover:bg-white/10 text-slate-400 hover:text-white'}`}
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                                    </svg>
+                                                </button>
+
+                                                {/* Delete Button */}
+                                                <button 
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        deleteNode(node.id);
+                                                    }}
+                                                    className="p-1.5 rounded-lg hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors"
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                    </svg>
+                                                </button>
+                                            </div>
                                         </div>
-                                    )}
-                                </div>
-                            </div>
-                        );
-                    })}
+
+                                        {/* Card Body */}
+                                        <div className="p-4 bg-slate-900/90 rounded-b-xl min-h-[100px]">
+                                            <p className="text-[10px] text-slate-400 mb-2 uppercase tracking-wider font-bold">{config.description}</p>
+                                            
+                                            {renderCardContent(node)}
+
+                                            {/* Logs */}
+                                            {node.logs.length > 0 && (
+                                                <div className="mt-3 pt-2 border-t border-slate-700/50 max-h-24 overflow-y-auto dark-scrollbar bg-black/20 rounded p-2">
+                                                    {node.logs.map((log, i) => (
+                                                        <div key={i} className="text-[10px] font-mono text-slate-300 truncate">
+                                                            <span className="text-indigo-400 mr-1">›</span>{log}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+
+                        </div>
+                    </div>
+
+                    <div className="absolute bottom-4 right-4 bg-slate-900/80 border border-white/10 px-3 py-1.5 rounded-full text-[10px] font-mono text-slate-400">
+                        {Math.round(scale * 100)}%
+                    </div>
                 </div>
             </div>
         </div>
