@@ -163,6 +163,17 @@ const PipelinePage: React.FC = () => {
         }
     });
 
+    // --- COLLAPSIBLE SIDEBAR FOR ADDING NODES --- //
+    const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>(() => {
+        const initial: Record<string, boolean> = {};
+        Object.keys(CATEGORIES).forEach(cat => initial[cat] = true);
+        return initial;
+    });
+
+    const toggleCategory = (category: string) => {
+        setExpandedCategories(prev => ({ ...prev, [category]: !prev[category] }));
+    };
+
     useEffect(() => {
         try {
             const nodesToSave = nodes.map(node => {
@@ -1137,35 +1148,55 @@ const PipelinePage: React.FC = () => {
 
             <div className="flex flex-1 overflow-hidden">
                 {/* Toolbox */}
-                <div className="w-64 bg-slate-800 border-r border-slate-700 p-4 overflow-y-auto z-10 shadow-xl">
-                    <h3 className="text-xs font-bold text-slate-500 uppercase mb-4 tracking-wider">Components</h3>
-                    <div className="space-y-6">
+                <div className="w-72 border-r border-white/10 bg-slate-900/50 flex flex-col overflow-hidden">
+                    <div className="p-4 border-b border-white/10 flex justify-between items-center bg-slate-900/80">
+                        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Toolbox</h2>
+                        <button onClick={clearPipeline} className="text-[10px] text-rose-400 hover:text-rose-300 transition-colors uppercase font-bold">Clear</button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
                         {Object.entries(CATEGORIES).map(([category, types]) => (
-                            <div key={category}>
-                                <h4 className="text-[10px] font-bold text-indigo-400 uppercase mb-2 px-1 tracking-wider border-b border-indigo-500/20 pb-1">
-                                    {category}
-                                </h4>
-                                <div className="space-y-3">
-                                    {types.map((type) => {
-                                        const config = CARD_CONFIG[type];
-                                        return (
-                                            <div 
-                                                key={type}
-                                                onClick={() => addNode(type)}
-                                                className={`p-3 rounded-xl border border-slate-700 bg-slate-700/30 hover:bg-slate-700 hover:border-slate-500 cursor-pointer transition-all flex items-center gap-3 group`}
-                                            >
-                                                <div className={`${config.color.split(' ')[1]} p-2 rounded-lg text-slate-200 shadow-sm`}>
-                                                    {config.icon}
-                                                </div>
-                                                <div>
-                                                    <div className="font-bold text-sm text-slate-200">{config.title}</div>
-                                                    <div className="text-[10px] text-slate-400 leading-tight">{config.description}</div>
-                                                </div>
-                                                <div className="ml-auto opacity-0 group-hover:opacity-100 text-indigo-400 text-lg font-bold">+</div>
-                                            </div>
-                                        )
-                                    })}
-                                </div>
+                            <div key={category} className="space-y-3">
+                                {/* Category Header (Clickable) */}
+                                <button 
+                                    onClick={() => toggleCategory(category)}
+                                    className="w-full flex items-center justify-between group"
+                                >
+                                    <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-tighter group-hover:text-slate-300 transition-colors">
+                                        {category}
+                                    </h3>
+                                    <div className={`transition-transform duration-200 ${expandedCategories[category] ? 'rotate-180' : ''}`}>
+                                        <svg className="w-3 h-3 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </div>
+                                </button>
+
+                                {/* Collapsible Content */}
+                                {expandedCategories[category] && (
+                                    <div className="grid gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                                        {types.map(type => {
+                                            const config = CARD_CONFIG[type];
+                                            return (
+                                                <button
+                                                    key={type}
+                                                    onClick={() => addNode(type)}
+                                                    className="w-full p-3 rounded-xl bg-slate-800/40 border border-white/5 hover:border-blue-500/50 hover:bg-slate-800 transition-all text-left group"
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="text-slate-400 group-hover:text-blue-400 transition-colors">
+                                                            {React.cloneElement(config.icon, { className: 'w-5 h-5' })}
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-xs font-bold text-slate-200">{config.title}</div>
+                                                            <div className="text-[9px] text-slate-500 leading-tight mt-0.5">{config.description}</div>
+                                                        </div>
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
