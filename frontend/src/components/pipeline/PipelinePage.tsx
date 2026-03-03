@@ -11,7 +11,7 @@ const CATEGORIES: Record<string, CardType[]> = {
     "Input": ['SYSTEM_INPUT', 'UPLOAD_IR'],
     "Generators": ['MULTI_REPO', 'COMPONENT_GENERATE'],
     "Intermediate Results": ['IR_HOLDER', 'COMPONENT_HOLDER'],
-    "Processes": ['FORMAL_VERIFY', 'SCENARIO_GENERATE'],
+    "Processes": ['FORMAL_VERIFY', 'SCENARIO_GENERATE', 'PROMPT_GENERATE'],
     "Visualization": ['VISUALIZATION', 'AEGIS', 'FORMAL_VIZ']
 };
 
@@ -64,6 +64,12 @@ const CARD_CONFIG: Record<CardType, { title: string; color: string; icon: JSX.El
         description: "Generate RBAC Test Scenarios",
         icon: <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
     },
+    PROMPT_GENERATE: { 
+        title: "LLM Prompter", 
+        color: "border-emerald-500 bg-emerald-900/20", 
+        description: "Prepares LLM prompts for scenarios",
+        icon: <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
+    },
     VISUALIZATION: { 
         title: "IR Visualization", 
         color: "border-green-500 bg-green-900/20", 
@@ -91,8 +97,9 @@ const VALID_CONNECTIONS: Record<CardType, CardType[]> = {
     COMPONENT_GENERATE: ['COMPONENT_HOLDER'],
     COMPONENT_HOLDER: ['SCENARIO_GENERATE'],
     IR_HOLDER: ['FORMAL_VERIFY', 'VISUALIZATION', 'AEGIS'],
-    SCENARIO_GENERATE: [],
-    FORMAL_VERIFY: ['FORMAL_VIZ'],
+    SCENARIO_GENERATE: ['PROMPT_GENERATE'],
+    PROMPT_GENERATE: [],
+    FORMAL_VERIFY: ['FORMAL_VIZ', 'SCENARIO_GENERATE'],
     VISUALIZATION: [], 
     AEGIS: [],        
     FORMAL_VIZ: []    
@@ -300,6 +307,38 @@ const PipelinePage: React.FC = () => {
     };
 
     // --- Execution Logic ---
+
+    const runFromNode = async (nodeId: string) => {
+        const node = nodes.find(n => n.id === nodeId);
+        if (!node) return;
+
+        setIsRunning(true);
+        
+        const updateStatus = (id: string, status: NodeData['status'], log: string, data?: any) => {
+            setNodes(prev => prev.map(n => n.id === id ? { 
+                ...n, 
+                status, 
+                logs: [...n.logs, log],
+                data: data ? { ...n.data, ...data } : n.data 
+            } : n));
+        };
+
+        try {
+            // We need to provide the payload from the UPSTREAM node
+            const upstreamConnection = connections.find(c => c.target === nodeId);
+            const upstreamNode = nodes.find(n => n.id === upstreamConnection?.source);
+            
+            // Reconstruct the payload from upstream data
+            const payload: any = upstreamNode?.data.payload || {};
+            
+            // Execute the specific node logic
+            await processNextNodes(upstreamNode?.id || '', payload, updateStatus);
+        } catch (error: any) {
+            updateStatus(nodeId, 'failed', error.message);
+        } finally {
+            setIsRunning(false);
+        }
+    };
 
     const runPipeline = async () => {
         setIsRunning(true);
@@ -524,7 +563,7 @@ const PipelinePage: React.FC = () => {
                     if (!indexId) throw new Error("Missing Component Index ID in upstream data.");
 
                     // 1. Generate Vectors
-                    updateStatus(targetNode.id, 'running', 'Generating Vectors (8050)...');
+                    updateStatus(targetNode.id, 'running', 'Generating Vectors...');
                     const vectorRes = await fetch('http://localhost:8050/vectors/generate-all', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -536,7 +575,7 @@ const PipelinePage: React.FC = () => {
                     const vectorId = vectorData._id || vectorData.id;
 
                     // 2. Generate Scenarios
-                    updateStatus(targetNode.id, 'running', 'Generating Scenarios (8040)...');
+                    updateStatus(targetNode.id, 'running', 'Generating Scenarios...');
                     const scenarioRes = await fetch('http://localhost:8040/scenarios/generate', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -564,6 +603,36 @@ const PipelinePage: React.FC = () => {
                     });
 
                     await processNextNodes(targetNode.id, { ...incomingPayload, scenarioPayload }, updateStatus);
+                }
+                else if (targetNode.type === 'PROMPT_GENERATE') {
+                    const scenarioNode = nodes.find(n => 
+                        n.type === 'SCENARIO_GENERATE' && 
+                        connections.some(c => c.source === n.id && c.target === targetNode.id)
+                    );
+
+                    const selectedIds = scenarioNode?.data.selectedScenarios || [];
+
+                    if (selectedIds.length === 0) {
+                        throw new Error("No scenarios selected. Please check scenarios in the previous card.");
+                    }
+
+                    updateStatus(targetNode.id, 'running', `Generating prompts for ${selectedIds.length} scenarios...`);
+
+                    const response = await fetch('http://localhost:8040/scenarios/prompts/generate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ scenario_ids: selectedIds })
+                    });
+
+                    if (!response.ok) throw new Error(`Prompt API error: ${response.status}`);
+                    
+                    const data = await response.json(); // Assuming { prompts: [...] }
+                    
+                    updateStatus(targetNode.id, 'completed', 'Prompts Generated Successfully.', { 
+                        promptPayload: data 
+                    });
+
+                    await processNextNodes(targetNode.id, { ...payload, promptPayload: data }, updateStatus);
                 }
                 else if (targetNode.type === 'VISUALIZATION') {
                     // Expects IR
@@ -807,58 +876,158 @@ const PipelinePage: React.FC = () => {
                     );
                 }
 
-                // Checkbox toggle handler
+                const setAllScenarios = (selected: boolean) => {
+                    const newSelected = selected ? scPayload.scenarios.map((s: any) => s.scenario_id) : [];
+                    setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, selectedScenarios: newSelected } } : n));
+                };
+
                 const toggleScenario = (id: string) => {
                     const newSelected = selectedScenarios.includes(id)
                         ? selectedScenarios.filter(s => s !== id)
                         : [...selectedScenarios, id];
-                    
                     setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, selectedScenarios: newSelected } } : n));
                 };
 
                 return (
                     <div className="mt-2 space-y-2">
-                        <div className="flex items-center justify-between mb-1">
-                            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                                Generated Scenarios
+                        <div className="flex flex-col gap-1 mb-2">
+                            <div className="flex items-center justify-between">
+                                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                                    Generated Scenarios
+                                </div>
+                                <div className="text-[10px] text-indigo-400 font-bold">
+                                    {selectedScenarios.length} / {scPayload.scenarios.length}
+                                </div>
                             </div>
-                            <div className="text-[10px] text-indigo-400 font-bold">
-                                {selectedScenarios.length} / {scPayload.scenarios.length} Selected
+                            
+                            {/* NEW: Select All / Deselect All Controls */}
+                            <div className="flex gap-3 mt-1">
+                                <button 
+                                    onClick={() => setAllScenarios(true)}
+                                    className="text-[9px] text-indigo-400 hover:text-indigo-300 transition-colors uppercase font-bold tracking-tighter underline decoration-indigo-800 underline-offset-2"
+                                >
+                                    Select All
+                                </button>
+                                <button 
+                                    onClick={() => setAllScenarios(false)}
+                                    className="text-[9px] text-slate-500 hover:text-rose-400 transition-colors uppercase font-bold tracking-tighter underline decoration-slate-800 underline-offset-2"
+                                >
+                                    Deselect All
+                                </button>
                             </div>
                         </div>
                         
                         {/* Scrollable Checkbox List */}
                         <div className="space-y-1 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
-                            {scPayload.scenarios.map((s) => (
+                            {scPayload.scenarios.map((s: ScenarioItem) => (
                                 <label 
                                     key={s.scenario_id} 
                                     className={`
-                                        flex items-start gap-2 p-2 bg-slate-950 border rounded cursor-pointer transition-colors
-                                        ${selectedScenarios.includes(s.scenario_id) ? 'border-indigo-500/50 bg-indigo-900/10' : 'border-slate-800 hover:border-slate-600'}
+                                        flex items-start gap-2 p-2 bg-slate-950 border rounded cursor-pointer transition-all
+                                        ${selectedScenarios.includes(s.scenario_id) ? 'border-indigo-500/50 bg-indigo-900/10' : 'border-slate-800 hover:border-slate-700'}
                                     `}
                                 >
                                     <input 
                                         type="checkbox" 
                                         checked={selectedScenarios.includes(s.scenario_id)}
                                         onChange={() => toggleScenario(s.scenario_id)}
-                                        className="mt-0.5 accent-indigo-500"
+                                        className="mt-0.5 accent-indigo-500 rounded border-slate-700"
                                     />
                                     <div className="flex flex-col overflow-hidden w-full">
                                         <div className="flex items-center gap-1">
-                                            <span className={`text-[9px] px-1 rounded font-bold ${s.method === 'GET' ? 'bg-blue-900/50 text-blue-400' : s.method === 'POST' ? 'bg-green-900/50 text-green-400' : 'bg-yellow-900/50 text-yellow-400'}`}>
+                                            <span className={`text-[8px] px-1 rounded font-bold ${s.method === 'GET' ? 'bg-blue-900/50 text-blue-400' : s.method === 'POST' ? 'bg-green-900/50 text-green-400' : 'bg-yellow-900/50 text-yellow-400'}`}>
                                                 {s.method}
                                             </span>
                                             <span className="text-[10px] font-mono text-slate-300 truncate" title={s.endpoint}>
                                                 {s.endpoint}
                                             </span>
                                         </div>
-                                        <span className="text-[9px] text-slate-500 mt-1 truncate">
-                                            Roles: {s.allowed_roles?.length > 0 ? s.allowed_roles.join(', ') : 'None'}
+                                        <span className="text-[9px] text-slate-500 mt-0.5 truncate italic">
+                                            {s.expected_outcome}
                                         </span>
                                     </div>
                                 </label>
                             ))}
                         </div>
+                    </div>
+                );
+            }
+            case 'PROMPT_GENERATE': {
+                // 1. Extract and check for existence safely
+                const prompts = node.data.promptPayload?.prompts;
+                const hasPrompts = Array.isArray(prompts) && prompts.length > 0;
+
+                // 2. Look for the upstream scenario node for the counter
+                const scenarioNode = nodes.find(n => 
+                    n.type === 'SCENARIO_GENERATE' && 
+                    connections.some(c => c.source === n.id && c.target === node.id)
+                );
+                const selectedCount = scenarioNode?.data.selectedScenarios?.length || 0;
+
+                return (
+                    <div className="mt-2 space-y-3">
+                        {!hasPrompts ? (
+                            <div className="space-y-2">
+                                <div className="text-center py-2 px-3 border border-dashed border-slate-700 bg-slate-800/30 rounded-lg">
+                                    <span className="text-[10px] text-slate-400 italic">
+                                        {selectedCount > 0 
+                                            ? `${selectedCount} scenarios selected` 
+                                            : "Select scenarios above first"}
+                                    </span>
+                                </div>
+                                <button 
+                                    disabled={selectedCount === 0 || node.status === 'running'}
+                                    onClick={() => runFromNode(node.id)}
+                                    className={`
+                                        w-full py-2 text-xs rounded font-bold transition-all flex items-center justify-center gap-2
+                                        ${selectedCount > 0 
+                                            ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg' 
+                                            : 'bg-slate-800 text-slate-500 cursor-not-allowed'}
+                                    `}
+                                >
+                                    {node.status === 'running' ? (
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    ) : (
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                        </svg>
+                                    )}
+                                    Generate Prompts
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                <div className="p-3 bg-slate-950 border border-emerald-500/30 rounded-lg text-center">
+                                    <div className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest mb-1">Status</div>
+                                    <div className="text-xs text-white">
+                                        {prompts?.length || 0} Prompts Ready
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <button 
+                                        onClick={() => {
+                                            // Safeguard using optional chaining and a fallback
+                                            const dataToSave = node.data.promptPayload ?? { prompts: [] };
+                                            const blob = new Blob(
+                                                [JSON.stringify(dataToSave, null, 2)], 
+                                                { type: "application/json" }
+                                            );
+                                            saveAs(blob, `prompts_${Date.now()}.json`);
+                                        }}
+                                        className="w-full py-1.5 text-[10px] bg-emerald-600 hover:bg-emerald-500 text-white rounded font-bold shadow transition-all"
+                                    >
+                                        Download JSON
+                                    </button>
+                                    <button 
+                                        disabled={node.status === 'running'}
+                                        onClick={() => runFromNode(node.id)}
+                                        className="w-full py-1.5 text-[10px] border border-emerald-800 text-emerald-500 hover:bg-emerald-900/20 rounded font-bold transition-all"
+                                    >
+                                        {node.status === 'running' ? 'Updating...' : 'Regenerate'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 );
             }
@@ -1066,23 +1235,61 @@ const PipelinePage: React.FC = () => {
                                 <div className="p-3 border-b border-white/10 flex items-center justify-between bg-slate-900/60 rounded-t-xl cursor-move handle">
                                     <div className="flex items-center gap-2">
                                         {config.icon}
-                                        <span className="font-bold text-sm text-white">{config.title}</span>
+                                        <span className="font-bold text-sm text-white tracking-tight">{config.title}</span>
                                     </div>
-                                    <div className="flex gap-1">
+
+                                    <div className="flex items-center gap-1">
+                                        {/* Run Button */}
+                                        {node.status !== 'running' && (
+                                            <button 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    runFromNode(node.id);
+                                                }}
+                                                className="p-2 rounded-full hover:bg-green-500/20 text-slate-400 hover:text-green-400 transition-all border border-transparent hover:border-green-500/30 active:scale-90 group/run flex items-center justify-center"
+                                                title="Run this step"
+                                            >
+                                                {/* Large, Rounded-Corner Play Icon */}
+                                                <svg 
+                                                    className="w-7 h-7 fill-current ml-1" 
+                                                    viewBox="0 0 24 24" 
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                >
+                                                    <path 
+                                                        d="M8.5 6.1C7.8 5.7 7 6.2 7 7V17c0 .8.8 1.3 1.5.9l8.6-5c.7-.4.7-1.4 0-1.8l-8.6-5z" 
+                                                        stroke="currentColor"
+                                                        strokeWidth="1.5"
+                                                        strokeLinejoin="round" 
+                                                    />
+                                                </svg>
+                                            </button>
+                                        )}
+
+                                        {/* Link Button */}
                                         <button 
                                             title="Link to..."
-                                            onClick={() => handleLinkClick(node.id, node.type)}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleLinkClick(node.id, node.type);
+                                            }}
                                             className={`p-1.5 rounded-lg transition-colors ${isLinking === node.id ? 'bg-yellow-500/20 text-yellow-400' : 'hover:bg-white/10 text-slate-400 hover:text-white'}`}
                                         >
                                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                                             </svg>
                                         </button>
+
+                                        {/* Delete Button */}
                                         <button 
-                                            onClick={() => deleteNode(node.id)}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                deleteNode(node.id);
+                                            }}
                                             className="p-1.5 rounded-lg hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors"
                                         >
-                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
                                         </button>
                                     </div>
                                 </div>

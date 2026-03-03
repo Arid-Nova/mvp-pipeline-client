@@ -9,6 +9,7 @@ export type CardType =
     | 'COMPONENT_HOLDER'
     | 'FORMAL_VERIFY' 
     | 'SCENARIO_GENERATE'
+    | 'PROMPT_GENERATE'
     | 'VISUALIZATION' 
     | 'AEGIS' 
     | 'FORMAL_VIZ';
@@ -52,6 +53,7 @@ export interface NodeData {
         verificationResult?: VerificationResponse;
         scenarioPayload?: ScenarioPayload;
         selectedScenarios?: string[];
+        promptPayload?: PromptPayload;
         systemInfo?: {
             systemName: string;
             ir: any;
@@ -78,4 +80,13 @@ export interface ScenarioItem {
 export interface ScenarioPayload {
     vectorId: string;
     scenarios: ScenarioItem[];
+}
+
+export interface PromptItem {
+    scenario_id: string;
+    prompt: string;
+}
+
+export interface PromptPayload {
+    prompts: PromptItem[];
 }
