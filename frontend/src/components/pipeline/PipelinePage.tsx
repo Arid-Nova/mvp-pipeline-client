@@ -2,73 +2,8 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import { saveAs } from 'file-saver';
-import { fetchIRFromRepo, verifySystem, RepositoryInput, VerificationInput, VerificationResponse } from '../../services/api';
-
-// --- TYPES ---
-
-type CardType = 
-    | 'SYSTEM_INPUT'
-    | 'MULTI_REPO' 
-    | 'COMPONENT_GENERATE'
-    | 'UPLOAD_IR' 
-    | 'IR_HOLDER' 
-    | 'COMPONENT_HOLDER'
-    | 'FORMAL_VERIFY' 
-    | 'VISUALIZATION' 
-    | 'AEGIS' 
-    | 'FORMAL_VIZ';
-
-interface SystemPayload {
-    type: 'SYSTEM_PAYLOAD';
-    systemName: string;
-    repositories: { repoUrl: string; branch: string; commit: string }[];
-}
-
-interface ComponentPayload {
-    id: string;
-    endpoints: any;
-    components: any;
-}
-
-interface PipelinePayload {
-    irJson: any;
-    metadata: {
-        systemName: string;
-        repoUrl: string;
-        branch: string;
-        commitId: string;
-    };
-}
-
-interface NodeData {
-    id: string;
-    type: CardType;
-    x: number;
-    y: number;
-    data: {
-        systemName?: string;
-        repoUrl?: string;
-        branch?: string;
-        commit?: string;
-        repositories?: { repoUrl: string; branch: string; commit: string }[];
-        rolePriorities?: { role: string; priority: number }[];
-        componentPayload?: ComponentPayload;
-        payload?: PipelinePayload; 
-        verificationResult?: VerificationResponse;
-        systemInfo?: {
-            systemName: string;
-            ir: any;
-        };
-    };
-    status: 'idle' | 'running' | 'completed' | 'failed';
-    logs: string[];
-}
-
-interface Connection {
-    id: string;
-    source: string;
-    target: string;
-}
+import { fetchIRFromRepo, verifySystem, RepositoryInput, VerificationInput } from '../../services/api';
+import { CardType, SystemPayload, ComponentPayload, PipelinePayload, NodeData, Connection, ScenarioItem, ScenarioPayload} from './models'
 
 // --- CONFIGURATION ---
 
@@ -76,7 +11,7 @@ const CATEGORIES: Record<string, CardType[]> = {
     "Input": ['SYSTEM_INPUT', 'UPLOAD_IR'],
     "Generators": ['MULTI_REPO', 'COMPONENT_GENERATE'],
     "Intermediate Results": ['IR_HOLDER', 'COMPONENT_HOLDER'],
-    "Processes": ['FORMAL_VERIFY'],
+    "Processes": ['FORMAL_VERIFY', 'SCENARIO_GENERATE'],
     "Visualization": ['VISUALIZATION', 'AEGIS', 'FORMAL_VIZ']
 };
 
@@ -123,6 +58,12 @@ const CARD_CONFIG: Record<CardType, { title: string; color: string; icon: JSX.El
         description: "Run system verification",
         icon: <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
     },
+    SCENARIO_GENERATE: { 
+        title: "Scenario Generation", 
+        color: "border-indigo-500 bg-indigo-900/20", 
+        description: "Generate RBAC Test Scenarios",
+        icon: <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+    },
     VISUALIZATION: { 
         title: "IR Visualization", 
         color: "border-green-500 bg-green-900/20", 
@@ -148,8 +89,9 @@ const VALID_CONNECTIONS: Record<CardType, CardType[]> = {
     MULTI_REPO: ['IR_HOLDER', 'FORMAL_VERIFY'],
     UPLOAD_IR: ['IR_HOLDER'],
     COMPONENT_GENERATE: ['COMPONENT_HOLDER'],
-    COMPONENT_HOLDER: [],
+    COMPONENT_HOLDER: ['SCENARIO_GENERATE'],
     IR_HOLDER: ['FORMAL_VERIFY', 'VISUALIZATION', 'AEGIS'],
+    SCENARIO_GENERATE: [],
     FORMAL_VERIFY: ['FORMAL_VIZ'],
     VISUALIZATION: [], 
     AEGIS: [],        
@@ -575,6 +517,54 @@ const PipelinePage: React.FC = () => {
                     // PASS RESULT DOWNSTREAM
                     await processNextNodes(targetNode.id, downstreamPackage, updateStatus); 
                 }
+                else if (targetNode.type === 'SCENARIO_GENERATE') {
+                    const incomingPayload = payload as PipelinePayload;
+                    const indexId = incomingPayload.irJson?.id;
+                    
+                    if (!indexId) throw new Error("Missing Component Index ID in upstream data.");
+
+                    // 1. Generate Vectors
+                    updateStatus(targetNode.id, 'running', 'Generating Vectors (8050)...');
+                    const vectorRes = await fetch('http://localhost:8050/vectors/generate-all', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ indexId: indexId }) 
+                    });
+
+                    if (!vectorRes.ok) throw new Error(`Vector API error: ${vectorRes.status}`);
+                    const vectorData = await vectorRes.json();
+                    const vectorId = vectorData._id || vectorData.id;
+
+                    // 2. Generate Scenarios
+                    updateStatus(targetNode.id, 'running', 'Generating Scenarios (8040)...');
+                    const scenarioRes = await fetch('http://localhost:8040/scenarios/generate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            vectors_id: vectorId, 
+                            index_id: indexId 
+                        }) 
+                    });
+
+                    if (!scenarioRes.ok) throw new Error(`Scenario API error: ${scenarioRes.status}`);
+                    const scenarioData = await scenarioRes.json();
+
+                    const scenarios = scenarioData.scenarios || [];
+                    const scenarioPayload: ScenarioPayload = {
+                        vectorId: vectorId,
+                        scenarios: scenarios
+                    };
+
+                    // By default, all scenarios are selected.
+                    const allScenarioIds = scenarios.map((s: ScenarioItem) => s.scenario_id);
+
+                    updateStatus(targetNode.id, 'completed', `Generated ${scenarios.length} scenarios.`, { 
+                        scenarioPayload: scenarioPayload,
+                        selectedScenarios: allScenarioIds 
+                    });
+
+                    await processNextNodes(targetNode.id, { ...incomingPayload, scenarioPayload }, updateStatus);
+                }
                 else if (targetNode.type === 'VISUALIZATION') {
                     // Expects IR
                     const irPayload = payload as PipelinePayload;
@@ -805,6 +795,73 @@ const PipelinePage: React.FC = () => {
                          ) : <span className="text-xs text-slate-500 italic">Waiting for IR...</span>}
                     </div>
                 );
+            case 'SCENARIO_GENERATE': {
+                const scPayload = node.data.scenarioPayload;
+                const selectedScenarios = node.data.selectedScenarios || [];
+
+                if (!scPayload) {
+                    return (
+                        <div className="mt-2 text-center p-3 border border-dashed border-slate-700 bg-slate-800/50 rounded-lg">
+                            <span className="text-xs text-slate-400 italic">Waiting for Component Generation...</span>
+                        </div>
+                    );
+                }
+
+                // Checkbox toggle handler
+                const toggleScenario = (id: string) => {
+                    const newSelected = selectedScenarios.includes(id)
+                        ? selectedScenarios.filter(s => s !== id)
+                        : [...selectedScenarios, id];
+                    
+                    setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, selectedScenarios: newSelected } } : n));
+                };
+
+                return (
+                    <div className="mt-2 space-y-2">
+                        <div className="flex items-center justify-between mb-1">
+                            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                                Generated Scenarios
+                            </div>
+                            <div className="text-[10px] text-indigo-400 font-bold">
+                                {selectedScenarios.length} / {scPayload.scenarios.length} Selected
+                            </div>
+                        </div>
+                        
+                        {/* Scrollable Checkbox List */}
+                        <div className="space-y-1 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
+                            {scPayload.scenarios.map((s) => (
+                                <label 
+                                    key={s.scenario_id} 
+                                    className={`
+                                        flex items-start gap-2 p-2 bg-slate-950 border rounded cursor-pointer transition-colors
+                                        ${selectedScenarios.includes(s.scenario_id) ? 'border-indigo-500/50 bg-indigo-900/10' : 'border-slate-800 hover:border-slate-600'}
+                                    `}
+                                >
+                                    <input 
+                                        type="checkbox" 
+                                        checked={selectedScenarios.includes(s.scenario_id)}
+                                        onChange={() => toggleScenario(s.scenario_id)}
+                                        className="mt-0.5 accent-indigo-500"
+                                    />
+                                    <div className="flex flex-col overflow-hidden w-full">
+                                        <div className="flex items-center gap-1">
+                                            <span className={`text-[9px] px-1 rounded font-bold ${s.method === 'GET' ? 'bg-blue-900/50 text-blue-400' : s.method === 'POST' ? 'bg-green-900/50 text-green-400' : 'bg-yellow-900/50 text-yellow-400'}`}>
+                                                {s.method}
+                                            </span>
+                                            <span className="text-[10px] font-mono text-slate-300 truncate" title={s.endpoint}>
+                                                {s.endpoint}
+                                            </span>
+                                        </div>
+                                        <span className="text-[9px] text-slate-500 mt-1 truncate">
+                                            Roles: {s.allowed_roles?.length > 0 ? s.allowed_roles.join(', ') : 'None'}
+                                        </span>
+                                    </div>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+                );
+            }
             case 'VISUALIZATION':
                 return (
                      <button 
