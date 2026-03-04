@@ -5,6 +5,7 @@ import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 import { fetchIRFromRepo, verifySystem, RepositoryInput, VerificationInput } from '../../services/api';
 import { CardType, SystemPayload, ComponentPayload, PipelinePayload, NodeData, Connection, ScenarioItem, ScenarioPayload} from './models'
+import CanvasFooter from '../generic/CanvasFooter';
 
 // --- CONFIGURATION ---
 
@@ -1650,9 +1651,7 @@ const PipelinePage: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="absolute bottom-4 right-4 bg-slate-900/80 border border-white/10 px-3 py-1.5 rounded-full text-[10px] font-mono text-slate-400">
-                        {Math.round(scale * 100)}%
-                    </div>
+                    <CanvasFooter scale={scale} />
                 </div>
             </div>
         </div>
