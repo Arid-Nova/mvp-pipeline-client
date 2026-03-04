@@ -12,7 +12,11 @@ An interactive 3D environment for exploring microservice architecture. We use 3D
 
 A solver-based module for ensuring security policy consistency. First and foremost, this feature verifies if authorization policies are consistent across the entire distributed system. If this identifies conflicting access controls between different microservices, we will suggest what, where the changes need to be made. These changes are shown either in a list view or in the 3D microservie archietcture graph. 
 
-### 3. Aegis Introspection Engine
+### 3. Automated Validation Test Suite Generation
+
+A LLM based authorization test suite generator to valaidate policy consistency and inconsistency. Unlike any previous work, this approach takes the distributed strctrual infromation of the distributed microservice system to understand and produce tests that are downstream aware. Hence, the tests are aware of downstream policy inconsistencies to assert them. 
+
+### 4. Aegis Introspection Engine
 
 A neuro-symbolic analysis tool for detecting latent vulnerabilities and analyzing architectural risk. We present a Risk Cloud (2D/3D) that visualizes system risk using Subjective Logic (Belief, Disbelief, Uncertainty). Furtehr we visualize an interactive Call Graphs that Drill down into specific distributed paths to view method-level call chains and data access patterns.
 
@@ -63,6 +67,10 @@ Ensure you have the following installed on your machine:
     http://localhost:8080
 	http://localhost:8900
     http://localhost:5600
+    http://localhost:8600
+    http://localhost:8500
+    http://localhost:8400
+    http://localhost:8300
     ```
 
 	The MariaDB database will be running on port 3306. Please make sure the root password is set correctly and the database name is `msGraph`. The connection URL should be:
@@ -73,15 +81,24 @@ Ensure you have the following installed on your machine:
 	```
 	bolt://aegis_neo4j:7687
 	```
+ 	The MongoDB database will be running on port 7474. Please make sure the root password is set correctly and the database name is `aegis`. The connection URL should be:
+	```
+	bolt://mvp_mongo:7474
+	```
 
 ## Docker containers
 The following Docker containers are used in the MVP:
 - `mvp_frontend`: The frontend service built using React.
 - `mvp_backend`: The backend service built using Spring Boot.
-- `mvp_backend`: The service for executing formal verification of the microservice system.
+- `mvp_formalverifier`: The service for executing formal verification of the microservice system.
+- `mvp_components`: The service for extracting componenent and endpoint objects from the microservice system.
+- `mvp_vectorgenerator`: The service for generating the all the authorization vectors corresponding to distributed authorization policy.
+- `mvp_scenariogenerator`: The service for generating testing scenarios and LLM prompts based on the components, paths, and distributed authorization policy.
+- `mvp_testgenerator`: The service for executing the LLM prompts and retreiving the actual test suites.
 - `aegis_dashboard`: The frontend service of the Aegis introspection engine.
 - `aegis_api`: The backend service of the Aegis introspection engine.
 - `mvp_db`: The MariaDB database service.
+- `mvp_mongo`: The Mongo DB service.
 - `aegis_neo4j`: The Neo4J database service.
 
 You can view the logs of the running containers using the following command:

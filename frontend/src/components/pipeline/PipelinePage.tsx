@@ -13,7 +13,7 @@ const CATEGORIES: Record<string, CardType[]> = {
     "Generators": ['MULTI_REPO', 'COMPONENT_GENERATE'],
     "Intermediate Results": ['IR_HOLDER', 'COMPONENT_HOLDER'],
     "Processes": ['FORMAL_VERIFY', 'SCENARIO_GENERATE', 'PROMPT_GENERATE', 'TEST_GENERATE'],
-    "Visualization": ['VISUALIZATION', 'AEGIS', 'FORMAL_VIZ']
+    "Visualization": ['VISUALIZATION', 'FORMAL_VIZ', 'AEGIS']
 };
 
 const CARD_CONFIG: Record<CardType, { title: string; color: string; icon: JSX.Element; description: string }> = {
@@ -619,52 +619,81 @@ const PipelinePage: React.FC = () => {
                     await processNextNodes(targetNode.id, downstreamPackage, updateStatus); 
                 }
                 else if (targetNode.type === 'SCENARIO_GENERATE') {
-                    const incomingPayload = payload as PipelinePayload;
-                    const indexId = incomingPayload.irJson?.id;
+                    // 1. Look back up the graph to find the connected COMPONENT_HOLDER
+                    const componentHolderNode = nodes.find(n => 
+                        n.type === 'COMPONENT_HOLDER' && 
+                        connections.some(c => c.source === n.id && c.target === targetNode.id)
+                    );
+
+                    // 2. Look back up the graph to find the connected FORMAL_VERIFY (if any)
+                    const formalVerifyNode = nodes.find(n => 
+                        n.type === 'FORMAL_VERIFY' && 
+                        connections.some(c => c.source === n.id && c.target === targetNode.id)
+                    );
+
+                    const endpoints = componentHolderNode?.data.componentPayload?.endpoints;
                     
-                    if (!indexId) throw new Error("Missing Component Index ID in upstream data.");
+                    if (!endpoints) {
+                        throw new Error("No endpoints found. Please connect a COMPONENT_HOLDER to this card and ensure it has run.");
+                    }
 
-                    // 1. Generate Vectors
-                    updateStatus(targetNode.id, 'running', 'Generating Vectors...');
-                    const vectorRes = await fetch('http://localhost:8050/vectors/generate-all', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ indexId: indexId }) 
-                    });
+                    // --- FILTERING LOGIC ---
+                    let endpointsToProcess = Object.entries(endpoints);
+                    const suggestions = formalVerifyNode?.data.verificationResult?.suggestions;
 
-                    if (!vectorRes.ok) throw new Error(`Vector API error: ${vectorRes.status}`);
-                    const vectorData = await vectorRes.json();
-                    const vectorId = vectorData._id || vectorData.id;
+                    // If Formal Verify is connected and has results, filter the endpoints
+                    if (suggestions && suggestions.length > 0) {
+                        const allowedSignatures = new Set(suggestions.map((s: any) => s.id));
 
-                    // 2. Generate Scenarios
-                    updateStatus(targetNode.id, 'running', 'Generating Scenarios...');
-                    const scenarioRes = await fetch('http://localhost:8040/scenarios/generate', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            vectors_id: vectorId, 
-                            index_id: indexId 
-                        }) 
-                    });
+                        endpointsToProcess = endpointsToProcess.filter(([id, ep]: [string, any]) => {
+                            const signature = `${ep.physicalServiceName}.${ep.controllerClass}.${ep.methodName}`;
+                            const isMatch = allowedSignatures.has(signature);
 
-                    if (!scenarioRes.ok) throw new Error(`Scenario API error: ${scenarioRes.status}`);
-                    const scenarioData = await scenarioRes.json();
+                            return isMatch;
+                        });
 
-                    const scenarios = scenarioData.scenarios || [];
-                    const scenarioPayload: ScenarioPayload = {
-                        vectorId: vectorId,
+                        updateStatus(targetNode.id, 'running', `Filtered to ${endpointsToProcess.length} endpoints based on Verification suggestions...`);
+                    } else {
+                        updateStatus(targetNode.id, 'running', `Generating scenarios for all ${endpointsToProcess.length} endpoints...`);
+                    }
+
+                    const scenarios: ScenarioItem[] = [];
+
+                    // Loop over the filtered array
+                    for (const [id, ep] of endpointsToProcess) {
+                        const endpointObj = ep as any;
+                        const allowedRoles = endpointObj.authorization?.requiredRoles || [];
+
+                        scenarios.push({
+                            scenario_id: `scn_${id}`,
+                            method: endpointObj.httpMethod || 'GET',
+                            endpoint: endpointObj.fullUri || 'Unknown',
+                            allowed_roles: allowedRoles,
+                            expected_outcome: 'BASELINE_PASS'
+                        });
+
+                        if (endpointObj.authentication?.required) {
+                            scenarios.push({
+                                scenario_id: `scn_auth_${id}`,
+                                method: endpointObj.httpMethod || 'GET',
+                                endpoint: endpointObj.fullUri || 'Unknown',
+                                allowed_roles: allowedRoles,
+                                expected_outcome: 'ROLE_BASED_ACCESS'
+                            });
+                        }
+                    }
+
+                    const scenarioPayload: ScenarioPayload = { 
+                        vectorId: `vector_${Date.now()}`,
                         scenarios: scenarios
                     };
-
-                    // By default, all scenarios are selected.
-                    const allScenarioIds = scenarios.map((s: ScenarioItem) => s.scenario_id);
-
-                    updateStatus(targetNode.id, 'completed', `Generated ${scenarios.length} scenarios.`, { 
-                        scenarioPayload: scenarioPayload,
-                        selectedScenarios: allScenarioIds 
+                    
+                    updateStatus(targetNode.id, 'completed', `Generated ${scenarios.length} scenarios.`, {
+                        scenarioPayload,
+                        selectedScenarios: scenarios.map(s => s.scenario_id)
                     });
 
-                    await processNextNodes(targetNode.id, { ...incomingPayload, scenarioPayload }, updateStatus);
+                    await processNextNodes(targetNode.id, { ...payload, scenarioPayload }, updateStatus);
                 }
                 else if (targetNode.type === 'TEST_GENERATE') {
                     // Find upstream prompt node
@@ -1442,7 +1471,7 @@ const PipelinePage: React.FC = () => {
                     >
                         <div className="pointer-events-auto">
                             {/* Connections Layer */}
-                            <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
+                            <svg className="absolute top-0 left-0 w-full h-full pointer-events-none z-0 overflow-visible">
                                 {connections.map(conn => {
                                     const start = nodes.find(n => n.id === conn.source);
                                     const end = nodes.find(n => n.id === conn.target);
