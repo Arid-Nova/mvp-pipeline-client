@@ -1336,14 +1336,40 @@ const PipelinePage: React.FC = () => {
         <div className="min-h-screen bg-slate-900 text-white flex flex-col font-sans overflow-hidden">
             {/* Header */}
             <div className="h-16 border-b border-slate-700 bg-slate-800 flex items-center justify-between px-6 z-20 shadow-md">
-                <div className="flex items-center gap-4">
-                    <button onClick={() => navigate('/')} className="text-slate-400 hover:text-white transition-colors flex items-center gap-1">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                <div className="flex items-center gap-6">
+                    {/* Styled Back Button */}
+                    <button 
+                        onClick={() => navigate('/')} 
+                        className="group flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-400 bg-slate-800/50 hover:bg-slate-700 hover:text-white rounded-lg border border-slate-700/50 hover:border-slate-600 transition-all shadow-sm"
+                    >
+                        <svg className="w-4 h-4 transition-transform group-hover:-translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
                         Back
                     </button>
-                    <h1 className="font-bold text-xl bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-cyan-400">
-                        Microservice System Analysis Pipeline Builder
-                    </h1>
+                    
+                    {/* Title Section */}
+                    <div className="flex items-center gap-3">
+                        {/* Abstract Node/Network Icon for Plexus */}
+                        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-cyan-500 shadow-lg shadow-cyan-500/20">
+                            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
+                            </svg>
+                        </div>
+                        
+                        {/* Brand Name */}
+                        <h1 className="font-black text-2xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-cyan-400 to-teal-400">
+                            Plexus
+                        </h1>
+                        
+                        {/* Divider */}
+                        <span className="text-slate-600 font-light text-2xl mx-1 mb-1">|</span>
+                        
+                        {/* Subtitle */}
+                        <span className="text-[13px] font-semibold text-slate-400 tracking-wider uppercase mt-1">
+                            Microservice Analysis Pipeline Creator
+                        </span>
+                    </div>
                 </div>
                 <div className="flex items-center gap-4">
                     <div className="text-xs text-slate-400 flex items-center gap-2">
@@ -1368,18 +1394,26 @@ const PipelinePage: React.FC = () => {
                             Clear All
                         </button>
                     )}
-                    <button 
-                        onClick={runPipeline}
-                        disabled={isRunning || nodes.length === 0}
-                        className={`px-6 py-2 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 font-bold shadow-lg shadow-emerald-900/20 hover:scale-105 transition-all ${isRunning ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                        {isRunning ? (
-                             <span className="flex items-center gap-2">
-                                <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-                                Processing...
-                             </span>
-                        ) : 'Run Pipeline'}
-                    </button>
+                    <div className="relative group flex items-center">
+                        <button 
+                            onClick={runPipeline}
+                            disabled={isRunning || nodes.length === 0}
+                            className={`px-6 py-2 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 font-bold shadow-lg shadow-emerald-900/20 hover:scale-105 transition-all ${isRunning ? 'opacity-50 cursor-not-allowed hover:scale-100' : ''}`}
+                        >
+                            {isRunning ? (
+                                <span className="flex items-center gap-2">
+                                    <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                    </svg>
+                                    Processing...
+                                </span>
+                            ) : 'Run Pipeline'}
+                        </button>
+                        <div className="absolute top-full right-0 mt-2 w-max pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50 bg-slate-800 text-slate-300 text-[11px] font-medium py-1.5 px-2.5 rounded-md shadow-xl border border-slate-700/50 normal-case tracking-normal">
+                            Execute the created pipeline graph
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1388,7 +1422,17 @@ const PipelinePage: React.FC = () => {
                 <div className="w-72 border-r border-white/10 bg-slate-900/50 flex flex-col overflow-hidden">
                     <div className="p-4 border-b border-white/10 flex justify-between items-center bg-slate-900/80">
                         <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Toolbox</h2>
-                        <button onClick={clearPipeline} className="text-[10px] text-rose-400 hover:text-rose-300 transition-colors uppercase font-bold">Clear</button>
+                        <div className="relative group flex items-center">
+                            <button 
+                                onClick={clearPipeline} 
+                                className="text-[10px] text-rose-400 hover:text-rose-300 transition-colors uppercase font-bold"
+                            >
+                                Clear
+                            </button>
+                            <div className="absolute top-full right-0 mt-2 w-max pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50 bg-slate-800 text-slate-300 text-[11px] font-medium py-1.5 px-2.5 rounded-md shadow-xl border border-slate-700/50 tracking-normal normal-case">
+                                Clear the constructed pipeline
+                            </div>
+                        </div>
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
