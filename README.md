@@ -126,3 +126,9 @@ docker login
 rm ~/.docker/config.json
 ```
 Then run the docker-compose file again.
+
+# Important Note to Contributors
+
+Contributors to this project need nessecarily be subscribed to the Trello board at `https://trello.com/b/Uv6vuZr2/cimet-pipeline`. Any refactoring should be performed on a branch, checked out from Master. Any refactoring requires a task in the Trello board, else merge requests won't be accepted. 
+
+To get access to the Trello board please contact project administrator Shakthi Weerasinghe via email - `syweerasinghe@arizona.edu` OR `yasas276@gmail.com`.
