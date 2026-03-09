@@ -62,7 +62,7 @@ async def create_scenarios(request: GenerateScenariosRequest):
              {404: {"description": "No valid scenarios found for provided IDs"},
               500: {"description": "Prompt generation failed"}})
 async def create_prompts(request: GeneratePromptsRequest):
-    """Generate Java test generation prompts from LLM-ready scenarios."""
+    """Generate test generation prompts from LLM-ready scenarios."""
     try:
         scenarios_list = []
         if request.scenario_ids:
@@ -74,10 +74,16 @@ async def create_prompts(request: GeneratePromptsRequest):
         elif request.scenarios:
             scenarios_list.extend(request.scenarios)
 
-        prompts = generate_prompts(scenarios_list, template_filter=request.template_id)
+        # Pass the language parameter down to the generator
+        prompts = generate_prompts(
+            scenarios_list, 
+            template_filter=request.template_id,
+            language=request.language
+        )
         
         return {
             "status": "success",
+            "language": request.language,
             "count": len(prompts),
             "prompts": prompts
         }
