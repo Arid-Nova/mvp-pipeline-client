@@ -1308,9 +1308,7 @@ const PipelinePage: React.FC = () => {
                                             // 2. Add each test to the zip as a .java file
                                             tests.forEach((test, index) => {
                                                 const safeName = (test.scenario_id || `scenario_${index}`).replace(/[^a-zA-Z0-9]/g, '_');
-                                                const filename = `${prefix}${safeName}${ext}`;
-
-                                                // Add the file to our zip folder
+                                                const filename = `${prefix}${safeName}.${ext}`;
                                                 folder?.file(filename, test.test_code);
                                             });
 
