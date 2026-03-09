@@ -5,3 +5,4 @@ class GeneratePromptsRequest(BaseModel):
     scenario_ids: Optional[List[str]] = None
     scenarios: Optional[List[Dict[str, Any]]] = None
     template_id: Optional[str] = None
+    language: Optional[str] = "java" # "java", "python", or "curl"

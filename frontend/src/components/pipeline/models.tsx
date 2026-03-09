@@ -57,6 +57,7 @@ export interface NodeData {
         promptPayload?: PromptPayload;
         testSuitePayload?: TestSuitePayload;
         selectedLlm?: string;
+        language?: string;
         systemInfo?: {
             systemName: string;
             ir: any;
@@ -92,6 +93,7 @@ export interface PromptItem {
 
 export interface PromptPayload {
     prompts: PromptItem[];
+    language: string;
 }
 
 export interface TestSuiteItem {
