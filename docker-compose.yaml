@@ -1,7 +1,10 @@
+name: cloudhub-toolkit
+version: '1.1.0'
+
 services:
   mariadb:
     image: mariadb:latest
-    container_name: mvp_db
+    container_name: cache_db
     environment:
       MYSQL_ROOT_PASSWORD: csi3335rocks
       MYSQL_DATABASE: msGraph
@@ -12,7 +15,7 @@ services:
 
   mongodb:
     image: mongo:latest
-    container_name: mvp_mongo
+    container_name: cloudhub_mongo
     restart: always
     ports:
       - "27017:27017"
@@ -28,11 +31,11 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: mvp_backend
+    container_name: cloudhub_backend
     ports:
       - "8080:8080" 
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mariadb://mvp_db:3306/msGraph
+      SPRING_DATASOURCE_URL: jdbc:mariadb://cache_db:3306/msGraph
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: csi3335rocks
     depends_on:
@@ -45,7 +48,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: mvp_frontend
+    container_name: cloudhub_frontend
     ports:
       - "3000:3000"
     networks:
@@ -57,7 +60,7 @@ services:
     build:
       context: ./formalmethod
       dockerfile: Dockerfile
-    container_name: mvp_formalverifier
+    container_name: cloudhub_formalverifier
     ports:
       - "9000:9000"
     networks:
@@ -69,7 +72,7 @@ services:
     build:
       context: ./componentanalysis
       dockerfile: Dockerfile
-    container_name: mvp_components
+    container_name: cloudhub_components
     ports:
       - "8060:8060" 
     networks:
@@ -80,11 +83,11 @@ services:
     build:
       context: ./vectorgenerator
       dockerfile: Dockerfile
-    container_name: mvp_vectorgenerator
+    container_name: cloudhub_vectorgenerator
     ports:
       - "8050:8050" 
     environment:
-      - MONGO_URI=mongodb://mvp_mongo:27017
+      - MONGO_URI=mongodb://cloudhub_mongo:27017
       - MONGO_DB=aegis
       - MONGO_USER=root
       - MONGO_PASSWORD=aeGis2026Rocks
@@ -96,11 +99,11 @@ services:
     build:
       context: ./scenariogenerator
       dockerfile: Dockerfile
-    container_name: mvp_scenariogenerator
+    container_name: cloudhub_scenariogenerator
     ports:
       - "8040:8040" 
     environment:
-      - MONGO_URI=mongodb://mvp_mongo:27017
+      - MONGO_URI=mongodb://cloudhub_mongo:27017
       - MONGO_DB=aegis
       - MONGO_USER=root
       - MONGO_PASSWORD=aeGis2026Rocks
@@ -112,7 +115,7 @@ services:
     build:
       context: ./testgenerator
       dockerfile: Dockerfile
-    container_name: mvp_testgenerator
+    container_name: cloudhub_testgenerator
     ports:
       - "8030:8030" 
     environment:
