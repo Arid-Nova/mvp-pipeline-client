@@ -1,10 +1,9 @@
-# CloudHubs Microservice System Tool Explorer
+# CloudHubs: Microservice System Analysis Toolkit
 
-
-A comprehensive platform for visualizing, verifying, and introspecting microservice architectures. This tool combines 3D architectural visualization with formal verification and neuro-symbolic risk analysis to provide a holistic view of system posture and security.
+A comprehensive platform for visualizing, verifying, and introspecting microservice architectures. This tool combines 3D architectural visualization with formal verification, neuro-symbolic risk analysis, and automated test generation to facilitate holistic analysis of a distributed system in one place.
 
 ## Core Modules
-### 1. CIMET IR Visualizer
+### 1. CIMET-IR Visualizer
 
 An interactive 3D environment for exploring microservice architecture. We use 3D Force-Directed Graph to Visualize complex microservice relationships (nodes, databases, gateways) in a 3D space. Users can generate graphs by parsing code repositories or uploading custom Intermediate Representation (IR) JSON files.
 
@@ -22,9 +21,9 @@ A neuro-symbolic analysis tool for detecting latent vulnerabilities and analyzin
 
 Another feature is Vulnerability Reporting. We display specific security findings with confidence scores, categorized by "Risk Increasing" or "Risk Decreasing" factors.
 
-# Running the MVP with Docker
+# Running the Toolkit with Docker
 
-This guide will help you run the Microservice Visualization Platform (MVP) using Docker.
+This guide will help you run the Cloudhubs: Microservice System Analysis Toolkit using Docker.
 
 ## Prerequisites
 
@@ -75,7 +74,7 @@ Ensure you have the following installed on your machine:
 
 	The MariaDB database will be running on port 3306. Please make sure the root password is set correctly and the database name is `msGraph`. The connection URL should be:
 	```
-	jdbc:mariadb://mvp_db:3306/msGraph
+	jdbc:mariadb://cache_db:3306/msGraph
 	```
     The Neo4J database will be running on port 7687. Please make sure the root password is set correctly and the database name is `neo4j`. The connection URL should be:
 	```
@@ -83,22 +82,22 @@ Ensure you have the following installed on your machine:
 	```
  	The MongoDB database will be running on port 7474. Please make sure the root password is set correctly and the database name is `aegis`. The connection URL should be:
 	```
-	bolt://mvp_mongo:7474
+	bolt://cloudhub_mongo:7474
 	```
 
 ## Docker containers
 The following Docker containers are used in the MVP:
-- `mvp_frontend`: The frontend service built using React.
-- `mvp_backend`: The backend service built using Spring Boot.
-- `mvp_formalverifier`: The service for executing formal verification of the microservice system.
-- `mvp_components`: The service for extracting componenent and endpoint objects from the microservice system.
-- `mvp_vectorgenerator`: The service for generating the all the authorization vectors corresponding to distributed authorization policy.
-- `mvp_scenariogenerator`: The service for generating testing scenarios and LLM prompts based on the components, paths, and distributed authorization policy.
-- `mvp_testgenerator`: The service for executing the LLM prompts and retreiving the actual test suites.
+- `cloudhub_frontend`: The frontend service built using React.
+- `cloudhub_backend`: The backend service built using Spring Boot.
+- `cloudhub_formalverifier`: The service for executing formal verification of the microservice system.
+- `cloudhub_components`: The service for extracting componenent and endpoint objects from the microservice system.
+- `cloudhub_vectorgenerator`: The service for generating the all the authorization vectors corresponding to distributed authorization policy.
+- `cloudhub_scenariogenerator`: The service for generating testing scenarios and LLM prompts based on the components, paths, and distributed authorization policy.
+- `cloudhub_testgenerator`: The service for executing the LLM prompts and retreiving the actual test suites.
 - `aegis_dashboard`: The frontend service of the Aegis introspection engine.
 - `aegis_api`: The backend service of the Aegis introspection engine.
-- `mvp_db`: The MariaDB database service.
-- `mvp_mongo`: The Mongo DB service.
+- `cache_db`: The MariaDB database service.
+- `cloudhub_mongo`: The Mongo DB service.
 - `aegis_neo4j`: The Neo4J database service.
 
 You can view the logs of the running containers using the following command:

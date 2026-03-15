@@ -1,4 +1,4 @@
 spring:
   data:
     mongodb:
-      uri: mongodb://root:aeGis2026Rocks@mvp_mongo:27017/aegis?authSource=admin
+      uri: mongodb://root:aeGis2026Rocks@cloudhub_mongo:27017/aegis?authSource=admin
