@@ -1,9 +1,9 @@
-# CloudHubs Microservice System Tool Explorer
+# CloudHubs: Microservice System Analysis Toolkit
 
 A comprehensive platform for visualizing, verifying, and introspecting microservice architectures. This tool combines 3D architectural visualization with formal verification, neuro-symbolic risk analysis, and automated test generation to facilitate holistic analysis of a distributed system in one place.
 
 ## Core Modules
-### 1. CIMET IR Visualizer
+### 1. CIMET-IR Visualizer
 
 An interactive 3D environment for exploring microservice architecture. We use 3D Force-Directed Graph to Visualize complex microservice relationships (nodes, databases, gateways) in a 3D space. Users can generate graphs by parsing code repositories or uploading custom Intermediate Representation (IR) JSON files.
 
@@ -21,9 +21,9 @@ A neuro-symbolic analysis tool for detecting latent vulnerabilities and analyzin
 
 Another feature is Vulnerability Reporting. We display specific security findings with confidence scores, categorized by "Risk Increasing" or "Risk Decreasing" factors.
 
-# Running the MVP with Docker
+# Running the Toolkit with Docker
 
-This guide will help you run the Cloudhubs: Microservice Visualization Platform using Docker.
+This guide will help you run the Cloudhubs: Microservice System Analysis Toolkit using Docker.
 
 ## Prerequisites
 
