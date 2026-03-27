@@ -1417,7 +1417,7 @@ const PipelinePage: React.FC = () => {
                         
                         {/* Brand Name */}
                         <h1 className="font-black text-2xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-cyan-400 to-teal-400">
-                            CloudHub
+                            AridNova
                         </h1>
                         
                         {/* Divider */}

@@ -72,8 +72,8 @@ class AnalysisFacade:
         # Checking if analysis has already been performed.
         existing = self.mongo_service.find(self.config['MONGO']['collection_name'], {
             "branch": payload['branch'],
-            "repo_url": payload['repoUrl'],
-            "commit_id": payload['ir']['commitID']
+            "repo_url": payload['repoUrl']
+            # "commit_id": payload['ir']['commitID']
         })
 
         if existing:
@@ -142,7 +142,7 @@ class AnalysisFacade:
             "system_name": payload['ir']['name'],
             "branch": payload['branch'],
             "repo_url": payload['repoUrl'],
-            "commit_id": payload['ir']['commitID'],
+            # "commit_id": payload['ir']['commitID'],
             "timestamp": time.time(),
             "results": results
         })
