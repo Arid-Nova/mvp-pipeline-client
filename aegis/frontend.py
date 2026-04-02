@@ -197,8 +197,8 @@ def visualize():
     config_dict = {s: dict(config.items(s)) for s in config.sections()}
     
     mongo_service = MongoService(
-        uri=config_dict['MONGO']['URI'],
-        db_name=config_dict['MONGO']['DB_NAME']
+        uri=config_dict['MONGO']['uri'],
+        db_name=config_dict['MONGO']['db_name']
     )
     
     try:
@@ -222,8 +222,8 @@ def get_results():
     config_dict = {s: dict(config.items(s)) for s in config.sections()}
     
     mongo_service = MongoService(
-        uri=config_dict['MONGO']['URI'],
-        db_name=config_dict['MONGO']['DB_NAME']
+        uri=config_dict['MONGO']['uri'],
+        db_name=config_dict['MONGO']['db_name']
     )
 
     try:

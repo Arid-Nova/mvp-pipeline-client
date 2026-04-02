@@ -1,11 +1,12 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { data, useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 import { fetchIRFromRepo, verifySystem, RepositoryInput, VerificationInput } from '../../services/api';
-import { CardType, SystemPayload, ComponentPayload, PipelinePayload, NodeData, Connection, ScenarioItem, ScenarioPayload} from './models'
+import { CardType, SystemPayload, ComponentPayload, PipelinePayload, NodeData, Connection, ScenarioPayload} from './models'
 import CanvasFooter from '../generic/CanvasFooter';
+import { LessDepth } from 'three';
 
 // --- CONFIGURATION ---
 
@@ -548,6 +549,8 @@ const PipelinePage: React.FC = () => {
                     };
 
                     updateStatus(targetNode.id, 'running', 'Calling Component API...');
+                    
+                    // Retrieves the components and endpoints
                     const response = await fetch('http://localhost:8060/component/create', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -557,6 +560,16 @@ const PipelinePage: React.FC = () => {
                     if (!response.ok) throw new Error(`API error ${response.status}`);
                     const generatedIr = await response.json();
 
+                    // Retrieves the authorization vectors
+                    const authVectorsResponse = await fetch('http://localhost:8050/vectors/generate-all', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ indexId: generatedIr.id }) 
+                    });
+
+                    if (!authVectorsResponse.ok) throw new Error(`API error ${authVectorsResponse.status}`);
+                    const authVectors = await authVectorsResponse.json();
+
                     const nextPayload: PipelinePayload = {
                         irJson: generatedIr,
                         metadata: {
@@ -564,7 +577,8 @@ const PipelinePage: React.FC = () => {
                             repoUrl: sysPayload.repositories[0].repoUrl || "",
                             branch: sysPayload.repositories[0].branch || "master",
                             commitId: sysPayload.repositories[0].commit || "HEAD"
-                        }
+                        },
+                        additional: authVectors
                     };
                     updateStatus(targetNode.id, 'completed', 'Components generated.', { payload: nextPayload });
                     await processNextNodes(targetNode.id, nextPayload, updateStatus);
@@ -581,8 +595,12 @@ const PipelinePage: React.FC = () => {
                     const endpointsData = rawJson.endpointIndex?.endpoints || rawJson.endpoints || {};
                     const componentsData = rawJson.componentIndex?.components || rawJson.components || {};
 
+                    // Extracting the authorization vectors if they exist
+                    const authVectors = incomingPayload.additional;
+                    
                     const compPayload: ComponentPayload = {
                         id: extractedId,
+                        authvecid: authVectors._id,
                         endpoints: endpointsData,
                         components: componentsData
                     };
@@ -667,31 +685,33 @@ const PipelinePage: React.FC = () => {
                     } else {
                         updateStatus(targetNode.id, 'running', `Generating scenarios for all ${endpointsToProcess.length} endpoints...`);
                     }
+                    
 
-                    const scenarios: ScenarioItem[] = [];
+                    // Actually retrueving the scnarios from the API
+                    const indexId = componentHolderNode?.data.componentPayload?.id;
+                    const authVecId = componentHolderNode?.data.componentPayload?.authvecid;
+
+                    const actualScenarios = await fetch('http://localhost:8040/scenarios/generate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(
+                            {   
+                                index_id: indexId,
+                                vectors_id: authVecId
+                            }
+                        ) 
+                    });
+
+                    if (!actualScenarios.ok) throw new Error(`API error ${actualScenarios.status}`);
+                    let scenarioJson = await actualScenarios.json();
+
+                    const scenarios: any[] = [];
 
                     // Loop over the filtered array
                     for (const [id, ep] of endpointsToProcess) {
-                        const endpointObj = ep as any;
-                        const allowedRoles = endpointObj.authorization?.requiredRoles || [];
-
-                        scenarios.push({
-                            scenario_id: `scn_${id}`,
-                            method: endpointObj.httpMethod || 'GET',
-                            endpoint: endpointObj.fullUri || 'Unknown',
-                            allowed_roles: allowedRoles,
-                            expected_outcome: 'BASELINE_PASS'
-                        });
-
-                        if (endpointObj.authentication?.required) {
-                            scenarios.push({
-                                scenario_id: `scn_auth_${id}`,
-                                method: endpointObj.httpMethod || 'GET',
-                                endpoint: endpointObj.fullUri || 'Unknown',
-                                allowed_roles: allowedRoles,
-                                expected_outcome: 'ROLE_BASED_ACCESS'
-                            });
-                        }
+                        let scenario_id = `scn_${id}`;
+                        const scenario = scenarioJson.scenarios.find((s: any) => s.scenario_id === scenario_id);
+                        scenarios.push(scenario)
                     }
 
                     const scenarioPayload: ScenarioPayload = { 
@@ -701,7 +721,7 @@ const PipelinePage: React.FC = () => {
                     
                     updateStatus(targetNode.id, 'completed', `Generated ${scenarios.length} scenarios.`, {
                         scenarioPayload,
-                        selectedScenarios: scenarios.map(s => s.scenario_id)
+                        selectedScenarios: scenarios.map(s => s.scenario_id) 
                     });
 
                     await processNextNodes(targetNode.id, { ...payload, scenarioPayload }, updateStatus);
@@ -1005,6 +1025,7 @@ const PipelinePage: React.FC = () => {
             case 'SCENARIO_GENERATE': {
                 const scPayload = node.data.scenarioPayload;
                 const selectedScenarios = node.data.selectedScenarios || [];
+                const isExpanded = node.data.isExpanded || false;
 
                 if (!scPayload) {
                     return (
@@ -1026,6 +1047,11 @@ const PipelinePage: React.FC = () => {
                     setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, selectedScenarios: newSelected } } : n));
                 };
 
+                const toggleExpand = (e: React.MouseEvent) => {
+                    e.stopPropagation(); 
+                    setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, isExpanded: !isExpanded } } : n));
+                };
+
                 return (
                     <div className="mt-2 space-y-2">
                         <div className="flex flex-col gap-1 mb-2">
@@ -1033,12 +1059,24 @@ const PipelinePage: React.FC = () => {
                                 <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                                     Generated Scenarios
                                 </div>
-                                <div className="text-[10px] text-indigo-400 font-bold">
-                                    {selectedScenarios.length} / {scPayload.scenarios.length}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] text-indigo-400 font-bold">
+                                        {selectedScenarios.length} / {scPayload.scenarios.length}
+                                    </span>
+                                    <button 
+                                        onClick={toggleExpand}
+                                        className="px-1.5 py-0.5 text-[9px] bg-slate-700 hover:bg-slate-600 text-white rounded transition-colors font-bold shadow flex items-center gap-1"
+                                    >
+                                        {isExpanded ? (
+                                            <><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 14h6m0 0v6m0-6l-7 7m17-11h-6m0 0V4m0 6l7-7M4 10h6m0 0V4m0 6l-7-7m17 11h-6m0 0v6m0-6l7 7" /></svg> Minimize</>
+                                        ) : (
+                                            <><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg> Expand</>
+                                        )}
+                                    </button>
                                 </div>
                             </div>
                             
-                            {/* NEW: Select All / Deselect All Controls */}
+                            {/* Select All / Deselect All Controls */}
                             <div className="flex gap-3 mt-1">
                                 <button 
                                     onClick={() => setAllScenarios(true)}
@@ -1056,12 +1094,12 @@ const PipelinePage: React.FC = () => {
                         </div>
                         
                         {/* Scrollable Checkbox List */}
-                        <div className="space-y-1 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
-                            {scPayload.scenarios.map((s: ScenarioItem) => (
+                        <div className={`space-y-2 overflow-y-auto pr-1 custom-scrollbar transition-all duration-300 ${isExpanded ? 'max-h-[600px]' : 'max-h-48'}`}>
+                            {scPayload.scenarios.map((s: any) => (
                                 <label 
                                     key={s.scenario_id} 
                                     className={`
-                                        flex items-start gap-2 p-2 bg-slate-950 border rounded cursor-pointer transition-all
+                                        flex items-start gap-3 p-3 bg-slate-950 border rounded cursor-pointer transition-all
                                         ${selectedScenarios.includes(s.scenario_id) ? 'border-indigo-500/50 bg-indigo-900/10' : 'border-slate-800 hover:border-slate-700'}
                                     `}
                                 >
@@ -1071,18 +1109,127 @@ const PipelinePage: React.FC = () => {
                                         onChange={() => toggleScenario(s.scenario_id)}
                                         className="mt-0.5 accent-indigo-500 rounded border-slate-700"
                                     />
-                                    <div className="flex flex-col overflow-hidden w-full">
-                                        <div className="flex items-center gap-1">
-                                            <span className={`text-[8px] px-1 rounded font-bold ${s.method === 'GET' ? 'bg-blue-900/50 text-blue-400' : s.method === 'POST' ? 'bg-green-900/50 text-green-400' : 'bg-yellow-900/50 text-yellow-400'}`}>
+                                    <div className="flex flex-col w-full min-w-0">
+                                        {/* HEADER: Method and Endpoint */}
+                                        <div className="flex items-start gap-2">
+                                            <span className={`mt-0.5 text-[9px] px-1.5 py-0.5 rounded font-bold whitespace-nowrap ${s.method === 'GET' ? 'bg-blue-900/50 text-blue-400' : s.method === 'POST' ? 'bg-green-900/50 text-green-400' : s.method === 'DELETE' ? 'bg-red-900/50 text-red-400' : s.method === 'PUT' ? 'bg-amber-900/50 text-amber-400' : 'bg-yellow-900/50 text-yellow-400'}`}>
                                                 {s.method}
                                             </span>
-                                            <span className="text-[10px] font-mono text-slate-300 truncate" title={s.endpoint}>
+                                            <span className={`text-[11px] font-mono font-semibold ${isExpanded ? 'whitespace-normal break-all text-slate-200' : 'truncate text-slate-300'}`} title={s.endpoint}>
                                                 {s.endpoint}
                                             </span>
                                         </div>
-                                        <span className="text-[9px] text-slate-500 mt-0.5 truncate italic">
+                                        
+                                        {/* EXPECTED OUTCOME */}
+                                        <span className={`text-[10px] text-slate-400 mt-1 ${isExpanded ? 'whitespace-normal' : 'truncate'}`}>
                                             {s.expected_outcome}
                                         </span>
+
+                                        {/* --- RICH EXPANDED DETAILS --- */}
+                                        {isExpanded && (
+                                            <div className="mt-3 flex flex-col gap-2.5 text-[10px] border-t border-slate-800/80 pt-3">
+                                                
+                                                {/* Top Meta Info */}
+                                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                                                    <div><span className="text-slate-500 font-bold uppercase tracking-wider">Service:</span> <span className="text-slate-300 font-mono ml-1">{s.service_name}</span></div>
+                                                    {s.scenario_category && (
+                                                        <div><span className="text-slate-500 font-bold uppercase tracking-wider">Category:</span> <span className="text-indigo-300 ml-1">{s.scenario_category}</span></div>
+                                                    )}
+                                                </div>
+
+                                                {/* Auth, Tags & Sensitivity Badges */}
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {/* {s.authorization?.type && (
+                                                        <span className="bg-blue-900/20 border border-blue-800/50 text-blue-300 px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wide">
+                                                            Auth: {s.authorization.type}
+                                                        </span>
+                                                    )} */}
+                                                    {s.sensitivity_type && (
+                                                        <span className="bg-slate-800 border border-slate-700 text-slate-300 px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wide">
+                                                            Sensitivity: {s.sensitivity_type}
+                                                        </span>
+                                                    )}
+                                                    {s.handles_pii && (
+                                                        <span className="bg-amber-900/20 border border-amber-700/50 text-amber-400 px-1.5 py-0.5 rounded text-[9px] font-bold flex items-center gap-1">
+                                                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                                            HANDLES PII
+                                                        </span>
+                                                    )}
+                                                    {(s.max_depth > 0 || s.total_calls > 1) && (
+                                                        <span className="bg-slate-800 border border-slate-700 text-slate-300 px-1.5 py-0.5 rounded text-[9px] font-bold">
+                                                            Chain Depth: {s.max_depth} (Calls: {s.total_calls})
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {/* Roles & Status Matrix Grid */}
+                                                <div className="grid grid-cols-2 gap-2 mt-1">
+                                                    {/* Allowed Roles */}
+                                                    <div className="bg-slate-900/60 p-2 rounded border border-slate-800/50">
+                                                        <span className="text-slate-500 font-bold uppercase text-[9px] tracking-wider mb-1.5 block">Allowed Roles</span>
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {s.allowed_roles?.length > 0 ? s.allowed_roles.map((r: string) => (
+                                                                <span key={r} className="bg-emerald-900/20 border border-emerald-800/50 text-emerald-400 px-1.5 py-0.5 rounded font-mono text-[9px]">{r}</span>
+                                                            )) : <span className="text-slate-600 italic">No Restriction</span>}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Denied / Expected Statuses */}
+                                                    <div className="bg-slate-900/60 p-2 rounded border border-slate-800/50">
+                                                        <span className="text-slate-500 font-bold uppercase text-[9px] tracking-wider mb-1.5 block">Expected Status Matrix</span>
+                                                        <div className="flex flex-col gap-1">
+                                                            {s.expected_status_by_role && Object.keys(s.expected_status_by_role).length > 0 ? (
+                                                                Object.entries(s.expected_status_by_role).map(([role, status]) => (
+                                                                    <div key={role} className="flex justify-between items-center text-[9px] font-mono">
+                                                                        <span className="text-slate-400">{role}</span>
+                                                                        <span className={String(status).startsWith('2') ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                                                                            {status as string}
+                                                                        </span>
+                                                                    </div>
+                                                                ))
+                                                            ) : <span className="text-slate-600 italic">No matrix available</span>}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Policy Inconsistencies Alert */}
+                                                {s.policy_inconsistencies && s.policy_inconsistencies.length > 0 && (
+                                                    <div className="bg-rose-950/20 border border-rose-900/40 p-2 rounded mt-1">
+                                                        <span className="text-rose-400 font-bold uppercase text-[9px] tracking-wider flex items-center gap-1.5 mb-1.5">
+                                                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                            </svg>
+                                                            Policy Inconsistencies Detected
+                                                        </span>
+                                                        <ul className="space-y-1.5">
+                                                            {s.policy_inconsistencies.map((inc: any, idx: number) => (
+                                                                <li key={idx} className="bg-rose-950/40 border border-rose-900/50 p-1.5 rounded flex flex-col gap-0.5">
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <span className="bg-rose-900/80 text-rose-100 px-1 py-0.5 rounded text-[8px] font-bold tracking-wider">
+                                                                            {inc.role || 'UNKNOWN ROLE'}
+                                                                        </span>
+                                                                        <span className="text-rose-300 text-[9px] font-bold">
+                                                                            {inc.type}
+                                                                        </span>
+                                                                    </div>
+                                                                    <span className="text-rose-200/70 text-[8px] font-mono break-words leading-tight mt-0.5">
+                                                                        {inc.details?.reason 
+                                                                            ? inc.details.reason 
+                                                                            : `Upstream/Downstream mismatch detected affecting: ${inc.details?.downstream_endpoint?.split(':')[0] || 'Unknown Service'}`
+                                                                        }
+                                                                    </span>
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                )}
+
+                                                {/* ID Footer */}
+                                                <div className="text-slate-600 font-mono text-[8px] mt-1 break-all">
+                                                    ID: {s.scenario_id}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </label>
                             ))}
@@ -1417,7 +1564,7 @@ const PipelinePage: React.FC = () => {
                         
                         {/* Brand Name */}
                         <h1 className="font-black text-2xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-cyan-400 to-teal-400">
-                            CloudHub
+                            AridNova
                         </h1>
                         
                         {/* Divider */}
@@ -1613,13 +1760,14 @@ const PipelinePage: React.FC = () => {
                                         draggable
                                         onDragStart={(e) => handleNodeDragStart(e, node.id)}
                                         className={`
-                                            absolute w-80 rounded-xl border backdrop-blur-md transition-all duration-200
+                                            absolute rounded-xl border backdrop-blur-md transition-all duration-300 ease-in-out
+                                            ${node.data?.isExpanded ? 'w-[650px]' : 'w-80'}
                                             ${config.color} 
                                             ${isSource ? 'ring-2 ring-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.3)]' : 'ring-1 ring-white/10 shadow-2xl'}
                                             ${node.status === 'running' ? 'ring-2 ring-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.4)]' : ''}
                                             ${node.status === 'failed' ? 'ring-2 ring-red-500 bg-red-900/40' : ''}
                                         `}
-                                        style={{ left: node.x, top: node.y, zIndex: 10 }}
+                                        style={{ left: node.x, top: node.y, zIndex: node.data?.isExpanded ? 50 : 10 }}
                                     >
                                         {/* Card Header */}
                                         <div className="p-3 border-b border-white/10 flex items-center justify-between bg-slate-900/60 rounded-t-xl cursor-move handle">
