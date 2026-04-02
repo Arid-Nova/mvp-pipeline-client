@@ -11,7 +11,7 @@ const CanvasFooter: React.FC<CanvasFooterProps> = ({ scale }) => {
         <div className="absolute bottom-4 right-4 flex items-center gap-4 z-10 pointer-events-none">
             {/* Transparent Copyright Text */}
             <div className="text-[10px] font-semibold text-white/20 tracking-wider uppercase select-none">
-                © {currentYear} CloudHubs at University of Arizona
+                © {currentYear} CloudHubs Research Group at University of Arizona
             </div>
             
             {/* Zoom Indicator */}

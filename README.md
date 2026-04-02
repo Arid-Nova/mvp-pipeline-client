@@ -1,4 +1,4 @@
-# CloudHubs: Microservice System Analysis Toolkit
+# AridNova: Microservice System Analysis Toolkit
 
 A comprehensive platform for visualizing, verifying, and introspecting microservice architectures. This tool combines 3D architectural visualization with formal verification, neuro-symbolic risk analysis, and automated test generation to facilitate holistic analysis of a distributed system in one place.
 
@@ -23,7 +23,7 @@ Another feature is Vulnerability Reporting. We display specific security finding
 
 # Running the Toolkit with Docker
 
-This guide will help you run the Cloudhubs: Microservice System Analysis Toolkit using Docker.
+This guide will help you run the AridNova: Microservice System Analysis Toolkit using Docker.
 
 ## Prerequisites
 

@@ -119,7 +119,7 @@ const LandingPage: React.FC<Props> = ({ onIRLoaded }) => {
 
             {/* GLOBAL TITLE */}
             <h1 className="relative z-10 text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-violet-400 to-emerald-400 mb-12 text-center drop-shadow-lg tracking-tight px-4">
-                CloudHubs Microservice System Tool Explorer
+                AridNova Analysis Toolkit Explorer
             </h1>
 
             {/* MAIN CARD CONTAINER */}

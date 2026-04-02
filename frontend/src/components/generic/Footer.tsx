@@ -95,7 +95,7 @@ const Footer: React.FC = () => {
 
         {/* Mobile Copyright & Version */}
         <div className="text-purple-100 text-xs pt-2">
-          © {currentYear} CloudHubs Explorer • v1.1.1
+          © {currentYear} AridNova Feature Explorer • v1.1.1
         </div>
       </div>
     </footer>
