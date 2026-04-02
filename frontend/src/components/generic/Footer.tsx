@@ -34,7 +34,7 @@ const Footer: React.FC = () => {
           
           {/* Trello Link */}
           <a
-            href="https://trello.com/b/Uv6vuZr2/cimet-pipeline"
+            href="https://trello.com/b/Uv6vuZr2/aridnova"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 hover:text-blue-200 transition-colors"
@@ -84,7 +84,7 @@ const Footer: React.FC = () => {
         <div className="flex flex-col items-center space-y-2 pt-2 border-t border-purple-300/50">
           <span className="font-bold text-purple-100 uppercase tracking-widest text-[10px]">Developers</span>
           <div className="flex justify-center space-x-6">
-            <a href="https://trello.com/b/Uv6vuZr2/cimet-pipeline" target="_blank" rel="noopener noreferrer" className="hover:text-blue-200 transition-colors flex items-center gap-1">
+            <a href="https://trello.com/b/Uv6vuZr2/aridnova" target="_blank" rel="noopener noreferrer" className="hover:text-blue-200 transition-colors flex items-center gap-1">
               Trello
             </a>
             <a href="https://github.com/UACloudVision/mvp-pipeline-client" target="_blank" rel="noopener noreferrer" className="hover:text-blue-200 transition-colors flex items-center gap-1">
