@@ -23,6 +23,7 @@ export interface SystemPayload {
 
 export interface ComponentPayload {
     id: string;
+    authvecid: string;
     endpoints: any;
     components: any;
 }
@@ -35,6 +36,7 @@ export interface PipelinePayload {
         branch: string;
         commitId: string;
     };
+    additional?: any;
 }
 
 export interface NodeData {
@@ -58,6 +60,7 @@ export interface NodeData {
         testSuitePayload?: TestSuitePayload;
         selectedLlm?: string;
         language?: string;
+        isExpanded?: boolean;
         systemInfo?: {
             systemName: string;
             ir: any;
@@ -73,17 +76,9 @@ export interface Connection {
     target: string;
 }
 
-export interface ScenarioItem {
-    scenario_id: string;
-    method: string;
-    endpoint: string;
-    allowed_roles: string[];
-    expected_outcome: string;
-}
-
 export interface ScenarioPayload {
     vectorId: string;
-    scenarios: ScenarioItem[];
+    scenarios: any[];
 }
 
 export interface PromptItem {
