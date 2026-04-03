@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import List, Dict, Any
 from ..domain.models import ExecutionPath, Opinion, SymbolicEvidence, NeuroEvidence
 from ..config_loader import ConfigLoader
@@ -15,8 +16,8 @@ class EvidenceMappingStrategy(ABC):
 # Concrete Strategies
 class BinaryEvidenceStrategy(EvidenceMappingStrategy):
     # Maps binary findings from the ahp_benchmarks.json config.
-    def __init__(self):
-        self.config = ConfigLoader()
+    def __init__(self, config_path: Path):
+        self.config = ConfigLoader(config_path)
 
     def map(self, execution_path: ExecutionPath) -> List[Opinion]:
         ops = []
@@ -108,9 +109,9 @@ class EvidenceMapper:
     # The "Context" class in the Strategy Pattern. It holds all mapping
     # strategies and runs them to populate the initial_opinions list.
 
-    def __init__(self):
+    def __init__(self, config_path: str):
         self.strategies: List[EvidenceMappingStrategy] = [
-            BinaryEvidenceStrategy(),
+            BinaryEvidenceStrategy(Path(config_path)),
             VariableMetricStrategy(),
             NeuroEvidenceStrategy()
         ]

@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import time
 import json
 import dataclasses
@@ -58,7 +59,9 @@ class AnalysisFacade:
                     raise ValueError("OPENAI_API_KEY environment variable not set.")
         
         # 5. Initialize calculus modules
-        self.evidence_mapper = EvidenceMapper()
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        config_path = os.path.join(script_dir, 'configs')
+        self.evidence_mapper = EvidenceMapper(config_path)
         
         # Load AHP/metric configs
         self.config_loader = ConfigLoader()
@@ -84,7 +87,7 @@ class AnalysisFacade:
         self.code_fetcher = CodeFetcher(payload['repoUrl'], payload['branch'])
 
         # Load graph and get execution paths
-        execution_paths = self.graph_loader.load_graph_from_ir(payload, self.code_fetcher.get_temp_dir())
+        execution_paths = self.graph_loader.load_graph_from_ir(payload['ir'], self.code_fetcher.get_temp_dir())
         
         if not execution_paths:
             print("No execution paths found. Exiting.")

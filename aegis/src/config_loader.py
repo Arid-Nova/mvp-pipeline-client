@@ -7,15 +7,18 @@ class ConfigLoader:
     
     def __new__(cls, *args, **kwargs):
         if not cls._instance:
-            cls._instance = super(ConfigLoader, cls).__new__(cls, *args, **kwargs)
+            cls._instance = super(ConfigLoader, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, config_dir: Path = Path("configs")):
+    def __init__(self, config_dir: Path = None):
         if not hasattr(self, 'initialized'): 
+            if config_dir is None:
+                raise ValueError("CRITICAL ERROR: config_dir must be provided on the first instantiation.")
             self.config_dir = config_dir
+
             try:
-                self.ahp_benchmarks = self._load_json(config_dir / "ahp_benchmarks.json")
-                self.metric_thresholds = self._load_json(config_dir / "metric_thresholds.json")
+                self.ahp_benchmarks = self._load_json(self.config_dir / "ahp_benchmarks.json")
+                self.metric_thresholds = self._load_json(self.config_dir / "metric_thresholds.json")
                 self.initialized = True
             except FileNotFoundError as e:
                 print(f"CRITICAL ERROR: Configuration file not found. {e}")

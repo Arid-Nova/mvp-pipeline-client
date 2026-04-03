@@ -1,6 +1,7 @@
 import configparser
 from contextlib import asynccontextmanager
 
+import os
 from time import time
 from typing import Dict, Any
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,7 +16,9 @@ facade = None
 async def lifespan(app: FastAPI):
     print("Checking configuration...")
     config = configparser.ConfigParser()
-    files_read = config.read('config.ini')
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    files_read = config.read(os.path.join(script_dir, 'config.ini'))
     
     if not files_read:
         print("WARNING: config.ini not found! Please ensure it exists in the container.")
@@ -29,6 +32,8 @@ async def lifespan(app: FastAPI):
         facade = AnalysisFacade(config_dict)
         print("Aegis Engine initialized successfully.")
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print(f"CRITICAL ERROR during startup: {e}")
 
     yield  
