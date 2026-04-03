@@ -558,20 +558,20 @@ const PipelinePage: React.FC = () => {
                     });
 
                     if (!response.ok) throw new Error(`API error ${response.status}`);
-                    const generatedIr = await response.json();
+                    const generatedComponents = await response.json();
 
                     // Retrieves the authorization vectors
                     const authVectorsResponse = await fetch('http://localhost:8050/vectors/generate-all', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ indexId: generatedIr.id }) 
+                        body: JSON.stringify({ indexId: generatedComponents.id }) 
                     });
 
                     if (!authVectorsResponse.ok) throw new Error(`API error ${authVectorsResponse.status}`);
                     const authVectors = await authVectorsResponse.json();
 
                     const nextPayload: PipelinePayload = {
-                        irJson: generatedIr,
+                        irJson: generatedComponents,
                         metadata: {
                             systemName: sysPayload.systemName,
                             repoUrl: sysPayload.repositories[0].repoUrl || "",
@@ -1564,10 +1564,10 @@ const PipelinePage: React.FC = () => {
                                 : 'bg-slate-700 opacity-50 cursor-not-allowed'}
                         `}
                         onClick={() => {
-                            const meta = node.data.payload?.metadata;
+                            const meta = node.data.payload?.irJson.id;
                             if (!meta) return;
                             const params = new URLSearchParams({
-                                commitID: meta.commitId
+                                id: meta
                             }).toString();
 
                             window.open(`http://localhost:5600/visualize?${params}`);

@@ -457,7 +457,7 @@
         .hidden { display: none; }
     </style>
 </head>
-<body data-commit-id="{{ commitID }}">
+<body data-ir-id="{{ irID }}">
     <div class="viz-container">
         <a href="http://localhost:3000" class="back-nav-btn">
             ← Back to Home
@@ -578,15 +578,15 @@
         let currentEndpointId = null;
         let cy = null; // Cytoscape instance
 
-        const COMMIT_ID = document.body.getAttribute('data-commit-id');
+        const IR_ID = document.body.getAttribute('data-ir-id');
 
         async function fetchData() {
-            if (!COMMIT_ID) {
-                throw new Error("Missing commitID");
+            if (!IR_ID) {
+                throw new Error("Missing irID");
             }
 
             try {
-                const response = await fetch(`/api/results?commitID=${encodeURIComponent(COMMIT_ID)}`); 
+                const response = await fetch(`/api/results?irID=${encodeURIComponent(IR_ID)}`); 
                 globalData = await response.json();
                 
                 refreshViews();

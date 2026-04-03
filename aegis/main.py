@@ -68,12 +68,11 @@ class AnalysisFacade:
         # Executes the end-to-end analysis pipeline.
         print("\nStarting AEGIS analysis!")
         start_time = time.perf_counter()
+        ir_id = payload['ir']['id']
 
         # Checking if analysis has already been performed.
         existing = self.mongo_service.find(self.config['MONGO']['collection_name'], {
-            "branch": payload['branch'],
-            "repo_url": payload['repoUrl']
-            # "commit_id": payload['ir']['commitID']
+            "irID": ir_id
         })
 
         if existing:
@@ -140,9 +139,7 @@ class AnalysisFacade:
 
         self.save_results_to_db({
             "system_name": payload['ir']['name'],
-            "branch": payload['branch'],
-            "repo_url": payload['repoUrl'],
-            # "commit_id": payload['ir']['commitID'],
+            "irID": ir_id,
             "timestamp": time.time(),
             "results": results
         })

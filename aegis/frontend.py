@@ -188,8 +188,8 @@ def save_configs():
 
 @app.route('/visualize')
 def visualize():
-    commit_id = request.args.get('commitID')
-    if not commit_id:
+    ir_id = request.args.get('id')
+    if not ir_id:
         return render_template('errorpage.html')
 
     config = configparser.ConfigParser()
@@ -203,15 +203,14 @@ def visualize():
     
     try:
         mongo_query = {}
-        if commit_id:
-            mongo_query['commit_id'] = commit_id
+        mongo_query['irID'] = ir_id
 
         existing = mongo_service.find(
             config_dict['MONGO']['collection_name'], 
             mongo_query)
         
         if existing:
-            return render_template('visualize.html', commitID=commit_id)
+            return render_template('visualize.html', irID=ir_id)
     except Exception:
         return render_template('errorpage.html')
 
@@ -227,11 +226,11 @@ def get_results():
     )
 
     try:
-        commit_id = request.args.get('commitID')
+        ir_id = request.args.get('irID')
 
         mongo_query = {}
-        if commit_id:
-            mongo_query['commit_id'] = commit_id
+        if ir_id:
+            mongo_query['irID'] = ir_id
 
         existing = mongo_service.find(
             config_dict['MONGO']['collection_name'], 
