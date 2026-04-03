@@ -190,7 +190,7 @@ def save_configs():
 def visualize():
     ir_id = request.args.get('id')
     if not ir_id:
-        return render_template('errorpage.html')
+        return render_template('notfound.html')
 
     config = configparser.ConfigParser()
     config.read('config.ini')
@@ -211,6 +211,8 @@ def visualize():
         
         if existing:
             return render_template('visualize.html', irID=ir_id)
+        else:
+            return render_template('notfound.html')
     except Exception:
         return render_template('errorpage.html')
 

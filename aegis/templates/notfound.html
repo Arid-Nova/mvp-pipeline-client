@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Aegis - System Alert</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Replicating the implied variables from your dashboard for standalone rendering */
+        :root {
+            --primary-color: #3B82F6;
+            --primary-hover: #2563EB;
+            --danger-color: #EF4444;
+            --text-primary: #1F2937;
+            --text-light: #6B7280;
+            --border-color: #E5E7EB;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F9FAFB;
+            margin: 0;
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .viz-container {
+            width: 100%;
+            max-width: 600px;
+            padding: 0 1rem;
+        }
+
+        /* Reusing your dashboard card style */
+        .chart-card {
+            background: white;
+            border-radius: 16px;
+            padding: 3rem 2rem;
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border-color);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Error specific styles */
+        .error-icon-wrapper {
+            width: 80px;
+            height: 80px;
+            background: #FEF2F2; /* Light red */
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem auto;
+        }
+
+        .error-icon {
+            width: 40px;
+            height: 40px;
+            color: var(--danger-color);
+        }
+
+        .error-code {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--danger-color);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+        }
+
+        .error-title {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            margin: 0 0 1rem 0;
+            line-height: 1.2;
+        }
+
+        .error-message {
+            color: var(--text-light);
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: 2.5rem;
+        }
+
+        /* Reusing your navigation button style */
+        .back-nav-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center; 
+            gap: 0.75rem;            
+            background: white;
+            color: var(--text-light);
+            border: 1px solid var(--border-color);
+            padding: 0.75rem 2rem;   
+            min-width: 180px;      
+            border-radius: 8px;
+            font-weight: 600;
+            text-decoration: none;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+            cursor: pointer;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .back-nav-btn:hover {
+            background: #F3F4F6;
+            color: var(--primary-color);
+            transform: translateY(-2px); 
+            border-color: var(--primary-color);
+        }
+
+        /* Decorative background element inside the card */
+        .bg-pattern {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 6px;
+            background: linear-gradient(90deg, var(--danger-color), var(--primary-color));
+        }
+    </style>
+</head>
+<body>
+
+    <div class="viz-container">
+        <div class="chart-card">
+            <div class="bg-pattern"></div>
+            
+            <div class="error-icon-wrapper">
+                <svg xmlns="http://www.w3.org/2000/svg" class="error-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+            </div>
+
+            <div class="error-code">Introspection Results Not Found</div>
+            
+            <h1 class="error-title">
+                Invalid ID
+            </h1>
+            
+            <p class="error-message">
+                The identifier provided does not correspond to any existing introspection results.
+            </p>
+
+            <a href="/" class="back-nav-btn">
+                ← Return to Dashboard
+            </a>
+        </div>
+    </div>
+
+</body>
+</html>
