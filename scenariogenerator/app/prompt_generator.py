@@ -107,7 +107,10 @@ def _get_rules(inconsistency: bool = False) -> str:
             "    - Use chain_permissions to understand permission flow through the call chain\n\n"
             "DATA SENSITIVITY:\n"
             "    - For sensitive endpoints (PII, FINANCIAL), ensure proper access control tests"
-            "    - Check for data exposure through policy inconsistencies\n"
+            "    - Check for data exposure through policy inconsistencies\n\n"
+            "EDGE CASES:\n"
+            "    - Always test edge cases such as empty inputs, null values, and boundary conditions\n"
+            "    - This includes (not limited to) testing for NO TOKEN, INVALID TOKEN, and unexpected roles to ensure robust access control validation across the call chain.\n\n"
         )
 
     return (
@@ -139,6 +142,9 @@ def _get_rules(inconsistency: bool = False) -> str:
         "   - PII data: Use realistic but clearly fake data (e.g., \"John Doe\", \"john.doe@example.com\")\n"
         "   - Financial data: Use test amounts (e.g., 99.99, 1000.00)\n"
         "   - For sensitive endpoints, generate comprehensive validation tests\n\n"
+        "EDGE CASES:\n"
+        "    - Always test edge cases such as empty inputs, null values, and boundary conditions\n"
+        "    - This includes (not limited to) testing for NO TOKEN, INVALID TOKEN, and unexpected roles to ensure robust access control validation across the call chain.\n\n"
     )
 
 def _get_framework_instructions(language: str) -> str:

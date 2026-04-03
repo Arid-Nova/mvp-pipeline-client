@@ -546,7 +546,7 @@ def generate_scenarios(av: Dict[str, Any]) -> List[Dict[str, Any]]:
 # =====================================================
 #  FEATURE EXTRACTION FROM ENDPOINTS.JSON
 # =====================================================
-def enrich_from_endpoints(scenario: Dict[str, Any], endpoints: list):
+def enrich_from_endpoints(scenario: Dict[str, Any], endpoints: Any):
     """Enriches a scenario with detailed endpoint information from endpoints.json.
     
     Matches the scenario's endpoint URI against the endpoints data using multiple
@@ -569,29 +569,37 @@ def enrich_from_endpoints(scenario: Dict[str, Any], endpoints: list):
     method = scenario.get("method")
     service_name = scenario.get("service_name", "").lower()
 
-    # 1️⃣ Try exact match
-    endpoint_data = next((e for e in endpoints if e.get("fullUri") == ep_uri and e.get("httpMethod") == method), None)
-
-    # 2️⃣ Try partial match (URI contained or suffix match)
-    if not endpoint_data and ep_uri:
-        endpoint_data = next(
-            (e for e in endpoints if ep_uri.endswith(e.get("fullUri", "")) or e.get("fullUri", "").endswith(ep_uri)),
-            None,
-        )
-
-    # 3️⃣ Try service-based fallback (same service_name)
-    if not endpoint_data:
-        endpoint_data = next(
-            (e for e in endpoints if service_name in e.get("fullUri", "").lower()),
-            None,
-        )
-
-    # 4️⃣ If still nothing, skip safely
-    if not endpoint_data:
-        scenario["notes"] = f"[WARN] Endpoint not found for URI: {ep_uri}"
+    try:
+        raw_data = next(iter(endpoints))
+        if isinstance(raw_data, dict):
+            endpoint_list = raw_data.values()
+        else:
+            endpoint_list = endpoints
+    except StopIteration:
         return scenario
 
-    # 5️⃣ Extract safely
+    # Find the exact match (Strict: URI + Method)
+    endpoint_data = next(
+        (e for e in endpoint_list 
+        if e.get("fullUri") == ep_uri and e.get("httpMethod") == method), 
+        None
+    )
+
+    # Partial Match Fallback (Only if exact fails)
+    if not endpoint_data and ep_uri:
+        endpoint_data = next(
+            (e for e in endpoint_list 
+            if e.get("httpMethod") == method and 
+            (ep_uri.endswith(e.get("fullUri", "___")) or e.get("fullUri", "___").endswith(ep_uri))),
+            None
+        )
+
+    # If still nothing, record warning and exit
+    if not endpoint_data:
+        scenario["notes"] = f"[WARN] Endpoint not found for {method} {ep_uri}"
+        return scenario
+
+    # Extract safely
     auth_info = endpoint_data.get("authentication") or {}
     mech_info = auth_info.get("mechanism") or {}
     authz_info = endpoint_data.get("authorization") or {}
