@@ -49,6 +49,8 @@ export interface NodeData {
         repoUrl?: string;
         branch?: string;
         commit?: string;
+        filterEndpointText?: string;
+        filterShowInconsistenciesOnly?: boolean;
         repositories?: { repoUrl: string; branch: string; commit: string }[];
         rolePriorities?: { role: string; priority: number }[];
         componentPayload?: ComponentPayload;

@@ -1026,6 +1026,10 @@ const PipelinePage: React.FC = () => {
                 const scPayload = node.data.scenarioPayload;
                 const selectedScenarios = node.data.selectedScenarios || [];
                 const isExpanded = node.data.isExpanded || false;
+                
+                // Filtering States 
+                const filterEndpointText = node.data.filterEndpointText || '';
+                const filterShowInconsistenciesOnly = node.data.filterShowInconsistenciesOnly || false;
 
                 if (!scPayload) {
                     return (
@@ -1035,8 +1039,28 @@ const PipelinePage: React.FC = () => {
                     );
                 }
 
+                // Filtering Logic
+                const displayedScenarios = scPayload.scenarios.filter((s: any) => {
+                    const matchesText = s.endpoint.toLowerCase().includes(filterEndpointText.toLowerCase());
+                    const matchesInconsistencies = filterShowInconsistenciesOnly 
+                        ? (s.policy_inconsistencies && s.policy_inconsistencies.length > 0) 
+                        : true;
+                    return matchesText && matchesInconsistencies;
+                });
+
+                // Updated to respect active filters
                 const setAllScenarios = (selected: boolean) => {
-                    const newSelected = selected ? scPayload.scenarios.map((s: any) => s.scenario_id) : [];
+                    const targetScenarios = isExpanded ? displayedScenarios : scPayload.scenarios;
+                    let newSelected = [...selectedScenarios];
+                    
+                    if (selected) {
+                        const targetIds = targetScenarios.map((s: any) => s.scenario_id);
+                        newSelected = Array.from(new Set([...newSelected, ...targetIds]));
+                    } else {
+                        const targetIds = new Set(targetScenarios.map((s: any) => s.scenario_id));
+                        newSelected = newSelected.filter(id => !targetIds.has(id));
+                    }
+                    
                     setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, selectedScenarios: newSelected } } : n));
                 };
 
@@ -1052,6 +1076,15 @@ const PipelinePage: React.FC = () => {
                     setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, isExpanded: !isExpanded } } : n));
                 };
 
+                // Filter handlers
+                const handleFilterTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+                    setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, filterEndpointText: e.target.value } } : n));
+                };
+                
+                const handleFilterInconsistenciesChange = () => {
+                    setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, filterShowInconsistenciesOnly: !filterShowInconsistenciesOnly } } : n));
+                };
+
                 return (
                     <div className="mt-2 space-y-2">
                         <div className="flex flex-col gap-1 mb-2">
@@ -1060,8 +1093,11 @@ const PipelinePage: React.FC = () => {
                                     Generated Scenarios
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[10px] text-indigo-400 font-bold">
+                                    <span className="text-[10px] text-indigo-400 font-bold" title="Selected / Total">
                                         {selectedScenarios.length} / {scPayload.scenarios.length}
+                                        {isExpanded && displayedScenarios.length !== scPayload.scenarios.length && (
+                                            <span className="text-slate-500 ml-1">({displayedScenarios.length} visible)</span>
+                                        )}
                                     </span>
                                     <button 
                                         onClick={toggleExpand}
@@ -1075,6 +1111,30 @@ const PipelinePage: React.FC = () => {
                                     </button>
                                 </div>
                             </div>
+
+                            {/* FILTER BAR */}
+                            {isExpanded && (
+                                <div className="flex items-center gap-2 mt-1 mb-1 p-1.5 bg-slate-900/60 rounded border border-slate-700/50">
+                                    <input 
+                                        type="text"
+                                        placeholder="Filter by endpoint..."
+                                        value={filterEndpointText}
+                                        onChange={handleFilterTextChange}
+                                        className="flex-1 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-[10px] text-slate-300 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 transition-colors"
+                                    />
+                                    <label className={`flex items-center gap-1.5 cursor-pointer px-2 py-1 rounded border transition-colors ${filterShowInconsistenciesOnly ? 'bg-rose-950/40 border-rose-500/50' : 'bg-slate-950 border-slate-700 hover:border-slate-500'}`}>
+                                        <input 
+                                            type="checkbox"
+                                            checked={filterShowInconsistenciesOnly}
+                                            onChange={handleFilterInconsistenciesChange}
+                                            className="accent-rose-500"
+                                        />
+                                        <span className={`text-[9px] font-bold uppercase tracking-wider ${filterShowInconsistenciesOnly ? 'text-rose-400' : 'text-slate-500'}`}>
+                                            Inconsistencies Only
+                                        </span>
+                                    </label>
+                                </div>
+                            )}
                             
                             {/* Select All / Deselect All Controls */}
                             <div className="flex gap-3 mt-1">
@@ -1082,20 +1142,24 @@ const PipelinePage: React.FC = () => {
                                     onClick={() => setAllScenarios(true)}
                                     className="text-[9px] text-indigo-400 hover:text-indigo-300 transition-colors uppercase font-bold tracking-tighter underline decoration-indigo-800 underline-offset-2"
                                 >
-                                    Select All
+                                    Select All {isExpanded && "Visible"}
                                 </button>
                                 <button 
                                     onClick={() => setAllScenarios(false)}
                                     className="text-[9px] text-slate-500 hover:text-rose-400 transition-colors uppercase font-bold tracking-tighter underline decoration-slate-800 underline-offset-2"
                                 >
-                                    Deselect All
+                                    Deselect All {isExpanded && "Visible"}
                                 </button>
                             </div>
                         </div>
                         
-                        {/* Scrollable Checkbox List */}
+                        {/* Scrollable Checkbox List (Iterates over displayedScenarios) */}
                         <div className={`space-y-2 overflow-y-auto pr-1 custom-scrollbar transition-all duration-300 ${isExpanded ? 'max-h-[600px]' : 'max-h-48'}`}>
-                            {scPayload.scenarios.map((s: any) => (
+                            {displayedScenarios.length === 0 ? (
+                                <div className="text-center py-4 text-[10px] text-slate-500 italic">
+                                    No scenarios match your filters.
+                                </div>
+                            ) : displayedScenarios.map((s: any) => (
                                 <label 
                                     key={s.scenario_id} 
                                     className={`
@@ -1125,7 +1189,7 @@ const PipelinePage: React.FC = () => {
                                             {s.expected_outcome}
                                         </span>
 
-                                        {/* --- RICH EXPANDED DETAILS --- */}
+                                        {/* EXPANDED DETAILS */}
                                         {isExpanded && (
                                             <div className="mt-3 flex flex-col gap-2.5 text-[10px] border-t border-slate-800/80 pt-3">
                                                 
@@ -1139,11 +1203,6 @@ const PipelinePage: React.FC = () => {
 
                                                 {/* Auth, Tags & Sensitivity Badges */}
                                                 <div className="flex flex-wrap gap-1.5">
-                                                    {/* {s.authorization?.type && (
-                                                        <span className="bg-blue-900/20 border border-blue-800/50 text-blue-300 px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wide">
-                                                            Auth: {s.authorization.type}
-                                                        </span>
-                                                    )} */}
                                                     {s.sensitivity_type && (
                                                         <span className="bg-slate-800 border border-slate-700 text-slate-300 px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wide">
                                                             Sensitivity: {s.sensitivity_type}
