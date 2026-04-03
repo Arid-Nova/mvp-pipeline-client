@@ -7,7 +7,7 @@ specific endpoints, conditioned on scenario type and template class.
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, final
 
 def get_env_config(language: str) -> str:
     lang = language.lower()
@@ -33,37 +33,119 @@ def get_env_config(language: str) -> str:
             "- Use @Value(\"${test.jwt.<role>}\") to inject tokens into test classes.\n"
         )
 
+def _base_job(language: str) -> str:
+    lang = language.lower()
+    if lang == "python":
+        return (
+            "YOUR JOB: \n"
+            "Analyze the API endpoint descriptions and authorization scenario, and "
+            "generate Pytest scripts (using requests or httpx) that exercise "
+            "the described role-based access control behavior. Follow clean code practices and focus on the "
+            "authorization aspects (status codes, roles, and security headers)."
+        )
+    elif lang == "curl":
+        return (
+            "YOUR JOB: \n"
+            "Analyze the API endpoint descriptions and authorization scenario, and "
+            "generate bash scripts containing cURL commands that exercise "
+            "the described role-based access controlbehavior. Focus heavily on testing authorization "
+            "(status codes, roles, and security headers)."
+        )
+    else: # default java
+        return (
+            "YOUR JOB: \n"
+            "Analyze the API endpoint descriptions and authorization scenario, and "
+            "generate JUnit tests (using Spring MockMvc or WebTestClient) that exercise "
+            "the described role-based access control behavior. Follow clean code practices and focus on the "
+            "authorization aspects (status codes, roles, and security headers)."
+        )
+
+def _job_additions(inconsistency: bool = False) -> str:
+    if inconsistency:
+        return "These tests should detect authorization policy mismatches across microservice call chains.\n\n"
+    else:
+        return "\n\n"
+    
 def _base_prompt_header(language: str) -> str:
     lang = language.lower()
     if lang == "python":
         return (
-            "You are a Python test generation assistant. "
-            "Given an API endpoint description and authorization scenario, "
-            "generate Pytest scripts (using requests or httpx) that exercise "
-            "the described behavior. Follow clean code practices and focus on the "
-            "authorization aspects (status codes, roles, and security headers).\n\n"
+            "You are an API authorization test generator in Python "
+            "for a microservice system which makes REST calls to downstream services.\n\n "
         )
     elif lang == "curl":
         return (
-            "You are a shell script generation assistant. "
-            "Given an API endpoint description and authorization scenario, "
-            "generate bash scripts containing cURL commands that exercise "
-            "the described behavior. Focus heavily on testing authorization "
-            "(status codes, roles, and security headers).\n\n"
+            "You are an API authorization test generator in shell script format "
+            "for a microservice system which makes REST calls to downstream services.\n\n "
         )
     else: # default java
         return (
-            "You are a Java test generation assistant. "
-            "Given an API endpoint description and authorization scenario, "
-            "generate JUnit tests (using Spring MockMvc or WebTestClient) that exercise "
-            "the described behavior. Follow clean code practices and focus on the "
-            "authorization aspects (status codes, roles, and security headers).\n\n"
+            "You are an API authorization test generator in Java "
+            "for a microservice system which makes REST calls to downstream services.\n\n "
         )
+
+def _get_rules(inconsistency: bool = False) -> str:
+    if inconsistency:
+        return (
+            "RULES:\n"
+            "1. Parse the INPUT DATA JSON including the downstream_context section"
+            "2. For roles in policy_inconsistency_roles:"
+            "    - UnderPermissiveDownstream: Entry allows but downstream denies → expect 500 or error"
+            "    - OverPermissiveDownstream: Entry denies correctly → expect 403"
+            "    - PolicyExposure: Check data access control → expect appropriate denial"
+            "3. For roles NOT in policy_inconsistency_roles (consistent behavior):"
+            "    - Apply standard rules (allowed_roles → 2xx, denied_roles → 403)"
+            "4. Use token placeholders: {{TOKEN_ROLE_ADMIN}}, {{TOKEN_ROLE_USER}}"
+            "5. For ANONYMOUS tests, set authPlaceholder to \"NONE\""
+            "    - If is_public=true → expect 2xx (public endpoints allow unauthenticated access)"
+            "    - If is_public=false → expect 401 or 403"
+            "6. For INVALID_TOKEN tests, set authPlaceholder to \"{{TOKEN_INVALID}}\" and expect 401 (or any 4xx/5xx)"
+            "7. Set alternateAcceptable status codes for inconsistency roles (e.g., [500, 502, 503, 403])\n\n"
+            "PATH AND QUERY PARAMETERS:\n"
+            "    - Path parameters: Replace placeholders in the URL with realistic values based on type"
+            "    - Query parameters: Add as URL query string if required=true"
+            "    - Use chain_permissions to understand permission flow through the call chain\n\n"
+            "DATA SENSITIVITY:\n"
+            "    - For sensitive endpoints (PII, FINANCIAL), ensure proper access control tests"
+            "    - Check for data exposure through policy inconsistencies\n"
+        )
+
+    return (
+        "RULES:\n"
+        "1. Parse the INPUT DATA JSON to understand the endpoint and authorization requirements\n"
+        "2. Generate realistic request bodies using entity_schema.fields:\n"
+        "   - String fields → realistic values (names, IDs, amounts - not \"test\" or empty)\n"
+        "   - int/long fields → realistic numbers\n"
+        "   - double/float fields → decimal numbers\n"
+        "   - boolean fields → true/false\n"
+        "   - UUID fields → use realistic UUID format like \"550e8400-e29b-41d4-a716-446655440000\"\n"
+        "3. Use token placeholders: {{TOKEN_ROLE_ADMIN}}, {{TOKEN_ROLE_USER}}\n"
+        "4. For ANONYMOUS tests, set authPlaceholder to \"NONE\" and omit Authorization header\n"
+        "5. For INVALID_TOKEN tests, set authPlaceholder to \"{{TOKEN_INVALID}}\" (will be replaced with a corrupted token)\n"
+        "6. Map roles to expected statuses:\n"
+        "   - Roles in allowed_roles → expect 2xx\n"
+        "   - Roles in denied_roles → expect 403\n"
+        "   - ANONYMOUS when is_public=true → expect 2xx (public endpoints allow unauthenticated access)\n"
+        "   - ANONYMOUS when is_public=false → expect 401 or 403\n"
+        "   - INVALID_TOKEN → expect 401 (or any 4xx/5xx, use alternateAcceptable: [400, 403, 500, 502, 503])\n\n"
+        "PATH AND QUERY PARAMETERS:\n"
+        "   - Path parameters: Replace placeholders in the URL with realistic values based on type\n"
+        "       - Long/int IDs → use numbers like 1, 123, 42\n"
+        "       - UUID → use \"550e8400-e29b-41d4-a716-446655440000\"\n"
+        "       - String names → use realistic values like \"john-doe\", \"order-123\"\n"
+        "   - Query parameters: Add as URL query string if required=true or needed for the test\n"
+        "       - Follow the type constraints (string, int, boolean, etc.)\n\n"
+        "DATA SENSITIVITY:\n"
+        "   - PII data: Use realistic but clearly fake data (e.g., \"John Doe\", \"john.doe@example.com\")\n"
+        "   - Financial data: Use test amounts (e.g., 99.99, 1000.00)\n"
+        "   - For sensitive endpoints, generate comprehensive validation tests\n\n"
+    )
 
 def _get_framework_instructions(language: str) -> str:
     lang = language.lower()
     if lang == "python":
         return (
+            "TARGET FRAMEWORK:\n"
             "- Use Pytest framework.\n"
             "- Use the `requests` library to make HTTP calls.\n"
             "- Add the Authorization header as: `{'Authorization': f'Bearer {token}'}`.\n"
@@ -72,6 +154,7 @@ def _get_framework_instructions(language: str) -> str:
         )
     elif lang == "curl":
         return (
+            "TARGET FRAMEWORK:\n"
             "- Write clean, commented bash scripts with cURL commands.\n"
             "- Use `-H \"Authorization: Bearer $TEST_JWT_<ROLE>\"` to authenticate.\n"
             "- Use `-w \"%{http_code}\"` to capture and verify HTTP status codes.\n"
@@ -79,6 +162,7 @@ def _get_framework_instructions(language: str) -> str:
         )
     else: # default java
         return (
+            "TARGET FRAMEWORK:\n"
             "- Use JUnit 5 (@Test) with Spring Boot tests: @SpringBootTest + @AutoConfigureMockMvc.\n"
             "- Use MockMvc (not WebTestClient).\n"
             "- Use real JWT tokens injected via @Value from environment properties (do NOT use @WithMockUser).\n"
@@ -215,15 +299,57 @@ def _format_parameter_details(title: str, items: Any) -> str:
     lines.append("")
     return "\n".join(lines) + "\n"
 
+def __base_input_format(inconsistency: bool = False) -> str:
+    if inconsistency:
+        return (
+            "INPUT FORMAT:\n" 
+            "You will receive downstream_context with policy inconsistency information " 
+            "followed by scenario data as JSON, describing a downstream call chain with authorization inconsistencies." 
+            "Pay special attention to the 'chain_permissions' block which details the expected access for each role at " 
+            "every endpoint in the chain. Your tests should be designed to reveal these inconsistencies clearly.\n\n"
+        )
+    return (
+        "INPUT FORMAT:\n" 
+        "You will receive task instructions followed by scenario data as JSON.\n\n"
+    )
+
+def _path_param_instructions() -> str:
+    return (
+        "PATH PARAMETERS:\n"
+        "- If the endpoint URL contains placeholders (e.g., /orders/{orderId}), replace them with realistic values.\n"
+        "- Use the 'pathParameterDetails' from the scenario to understand the expected type and format of each parameter.\n"
+        "- For example, if 'orderId' is a long integer, use a value like 123 or 42. If it's a UUID, use a realistic UUID format.\n"
+        "- Ensure that the path parameters you choose would be considered valid by the API (e.g., existing IDs if possible)."
+        "- For UUIDs: use \"550e8400-e29b-41d4-a716-446655440000\""
+        "- For String names: use descriptive values like \"test-resource\".\n\n"
+    )
+
+def _query_param_instructions() -> str:
+    return (
+        "QUERY PARAMETERS:\n"
+        "- Add query parameters to the request URL as needed, based on the 'queryParameterDetails' in the scenario.\n"
+        "- Include all required query parameters, and consider adding optional ones if they are relevant to the test.\n"
+        "- Follow the type and format specified for each query parameter (e.g., string, int, boolean).\n"
+        "- For boolean parameters, test both true and false values if applicable.\n\n"
+    )
 
 def build_prompt_for_scenario(s: Dict[str, Any], language: str = "java") -> str:
     ctx = s.get("prompt_context", {})
     template_id = ctx.get("template_id") or s.get("prompt_template_id")
     params = ctx.get("parameters", {})
 
-    header = _base_prompt_header(language)
-    env_config_template = get_env_config(language)
-    framework_instructions = _get_framework_instructions(language)
+    inconsistencies = s.get("policy_inconsistencies", [])
+    inconsistency = len(inconsistencies) > 0
+
+    prompt = ""
+    
+    # Piecing together parts of the prompt
+    prompt += _base_prompt_header(language)
+    prompt += _base_job(language)
+    prompt += _job_additions(inconsistency)
+    prompt += __base_input_format()
+    prompt += _get_rules(inconsistency)
+    prompt += get_env_config(language)
 
     # Common pieces used in all templates
     scenario_id = params.get("scenario_id", s.get("scenario_id"))
@@ -264,8 +390,39 @@ def build_prompt_for_scenario(s: Dict[str, Any], language: str = "java") -> str:
         "- When a request body is required, construct a minimal valid JSON body consistent with the Entity Schema block.\n\n"
     )
 
-    entity_schema_block = _format_entity_schema(s)
-    chain_permissions_block = _format_chain_permissions(s)
+    prompt += base_context
+    prompt += _format_chain_permissions(s)
+    
+    # entity_schema_block = _format_entity_schema(s)
+
+    path_params = s.get("pathParameterDetails", [])
+    if len(path_params) > 0:
+        prompt += _path_param_instructions()
+
+    query_params = s.get("queryParameterDetails", [])
+    if len(query_params) > 0:
+        prompt += _query_param_instructions()
+
+    sensitive = s.get("handles_pii")
+    sensitivity_type = s.get("sensitivity_type")
+    if sensitive:
+        prompt += (
+            f"SENSITIVE DATA HANDLING:\n"
+            f"- This endpoint handles {sensitivity_type} data"
+            f"- Generate realistic but clearly fake test data"
+            f"- Ensure comprehensive access control validation.\n\n")
+
+    complexity = ctx.get("prompt_type") or s.get("scenario_category") or "SIMPLE"
+    if complexity == "CHAIN_OF_THOUGHT":
+        prompt += (
+            "ANALYSIS APPROACH:\n"
+            "- For complex scenarios (e.g., downstream inconsistencies), include detailed comments in the tests that explain your reasoning.\n"
+            "- Walk through the expected behavior at each step of the call chain, especially where inconsistencies are expected.\n"
+            "- Use comments to clarify why certain roles should be allowed or denied at each endpoint, and how this relates to the overall scenario goals. "
+            "- Check for potential security gaps too. \n\n"
+        )
+
+    framework_instructions = _get_framework_instructions(language)
 
     # Dynamic terminology based on target language
     test_word = "scripts/commands" if language.lower() == "curl" else "tests"
@@ -300,6 +457,9 @@ def build_prompt_for_scenario(s: Dict[str, Any], language: str = "java") -> str:
             f'Expected status by role: {expected}\n\n'
             f'Add short comments in the {test_word} explaining why each role should be allowed '
             'or denied, focusing on authorization behavior rather than business logic.\n'
+            'Generate a realistic request body from entity_schema.fields (if present and method is POST/PUT/PATCH).\n'
+            'Include path_params and query_params in the request if applicable.\n'
+            'Include a brief rationale explaining why this status is expected.\n\n'
         )
     elif template_id == "entrypoint_public_sensitive":
         sensitivity = params.get("sensitivity_type")
@@ -326,6 +486,9 @@ def build_prompt_for_scenario(s: Dict[str, Any], language: str = "java") -> str:
             '   - Asserts a 403 status (or another denial status consistent with the policy).\n\n'
             f'In all {test_word}, add short comments that explicitly explain why the behavior '
             'demonstrates a policy exposure (e.g., "financial endpoint accessible without auth").\n'
+            'Generate a realistic request body from entity_schema.fields (if present and method is POST/PUT/PATCH).\n'
+            'Include path_params and query_params in the request if applicable.\n'
+            'Include a brief rationale explaining why this status is expected.\n\n'
         )
     elif template_id == "downstream_consistent_path":
         max_depth = params.get("max_depth")
@@ -351,6 +514,9 @@ def build_prompt_for_scenario(s: Dict[str, Any], language: str = "java") -> str:
             "   - Assert that the failure is NOT due to authorization (focus on auth consistency, not business errors).\n\n"
             "Add brief comments to clarify that the goal is to show consistent authorization along the chain, "
             "not to exhaustively test business logic.\n"
+            'Generate a realistic request body from entity_schema.fields (if present and method is POST/PUT/PATCH).\n'
+            'Include path_params and query_params in the request if applicable.\n'
+            'Include a brief rationale explaining why this status is expected.\n\n'
         )
     elif template_id in ("downstream_inconsistency_cot", "downstream_inconsistency_simple"):
         max_depth = params.get("max_depth")
@@ -379,6 +545,10 @@ def build_prompt_for_scenario(s: Dict[str, Any], language: str = "java") -> str:
             "For 'downstream_inconsistency_cot', use more detailed comments explaining each step of the chain "
             "and why the inconsistency occurs (a chain-of-thought style explanation). For "
             "'downstream_inconsistency_simple', keep comments brief and focus only on the observed status differences.\n"
+            "Generate a realistic request body from entity_schema.fields (if present and method is POST/PUT/PATCH).\n"
+            "Include path_params and query_params in the request if applicable.\n"
+            "Include rationale explaining the expected behavior based on the inconsistency type."
+            "Note which downstream service causes the inconsistency (from policy_inconsistencies).\n\n"
         )
     else:
         body = (
@@ -386,9 +556,16 @@ def build_prompt_for_scenario(s: Dict[str, Any], language: str = "java") -> str:
             "behavior. Use the scenario metadata above (roles, expected statuses) "
             f"to design meaningful {test_word}.\n"
         )
+    
+    prompt += body
 
-    return header + base_context + chain_permissions_block + entity_schema_block + env_config_template + body
+    s['_id'] = str(s['_id'])
+    prompt += (
+        "INPUT DATA JSON:\n"
+        f"{json.dumps(s)}"
+    )
 
+    return prompt
 
 def generate_prompts(
     scenarios: List[Dict[str, Any]], 

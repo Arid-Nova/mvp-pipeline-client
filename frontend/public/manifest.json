@@ -1,6 +1,6 @@
 {
-  "short_name": "AridNova Explorer",
-  "name": "Create React App Sample",
+  "short_name": "AridNova",
+  "name": "AridNova: Microservice Analyzer",
   "icons": [
     {
       "src": "logo.ico",
