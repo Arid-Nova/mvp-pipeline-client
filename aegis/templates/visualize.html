@@ -3,204 +3,297 @@
 <head>
     <meta charset="UTF-8">
     <title>Aegis - Visualization Dashboard</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js"></script>
+    
     <style>
+        * {
+            box-sizing: border-box; /* Ensures padding doesn't break element widths */
+        }
+
+        :root {
+            --bg-body: #f8fafc;
+            --bg-surface: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --primary-light: #e0e7ff;
+            --danger: #e11d48;
+            --danger-bg: #ffe4e6;
+            --success: #10b981;
+            --success-bg: #d1fae5;
+            --warning: #ea580c;
+            --warning-bg: #ffedd5;
+            --border: #e2e8f0;
+            
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 20px;
+            --radius-xl: 24px;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --shadow-float: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+        }
+
         .viz-container {
-            max-width: 1400px;
-            margin: 2rem auto;
-            padding: 0 1rem;
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 2.5rem 2rem;
         }
         
-        .dashboard-header {
+        .header-wrapper {
             display: flex;
             justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 2.5rem;
+        }
+
+        .dashboard-header h1 {
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+            margin: 0.5rem 0 0.25rem 0;
+            background: linear-gradient(to right, #0f172a, #334155);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .dashboard-header p {
+            margin: 0;
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 1rem;
+        }
+
+        .back-nav-btn {
+            display: inline-flex;
             align-items: center;
-            margin-bottom: 2rem;
+            gap: 0.5rem;            
+            background: var(--bg-surface);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            padding: 0.6rem 1.25rem;   
+            border-radius: 9999px;
+            font-weight: 600;
+            text-decoration: none;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .back-nav-btn:hover {
+            background: var(--bg-body);
+            border-color: #cbd5e1;
+            transform: translateX(-2px); 
         }
 
         .controls {
-            display: flex;
-            gap: 2rem;
-            align-items: center;
+            background: var(--bg-surface);
+            padding: 1rem 1.5rem;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
         }
 
-        .slider-container {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            width: 200px; 
-        }
-        
         .slider-label {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: var(--text-light);
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: var(--text-main);
             display: flex;
             justify-content: space-between;
+            margin-bottom: 0.75rem;
+        }
+
+        .slider-label span {
+            color: var(--primary);
+            background: var(--primary-light);
+            padding: 0.1rem 0.5rem;
+            border-radius: var(--radius-sm);
         }
 
         input[type=range] {
             -webkit-appearance: none; 
-            width: 100%;
+            width: 200px;
             background: transparent; 
-            padding: 0; 
-            border: none; 
-        }
-
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            height: 16px;
-            width: 16px;
-            border-radius: 50%;
-            background: var(--primary-color);
-            cursor: pointer;
-            margin-top: -6px; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            transition: transform 0.1s;
-        }
-
-        input[type=range]::-webkit-slider-thumb:hover {
-            transform: scale(1.2);
         }
 
         input[type=range]::-webkit-slider-runnable-track {
             width: 100%;
-            height: 4px;
+            height: 6px;
             cursor: pointer;
-            background: #E5E7EB; 
-            border-radius: 2px;
+            background: #cbd5e1; 
+            border-radius: 999px;
         }
 
-        input[type=range]:focus {
-            outline: none;
-        }
-
-        input[type=range]::-moz-range-thumb {
-            height: 16px;
-            width: 16px;
-            border: none;
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
             border-radius: 50%;
-            background: var(--primary-color);
+            background: var(--primary);
             cursor: pointer;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            margin-top: -7px; 
+            box-shadow: 0 0 0 4px var(--bg-surface), 0 0 0 5px var(--primary-light);
+            transition: transform 0.1s;
         }
 
-        input[type=range]::-moz-range-track {
-            width: 100%;
-            height: 4px;
-            cursor: pointer;
-            background: #E5E7EB;
-            border-radius: 2px;
+        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.1); }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .stat-card {
+            background: var(--bg-surface);
+            padding: 1.75rem;
+            border-radius: var(--radius-xl);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-md);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 4px;
+            background: linear-gradient(90deg, var(--primary), #818cf8);
+            opacity: 0.8;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--text-main);
+            line-height: 1;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.05em;
+        }
+
+        .stat-label {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
 
         .tabs {
-            display: flex;
-            gap: 1rem;
+            display: inline-flex;
+            background: #e2e8f0;
+            padding: 0.35rem;
+            border-radius: var(--radius-md);
+            gap: 0.25rem;
             margin-bottom: 1.5rem;
         }
 
         .tab-btn {
-            background: white;
-            border: 1px solid var(--border-color);
+            background: transparent;
+            border: none;
             padding: 0.75rem 1.5rem;
-            border-radius: 8px;
+            border-radius: var(--radius-sm);
             cursor: pointer;
             font-weight: 600;
-            color: var(--text-light);
-            transition: all 0.2s;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            transition: all 0.2s ease;
+            font-family: inherit;
         }
 
+        .tab-btn:hover:not(.active) { color: var(--text-main); }
+
         .tab-btn.active {
-            background: var(--primary-color);
-            color: white;
-            border-color: var(--primary-color);
+            background: var(--bg-surface);
+            color: var(--primary);
             box-shadow: var(--shadow-sm);
         }
 
         .chart-card {
-            background: white;
-            border-radius: 16px;
+            background: var(--bg-surface);
+            border-radius: var(--radius-xl);
             padding: 1.5rem;
             box-shadow: var(--shadow-lg);
-            border: 1px solid var(--border-color);
-            height: 700px;
+            border: 1px solid var(--border);
+            height: 750px;
             position: relative;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
-
-        .stat-card {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
-            box-shadow: var(--shadow-sm);
-            text-align: center;
-        }
-
-        .stat-value {
-            font-size: 2rem;
-            font-weight: 800;
-            color: var(--primary-color);
-            margin-bottom: 0.5rem;
-        }
-
-        .stat-label {
-            color: var(--text-light);
-            font-size: 0.9rem;
-            font-weight: 500;
+            overflow: hidden;
         }
         
         #loading {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 1.2rem;
-            color: var(--text-light);
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-weight: 600;
+            color: var(--text-muted);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
         }
 
         #call-graph-container {
             width: 100%;
             height: 100%;
-            position: relative;
             display: flex;
-            gap: 1rem;
+            gap: 1.5rem;
         }
 
-        #call-graph-container.hidden {
-            display: none !important;
+        .graph-area-wrapper {
+            position: relative;
+            flex: 1;
+            display: flex;
+            min-width: 0;
+            border-radius: var(--radius-md);
+            border: 1px dashed var(--border);
+            background: #f8fafc;
+            overflow: hidden;
         }
 
         #call-graph {
-            flex: 1;
-            min-width: 0;
+            width: 100%;
+            height: 100%;
         }
 
         #vulnerabilities-panel {
-            width: 350px;
-            background: white;
-            border-left: 2px solid var(--border-color);
-            padding: 1.5rem;
+            width: 480px; /* Widened */
+            background: var(--bg-surface);
+            border-left: 1px solid var(--border);
+            padding: 0 1.5rem 1.5rem 1.5rem; /* Better right padding */
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 1rem;
+            gap: 1.5rem;
         }
 
-        .vuln-header {
+        #vulnerabilities-panel::-webkit-scrollbar { width: 6px; }
+        #vulnerabilities-panel::-webkit-scrollbar-track { background: transparent; }
+        #vulnerabilities-panel::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+        .panel-section-title {
             font-size: 1.1rem;
-            font-weight: 700;
-            color: var(--text-primary);
-            margin-bottom: 0.5rem;
+            font-weight: 800;
+            color: var(--text-main);
+            margin: 0 0 1rem 0;
             display: flex;
             align-items: center;
             gap: 0.5rem;
@@ -209,179 +302,244 @@
         .vuln-stats {
             display: flex;
             gap: 1rem;
-            margin-bottom: 1rem;
-            padding-bottom: 1rem;
-            border-bottom: 2px solid var(--border-color);
+            background: var(--bg-body);
+            padding: 1rem;
+            border-radius: var(--radius-md);
         }
 
         .vuln-stat {
-            text-align: center;
             flex: 1;
+            background: var(--bg-surface);
+            padding: 1rem;
+            border-radius: var(--radius-sm);
+            text-align: center;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
         }
 
         .vuln-stat-value {
-            font-size: 1.5rem;
+            font-size: 1.75rem;
             font-weight: 800;
-            color: var(--danger-color);
+            line-height: 1;
+            margin-bottom: 0.25rem;
         }
+
+        .val-risk { color: var(--danger); }
+        .val-safe { color: var(--success); }
 
         .vuln-stat-label {
             font-size: 0.75rem;
-            color: var(--text-light);
+            color: var(--text-muted);
+            font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.05em;
         }
 
         .findings-list {
             display: flex;
             flex-direction: column;
-            gap: 0.75rem;
+            gap: 1rem;
         }
 
         .vuln-item {
-            background: #FEF2F2;
-            border-left: 4px solid var(--danger-color);
-            padding: 1rem;
-            border-radius: 8px;
-            font-size: 0.85rem;
+            background: var(--danger-bg);
+            border: 1px solid #fecdd3;
+            padding: 1.25rem;
+            border-radius: var(--radius-md);
+            font-size: 0.9rem;
             transition: all 0.2s;
-        }
-
-        .vuln-item:hover {
-            background: #FEE2E2;
-            transform: translateX(4px);
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
         }
 
         .vuln-item.positive {
-            background: #F0FDF4;
-            border-left-color: var(--success-color);
-        }
-
-        .vuln-item.positive:hover {
-            background: #DCFCE7;
+            background: var(--success-bg);
+            border: 1px solid #a7f3d0;
         }
 
         .vuln-finding {
-            color: var(--text-primary);
-            line-height: 1.5;
-            margin-bottom: 0.5rem;
+            color: var(--text-main);
+            font-weight: 500;
+            line-height: 1.6;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+        
+        .vuln-finding svg {
+            flex-shrink: 0;
+            margin-top: 2px;
         }
 
         .vuln-meta {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            flex-wrap: wrap;
             gap: 0.5rem;
+            padding-left: 2rem; /* align with text after icon */
+        }
+
+        .meta-badge {
             font-size: 0.75rem;
-            color: var(--text-light);
+            font-weight: 700;
+            padding: 0.25rem 0.6rem;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.6);
+            color: var(--text-main);
+            border: 1px solid rgba(0,0,0,0.05);
         }
 
-        .vuln-confidence {
-            background: white;
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-weight: 600;
+        .latent-vulns-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
         }
 
-        .vuln-context {
-            font-style: italic;
+        .latent-vuln-card {
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            background-color: var(--bg-surface);
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+            transition: transform 0.2s;
         }
 
-        .empty-vulns {
-            text-align: center;
-            padding: 2rem;
-            color: var(--text-light);
+        .latent-vuln-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
         }
 
-        .empty-vulns-icon {
-            font-size: 3rem;
-            margin-bottom: 0.5rem;
-            opacity: 0.5;
+        .latent-vuln-header {
+            display: flex;
+            align-items: center;
+            background: var(--warning-bg);
+            padding: 1rem 1.25rem;
+            gap: 0.75rem;
+            border-bottom: 1px solid #fed7aa;
         }
 
-        .graph-header {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: white;
-            padding: 1rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            z-index: 1000;
-            max-width: 400px;
-        }
-
-        .graph-header h3 {
-            margin: 0 0 0.5rem 0;
-            font-size: 1rem;
-            color: var(--text-primary);
-        }
-
-        .graph-header p {
+        .vuln-title {
             margin: 0;
-            font-size: 0.85rem;
-            color: var(--text-light);
+            font-size: 0.95rem;
+            color: #9a3412;
+            font-weight: 700;
+            line-height: 1.4;
+        }
+
+        .latent-vuln-body {
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .detail-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+
+        .detail-icon { 
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 2px;
+        }
+
+        .detail-content { flex: 1; }
+
+        .detail-content strong {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+        }
+
+        .detail-content p {
+            margin: 0;
+            font-size: 0.9rem;
+            color: var(--text-main);
+            line-height: 1.5;
+        }
+
+        .code-snippet {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            background-color: var(--bg-body);
+            padding: 0.4rem 0.6rem;
+            border-radius: var(--radius-sm);
+            display: inline-block;
+            border: 1px solid var(--border);
+            font-size: 0.8rem !important;
+            color: var(--primary);
+            word-break: break-all;
+        }
+
+        .suggestion-row {
+            background-color: var(--bg-body);
+            padding: 1rem;
+            border-radius: var(--radius-sm);
+            border-left: 3px solid var(--primary);
         }
 
         .close-graph-btn {
             position: absolute;
-            top: 10px;
-            left: 10px;
-            background: var(--primary-color);
-            color: white;
-            border: none;
+            top: 1.5rem; left: 1.5rem; /* Now relative to the graph wrapper */
+            background: var(--bg-surface);
+            color: var(--text-main);
+            border: 1px solid var(--border);
             padding: 0.5rem 1rem;
-            border-radius: 6px;
+            border-radius: 999px;
             cursor: pointer;
             font-weight: 600;
+            font-size: 0.875rem;
             transition: all 0.2s;
             z-index: 1000;
-            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+            box-shadow: var(--shadow-md);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
         .close-graph-btn:hover {
-            background: #2563EB;
+            background: var(--bg-body);
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+            box-shadow: var(--shadow-lg);
         }
 
         .graph-legend {
             position: absolute;
-            bottom: 10px;
-            left: 10px;
-            background: white;
+            bottom: 1.5rem; left: 1.5rem;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
             padding: 1.25rem;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-float);
             z-index: 1000;
-            font-size: 0.85rem;
-            border: 1px solid #E5E7EB;
+            border: 1px solid var(--border);
+            min-width: 200px;
         }
 
         .legend-title {
-            font-weight: 700;
-            margin-bottom: 0.75rem;
-            color: #1F2937;
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .legend-section {
+            font-weight: 800;
             margin-bottom: 1rem;
+            color: var(--text-main);
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
 
-        .legend-section:last-child {
-            margin-bottom: 0;
-        }
+        .legend-section { margin-bottom: 1.25rem; }
+        .legend-section:last-child { margin-bottom: 0; }
 
         .legend-section-title {
-            font-weight: 600;
+            font-weight: 700;
             font-size: 0.75rem;
-            color: #6B7280;
-            margin-bottom: 0.5rem;
+            color: var(--text-muted);
+            margin-bottom: 0.75rem;
             text-transform: uppercase;
-            letter-spacing: 0.3px;
         }
 
         .legend-item {
@@ -389,189 +547,57 @@
             align-items: center;
             gap: 0.75rem;
             margin-bottom: 0.5rem;
-            font-size: 0.8rem;
-        }
-
-        .legend-item:last-child {
-            margin-bottom: 0;
-        }
-
-        .legend-color {
-            width: 24px;
-            height: 24px;
-            border-radius: 6px;
-            border: 2px solid;
-            flex-shrink: 0;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .legend-line {
-            width: 30px;
-            height: 3px;
-            border-radius: 2px;
-            flex-shrink: 0;
-        }
-
-        .legend-line.dashed {
-            background: linear-gradient(to right, currentColor 50%, transparent 50%);
-            background-size: 8px 3px;
-        }
-
-        .legend-line.dotted {
-            background: linear-gradient(to right, currentColor 33%, transparent 33%);
-            background-size: 6px 3px;
-        }
-
-        .back-nav-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center; 
-            gap: 0.75rem;            
-            background: white;
-            color: var(--text-light);
-            border: 1px solid var(--border-color);
-            padding: 0.75rem 2rem;   
-            min-width: 180px;      
-            border-radius: 8px;
-            font-weight: 600;
-            text-decoration: none;
-            font-size: 0.95rem;
-            transition: all 0.2s;
-            margin-bottom: 1rem;
-            cursor: pointer;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .back-nav-btn:hover {
-            background: #F3F4F6;
-            color: var(--primary-color);
-            transform: translateX(-3px); 
-            border-color: var(--primary-color);
-        }
-
-        .back-nav-btn.bottom {
-            margin-top: 2rem;
-            margin-bottom: 0;
-        }
-
-        /* Container for the cards */
-        .latent-vulns-list {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-            margin-top: 10px;
-        }
-
-        /* Individual Card Styling */
-        .latent-vuln-card {
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            background-color: #ffffff;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-            overflow: hidden;
-        }
-
-        /* Card Header - Eye catching warning styling */
-        .latent-vuln-header {
-            display: flex;
-            align-items: center;
-            background-color: #fff8eb; /* Light orange warning background */
-            border-bottom: 1px solid #fbd38d;
-            padding: 12px 16px;
-            gap: 10px;
-        }
-
-        .vuln-icon {
-            font-size: 1.2rem;
-        }
-
-        .vuln-title {
-            margin: 0;
-            font-size: 1rem;
-            color: #9c4221;
-            font-weight: 600;
-        }
-
-        /* Card Body */
-        .latent-vuln-body {
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-        }
-
-        /* Detail Rows (Cause, Location, Solution) */
-        .detail-row {
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-        }
-
-        .detail-icon {
-            font-size: 1.1rem;
-            margin-top: 2px;
-        }
-
-        .detail-content {
-            flex: 1;
-        }
-
-        .detail-content strong {
-            display: block;
             font-size: 0.85rem;
-            color: #64748b;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 4px;
+            font-weight: 500;
         }
 
-        .detail-content p {
+        .legend-color { width: 20px; height: 20px; border-radius: 6px; border: 2px solid; }
+
+        .legend-line { width: 24px; height: 3px; border-radius: 2px; }
+        .legend-line.dashed { background: repeating-linear-gradient(90deg, currentColor, currentColor 4px, transparent 4px, transparent 8px); }
+        .legend-line.dotted { background: repeating-linear-gradient(90deg, currentColor, currentColor 2px, transparent 2px, transparent 6px); }
+
+        .empty-vulns {
+            text-align: center;
+            padding: 3rem 1rem;
+            background: var(--bg-body);
+            border: 2px dashed var(--border);
+            border-radius: var(--radius-md);
+            color: var(--text-muted);
+        }
+
+        .empty-vulns svg {
+            margin-bottom: 1rem;
+            color: #94a3b8;
+        }
+
+        .empty-vulns p {
             margin: 0;
-            font-size: 0.95rem;
-            color: #334155;
-            line-height: 1.5;
+            font-weight: 600;
+            font-size: 0.9rem;
         }
 
-        /* Code Snippet Formatting for Locations */
-        .code-snippet {
-            font-family: 'Courier New', Courier, monospace;
-            background-color: #f1f5f9;
-            padding: 4px 8px;
-            border-radius: 4px;
-            display: inline-block;
-            border: 1px solid #e2e8f0;
-            font-size: 0.9rem !important;
-        }
-
-        /* Highlight the suggestion row slightly */
-        .suggestion-row {
-            background-color: #f0fdf4; /* Light green */
-            padding: 12px;
-            border-radius: 6px;
-            border-left: 4px solid #4ade80;
-            margin-top: 4px;
-        }
-        
-        .hidden { display: none; }
+        .hidden { display: none !important; }
     </style>
 </head>
 <body data-ir-id="{{ irID }}">
     <div class="viz-container">
-        <a href="http://localhost:3000" class="back-nav-btn">
-            ← Back to Home
+        <a href="http://localhost:3000" class="back-nav-btn" style="margin-bottom: 1rem;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            Back to Origin
         </a>
 
-        <div class="dashboard-header">
-            <div>
+        <div class="header-wrapper">
+            <div class="dashboard-header">
                 <h1>System Introspection</h1>
                 <p>Visualizing Metaphoric Risk & Architectural Posture</p>
             </div>
             
             <div class="controls">
-                <div class="slider-container">
-                    <label class="slider-label" for="base-rate">Base Rate (a): <span id="base-rate-val">0.5</span></label>
-                    <input type="range" id="base-rate" name="base-rate" min="0" max="1" step="0.1" value="0.5" oninput="updateBaseRate(this.value)">
+                <div class="slider-label">
+                    Base Rate (a) <span id="base-rate-val">0.5</span>
                 </div>
+                <input type="range" id="base-rate" min="0" max="1" step="0.1" value="0.5" oninput="updateBaseRate(this.value)">
             </div>
         </div>
 
@@ -582,131 +608,124 @@
             </div>
             <div class="stat-card">
                 <div class="stat-value" id="stat-risk">0.0</div>
-                <div class="stat-label">Avg. Probability Expectation E(O)</div>
+                <div class="stat-label">Avg. Probability Expectation</div>
             </div>
             <div class="stat-card">
                 <div class="stat-value" id="stat-critical">0</div>
-                <div class="stat-label">Critical Findings (Low E(O))</div>
+                <div class="stat-label">Critical Findings (Low E)</div>
             </div>
             <div class="stat-card">
                 <div class="stat-value" id="stat-conflicts">0</div>
-                <div class="stat-label">Technical-Business Conflicts</div>
+                <div class="stat-label">Contextual Conflicts</div>
             </div>
         </div>
 
         <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('risk-cloud')">☁️ Risk Cloud (2D)</button>
-            <button class="tab-btn" onclick="switchTab('arch-map')">☁️ Risk Cloud (3D)</button>
-            <button class="tab-btn hidden" id="call-graph-tab" onclick="switchTab('call-graph')">🔗 Call Graph</button>
+            <button class="tab-btn active" onclick="switchTab('risk-cloud')">Risk Cloud 2D</button>
+            <button class="tab-btn" onclick="switchTab('arch-map')">Risk Space 3D</button>
+            <button class="tab-btn hidden" id="call-graph-tab" onclick="switchTab('call-graph')">Inspection Details</button>
         </div>
 
         <div class="chart-card">
-            <div id="loading">Loading analysis data...</div>
+            <div id="loading">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation: spin 1s linear infinite;"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                Processing Telemetry...
+            </div>
+            <style>@keyframes spin { 100% { transform: rotate(360deg); } }</style>
+
             <div id="risk-cloud-chart" style="width:100%; height:100%;"></div>
             <div id="arch-map-chart" style="width:100%; height:100%;" class="hidden"></div>
+            
             <div id="call-graph-container" class="hidden">
-                <button class="close-graph-btn" onclick="closeCallGraph()">← Back to Overview</button>
-                <div id="call-graph"></div>
-                <div id="vulnerabilities-panel">
-                    <div class="vuln-header">
-                        Security Findings
+                <div class="graph-area-wrapper">
+                    <button class="close-graph-btn" onclick="closeCallGraph()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                        Return to Map
+                    </button>
+                    <div id="call-graph"></div>
+                    
+                    <div class="graph-legend">
+                        <div class="legend-title">Graph Legend</div>
+                        <div class="legend-section">
+                            <div class="legend-section-title">Nodes</div>
+                            <div class="legend-item"><div class="legend-color" style="background: #e0e7ff; border-color: #4f46e5;"></div><span>Endpoint</span></div>
+                            <div class="legend-item"><div class="legend-color" style="background: #d1fae5; border-color: #10b981;"></div><span>Method</span></div>
+                            <div class="legend-item"><div class="legend-color" style="background: #ffedd5; border-color: #ea580c;"></div><span>Data Entity</span></div>
+                        </div>
+                        <div class="legend-section">
+                            <div class="legend-section-title">Links</div>
+                            <div class="legend-item"><div class="legend-line" style="background: #64748b;"></div><span>Internal Call</span></div>
+                            <div class="legend-item"><div class="legend-line dashed" style="color: #e11d48;"></div><span>External Call</span></div>
+                            <div class="legend-item"><div class="legend-line dotted" style="color: #8b5cf6;"></div><span>Data Access</span></div>
+                        </div>
                     </div>
+                </div>
+
+                <div id="vulnerabilities-panel">
+                    <h3 class="panel-section-title" style="margin-top: 1rem;">Diagnostics Overview</h3>
+                    
                     <div class="vuln-stats">
                         <div class="vuln-stat">
-                            <div class="vuln-stat-value" id="vuln-count-risk">0</div>
-                            <div class="vuln-stat-label">Risk</div>
+                            <div class="vuln-stat-value val-risk" id="vuln-count-risk">0</div>
+                            <div class="vuln-stat-label">Risks</div>
                         </div>
                         <div class="vuln-stat">
-                            <div class="vuln-stat-value" style="color: var(--success-color);" id="vuln-count-safe">0</div>
-                            <div class="vuln-stat-label">Safe</div>
+                            <div class="vuln-stat-value val-safe" id="vuln-count-safe">0</div>
+                            <div class="vuln-stat-label">Safeguards</div>
                         </div>
                     </div>
 
-                    <!-- This block displays the latent vulnerabilities -->
+                    <h3 class="panel-section-title" style="margin-top: 1rem;">Latent Vulnerabilities <span id="latent-vuln-count" style="background: var(--bg-body); padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.8rem; color: var(--text-muted); font-weight: 600; margin-left: auto;">0</span></h3>
                     <div id="latent-vulns-list" class="latent-vulns-list">
                         <div class="empty-vulns">
-                            <div class="empty-vulns-icon">🔍</div>
-                            <p>Click a point to view latent vulnerabilities</p>
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="9" x2="15" y1="9" y2="9"/><line x1="9" x2="15" y1="15" y2="15"/></svg>
+                            <p>Select a node to inspect architecture</p>
                         </div>
                     </div>
 
-                    <!-- This block displays the underlying low level security findings related to he latent vulnarabilities -->
+                    <h3 class="panel-section-title" style="margin-top: 1rem;">Raw Security Evidence</h3>
                     <div id="findings-list" class="findings-list">
-                        <div class="empty-vulns">
-                            <div class="empty-vulns-icon">🔍</div>
-                            <p>Click a point to view findings</p>
-                        </div>
-                    </div>
-
-                </div>
-                <div class="graph-legend">
-                    <div class="legend-title">Graph Legend</div>
-                    
-                    <div class="legend-section">
-                        <div class="legend-section-title">Node Types</div>
-                        <div class="legend-item">
-                            <div class="legend-color" style="background: linear-gradient(135deg, #3B82F6, #2563EB); border-color: #2563EB;"></div>
-                            <span>Endpoint</span>
-                        </div>
-                        <div class="legend-item">
-                            <div class="legend-color" style="background: linear-gradient(135deg, #10B981, #059669); border-color: #059669;"></div>
-                            <span>Method</span>
-                        </div>
-                        <div class="legend-item">
-                            <div class="legend-color" style="background: linear-gradient(135deg, #F59E0B, #D97706); border-color: #D97706;"></div>
-                            <span>Data Entity</span>
-                        </div>
-                    </div>
-                    
-                    <div class="legend-section">
-                        <div class="legend-section-title">Relationships</div>
-                        <div class="legend-item">
-                            <div class="legend-line" style="background: #3B82F6;"></div>
-                            <span>Calls</span>
-                        </div>
-                        <div class="legend-item">
-                            <div class="legend-line dashed" style="color: #EF4444;"></div>
-                            <span>External Call</span>
-                        </div>
-                        <div class="legend-item">
-                            <div class="legend-line dotted" style="color: #8B5CF6;"></div>
-                            <span>Accesses</span>
+                        <div class="empty-vulns" style="padding: 2rem 1rem;">
+                            <p>No semantic evidence extracted</p>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-        <a href="http://localhost:3000" class="back-nav-btn bottom">
-            ← Back to Home
-        </a>
     </div>
 
     <script>
+        // --- Abstract SVG Icons Dictionary ---
+        const ICONS = {
+            warning: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9a3412" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>`,
+            cause: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>`,
+            location: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>`,
+            solution: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
+            riskItem: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e11d48" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+            safeItem: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>`,
+            emptyCheck: `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`
+        };
+
         let globalData = [];
         let globalVulnerabilities = [];
         let currentBaseRate = 0.5;
         let currentEndpointId = null;
-        let cy = null; // Cytoscape instance
+        let cy = null;
 
         const IR_ID = document.body.getAttribute('data-ir-id');
 
         async function fetchData() {
-            if (!IR_ID) {
-                throw new Error("Missing irID");
-            }
-
+            if (!IR_ID) throw new Error("Missing irID");
             try {
                 const response = await fetch(`/api/results?irID=${encodeURIComponent(IR_ID)}`); 
                 let data = await response.json();
-                globalData = data['results']
-                globalVulnerabilities = data['vulnerabilities']
-
+                globalData = data['results'];
+                globalVulnerabilities = data['vulnerabilities'];
                 refreshViews();
-                
                 document.getElementById('loading').classList.add('hidden');
             } catch (error) {
                 console.error("Error loading data:", error);
-                document.getElementById('loading').textContent = "Error loading data. Ensure analysis has run.";
+                document.getElementById('loading').innerHTML = "Error loading telemetry. Ensure analysis has run.";
             }
         }
 
@@ -723,17 +742,13 @@
         }
 
         function switchTab(tabId) {
-            // Don't use event.target if called programmatically
             const targetButton = event?.target || document.querySelector(`[onclick*="${tabId}"]`);
-            
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            if (targetButton) {
-                targetButton.classList.add('active');
-            }
+            if (targetButton) targetButton.classList.add('active');
 
-            document.getElementById('risk-cloud-chart').classList.add('hidden');
-            document.getElementById('arch-map-chart').classList.add('hidden');
-            document.getElementById('call-graph-container').classList.add('hidden');
+            ['risk-cloud-chart', 'arch-map-chart', 'call-graph-container'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
             
             if (tabId === 'risk-cloud') {
                 document.getElementById('risk-cloud-chart').classList.remove('hidden');
@@ -743,12 +758,7 @@
                 setTimeout(() => Plotly.Plots.resize('arch-map-chart'), 100);
             } else if (tabId === 'call-graph') {
                 document.getElementById('call-graph-container').classList.remove('hidden');
-                if (cy) {
-                    setTimeout(() => {
-                        cy.resize();
-                        cy.fit();
-                    }, 100);
-                }
+                if (cy) setTimeout(() => { cy.resize(); cy.fit(); }, 100);
             }
         }
 
@@ -760,167 +770,112 @@
 
         function formatTooltip(d) {
             const E = calculateExpectation(d.fused_opinion).toFixed(3);
-            let info = `<b>${d.method_name}</b><br>Path: ${d.path_template}<br>E(O): ${E}`;
-            info += `<br><b>b=${d.fused_opinion.belief.toFixed(3)}, d=${d.fused_opinion.disbelief.toFixed(3)}, u=${d.fused_opinion.uncertainty.toFixed(3)}</b>`;
-            
-            if (d.neuro_evidence && d.neuro_evidence.length > 0) {
-                const safeEvidence = d.neuro_evidence.filter(e => e.polarity == 'risk-increasing');
-                if (safeEvidence.length > 0) {
-                    info += '<br><i><b>Identified Vulnerabilities:</b></i><br>' + safeEvidence.slice(0, 3).map(e => `- ${e.finding}`).join('<br>');
-                    if (safeEvidence.length > 3) {
-                        info += `<br>... and ${safeEvidence.length - 3} more`;
-                    }
-                }
-            }
-            return info;
+            return `<b>${d.method_name}</b><br><span style="color:#64748b; font-size:11px;">${d.path_template}</span><br>Expectation: <b>${E}</b>`;
         }
 
         function updateStats(data) {
             document.getElementById('stat-endpoints').textContent = data.length;
-            
             const totalExpectation = data.reduce((acc, curr) => acc + calculateExpectation(curr.fused_opinion), 0);
-            const avgExpectation = data.length ? (totalExpectation / data.length).toFixed(3) : 0.0;
-            document.getElementById('stat-risk').textContent = avgExpectation;
-
-            const criticalCount = data.filter(d => calculateExpectation(d.fused_opinion) < 0.3).length;
-            document.getElementById('stat-critical').textContent = criticalCount;
-
-            const conflictCount = data.filter(d => {
+            document.getElementById('stat-risk').textContent = data.length ? (totalExpectation / data.length).toFixed(3) : '0.0';
+            document.getElementById('stat-critical').textContent = data.filter(d => calculateExpectation(d.fused_opinion) < 0.3).length;
+            document.getElementById('stat-conflicts').textContent = data.filter(d => {
                 const op = d.fused_opinion || {belief: 0, disbelief: 0};
                 return op.belief > 0.3 && op.disbelief > 0.3;
             }).length;
-            document.getElementById('stat-conflicts').textContent = conflictCount;
         }
 
-        function renderRiskCloud(data) {
-            const belief = data.map(d => d.fused_opinion?.belief || 0);
-            const disbelief = data.map(d => d.fused_opinion?.disbelief || 0);
-            const uncertainty = data.map(d => d.fused_opinion?.uncertainty || 1);
-            const textLabels = data.map(d => formatTooltip(d));
-            const expectations = data.map(d => calculateExpectation(d.fused_opinion));
-            const endpointIds = data.map(d => d.id);
+        const MODERN_COLORS = [[0, '#e11d48'], [0.5, '#f59e0b'], [1, '#10b981']];
+        const PLOTLY_FONT = { family: "'Plus Jakarta Sans', sans-serif", color: '#0f172a' };
+        
+        // Modernized Tooltip Styling
+        const HOVER_LABEL_STYLE = {
+            bgcolor: '#ffffff',
+            bordercolor: '#cbd5e1',
+            font: { family: "'Plus Jakarta Sans', sans-serif", size: 13, color: '#0f172a' },
+            align: 'left'
+        };
 
+        function renderRiskCloud(data) {
             const trace = {
-                type: 'scatterternary',
-                mode: 'markers',
-                a: belief,
-                b: disbelief,
-                c: uncertainty,
-                text: textLabels,
-                customdata: endpointIds,
+                type: 'scatterternary', mode: 'markers',
+                a: data.map(d => d.fused_opinion?.belief || 0),
+                b: data.map(d => d.fused_opinion?.disbelief || 0),
+                c: data.map(d => d.fused_opinion?.uncertainty || 1),
+                text: data.map(d => formatTooltip(d)),
+                customdata: data.map(d => d.id),
                 marker: {
-                    color: expectations,
-                    colorscale: [
-                        [0, 'red'],
-                        [0.5, 'orange'],
-                        [1, 'green']
-                    ],
-                    cmin: 0,
-                    cmax: 1,
-                    size: 10,
-                    line: { width: 1, color: 'white' },
-                    opacity: 0.8,
-                    showscale: true,
-                    colorbar: { title: 'E(O)' }
+                    color: data.map(d => calculateExpectation(d.fused_opinion)),
+                    colorscale: MODERN_COLORS,
+                    size: 12, line: { width: 1.5, color: 'white' }, opacity: 0.9,
+                    colorbar: { title: 'Health Score', thickness: 15, outlinewidth: 0 }
                 },
-                hoverinfo: 'text'
+                hoverinfo: 'text',
+                hoverlabel: HOVER_LABEL_STYLE
             };
 
             const layout = {
                 ternary: {
                     sum: 1,
-                    aaxis: { title: 'Belief', color: '#10B981' },
-                    baxis: { title: 'Disbelief', color: '#EF4444' },
-                    caxis: { title: 'Uncertainty', color: '#6B7280' },
-                    bgcolor: '#F9FAFB'
+                    aaxis: { title: 'Belief', color: '#10b981', linewidth: 2 },
+                    baxis: { title: 'Disbelief', color: '#e11d48', linewidth: 2 },
+                    caxis: { title: 'Uncertainty', color: '#64748b', linewidth: 2 },
+                    bgcolor: '#f8fafc'
                 },
-                title: 'Subjective Logic Risk Cloud',
-                font: { family: 'Inter, sans-serif' },
-                paper_bgcolor: 'white',
+                font: PLOTLY_FONT,
+                paper_bgcolor: 'transparent',
+                margin: { t: 40, b: 40, l: 40, r: 40 }
             };
 
-            const config = {responsive: true};
-            
-            Plotly.newPlot('risk-cloud-chart', [trace], layout, config);
-            
-            // Add click event
-            document.getElementById('risk-cloud-chart').on('plotly_click', function(data) {
-                const pointIndex = data.points[0].pointIndex;
-                const endpointId = endpointIds[pointIndex];
-                loadCallGraph(endpointId);
-            });
+            Plotly.newPlot('risk-cloud-chart', [trace], layout, {responsive: true, displayModeBar: false});
+            document.getElementById('risk-cloud-chart').on('plotly_click', d => loadCallGraph(trace.customdata[d.points[0].pointIndex]));
         }
 
         function renderArchMap(data) {
-            const belief = data.map(d => d.fused_opinion?.belief || 0);
-            const disbelief = data.map(d => d.fused_opinion?.disbelief || 0);
-            const uncertainty = data.map(d => d.fused_opinion?.uncertainty || 1);
-            const textLabels = data.map(d => formatTooltip(d));
-            const expectations = data.map(d => calculateExpectation(d.fused_opinion));
-            const endpointIds = data.map(d => d.id);
-
             const trace = {
-                x: belief, y: disbelief, z: uncertainty,
+                x: data.map(d => d.fused_opinion?.belief || 0),
+                y: data.map(d => d.fused_opinion?.disbelief || 0),
+                z: data.map(d => d.fused_opinion?.uncertainty || 1),
                 mode: 'markers',
                 marker: {
-                    size: 7,
-                    color: expectations,
-                    colorscale: [
-                        [0, 'red'],
-                        [0.5, 'orange'],
-                        [1, 'green']
-                    ],
-                    cmin: 0,
-                    cmax: 1,
-                    opacity: 0.8,
-                    showscale: true,
-                    colorbar: { title: 'E(O)', len: 0.7 }
+                    size: 8,
+                    color: data.map(d => calculateExpectation(d.fused_opinion)),
+                    colorscale: MODERN_COLORS,
+                    opacity: 0.9,
+                    colorbar: { title: 'Health Score', len: 0.6, thickness: 15, outlinewidth: 0 }
                 },
-                text: textLabels,
-                customdata: endpointIds,
-                hoverinfo: 'text',
-                type: 'scatter3d'
+                text: data.map(d => formatTooltip(d)),
+                customdata: data.map(d => d.id),
+                hoverinfo: 'text', type: 'scatter3d',
+                hoverlabel: HOVER_LABEL_STYLE
             };
 
             const layout = {
                 margin: { l: 0, r: 0, b: 0, t: 0 },
                 scene: {
-                    xaxis: { title: 'Belief (b)' },
-                    yaxis: { title: 'Disbelief (d)' },
-                    zaxis: { title: 'Uncertainty (u)' },
+                    xaxis: { title: 'Belief', backgroundcolor: '#f8fafc', gridcolor: '#e2e8f0' },
+                    yaxis: { title: 'Disbelief', backgroundcolor: '#f8fafc', gridcolor: '#e2e8f0' },
+                    zaxis: { title: 'Uncertainty', backgroundcolor: '#f8fafc', gridcolor: '#e2e8f0' },
                 },
-                font: { family: 'Inter, sans-serif' }
+                font: PLOTLY_FONT,
+                paper_bgcolor: 'transparent'
             };
 
-            Plotly.newPlot('arch-map-chart', [trace], layout, {responsive: true});
-            
-            // Add click event
-            document.getElementById('arch-map-chart').on('plotly_click', function(data) {
-                const pointIndex = data.points[0].pointIndex;
-                const endpointId = endpointIds[pointIndex];
-                loadCallGraph(endpointId);
-            });
+            Plotly.newPlot('arch-map-chart', [trace], layout, {responsive: true, displayModeBar: false});
+            document.getElementById('arch-map-chart').on('plotly_click', d => loadCallGraph(trace.customdata[d.points[0].pointIndex]));
         }
 
         async function loadCallGraph(endpointId) {
             try {
                 currentEndpointId = endpointId;
-                
-                // Find the endpoint data
                 const endpointData = globalData.find(d => d.id === endpointId);
-
-                // Find the vulnerabilities for this endpoint
                 const endpointVulns = globalVulnerabilities.find(v => v.id === endpointId);
                 
-                // Fetch call graph data for this endpoint
                 const response = await fetch(`/api/callgraph/${encodeURIComponent(endpointId)}`);
                 const graphData = await response.json();
                 
-                // Show call graph tab
                 const callGraphTab = document.getElementById('call-graph-tab');
                 callGraphTab.classList.remove('hidden');
                 
-                // Manually trigger tab switch
                 document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
                 callGraphTab.classList.add('active');
                 
@@ -928,411 +883,159 @@
                 document.getElementById('arch-map-chart').classList.add('hidden');
                 document.getElementById('call-graph-container').classList.remove('hidden');
                 
-                // Render the call graph
                 renderCallGraph(graphData);
-                
-                // Render findings
                 renderFindings(endpointData);
-
-                // Render vulnerabilities
                 renderLatentVulnerabilities(endpointVulns);
-                
             } catch (error) {
-                console.error("Error loading call graph:", error);
-                alert("Failed to load call graph data: " + error.message);
+                console.error(error);
+                alert("Failed to load call graph data");
             }
         }
 
         function renderFindings(endpointData) {
             const findingsList = document.getElementById('findings-list');
-            
             if (!endpointData || !endpointData.neuro_evidence || endpointData.neuro_evidence.length === 0) {
-                findingsList.innerHTML = `
-                    <div class="empty-findings">
-                        <div class="empty-vulns-icon">✅</div>
-                        <p>No security findings detected</p>
-                    </div>
-                `;
+                findingsList.innerHTML = `<div class="empty-vulns">${ICONS.emptyCheck}<p>No semantic evidence found</p></div>`;
                 document.getElementById('vuln-count-risk').textContent = '0';
                 document.getElementById('vuln-count-safe').textContent = '0';
                 return;
             }
             
-            const evidence = endpointData.neuro_evidence;
-            const riskEvidence = evidence.filter(e => e.polarity === 'risk-increasing');
-            const safeEvidence = evidence.filter(e => e.polarity === 'risk-decreasing');
+            const riskEvidence = endpointData.neuro_evidence.filter(e => e.polarity === 'risk-increasing');
+            const safeEvidence = endpointData.neuro_evidence.filter(e => e.polarity === 'risk-decreasing');
             
             document.getElementById('vuln-count-risk').textContent = riskEvidence.length;
             document.getElementById('vuln-count-safe').textContent = safeEvidence.length;
             
             let html = '';
-            
-            // Risk-increasing findings first
             riskEvidence.forEach(vuln => {
-                html += `
-                    <div class="vuln-item">
-                        <div class="vuln-finding">🔴 ${vuln.finding}</div>
-                        <div class="vuln-meta">
-                            <span class="vuln-context">${vuln.context || 'General'}</span>
-                            <span class="vuln-confidence">Confidence: ${(vuln.confidence * 100).toFixed(0)}%</span>
-                        </div>
-                    </div>
-                `;
+                html += `<div class="vuln-item"><div class="vuln-finding">${ICONS.riskItem}<span>${vuln.finding}</span></div><div class="vuln-meta"><span class="meta-badge">${vuln.context || 'General'}</span><span class="meta-badge">Conf: ${(vuln.confidence * 100).toFixed(0)}%</span></div></div>`;
             });
-            
-            // Risk-decreasing findings
             safeEvidence.forEach(vuln => {
-                html += `
-                    <div class="vuln-item positive">
-                        <div class="vuln-finding">🟢 ${vuln.finding}</div>
-                        <div class="vuln-meta">
-                            <span class="vuln-context">${vuln.context || 'General'}</span>
-                            <span class="vuln-confidence">Confidence: ${(vuln.confidence * 100).toFixed(0)}%</span>
-                        </div>
-                    </div>
-                `;
+                html += `<div class="vuln-item positive"><div class="vuln-finding">${ICONS.safeItem}<span>${vuln.finding}</span></div><div class="vuln-meta"><span class="meta-badge">${vuln.context || 'General'}</span><span class="meta-badge">Conf: ${(vuln.confidence * 100).toFixed(0)}%</span></div></div>`;
             });
-            
             findingsList.innerHTML = html;
         }
 
         function renderLatentVulnerabilities(vulData) {
             const container = document.getElementById('latent-vulns-list');
-            
-            // 1. Handle Empty State
+            const countBadge = document.getElementById('latent-vuln-count');
+
             if (!vulData || !vulData.latent_vulnerabilities || vulData.latent_vulnerabilities.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-findings">
-                        <div class="empty-vulns-icon">✅</div>
-                        <p>No latent vulnerabilities</p>
-                    </div>
-                `;
-                // If you have a badge counter for this section, update it:
-                const countBadge = document.getElementById('latent-vuln-count');
+                container.innerHTML = `<div class="empty-vulns">${ICONS.emptyCheck}<p>No latent architectures risks inferred</p></div>`;
                 if (countBadge) countBadge.textContent = '0';
                 return;
             }
             
-            // 2. Extract arrays
             const vulns = vulData.latent_vulnerabilities;
             const causes = vulData.root_causes || [];
             const locations = vulData.suspected_locations || [];
             const solutions = vulData.possible_solutions || [];
             
-            // Update badge count
-            const countBadge = document.getElementById('latent-vuln-count');
             if (countBadge) countBadge.textContent = vulns.length;
             
             let html = '';
-            
-            // 3. Render each inferred vulnerability
             vulns.forEach((vuln, index) => {
-                // Safely map parallel arrays (fallback if an array happens to be shorter)
-                const cause = causes[index] || 'No root cause specified.';
-                const location = locations[index] || 'Location unknown.';
-                const solution = solutions[index] || 'No solution provided.';
-                
                 html += `
                     <div class="latent-vuln-card">
                         <div class="latent-vuln-header">
-                            <span class="vuln-icon">⚠️</span>
+                            <span class="vuln-icon">${ICONS.warning}</span>
                             <h4 class="vuln-title">${vuln}</h4>
                         </div>
-                        
                         <div class="latent-vuln-body">
-                            <div class="detail-row">
-                                <div class="detail-icon">🔍</div>
-                                <div class="detail-content">
-                                    <strong>Root Cause:</strong>
-                                    <p>${cause}</p>
-                                </div>
-                            </div>
-                            
-                            <div class="detail-row">
-                                <div class="detail-icon">📍</div>
-                                <div class="detail-content">
-                                    <strong>Suspected Location:</strong>
-                                    <p class="code-snippet">${location}</p>
-                                </div>
-                            </div>
-                            
-                            <div class="detail-row suggestion-row">
-                                <div class="detail-icon">💡</div>
-                                <div class="detail-content">
-                                    <strong>Suggested Solution:</strong>
-                                    <p>${solution}</p>
-                                </div>
-                            </div>
+                            <div class="detail-row"><div class="detail-icon">${ICONS.cause}</div><div class="detail-content"><strong>Root Cause</strong><p>${causes[index] || 'N/A'}</p></div></div>
+                            <div class="detail-row"><div class="detail-icon">${ICONS.location}</div><div class="detail-content"><strong>Location</strong><p class="code-snippet">${locations[index] || 'Unknown'}</p></div></div>
+                            <div class="detail-row suggestion-row"><div class="detail-icon">${ICONS.solution}</div><div class="detail-content"><strong>Remediation</strong><p>${solutions[index] || 'N/A'}</p></div></div>
                         </div>
-                    </div>
-                `;
+                    </div>`;
             });
-            
             container.innerHTML = html;
         }
 
         function renderCallGraph(graphData) {
-            // Clear existing graph
             document.getElementById('call-graph').innerHTML = '';
-            
-            // Parse the graph data (array with nodes and relationships)
-            const data = graphData[0];
-            const nodes = data.nodes;
-            const edges = data.relationships;
-            
-            // Convert to Cytoscape format
+            const { nodes, relationships: edges } = graphData[0];
             const elements = [];
             
-            // Add nodes
             nodes.forEach(node => {
                 const labels = node.labels || [];
                 const props = node.properties || {};
                 
-                let nodeColor = '#10B981';
-                let nodeShape = 'ellipse';
-                let nodeIcon = '⚙️';
-                let borderColor = '#059669';
-                
-                if (labels.includes('Endpoint')) {
-                    nodeColor = '#3B82F6';
-                    borderColor = '#2563EB';
-                    nodeShape = 'round-rectangle';
-                } else if (labels.includes('DataEntity')) {
-                    nodeColor = '#F59E0B';
-                    borderColor = '#D97706';
-                    nodeShape = 'round-diamond';
-                } else if (labels.includes('Method')) {
-                    nodeColor = '#10B981';
-                    borderColor = '#059669';
-                    nodeShape = 'ellipse';
-                }
+                let bg = '#d1fae5', border = '#10b981', shape = 'ellipse';
+                if (labels.includes('Endpoint')) { bg = '#e0e7ff'; border = '#4f46e5'; shape = 'round-rectangle'; }
+                else if (labels.includes('DataEntity')) { bg = '#ffedd5'; border = '#ea580c'; shape = 'round-rectangle'; }
                 
                 elements.push({
                     data: {
-                        id: node.elementId,
-                        label: props.name || 'Unknown',
-                        icon: nodeIcon,
-                        type: labels.join(', '),
-                        role: props.role || '',
-                        protection: props.protection || '',
-                        complexity: props.cyclomaticComplexity || 0,
-                        httpMethod: props.httpMethod || '',
-                        url: props.url || '',
-                        color: nodeColor,
-                        borderColor: borderColor,
-                        shape: nodeShape
+                        id: node.elementId, label: props.name || 'Unknown',
+                        type: labels.join(', '), role: props.role || '',
+                        httpMethod: props.httpMethod || '', url: props.url || '',
+                        bg, border, shape
                     }
                 });
             });
             
-            // Add edges
             edges.forEach(edge => {
-                let edgeColor = '#94A3B8';
-                let edgeWidth = 2;
-                let edgeStyle = 'solid';
-                
-                if (edge.type === 'CALLS_EXTERNAL') {
-                    edgeColor = '#EF4444';
-                    edgeWidth = 3;
-                    edgeStyle = 'dashed';
-                } else if (edge.type === 'CALLS') {
-                    edgeColor = '#3B82F6';
-                    edgeWidth = 2.5;
-                } else if (edge.type === 'ACCESSES') {
-                    edgeColor = '#8B5CF6';
-                    edgeWidth = 2;
-                    edgeStyle = 'dotted';
-                }
+                let color = '#64748b', style = 'solid';
+                if (edge.type === 'CALLS_EXTERNAL') { color = '#e11d48'; style = 'dashed'; }
+                else if (edge.type === 'ACCESSES') { color = '#8b5cf6'; style = 'dotted'; }
                 
                 elements.push({
                     data: {
-                        id: edge.elementId,
-                        source: edge.startNodeElementId,
-                        target: edge.endNodeElementId,
-                        type: edge.type,
-                        edgeColor: edgeColor,
-                        edgeWidth: edgeWidth,
-                        edgeStyle: edgeStyle
+                        id: edge.elementId, source: edge.startNodeElementId, target: edge.endNodeElementId,
+                        type: edge.type, color, style
                     }
                 });
             });
             
-            // Initialize Cytoscape
             cy = cytoscape({
                 container: document.getElementById('call-graph'),
-                elements: elements,
+                elements,
                 style: [
                     {
                         selector: 'node',
                         style: {
-                            'background-color': 'data(color)',
-                            'label': 'data(label)',
-                            'text-valign': 'bottom',
-                            'text-halign': 'center',
-                            'text-margin-y': 8,
-                            'font-size': '11px',
-                            'font-weight': '600',
-                            'color': '#1F2937',
-                            'text-background-color': '#ffffff',
-                            'text-background-opacity': 0.9,
-                            'text-background-padding': '4px',
-                            'text-background-shape': 'roundrectangle',
-                            'border-width': 3,
-                            'border-color': 'data(borderColor)',
-                            'border-opacity': 1,
-                            'width': 50,
-                            'height': 50,
-                            'shape': 'data(shape)'
-                        }
-                    },
-                    {
-                        selector: 'node:selected',
-                        style: {
-                            'width': 60,
-                            'height': 60,
-                            'border-width': 4
+                            'background-color': 'data(bg)', 'border-width': 3, 'border-color': 'data(border)',
+                            'shape': 'data(shape)', 'width': 45, 'height': 45,
+                            'label': 'data(label)', 'color': '#0f172a', 'font-family': "'Plus Jakarta Sans', sans-serif",
+                            'font-size': '11px', 'font-weight': '600', 'text-valign': 'bottom', 'text-margin-y': 6,
+                            'text-background-color': 'white', 'text-background-opacity': 0.8, 'text-background-padding': '4px'
                         }
                     },
                     {
                         selector: 'edge',
                         style: {
-                            'width': 'data(edgeWidth)',
-                            'line-color': 'data(edgeColor)',
-                            'line-style': 'data(edgeStyle)',
-                            'target-arrow-color': 'data(edgeColor)',
-                            'target-arrow-shape': 'triangle',
-                            'curve-style': 'bezier',
-                            'arrow-scale': 1.3,
-                            'opacity': 0.8
-                        }
-                    },
-                    {
-                        selector: 'edge:selected',
-                        style: {
-                            'width': 4,
-                            'opacity': 1
+                            'width': 2.5, 'line-color': 'data(color)', 'line-style': 'data(style)',
+                            'target-arrow-color': 'data(color)', 'target-arrow-shape': 'triangle',
+                            'curve-style': 'bezier', 'arrow-scale': 1.2, 'opacity': 0.7
                         }
                     }
                 ],
-                layout: {
-                    name: 'breadthfirst',
-                    directed: true,
-                    spacingFactor: 1.8,
-                    padding: 60,
-                    avoidOverlap: true,
-                    nodeDimensionsIncludeLabels: true
-                },
-                minZoom: 0.3,
-                maxZoom: 3,
-                wheelSensitivity: 0.2
+                layout: { name: 'breadthfirst', directed: true, spacingFactor: 1.5, padding: 50 }
             });
             
-            // Enhanced tooltips with better formatting
             let tooltip = null;
-            
-            cy.on('mouseover', 'node', function(evt) {
-                const node = evt.target;
-                const data = node.data();
-                const pos = node.renderedPosition();
-                
-                // Remove existing tooltip
-                if (tooltip) tooltip.remove();
-                
-                // Create tooltip
+            cy.on('mouseover', 'node', e => {
+                const d = e.target.data(), p = e.target.renderedPosition();
+                if(tooltip) tooltip.remove();
                 tooltip = document.createElement('div');
-                tooltip.style.cssText = `
-                    position: absolute;
-                    left: ${pos.x + 80}px;
-                    top: ${pos.y - 20}px;
-                    background: white;
-                    border: 2px solid ${data.borderColor};
-                    border-radius: 8px;
-                    padding: 12px 16px;
-                    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-                    z-index: 10000;
-                    font-family: Inter, sans-serif;
-                    font-size: 13px;
-                    max-width: 300px;
-                    pointer-events: none;
-                `;
-                
-                let html = `<div style="font-weight: 700; color: ${data.color}; margin-bottom: 8px; font-size: 14px;">${data.icon} ${data.label}</div>`;
-                html += `<div style="color: #6B7280; font-size: 12px; margin-bottom: 4px;"><strong>Type:</strong> ${data.type}</div>`;
-                if (data.role) html += `<div style="color: #6B7280; font-size: 12px; margin-bottom: 4px;"><strong>Role:</strong> ${data.role}</div>`;
-                if (data.protection) html += `<div style="color: #6B7280; font-size: 12px; margin-bottom: 4px;"><strong>Protection:</strong> ${data.protection}</div>`;
-                if (data.complexity) html += `<div style="color: #6B7280; font-size: 12px; margin-bottom: 4px;"><strong>Complexity:</strong> ${data.complexity}</div>`;
-                if (data.httpMethod) html += `<div style="color: #6B7280; font-size: 12px; margin-bottom: 4px;"><strong>Method:</strong> <span style="background: ${data.color}; color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;">${data.httpMethod}</span></div>`;
-                if (data.url) html += `<div style="color: #6B7280; font-size: 11px; margin-top: 6px; font-family: monospace; background: #F3F4F6; padding: 4px 8px; border-radius: 4px;">${data.url}</div>`;
-                
-                tooltip.innerHTML = html;
+                tooltip.style.cssText = `position:absolute;left:${p.x+60}px;top:${p.y}px;background:white;border:1px solid ${d.border};border-radius:12px;padding:12px;box-shadow:0 10px 15px -3px rgba(0,0,0,0.1);z-index:10000;font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;color:#0f172a;`;
+                tooltip.innerHTML = `<strong style="font-size:14px">${d.label}</strong><br><span style="color:#64748b">${d.type}</span>`;
+                if(d.httpMethod) tooltip.innerHTML += `<br><br><span style="background:${d.bg};border:1px solid ${d.border};padding:2px 6px;border-radius:4px;font-weight:700">${d.httpMethod}</span> <code style="color:#64748b">${d.url}</code>`;
                 document.getElementById('call-graph-container').appendChild(tooltip);
-            });
-            
-            cy.on('mouseout', 'node', function() {
-                if (tooltip) {
-                    tooltip.remove();
-                    tooltip = null;
-                }
-            });
-            
-            cy.on('mouseover', 'edge', function(evt) {
-                const edge = evt.target;
-                const data = edge.data();
-                const pos = edge.renderedMidpoint();
-                
-                // Remove existing tooltip
-                if (tooltip) tooltip.remove();
-                
-                // Create tooltip
-                tooltip = document.createElement('div');
-                tooltip.style.cssText = `
-                    position: absolute;
-                    left: ${pos.x + 20}px;
-                    top: ${pos.y - 30}px;
-                    background: white;
-                    border: 2px solid ${data.edgeColor};
-                    border-radius: 8px;
-                    padding: 8px 12px;
-                    box-shadow: 0 8px 20px rgba(0,0,0,0.12);
-                    z-index: 10000;
-                    font-family: Inter, sans-serif;
-                    font-size: 12px;
-                    font-weight: 600;
-                    color: ${data.edgeColor};
-                    pointer-events: none;
-                `;
-                
-                tooltip.textContent = data.type.replace(/_/g, ' ');
-                document.getElementById('call-graph-container').appendChild(tooltip);
-            });
-            
-            cy.on('mouseout', 'edge', function() {
-                if (tooltip) {
-                    tooltip.remove();
-                    tooltip = null;
-                }
-            });
-            
-            // Fit and center the graph
-            cy.fit(50);
-            cy.center();
+            }).on('mouseout', 'node', () => { if(tooltip) tooltip.remove(); });
         }
 
         function closeCallGraph() {
-            // Hide call graph tab and switch back to risk cloud
             document.getElementById('call-graph-tab').classList.add('hidden');
-            
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.querySelector('.tab-btn').classList.add('active');
             
             document.getElementById('call-graph-container').classList.add('hidden');
             document.getElementById('risk-cloud-chart').classList.remove('hidden');
-            
             Plotly.Plots.resize('risk-cloud-chart');
-            currentEndpointId = null;
         }
 
-        // Init
         fetchData();
     </script>
 </body>
