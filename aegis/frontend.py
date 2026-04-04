@@ -239,7 +239,8 @@ def get_results():
             mongo_query)
         
         if existing:
-            return existing[0]['results']
+            del existing[0]['_id']
+            return existing[0]
     except Exception as e:
         print(f"Error retrieving results: {e}")
 

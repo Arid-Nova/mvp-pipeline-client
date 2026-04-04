@@ -232,7 +232,7 @@
             letter-spacing: 0.5px;
         }
 
-        .vuln-list {
+        .findings-list {
             display: flex;
             flex-direction: column;
             gap: 0.75rem;
@@ -453,6 +453,104 @@
             margin-top: 2rem;
             margin-bottom: 0;
         }
+
+        /* Container for the cards */
+        .latent-vulns-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-top: 10px;
+        }
+
+        /* Individual Card Styling */
+        .latent-vuln-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background-color: #ffffff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+        }
+
+        /* Card Header - Eye catching warning styling */
+        .latent-vuln-header {
+            display: flex;
+            align-items: center;
+            background-color: #fff8eb; /* Light orange warning background */
+            border-bottom: 1px solid #fbd38d;
+            padding: 12px 16px;
+            gap: 10px;
+        }
+
+        .vuln-icon {
+            font-size: 1.2rem;
+        }
+
+        .vuln-title {
+            margin: 0;
+            font-size: 1rem;
+            color: #9c4221;
+            font-weight: 600;
+        }
+
+        /* Card Body */
+        .latent-vuln-body {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        /* Detail Rows (Cause, Location, Solution) */
+        .detail-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .detail-icon {
+            font-size: 1.1rem;
+            margin-top: 2px;
+        }
+
+        .detail-content {
+            flex: 1;
+        }
+
+        .detail-content strong {
+            display: block;
+            font-size: 0.85rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 4px;
+        }
+
+        .detail-content p {
+            margin: 0;
+            font-size: 0.95rem;
+            color: #334155;
+            line-height: 1.5;
+        }
+
+        /* Code Snippet Formatting for Locations */
+        .code-snippet {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #f1f5f9;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            border: 1px solid #e2e8f0;
+            font-size: 0.9rem !important;
+        }
+
+        /* Highlight the suggestion row slightly */
+        .suggestion-row {
+            background-color: #f0fdf4; /* Light green */
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 4px solid #4ade80;
+            margin-top: 4px;
+        }
         
         .hidden { display: none; }
     </style>
@@ -523,12 +621,23 @@
                             <div class="vuln-stat-label">Safe</div>
                         </div>
                     </div>
-                    <div id="vuln-list" class="vuln-list">
+
+                    <!-- This block displays the latent vulnerabilities -->
+                    <div id="latent-vulns-list" class="latent-vulns-list">
                         <div class="empty-vulns">
                             <div class="empty-vulns-icon">🔍</div>
-                            <p>Click a point to view vulnerabilities</p>
+                            <p>Click a point to view latent vulnerabilities</p>
                         </div>
                     </div>
+
+                    <!-- This block displays the underlying low level security findings related to he latent vulnarabilities -->
+                    <div id="findings-list" class="findings-list">
+                        <div class="empty-vulns">
+                            <div class="empty-vulns-icon">🔍</div>
+                            <p>Click a point to view findings</p>
+                        </div>
+                    </div>
+
                 </div>
                 <div class="graph-legend">
                     <div class="legend-title">Graph Legend</div>
@@ -574,6 +683,7 @@
 
     <script>
         let globalData = [];
+        let globalVulnerabilities = [];
         let currentBaseRate = 0.5;
         let currentEndpointId = null;
         let cy = null; // Cytoscape instance
@@ -587,8 +697,10 @@
 
             try {
                 const response = await fetch(`/api/results?irID=${encodeURIComponent(IR_ID)}`); 
-                globalData = await response.json();
-                
+                let data = await response.json();
+                globalData = data['results']
+                globalVulnerabilities = data['vulnerabilities']
+
                 refreshViews();
                 
                 document.getElementById('loading').classList.add('hidden');
@@ -796,6 +908,9 @@
                 
                 // Find the endpoint data
                 const endpointData = globalData.find(d => d.id === endpointId);
+
+                // Find the vulnerabilities for this endpoint
+                const endpointVulns = globalVulnerabilities.find(v => v.id === endpointId);
                 
                 // Fetch call graph data for this endpoint
                 const response = await fetch(`/api/callgraph/${encodeURIComponent(endpointId)}`);
@@ -816,8 +931,11 @@
                 // Render the call graph
                 renderCallGraph(graphData);
                 
+                // Render findings
+                renderFindings(endpointData);
+
                 // Render vulnerabilities
-                renderVulnerabilities(endpointData);
+                renderLatentVulnerabilities(endpointVulns);
                 
             } catch (error) {
                 console.error("Error loading call graph:", error);
@@ -825,12 +943,12 @@
             }
         }
 
-        function renderVulnerabilities(endpointData) {
-            const vulnList = document.getElementById('vuln-list');
+        function renderFindings(endpointData) {
+            const findingsList = document.getElementById('findings-list');
             
             if (!endpointData || !endpointData.neuro_evidence || endpointData.neuro_evidence.length === 0) {
-                vulnList.innerHTML = `
-                    <div class="empty-vulns">
+                findingsList.innerHTML = `
+                    <div class="empty-findings">
                         <div class="empty-vulns-icon">✅</div>
                         <p>No security findings detected</p>
                     </div>
@@ -875,7 +993,82 @@
                 `;
             });
             
-            vulnList.innerHTML = html;
+            findingsList.innerHTML = html;
+        }
+
+        function renderLatentVulnerabilities(vulData) {
+            const container = document.getElementById('latent-vulns-list');
+            
+            // 1. Handle Empty State
+            if (!vulData || !vulData.latent_vulnerabilities || vulData.latent_vulnerabilities.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-findings">
+                        <div class="empty-vulns-icon">✅</div>
+                        <p>No latent vulnerabilities</p>
+                    </div>
+                `;
+                // If you have a badge counter for this section, update it:
+                const countBadge = document.getElementById('latent-vuln-count');
+                if (countBadge) countBadge.textContent = '0';
+                return;
+            }
+            
+            // 2. Extract arrays
+            const vulns = vulData.latent_vulnerabilities;
+            const causes = vulData.root_causes || [];
+            const locations = vulData.suspected_locations || [];
+            const solutions = vulData.possible_solutions || [];
+            
+            // Update badge count
+            const countBadge = document.getElementById('latent-vuln-count');
+            if (countBadge) countBadge.textContent = vulns.length;
+            
+            let html = '';
+            
+            // 3. Render each inferred vulnerability
+            vulns.forEach((vuln, index) => {
+                // Safely map parallel arrays (fallback if an array happens to be shorter)
+                const cause = causes[index] || 'No root cause specified.';
+                const location = locations[index] || 'Location unknown.';
+                const solution = solutions[index] || 'No solution provided.';
+                
+                html += `
+                    <div class="latent-vuln-card">
+                        <div class="latent-vuln-header">
+                            <span class="vuln-icon">⚠️</span>
+                            <h4 class="vuln-title">${vuln}</h4>
+                        </div>
+                        
+                        <div class="latent-vuln-body">
+                            <div class="detail-row">
+                                <div class="detail-icon">🔍</div>
+                                <div class="detail-content">
+                                    <strong>Root Cause:</strong>
+                                    <p>${cause}</p>
+                                </div>
+                            </div>
+                            
+                            <div class="detail-row">
+                                <div class="detail-icon">📍</div>
+                                <div class="detail-content">
+                                    <strong>Suspected Location:</strong>
+                                    <p class="code-snippet">${location}</p>
+                                </div>
+                            </div>
+                            
+                            <div class="detail-row suggestion-row">
+                                <div class="detail-icon">💡</div>
+                                <div class="detail-content">
+                                    <strong>Suggested Solution:</strong>
+                                    <p>${solution}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
         }
 
         function renderCallGraph(graphData) {
