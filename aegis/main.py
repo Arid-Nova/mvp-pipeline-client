@@ -67,6 +67,15 @@ class AnalysisFacade:
         self.config_loader = ConfigLoader()
         # print("Initialization complete.")
 
+    def get_latent_vulnerabilities(self, ir_id: str, analyzed_paths: List[ExecutionPath]) -> List[Dict[str, Any]]:
+        if getattr(self, 'neuro_analyzer', None) is None:
+            self.neuro_analyzer = NeuroAnalyzer(None, None, self.llm_config)
+        
+        results = self.neuro_analyzer.analyse_latent_vulnerabilities(analyzed_paths)
+        self.update_results_with_vulnerabilities(ir_id, results)
+
+        return results
+
     def run_analysis(self, payload: Dict[str, Any]) -> List[ExecutionPath]:
         # Executes the end-to-end analysis pipeline.
         print("\nStarting AEGIS analysis!")
@@ -81,7 +90,7 @@ class AnalysisFacade:
         if existing:
             # print(f"Analysis already exists for system '{payload['name']}' with commit ID '{payload['commitID']}'.")
             # print("Returning existing results.")
-            return existing[0]['results']
+            return existing[0]
         
         # Initalizing the GIT code fetching mechanism.
         self.code_fetcher = CodeFetcher(payload['repoUrl'], payload['branch'])
@@ -148,6 +157,27 @@ class AnalysisFacade:
         })
 
         return results
+
+    def update_results_with_vulnerabilities(self, ir_id: str, vulnerabilities: List[Dict[str, Any]]):
+        # Updates the existing analysis results with the newly found latent vulnerabilities.
+        try:
+            existing = self.mongo_service.find(self.config['MONGO']['collection_name'], {
+                "irID": ir_id
+            })
+
+            if not existing:
+                print(f"No existing analysis found for IR ID '{ir_id}'. Cannot update vulnerabilities.")
+                return False
+            
+            existing_result = existing[0]
+            existing_result['vulnerabilities'] = vulnerabilities
+            self.mongo_service.update(self.config['MONGO']['collection_name'], {"_id": existing_result['_id']}, existing_result)
+            print(f"Successfully updated vulnerabilities for IR ID '{ir_id}'.")
+            return True
+
+        except Exception as e:
+            print(f"Error updating results with vulnerabilities: {e}")
+            return False
 
     def save_results_to_db(self, results_dict: Dict[str, Any]):
         # Saves the final "Opinion Vector" to MongoDB.

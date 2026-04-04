@@ -74,7 +74,12 @@ async def analyze_endpoint(payload: Dict[str, Any]):
         # Run the analysis using your existing logic
         print("[INFO] Starting introspection!")
         results = facade.run_analysis(payload)
-        return {"status": "success", "results": results}
+
+        if 'vulnerabilities' in results:
+            return {"status": "success", "results": results['results'], "vulnerabilities": results['vulnerabilities']}
+
+        latent_vulnarabilities = facade.get_latent_vulnerabilities(payload['ir']['id'], results)
+        return {"status": "success", "results": results['results'], "vulnerabilities": latent_vulnarabilities}
 
     except Exception as e:
         import traceback
