@@ -68,6 +68,8 @@ const ExecutorPage: React.FC = () => {
     // --- Tracking Individual Assertions & Execution ---
     const handleRunSingle = async (scenarioId: string, code: string) => {
         const isJava = language.toLowerCase() === 'java';
+        const isPython = language.toLowerCase() === 'python' || language.toLowerCase() === 'pytest';
+        const isCurl = !isJava && !isPython;
 
         setResults(prev => ({
             ...prev,
@@ -76,10 +78,10 @@ const ExecutorPage: React.FC = () => {
 
         let executableCode = getExecutableCode(code);
         
-        // Ensure cURL runs silently (-s) but outputs the HTTP status code at the very end (-w)
-        if (!isJava && !executableCode.includes('-w')) {
-            const newlineChar = String.raw`\n`;
-            executableCode = `${executableCode.trim()} -s -w "${newlineChar}%{http_code}"`;
+        // Ensuring cURL runs silently (-s) but outputs the HTTP status code at the very end (-w)
+        if (isCurl && !executableCode.includes('-w')) {
+            const statusCodeFormat = String.raw`\n%{http_code}`;
+            executableCode = `${executableCode.trim()} -s -w "${statusCodeFormat}"`;
         }
 
         try {
@@ -87,15 +89,23 @@ const ExecutorPage: React.FC = () => {
                 ...prev,
                 [scenarioId]: { 
                     ...prev[scenarioId], 
-                    logs: [...prev[scenarioId].logs, `Sending ${isJava ? 'code' : 'command'} to Proxy...`, executableCode] 
+                    logs: [...prev[scenarioId].logs, `Sending ${isCurl ? 'command' : 'code'} to Proxy...`] 
                 }
             }));
 
-            // Determine route and payload based on language
-            const endpoint = isJava ? '/api/execute/java' : '/api/execute/curl';
-            const payload = isJava ? { code: executableCode } : { command: executableCode };
+            // Determining the route and payload based on language
+            let endpoint = '/api/execute/curl';
+            let payload: any = { command: executableCode };
+            
+            if (isJava) {
+                endpoint = '/api/execute/java';
+                payload = { code: executableCode };
+            } else if (isPython) {
+                endpoint = '/api/execute/python';
+                payload = { code: executableCode };
+            }
 
-            // Call the Proxy for execution
+            // Call the Python Microservice
             const proxyResponse = await fetch(`http://localhost:8010${endpoint}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -109,26 +119,39 @@ const ExecutorPage: React.FC = () => {
 
             const data = await proxyResponse.json();
             
-            // LOGIC FOR JAVA EXECUTION
-            if (isJava) {
+            // LOGIC FOR CODE RUNNERS (JAVA & PYTHON)
+            if (isJava || isPython) {
+                // Exit Code 0 means all internal assertions have PASSED.
                 const passed = data.returncode === 0;
+                
+                // Exit Code 1 means test assertions failed. 
+                // Exit Code 2+ usually means a syntax error or compilation failure.
+                const isExecutionError = data.returncode > 1; 
+
+                const langName = isJava ? 'Java' : 'Python';
                 
                 setResults(prev => ({
                     ...prev,
                     [scenarioId]: { 
-                        status: passed ? 'success' : 'error', 
+                        // If a syntax/compile error, marking as error. Otherwise, the execution succeeded.
+                        status: isExecutionError ? 'error' : 'success', 
                         responseBody: data.stdout || "(No Output)",
                         logs: [
                             ...prev[scenarioId].logs, 
-                            passed ? 'Execution completed successfully (Exit 0).' : `Execution failed (Exit ${data.returncode}).`,
+                            passed ? `${langName} tests completed successfully (Exit 0).` : `${langName} tests reported failures (Exit ${data.returncode}).`,
                             ...(data.stderr ? [`Error Output: ${data.stderr}`] : [])
                         ],
                         passed: passed,
                         assertions: [
                             { 
-                                description: `Java process exited without exceptions`, 
-                                passed: passed,
+                                description: `Script compiled and ran without fatal syntax errors`, 
+                                passed: !isExecutionError,
                                 actual: `Exit Code: ${data.returncode}`
+                            },
+                            { 
+                                description: `All internal ${langName} test assertions passed (e.g. expected HTTP status matched)`, 
+                                passed: passed,
+                                actual: passed ? 'No assertion failures' : 'Assertion(s) failed in script'
                             }
                         ]
                     }
@@ -148,10 +171,20 @@ const ExecutorPage: React.FC = () => {
                 const actualStatusCode = parseInt(rawStatusCode || "0", 10);
                 
                 // --- ASSERTION LOGIC ---
-                const expectedStatusPattern = activeTest.expected_status || "200"; 
-                
-                const statusPassed = actualStatusCode === parseInt(expectedStatusPattern, 10); 
-                
+                // Expected status could be "200", "403", "2xx", or "4xx"
+                const expectedPattern = String(activeTest.expected_status || "2xx").toLowerCase().trim();
+                let statusPassed = false;
+
+                // Handle wildcard patterns (e.g., "2xx", "4xx", "5xx")
+                if (expectedPattern.includes('xx')) {
+                    const expectedFirstDigit = expectedPattern.charAt(0); // Gets '2' or '4'
+                    const actualFirstDigit = String(actualStatusCode).charAt(0);
+                    statusPassed = expectedFirstDigit === actualFirstDigit;
+                } 
+                else {
+                    statusPassed = actualStatusCode === parseInt(expectedPattern, 10);
+                }
+
                 let isJsonValid = false;
                 try {
                     if (responseBody) JSON.parse(responseBody);
@@ -163,14 +196,14 @@ const ExecutorPage: React.FC = () => {
                 setResults(prev => ({
                     ...prev,
                     [scenarioId]: { 
-                        status: 'success', 
+                        status: 'success', // Proxy execution status
                         statusCode: actualStatusCode, 
                         responseBody: responseBody || "(Empty Response)",
                         logs: [...prev[scenarioId].logs, `Received HTTP ${actualStatusCode}`],
-                        passed: statusPassed,
+                        passed: statusPassed, // The actual Test Assertion result
                         assertions: [
                             { 
-                                description: `Expected HTTP Status to be ${expectedStatusPattern}`, 
+                                description: `Expected HTTP Status to match ${expectedPattern}`, 
                                 passed: statusPassed,
                                 actual: String(actualStatusCode)
                             },
