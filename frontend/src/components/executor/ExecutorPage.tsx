@@ -72,45 +72,78 @@ const ExecutorPage: React.FC = () => {
             [scenarioId]: { status: 'running', logs: ['Initializing execution...'] }
         }));
 
-        const executableCode = getExecutableCode(code);
+        let executableCode = getExecutableCode(code);
+        
+        // Ensure cURL runs silently (-s) but outputs the HTTP status code at the very end (-w)
+        if (!executableCode.includes('-w')) {
+            executableCode = `${executableCode.trim()} -s -w "\\n%{http_code}"`;
+        }
 
         try {
             setResults(prev => ({
                 ...prev,
                 [scenarioId]: { 
                     ...prev[scenarioId], 
-                    logs: [...prev[scenarioId].logs, `Executing command against ${targetUrl}...`, executableCode] 
+                    logs: [...prev[scenarioId].logs, `Sending command to Proxy...`, executableCode] 
                 }
             }));
 
-            // SIMULATED NETWORK CALL
-            await new Promise(resolve => setTimeout(resolve, 800)); 
+            // Call the Python Microservice
+            const proxyResponse = await fetch('http://localhost:8010/api/execute/curl', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ command: executableCode })
+            });
+
+            if (!proxyResponse.ok) {
+                const errorData = await proxyResponse.json();
+                throw new Error(errorData.detail || `Proxy Error: ${proxyResponse.status}`);
+            }
+
+            const data = await proxyResponse.json();
             
-            // SIMULATED ASSERTION LOGIC (In reality, parse the cURL/fetch response here)
-            const mockStatusCode = 200;
-            const mockResponse = JSON.stringify({ message: "Mock Success", status: "ok" }, null, 2);
+            if (data.returncode !== 0) {
+                throw new Error(`cURL process failed: ${data.stderr}`);
+            }
+
+            // Parse the stdout. The last line is our injected HTTP status code.
+            const stdoutLines = data.stdout.trim().split('\n');
+            const rawStatusCode = stdoutLines.pop(); // Remove and grab the last line
+            const responseBody = stdoutLines.join('\n'); // Everything else is the body
             
-            // Checking the assertions
-            const statusPassed = mockStatusCode === 200; // We need to compare against test.expected_status here
+            const actualStatusCode = parseInt(rawStatusCode || "0", 10);
             
+            // --- ASSERTION LOGIC ---
+            // We consider that passing means not returning a 401, 403, 404, or 5xx.
+            const expectedStatusPattern = activeTest.expected_status || "200"; 
+            
+            const statusPassed = actualStatusCode === parseInt(expectedStatusPattern, 10); 
+            
+            let isJsonValid = false;
+            try {
+                if (responseBody) JSON.parse(responseBody);
+                isJsonValid = true;
+            } catch {
+                isJsonValid = false;
+            }
+
             setResults(prev => ({
                 ...prev,
                 [scenarioId]: { 
                     status: 'success', 
-                    statusCode: mockStatusCode, 
-                    responseBody: mockResponse,
-                    logs: [...prev[scenarioId].logs, `Received HTTP ${mockStatusCode}`],
-                    passed: statusPassed, // Set overall pass/fail
+                    statusCode: actualStatusCode, 
+                    responseBody: responseBody || "(Empty Response)",
+                    logs: [...prev[scenarioId].logs, `Received HTTP ${actualStatusCode}`],
+                    passed: statusPassed,
                     assertions: [
                         { 
-                            description: `Expected HTTP Status 200`, 
+                            description: `Expected HTTP Status to be successful`, 
                             passed: statusPassed,
-                            actual: String(mockStatusCode),
-                            expected: "200"
+                            actual: String(actualStatusCode)
                         },
                         { 
                             description: `Response body format is valid JSON`, 
-                            passed: true 
+                            passed: isJsonValid || responseBody.length === 0
                         }
                     ]
                 }
@@ -120,9 +153,9 @@ const ExecutorPage: React.FC = () => {
                 ...prev,
                 [scenarioId]: { 
                     status: 'error', 
-                    logs: [...prev[scenarioId].logs, `Error: ${error.message}`],
+                    logs: [...prev[scenarioId].logs, `Execution Error: ${error.message}`],
                     passed: false,
-                    assertions: [{ description: 'Execution completed without network errors', passed: false, actual: error.message }]
+                    assertions: [{ description: 'Execution completed without system/network errors', passed: false, actual: error.message }]
                 }
             }));
         }
