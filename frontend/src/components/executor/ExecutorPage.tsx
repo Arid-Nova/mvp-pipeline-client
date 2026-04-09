@@ -67,16 +67,19 @@ const ExecutorPage: React.FC = () => {
 
     // --- Tracking Individual Assertions & Execution ---
     const handleRunSingle = async (scenarioId: string, code: string) => {
+        const isJava = language.toLowerCase() === 'java';
+
         setResults(prev => ({
             ...prev,
-            [scenarioId]: { status: 'running', logs: ['Initializing execution...'] }
+            [scenarioId]: { status: 'running', logs: [`Initializing ${language.toUpperCase()} execution...`] }
         }));
 
         let executableCode = getExecutableCode(code);
         
         // Ensure cURL runs silently (-s) but outputs the HTTP status code at the very end (-w)
-        if (!executableCode.includes('-w')) {
-            executableCode = `${executableCode.trim()} -s -w "\\n%{http_code}"`;
+        if (!isJava && !executableCode.includes('-w')) {
+            const newlineChar = String.raw`\n`;
+            executableCode = `${executableCode.trim()} -s -w "${newlineChar}%{http_code}"`;
         }
 
         try {
@@ -84,15 +87,19 @@ const ExecutorPage: React.FC = () => {
                 ...prev,
                 [scenarioId]: { 
                     ...prev[scenarioId], 
-                    logs: [...prev[scenarioId].logs, `Sending command to Proxy...`, executableCode] 
+                    logs: [...prev[scenarioId].logs, `Sending ${isJava ? 'code' : 'command'} to Proxy...`, executableCode] 
                 }
             }));
 
-            // Call the Python Microservice
-            const proxyResponse = await fetch('http://localhost:8010/api/execute/curl', {
+            // Determine route and payload based on language
+            const endpoint = isJava ? '/api/execute/java' : '/api/execute/curl';
+            const payload = isJava ? { code: executableCode } : { command: executableCode };
+
+            // Call the Proxy for execution
+            const proxyResponse = await fetch(`http://localhost:8010${endpoint}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ command: executableCode })
+                body: JSON.stringify(payload)
             });
 
             if (!proxyResponse.ok) {
@@ -102,52 +109,79 @@ const ExecutorPage: React.FC = () => {
 
             const data = await proxyResponse.json();
             
-            if (data.returncode !== 0) {
-                throw new Error(`cURL process failed: ${data.stderr}`);
-            }
-
-            // Parse the stdout. The last line is our injected HTTP status code.
-            const stdoutLines = data.stdout.trim().split('\n');
-            const rawStatusCode = stdoutLines.pop(); // Remove and grab the last line
-            const responseBody = stdoutLines.join('\n'); // Everything else is the body
-            
-            const actualStatusCode = parseInt(rawStatusCode || "0", 10);
-            
-            // --- ASSERTION LOGIC ---
-            // We consider that passing means not returning a 401, 403, 404, or 5xx.
-            const expectedStatusPattern = activeTest.expected_status || "200"; 
-            
-            const statusPassed = actualStatusCode === parseInt(expectedStatusPattern, 10); 
-            
-            let isJsonValid = false;
-            try {
-                if (responseBody) JSON.parse(responseBody);
-                isJsonValid = true;
-            } catch {
-                isJsonValid = false;
-            }
-
-            setResults(prev => ({
-                ...prev,
-                [scenarioId]: { 
-                    status: 'success', 
-                    statusCode: actualStatusCode, 
-                    responseBody: responseBody || "(Empty Response)",
-                    logs: [...prev[scenarioId].logs, `Received HTTP ${actualStatusCode}`],
-                    passed: statusPassed,
-                    assertions: [
-                        { 
-                            description: `Expected HTTP Status to be successful`, 
-                            passed: statusPassed,
-                            actual: String(actualStatusCode)
-                        },
-                        { 
-                            description: `Response body format is valid JSON`, 
-                            passed: isJsonValid || responseBody.length === 0
-                        }
-                    ]
+            // LOGIC FOR JAVA EXECUTION
+            if (isJava) {
+                const passed = data.returncode === 0;
+                
+                setResults(prev => ({
+                    ...prev,
+                    [scenarioId]: { 
+                        status: passed ? 'success' : 'error', 
+                        responseBody: data.stdout || "(No Output)",
+                        logs: [
+                            ...prev[scenarioId].logs, 
+                            passed ? 'Execution completed successfully (Exit 0).' : `Execution failed (Exit ${data.returncode}).`,
+                            ...(data.stderr ? [`Error Output: ${data.stderr}`] : [])
+                        ],
+                        passed: passed,
+                        assertions: [
+                            { 
+                                description: `Java process exited without exceptions`, 
+                                passed: passed,
+                                actual: `Exit Code: ${data.returncode}`
+                            }
+                        ]
+                    }
+                }));
+            } 
+            // LOGIC FOR CURL EXECUTION
+            else {
+                if (data.returncode !== 0) {
+                    throw new Error(`cURL process failed: ${data.stderr}`);
                 }
-            }));
+
+                // Parse the stdout. The last line is our injected HTTP status code.
+                const stdoutLines = data.stdout.trim().split('\n');
+                const rawStatusCode = stdoutLines.pop(); // Remove and grab the last line
+                const responseBody = stdoutLines.join('\n'); // Everything else is the body
+                
+                const actualStatusCode = parseInt(rawStatusCode || "0", 10);
+                
+                // --- ASSERTION LOGIC ---
+                const expectedStatusPattern = activeTest.expected_status || "200"; 
+                
+                const statusPassed = actualStatusCode === parseInt(expectedStatusPattern, 10); 
+                
+                let isJsonValid = false;
+                try {
+                    if (responseBody) JSON.parse(responseBody);
+                    isJsonValid = true;
+                } catch {
+                    isJsonValid = false;
+                }
+
+                setResults(prev => ({
+                    ...prev,
+                    [scenarioId]: { 
+                        status: 'success', 
+                        statusCode: actualStatusCode, 
+                        responseBody: responseBody || "(Empty Response)",
+                        logs: [...prev[scenarioId].logs, `Received HTTP ${actualStatusCode}`],
+                        passed: statusPassed,
+                        assertions: [
+                            { 
+                                description: `Expected HTTP Status to be ${expectedStatusPattern}`, 
+                                passed: statusPassed,
+                                actual: String(actualStatusCode)
+                            },
+                            { 
+                                description: `Response body format is valid JSON`, 
+                                passed: isJsonValid || responseBody.length === 0
+                            }
+                        ]
+                    }
+                }));
+            }
         } catch (error: any) {
             setResults(prev => ({
                 ...prev,
