@@ -13,7 +13,8 @@ export type CardType =
     | 'VISUALIZATION' 
     | 'AEGIS' 
     | 'FORMAL_VIZ'
-    | 'TEST_GENERATE';
+    | 'TEST_GENERATE'
+    | 'TEST_EXECUTOR';
 
 export interface SystemPayload {
     type: 'SYSTEM_PAYLOAD';
@@ -49,6 +50,7 @@ export interface NodeData {
         repoUrl?: string;
         branch?: string;
         commit?: string;
+        targetUrl?: string;
         filterEndpointText?: string;
         filterShowInconsistenciesOnly?: boolean;
         repositories?: { repoUrl: string; branch: string; commit: string }[];
