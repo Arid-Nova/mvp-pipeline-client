@@ -9,29 +9,19 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, final
 
-def get_env_config(language: str) -> str:
-    lang = language.lower()
-    if lang == "python":
-        return (
-            "Environment Configuration:\n"
-            "- JWT tokens for each role are pre-configured in environment variables.\n"
-            "- Token variable pattern: TEST_JWT_<ROLE> (e.g., TEST_JWT_ADMIN, TEST_JWT_USER).\n"
-            "- Use os.getenv('TEST_JWT_<ROLE>') to inject tokens into tests.\n"
-        )
-    elif lang == "curl":
-        return (
-            "Environment Configuration:\n"
-            "- JWT tokens for each role are exported in the shell environment.\n"
-            "- Token variable pattern: $TEST_JWT_<ROLE> (e.g., $TEST_JWT_ADMIN, $TEST_JWT_USER).\n"
-            "- Use these variables directly in your cURL headers.\n"
-        )
-    else: # default java
-        return (
-            "Environment Configuration:\n"
-            "- JWT tokens for each role are pre-configured in environment variables/properties.\n"
-            "- Token property pattern: test.jwt.<role> (e.g., test.jwt.admin, test.jwt.user)\n"
-            "- Use @Value(\"${test.jwt.<role>}\") to inject tokens into test classes.\n"
-        )
+def get_env_config() -> str:
+    return (
+        "Token Placeholder Configuration:\n"
+        "- DO NOT use environment variables, .properties files, or dependency injection for tokens.\n"
+        "- You MUST use exact, hardcoded string placeholders for JWT tokens in your code.\n"
+        "- The execution engine will safely find and replace these exact strings before running the code.\n"
+        "- To format a token placeholder: take the role name from the scenario (e.g., from `allowed_roles`), "
+        "strip the `ROLE_` prefix if it exists, convert to UPPERCASE, and append `_TOKEN`.\n"
+        "- Example: `ROLE_ADMIN` or `ADMIN` MUST both become `<ADMIN_TOKEN>`.\n"
+        "- Example: `ROLE_USER` or `USER` MUST become `<USER_TOKEN>`.\n"
+        "- Example: `FINANCE_MGR` MUST become `<FINANCE_MGR_TOKEN>`.\n"
+        "- For invalid/corrupted token tests, ALWAYS use the literal string `<INVALID_TOKEN>`.\n\n"
+    )
 
 def _base_job(language: str) -> str:
     lang = language.lower()
@@ -88,25 +78,25 @@ def _get_rules(inconsistency: bool = False) -> str:
     if inconsistency:
         return (
             "RULES:\n"
-            "1. Parse the INPUT DATA JSON including the downstream_context section"
-            "2. For roles in policy_inconsistency_roles:"
-            "    - UnderPermissiveDownstream: Entry allows but downstream denies → expect 500 or error"
-            "    - OverPermissiveDownstream: Entry denies correctly → expect 403"
-            "    - PolicyExposure: Check data access control → expect appropriate denial"
-            "3. For roles NOT in policy_inconsistency_roles (consistent behavior):"
-            "    - Apply standard rules (allowed_roles → 2xx, denied_roles → 403)"
-            "4. Use token placeholders: {{TOKEN_ROLE_ADMIN}}, {{TOKEN_ROLE_USER}}"
-            "5. For ANONYMOUS tests, set authPlaceholder to \"NONE\""
-            "    - If is_public=true → expect 2xx (public endpoints allow unauthenticated access)"
-            "    - If is_public=false → expect 401 or 403"
-            "6. For INVALID_TOKEN tests, set authPlaceholder to \"{{TOKEN_INVALID}}\" and expect 401 (or any 4xx/5xx)"
+            "1. Parse the INPUT DATA JSON including the downstream_context section.\n"
+            "2. For roles in policy_inconsistency_roles:\n"
+            "    - UnderPermissiveDownstream: Entry allows but downstream denies → expect 500 or error\n"
+            "    - OverPermissiveDownstream: Entry denies correctly → expect 403\n"
+            "    - PolicyExposure: Check data access control → expect appropriate denial\n"
+            "3. For roles NOT in policy_inconsistency_roles (consistent behavior):\n"
+            "    - Apply standard rules (allowed_roles → 2xx, denied_roles → 403)\n"
+            "4. Use strict token placeholders relavant to the valid roles: `<ADMIN_TOKEN>`, `<USER_TOKEN>`, etc. DO NOT use variables.\n"
+            "5. For ANONYMOUS tests, DO NOT send an Authorization header at all.\n"
+            "    - If is_public=true → expect 2xx (public endpoints allow unauthenticated access)\n"
+            "    - If is_public=false → expect 401 or 403\n"
+            "6. For INVALID_TOKEN tests, use the literal string `<INVALID_TOKEN>` and expect 401 (or any 4xx/5xx)\n"
             "7. Set alternateAcceptable status codes for inconsistency roles (e.g., [500, 502, 503, 403])\n\n"
             "PATH AND QUERY PARAMETERS:\n"
-            "    - Path parameters: Replace placeholders in the URL with realistic values based on type"
-            "    - Query parameters: Add as URL query string if required=true"
+            "    - Path parameters: Replace placeholders in the URL with realistic values based on type\n"
+            "    - Query parameters: Add as URL query string if required=true\n"
             "    - Use chain_permissions to understand permission flow through the call chain\n\n"
             "DATA SENSITIVITY:\n"
-            "    - For sensitive endpoints (PII, FINANCIAL), ensure proper access control tests"
+            "    - For sensitive endpoints (PII, FINANCIAL), ensure proper access control tests\n"
             "    - Check for data exposure through policy inconsistencies\n\n"
             "EDGE CASES:\n"
             "    - Always test edge cases such as empty inputs, null values, and boundary conditions\n"
@@ -122,9 +112,9 @@ def _get_rules(inconsistency: bool = False) -> str:
         "   - double/float fields → decimal numbers\n"
         "   - boolean fields → true/false\n"
         "   - UUID fields → use realistic UUID format like \"550e8400-e29b-41d4-a716-446655440000\"\n"
-        "3. Use token placeholders: {{TOKEN_ROLE_ADMIN}}, {{TOKEN_ROLE_USER}}\n"
-        "4. For ANONYMOUS tests, set authPlaceholder to \"NONE\" and omit Authorization header\n"
-        "5. For INVALID_TOKEN tests, set authPlaceholder to \"{{TOKEN_INVALID}}\" (will be replaced with a corrupted token)\n"
+        "3. Use strict token placeholders: `<ADMIN_TOKEN>`, `<USER_TOKEN>`, etc. DO NOT use variables.\n"
+        "4. For ANONYMOUS tests, DO NOT send an Authorization header at all.\n"
+        "5. For INVALID_TOKEN tests, use the literal string `<INVALID_TOKEN>` and expect 401 (or any 4xx/5xx)\n"
         "6. Map roles to expected statuses:\n"
         "   - Roles in allowed_roles → expect 2xx\n"
         "   - Roles in denied_roles → expect 403\n"
@@ -154,7 +144,8 @@ def _get_framework_instructions(language: str) -> str:
             "TARGET FRAMEWORK:\n"
             "- Use Pytest framework.\n"
             "- Use the `requests` library to make HTTP calls.\n"
-            "- Add the Authorization header as: `{'Authorization': f'Bearer {token}'}`.\n"
+            "- Add the Authorization header as, e.g., `{'Authorization': 'Bearer <ADMIN_TOKEN>'}`, based on the role.\n"
+            "- DO NOT use f-strings or os.getenv() for the token. Hardcode the exact placeholder string.\n"
             "- Use clear, descriptive test function names (e.g., test_endpoint_as_role_returns_status).\n"
             "- Organize tests logically (Allowed Roles, Denied Roles, Unauthenticated).\n"
         )
@@ -162,7 +153,8 @@ def _get_framework_instructions(language: str) -> str:
         return (
             "TARGET FRAMEWORK:\n"
             "- Write clean, commented bash scripts with cURL commands.\n"
-            "- Use `-H \"Authorization: Bearer $TEST_JWT_<ROLE>\"` to authenticate.\n"
+            "- Use, e.g., `-H \"Authorization: Bearer <ADMIN_TOKEN>\"` to authenticate based on the role.\n"
+            "- DO NOT use shell variables (like $TOKEN) for the placeholder. Hardcode the exact string.\n"
             "- Use `-w \"%{http_code}\"` to capture and verify HTTP status codes.\n"
             "- Group commands clearly by category (Allowed Roles, Denied Roles, Unauthenticated).\n"
         )
@@ -171,8 +163,8 @@ def _get_framework_instructions(language: str) -> str:
             "TARGET FRAMEWORK:\n"
             "- Use JUnit 5 (@Test) with Spring Boot tests: @SpringBootTest + @AutoConfigureMockMvc.\n"
             "- Use MockMvc (not WebTestClient).\n"
-            "- Use real JWT tokens injected via @Value from environment properties (do NOT use @WithMockUser).\n"
-            "- Add Authorization: Bearer <token> header using HttpHeaders.AUTHORIZATION.\n"
+            "- DO NOT use @Value, environment properties, or @WithMockUser.\n"
+            "- Hardcode the authorization header using the exact placeholder string: e.g., `.header(HttpHeaders.AUTHORIZATION, \"Bearer <ADMIN_TOKEN>\")`, based on the role.\n"
             "- Use clear, descriptive method names (e.g., method_asRole_returnsStatus).\n"
             "- Use @ActiveProfiles(\"test\") to load test configuration.\n"
             "- Organize tests into @Nested classes by category.\n"
@@ -355,7 +347,7 @@ def build_prompt_for_scenario(s: Dict[str, Any], language: str = "java") -> str:
     prompt += _job_additions(inconsistency)
     prompt += __base_input_format()
     prompt += _get_rules(inconsistency)
-    prompt += get_env_config(language)
+    prompt += get_env_config()
 
     # Common pieces used in all templates
     scenario_id = params.get("scenario_id", s.get("scenario_id"))

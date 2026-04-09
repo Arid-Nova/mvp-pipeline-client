@@ -49,23 +49,15 @@ const ExecutorPage: React.FC = () => {
 
     const getExecutableCode = (rawCode: string) => {
         let code = rawCode;
+        // 1. Replace the generic URLs with the actual target
         code = code.replace(/http:\/\/localhost:\d+/g, targetUrl)
                    .replace(/https:\/\/api\.example\.com/g, targetUrl);
 
-        Object.entries(globalTokens).forEach(([role, tokenValue]) => {
+        // 2. Replace tokens
+        Object.entries(globalTokens).forEach(([tokenKey, tokenValue]) => {
             if (tokenValue) {
-                // Remove 'ROLE_' for alternative matching (e.g., ROLE_ADMIN -> ADMIN)
-                const cleanRole = role.replace(/^ROLE_/i, '');
-                
-                const regexes = [
-                    new RegExp(`[<{\\[]?${role}[>}\\]]?`, 'gi'),             // <ROLE_ADMIN>
-                    new RegExp(`[<{\\[]?${role}_TOKEN[>}\\]]?`, 'gi'),       // <ROLE_ADMIN_TOKEN>
-                    new RegExp(`[<{\\[]?${cleanRole}_TOKEN[>}\\]]?`, 'gi')   // <ADMIN_TOKEN>
-                ];
-
-                regexes.forEach(regex => {
-                    code = code.replace(regex, tokenValue);
-                });
+                const regex = new RegExp(`[<{\\[]?${tokenKey}[>}\\]]?`, 'gi');
+                code = code.replace(regex, tokenValue);
             }
         });
         return code;
