@@ -11,6 +11,12 @@ const ExecutorPage: React.FC = () => {
 
     const [activeTestIndex, setActiveTestIndex] = useState(0);
     const [results, setResults] = useState<Record<string, ExecutionResult>>({});
+    const [editedCodes, setEditedCodes] = useState<Record<string, string>>({});
+
+    // --- Code Editing ---
+    const getCurrentCode = (scenarioId: string, originalCode: string) => {
+        return editedCodes[scenarioId] !== undefined ? editedCodes[scenarioId] : originalCode;
+    };
 
     // --- Dynamic Role Tokens ---
     // Initialize globalTokens based on the roles passed from the COMPONENT_GENERATE card
@@ -378,9 +384,29 @@ const ExecutorPage: React.FC = () => {
 
                     <div className="flex-1 p-4 flex flex-col gap-2 overflow-hidden">
                         <div className="flex items-center justify-between">
-                            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wide">Generated Script</h3>
+                            <div className="flex items-center gap-4">
+                                <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wide">Generated Script</h3>
+                                
+                                {/* OPTIONAL: Reset Button (only shows if edits exist) */}
+                                {editedCodes[activeTest.scenario_id] !== undefined && (
+                                    <button 
+                                        onClick={() => {
+                                            setEditedCodes(prev => {
+                                                const newState = { ...prev };
+                                                delete newState[activeTest.scenario_id];
+                                                return newState;
+                                            });
+                                        }}
+                                        className="text-[10px] text-slate-500 hover:text-red-400 transition-colors uppercase tracking-wider"
+                                    >
+                                        Reset to Original
+                                    </button>
+                                )}
+                            </div>
+                            
                             <button 
-                                onClick={() => handleRunSingle(activeTest.scenario_id, activeTest.test_code)}
+                                // STEP 4: Pass the current (potentially edited) code to the executor
+                                onClick={() => handleRunSingle(activeTest.scenario_id, getCurrentCode(activeTest.scenario_id, activeTest.test_code))}
                                 disabled={currentResult.status === 'running'}
                                 className={`px-4 py-1.5 rounded text-xs font-bold transition-all flex items-center gap-2 ${currentResult.status === 'running' ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-fuchsia-600 hover:bg-fuchsia-500 text-white shadow-[0_0_10px_rgba(217,70,239,0.3)]'}`}
                             >
@@ -388,9 +414,18 @@ const ExecutorPage: React.FC = () => {
                             </button>
                         </div>
                         
-                        <div className="bg-[#0d1117] border border-slate-800 rounded-lg p-4 overflow-y-auto flex-1 font-mono text-sm leading-relaxed text-slate-300 shadow-inner">
-                            <pre className="whitespace-pre-wrap break-all">{injectedCode}</pre>
-                        </div>
+                        {/* STEP 3: Replaced the static div/pre with an editable textarea */}
+                        <textarea 
+                            className="bg-[#0d1117] border border-slate-800 rounded-lg p-4 overflow-y-auto flex-1 font-mono text-sm leading-relaxed text-slate-300 shadow-inner focus:outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500/50 resize-none w-full"
+                            value={getCurrentCode(activeTest.scenario_id, activeTest.test_code)}
+                            onChange={(e) => {
+                                setEditedCodes(prev => ({
+                                    ...prev,
+                                    [activeTest.scenario_id]: e.target.value
+                                }));
+                            }}
+                            spellCheck={false}
+                        />
                     </div>
 
                     {/* EXECUTION TERMINAL & ASSERTIONS */}
