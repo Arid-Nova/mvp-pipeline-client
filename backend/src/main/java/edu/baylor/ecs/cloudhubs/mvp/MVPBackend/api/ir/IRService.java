@@ -1,6 +1,7 @@
 package edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.ir;
 
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.request.IRRequestModel;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.request.IRByNameRequest;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.ir.MicroserviceEntity;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.ir.MicroserviceIRRepository;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.request.SystemRepository;
@@ -10,6 +11,10 @@ import edu.university.ecs.lab.common.config.RepositoryBranchPair;
 import edu.university.ecs.lab.common.config.RepositoryConfig;
 import edu.university.ecs.lab.common.models.ir.MicroserviceSystem;
 import edu.university.ecs.lab.intermediate.create.services.IRExtractionService;
+
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import lombok.extern.log4j.Log4j2;
 import lombok.RequiredArgsConstructor;
@@ -55,6 +60,44 @@ public class IRService {
         ((ObjectNode) rootNode).put("id", saveIR(rootNode));
 
         return rootNode;
+    }
+
+    public String getIRMetaByName(IRByNameRequest irRequestModel) 
+            throws IllegalArgumentException {
+
+        String rawSystemName = irRequestModel.getSystemName();
+
+        // 1. Transforming the string into a flexible regex pattern
+        String flexiblePattern = buildFlexibleRegex(rawSystemName);
+
+        // 2. Searching based on generic pattern
+        if (getIRMetaByName(flexiblePattern)) 
+            return "We found IRs for this system!";
+        throw new IllegalArgumentException("No microservice system found with name pattern: " + irRequestModel.getSystemName());
+    }
+
+    public JsonNode[] getIRsByName(IRByNameRequest irRequestModel) 
+            throws IllegalArgumentException {
+
+        String rawSystemName = irRequestModel.getSystemName();
+
+        // 1. Transforming the string into a flexible regex pattern
+        String flexiblePattern = buildFlexibleRegex(rawSystemName);
+
+        // 2. Searching based on generic pattern
+        JsonNode[] response = getIRsByName(flexiblePattern);
+        if (response.length == 0) {
+            throw new IllegalArgumentException("No microservice system found with name pattern: " + irRequestModel.getSystemName());
+        }
+
+        return response;
+    }
+
+    private String buildFlexibleRegex(String input) {
+        if (input == null || input.trim().isEmpty()) {
+            return "";
+        }
+        return input.trim().replaceAll("[-_\\s]+", "[-_\\\\s]*");
     }
 
     private MicroserviceSystem basicCreate(IRRequestModel irRequestModel)
@@ -235,4 +278,23 @@ public class IRService {
         }
     }
 
+    private JsonNode[] getIRsByName(String namePattern) {
+        Pageable topFiveLatest = PageRequest.of(0, 5, 
+            Sort.by(Sort.Direction.DESC, "id"));
+        List<MicroserviceEntity> entities = repository.findByPayloadNameMatching(namePattern, topFiveLatest);
+    
+        return entities.stream()
+                .map(entity -> {
+                    JsonNode rootNode = objectMapper.valueToTree(entity.getPayload());
+                    if (rootNode.isObject()) {
+                        ((ObjectNode) rootNode).put("id", entity.getId());
+                    }
+                    return rootNode;
+                })
+                .toArray(JsonNode[]::new);
+    }
+
+    private boolean getIRMetaByName(String namePattern) {
+        return repository.existsByPayloadName(namePattern);
+    }
 }

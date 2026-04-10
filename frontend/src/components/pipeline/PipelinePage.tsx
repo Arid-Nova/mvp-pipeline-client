@@ -1766,7 +1766,7 @@ const PipelinePage: React.FC = () => {
                 const tests = testNode?.data.testSuitePayload?.tests || [];
                 const hasTests = tests.length > 0;
                 const targetLanguage = promptNode?.data.language || 'java';
-                const targetUrl = node.data.targetUrl || 'http://localhost:8080';
+                const targetUrl = node.data.targetUrl || 'http://localhost:1234';
 
                 return (
                     <div className="mt-2 space-y-3">
@@ -1786,7 +1786,7 @@ const PipelinePage: React.FC = () => {
                                 type="text"
                                 value={targetUrl}
                                 onChange={(e) => updateNodeData(node.id, { targetUrl: e.target.value })}
-                                placeholder="e.g. http://localhost:8080"
+                                placeholder="e.g. http://localhost:1234"
                                 className="w-full bg-slate-900/80 border border-slate-700 hover:border-slate-500 rounded-lg py-2 px-3 text-xs font-mono text-slate-200 outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 transition-all shadow-inner"
                             />
                         </div>
