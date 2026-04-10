@@ -88,7 +88,7 @@ const CARD_CONFIG: Record<CardType, { title: string; color: string; icon: JSX.El
     AEGIS: { 
         title: "Aegis", 
         color: "border-red-500 bg-red-900/20", 
-        description: "Launch Aegis engine",
+        description: "Neuro-symbolic deep analysis",
         icon: <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
     },
     FORMAL_VIZ: { 
@@ -199,6 +199,13 @@ const PipelinePage: React.FC = () => {
             }));
         }
     };
+
+    // --- Reequesting Notification Permission ---
+    useEffect(() => {
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+    }, []);
     
     // --- PERSISTENCE LOGIC ---
     // Initialize from session storage if available
@@ -811,10 +818,9 @@ const PipelinePage: React.FC = () => {
                     const irPayload = payload as PipelinePayload;
                     if (!irPayload.irJson) throw new Error("Invalid input: Expected IR JSON");
 
-                    updateStatus(targetNode.id, 'running', 'Analyzing with Aegis Engine...');
+                    updateStatus(targetNode.id, 'running', 'Analyzing in Background...');
 
-                    // Construct payload for the Neuro-Symbolic Engine
-                    // Matches the format used in LandingPage.tsx
+                    // Constructing payload for Neuro-Symbolic Engine
                     const enginePayload = {
                         branch: irPayload.metadata.branch,
                         repoUrl: irPayload.metadata.repoUrl,
@@ -822,18 +828,33 @@ const PipelinePage: React.FC = () => {
                     };
 
                     // Call the Python/Engine API
-                    const response = await fetch('http://localhost:8900/analyze', {
+                    fetch('http://localhost:8900/analyze', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(enginePayload)
+                    })
+                    .then(async (response) => {
+                        if (!response.ok) {
+                            throw new Error(`Engine Status: ${response.status}`);
+                        }
+                        
+                        // UI State Update
+                        updateStatus(targetNode.id, 'completed', 'Analysis Complete. Click to View.', { payload: irPayload });
+
+                        // Triggering Browser Notification
+                        if (Notification.permission === 'granted') {
+                            new Notification('Aegis Analysis Complete', {
+                                body: 'You can now view the results!',
+                                icon: '/health.ico' 
+                            });
+                        } else {
+                            alert('Aegis Analysis Complete! You can now view the results.');
+                        }
+                    })
+                    .catch((error) => {
+                        console.error('Aegis background analysis failed:', error);
+                        updateStatus(targetNode.id, 'error', `Analysis Failed: ${error.message}`);
                     });
-
-                    if (!response.ok) {
-                        throw new Error(`Engine Status: ${response.status}`);
-                    }
-
-                    // Mark complete and pass payload through so the button has access to metadata
-                    updateStatus(targetNode.id, 'completed', 'Analysis Complete. Click to View.', { payload: irPayload });
                 }
                 else if (targetNode.type === 'FORMAL_VIZ') {
                     // Expects Combined Result Packet from FORMAL_VERIFY
