@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 
 import VerificationResultPage from "./components/verification/VerificationResultPage";
 import {Notification, setNotificationCallback, showError, showSuccess} from "./utils/notifications"
@@ -191,6 +191,16 @@ function App(data: any) {
         }
     };
 
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    useEffect(() => {
+        if (location.state && location.state.irData) {
+            handleIRLoaded(location.state.irData);
+            window.history.replaceState({}, document.title);
+        }
+    }, [location.state]); 
+
     // Manually uploading a IR (not from history)
     const handleIRLoaded = (irJson: any) => {
         try {
@@ -214,7 +224,13 @@ function App(data: any) {
                 if (typeof currentInstance === "undefined") {
                     setCurrentInstance(0);
                 }
+
                 showSuccess('Graph data loaded successfully!');
+                if (location.pathname === '/graph-visualize') {
+                    navigate('/graph-visualize', { replace: true, state: {} });
+                } else {
+                    navigate('/graph-visualize');
+                }
             } else {
                 showError('Data parsing failed: Invalid format.');
             }
@@ -241,7 +257,23 @@ function App(data: any) {
         </div>
     );
 
-    const renderMainGraph = () => (
+    const renderMainGraph = () => {
+        if (!graphData) {
+            return (
+                <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-600 via-violet-500 to-cyan-500 shadow-xl shadow-cyan-500/30 border border-white/10 flex items-center justify-center animate-pulse mb-6">
+                         <svg className="w-7 h-7 text-white animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ animationDuration: '3s' }}>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z" />
+                        </svg>
+                    </div>
+                    <h2 className="text-xl font-bold text-slate-300 tracking-wider uppercase">
+                        {location.state?.irData ? 'Parsing Pipeline Data...' : 'Waiting for Data...'}
+                    </h2>
+                </div>
+            );
+        }
+        
+        return (
         <div className={`max-w-full min-h-screen max-h-screen overflow-clip ${isDark ? `bg-gray-900` : `bg-gray-100`}`} ref={ref}>
             <ErrorBoundary setNotification={setNotification}>
                 {/* 1. Mode Toggle (Top Left) */}
@@ -383,20 +415,15 @@ function App(data: any) {
                 />
             </ErrorBoundary>
         </div>
-    );
+    )};
 
     // --- Main Render ---
     return (
         <>
             <Routes>
-                <Route 
-                    path="/" 
-                    element={
-                        (typeof currentInstance === "undefined" || !graphData) 
-                            ? renderLandingPage() 
-                            : renderMainGraph()
-                    } 
-                />
+                <Route path="/" element={<Navigate to="/pipeline" replace />} />
+                <Route path="/explore" element={renderLandingPage()} />
+                <Route path="/graph-visualize" element={renderMainGraph()} />
                 <Route path="/node" element={<NewPage />} />
                 <Route path="/verification-results" element={<VerificationResultPage />} />
                 <Route path="/pipeline" element={<PipelinePage/>}/>

@@ -1838,7 +1838,7 @@ const PipelinePage: React.FC = () => {
                 return (
                      <button 
                         disabled={!node.data.payload?.irJson} 
-                        onClick={() => navigate('/', { state: { irData: node.data.payload?.irJson, fromPipeline: true } })} 
+                        onClick={() => navigate('/graph-visualize', { state: { irData: node.data.payload?.irJson, fromPipeline: true } })} 
                         className="mt-2 w-full py-1.5 text-xs bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded font-medium shadow transition-colors"
                     >
                         Launch Visualizer
@@ -1914,7 +1914,6 @@ const PipelinePage: React.FC = () => {
                     });
                 }
 
-                // Convert the Set to an Array to pass to the Executor
                 const systemRoles = Array.from(roleSet);
 
                 // Setup variables
@@ -2019,10 +2018,32 @@ const PipelinePage: React.FC = () => {
                     
                     {/* Title Section */}
                     <div className="flex items-center gap-3">
-                        {/* Abstract Node/Network Icon for AridNova */}
-                        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-cyan-500 shadow-lg shadow-cyan-500/20">
-                            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
+                        
+                        {/* AridNova Custom Logo: "The Stellar Network" */}
+                        <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-600 via-violet-500 to-cyan-500 shadow-xl shadow-cyan-500/30 border border-white/10 group">
+                            <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                
+                                {/* Outer Hexagon (Rotating slowly like a network hub) */}
+                                <path 
+                                    className="origin-center animate-[spin_12s_linear_infinite]" 
+                                    strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} 
+                                    d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z" 
+                                />
+                                
+                                {/* Inner Nova Star (Pulsing to represent the active core) */}
+                                <path 
+                                    className="animate-pulse origin-center" 
+                                    strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                    d="M12 7l1.5 3.5 3.5 1.5-3.5 1.5L12 17l-1.5-3.5-3.5-1.5 3.5-1.5L12 7z" 
+                                />
+                                
+                                {/* Data Pipeline Connections (Pulsing out of sync with the star) */}
+                                <path 
+                                    className="animate-pulse origin-center" 
+                                    style={{ animationDelay: '500ms' }}
+                                    strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} opacity={0.5} 
+                                    d="M12 3v4M20 7.5l-3 1.5M20 16.5l-3-1.5M12 21v-4M4 16.5l3-1.5M4 7.5l3 1.5" 
+                                />
                             </svg>
                         </div>
                         
@@ -2149,6 +2170,21 @@ const PipelinePage: React.FC = () => {
                                 )}
                             </div>
                         ))}
+                    </div>
+
+                    <div className="p-4 border-t border-white/10 bg-slate-900/80 shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.3)] z-10">
+                        <button 
+                            onClick={() => navigate('/explore')}
+                            className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/20 hover:border-blue-400/50 hover:bg-blue-500/20 transition-all flex items-center justify-center gap-2 group"
+                        >
+                            <svg className="w-4 h-4 text-blue-400 group-hover:text-cyan-300 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            <span className="text-xs font-bold text-blue-400 group-hover:text-cyan-300 transition-colors uppercase tracking-widest">
+                                Preview Features
+                            </span>
+                        </button>
                     </div>
                 </div>
 
