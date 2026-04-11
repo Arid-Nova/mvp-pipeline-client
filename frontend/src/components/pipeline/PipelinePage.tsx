@@ -106,7 +106,7 @@ const CARD_CONFIG: Record<CardType, { title: string; color: string; icon: JSX.El
 };
 
 const VALID_CONNECTIONS: Record<CardType, CardType[]> = {
-    SYSTEM_INPUT: ['MULTI_REPO', 'COMPONENT_GENERATE'],
+    SYSTEM_INPUT: ['MULTI_REPO', 'COMPONENT_GENERATE', 'VISUALIZATION'],
     MULTI_REPO: ['IR_HOLDER', 'FORMAL_VERIFY'],
     UPLOAD_IR: ['IR_HOLDER'],
     COMPONENT_GENERATE: ['COMPONENT_HOLDER'],
@@ -807,11 +807,55 @@ const PipelinePage: React.FC = () => {
                     await processNextNodes(targetNode.id, { ...payload, promptPayload: data }, updateStatus);
                 }
                 else if (targetNode.type === 'VISUALIZATION') {
-                    // Expects IR
-                    const irPayload = payload as PipelinePayload;
-                    if(!irPayload.irJson) throw new Error("Invalid input for Visualization");
+                    const irNode = nodes.find(n => n.type === 'IR_HOLDER' && 
+                        connections.some(c => c.source === n.id && c.target === targetNode.id)
+                    );
 
-                    updateStatus(targetNode.id, 'completed', 'Ready to Visualize.', { payload: irPayload });
+                    const systemInputNode = nodes.find(n => 
+                        n.type === 'SYSTEM_INPUT' && 
+                        connections.some(c => c.source === n.id && c.target === targetNode.id)
+                    );
+
+                    const irPayload = irNode?.data?.payload;
+                    const systemPayload = systemInputNode?.data?.payload as SystemPayload | undefined;
+
+                    let finalIrJson = null;
+                    let statusMessage = '';
+
+                    if (irPayload?.irJson) {
+                        // Priority 1: Use IR from IR Holder
+                        finalIrJson = { ...irPayload.irJson };
+                        statusMessage = 'Primary IR loaded';
+
+                        if (systemPayload?.systemName) {
+                            finalIrJson.name = systemPayload.systemName;
+                            statusMessage = `Primary IR loaded. History linked for ${finalIrJson.name}`;
+                        }
+                    } 
+                    else if (systemPayload?.systemName) {
+                        // Priority 2: Fetching using system name. 
+                        finalIrJson = {
+                            name: systemPayload.systemName,
+                            commitID: "historic-fetch-only-" + Date.now(),
+                            microservices: []
+                        };
+                        statusMessage = `Fetched IR Histroy.`;
+                    } 
+                    else {
+                        throw new Error("Missing input data.");
+                    }
+
+                    const vizPayload: PipelinePayload = {
+                        ...(payload as PipelinePayload || {}),
+                        irJson: finalIrJson
+                    };
+
+                    updateStatus(targetNode.id, 'completed', statusMessage, { payload: vizPayload });
+
+                    // Old logic without historic data fetching.
+                    // const irPayload = payload as PipelinePayload;
+                    // if(!irPayload.irJson) throw new Error("Invalid input for Visualization");
+                    // updateStatus(targetNode.id, 'completed', 'Ready to Visualize.', { payload: irPayload });
                 }
                 else if (targetNode.type === 'AEGIS') {
                     // Type Guard
