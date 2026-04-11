@@ -39,7 +39,7 @@ public class IRController {
 
     @GetMapping
     @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
-    public ResponseEntity<?> getIRs(@RequestBody IRByNameRequest irRequestModel) {
+    public ResponseEntity<?> getIRs(@ModelAttribute IRByNameRequest irRequestModel) {
         JsonNode[] responseModel;
         try {
             responseModel = irService.getIRsByName(irRequestModel);
@@ -58,7 +58,7 @@ public class IRController {
 
     @GetMapping("/meta")
     @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
-    public ResponseEntity<?> getIRsMeta(@RequestBody IRByNameRequest irRequestModel) {
+    public ResponseEntity<?> getIRsMeta(@ModelAttribute IRByNameRequest irRequestModel) {
         String responseModel;
         try {
             responseModel = irService.getIRMetaByName(irRequestModel);

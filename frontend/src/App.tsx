@@ -410,7 +410,7 @@ function App(data: any) {
 
             {/* Historical IR availability notification */}
             {historyPrompt.show && (
-                <div className="fixed top-20 right-6 z-[100] animate-fade-in-down">
+                <div className="fixed bottom-6 right-6 z-[100] animate-fade-in-down">
                     <div className="bg-slate-900 border border-teal-500/50 shadow-[0_0_15px_rgba(20,184,166,0.2)] rounded-lg p-4 flex flex-col gap-3 max-w-sm">
                         <div className="flex items-start gap-3">
                             <div className="bg-teal-900/50 p-2 rounded-full text-teal-400">

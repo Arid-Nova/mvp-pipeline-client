@@ -65,9 +65,7 @@ export const verifySystem = async (input: VerificationInput): Promise<Verificati
 export const checkHistoricalIRs = async (systemName: string): Promise<boolean> => {
     try {
         const response = await axios.get('/ir/meta', { 
-            data: { 
-                "systemName": systemName 
-            }
+            params: { systemName }
         });
         return response.status === 200;
     } catch (error: any) {
@@ -79,9 +77,7 @@ export const checkHistoricalIRs = async (systemName: string): Promise<boolean> =
 export const fetchHistoricalIRs = async (systemName: string): Promise<any[]> => {
     try {
         const response = await axios.get('/ir', { 
-            data: { 
-                "systemName": systemName 
-            }
+            params: { systemName }
         });
         return response.data;
     } catch (error: any) {
