@@ -1,7 +1,10 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from .models import CurlExecuteRequest, JavaExecuteRequest, PythonExecuteRequest
+from .models.CurlExecuteRequest import CurlExecuteRequest
+from .models.JavaExecuteRequest import JavaExecuteRequest
+from .models.PythonExecuteRequest import PythonExecuteRequest
+
 from .services.curlExecutor import execute_curl_commands
 from .services.javaExecutor import execute_java_tests
 from .services.pythonExecutor import execute_python_tests

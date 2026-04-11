@@ -103,18 +103,18 @@ const TimeSlider: React.FC<Props> = ({
                 <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isExpanded ? 'max-h-40 mt-4' : 'max-h-0'}`}>
                     <div className="flex flex-col text-sm font-mono text-slate-300">
                         <div className="font-semibold text-base font-sans text-white">
-                            Iteration {value+1}
+                            Iteration {parseInt(String(value)) + 1}
                         </div>
                         {graphTimeline[currentInstance] && (
                             <>
-                                <div>
+                                {/* <div>
                                     Commit #{graphTimeline[currentInstance].commitID.substring(0, 7)}
+                                </div> */}
+                                <div>
+                                    Created: {(graphTimeline[currentInstance].metadata?.createDate || "Not Found")}
                                 </div>
                                 <div>
-                                    Created: {(graphTimeline[currentInstance].createDate || "Not Found")}
-                                </div>
-                                <div>
-                                    Modified: {(graphTimeline[currentInstance].modifyDate || "Not Found")}
+                                    Modified: {(graphTimeline[currentInstance].metadata?.modifyDate || "Not Found")}
                                 </div>
                             </>
                         )}

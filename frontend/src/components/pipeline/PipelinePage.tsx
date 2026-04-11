@@ -106,7 +106,7 @@ const CARD_CONFIG: Record<CardType, { title: string; color: string; icon: JSX.El
 };
 
 const VALID_CONNECTIONS: Record<CardType, CardType[]> = {
-    SYSTEM_INPUT: ['MULTI_REPO', 'COMPONENT_GENERATE'],
+    SYSTEM_INPUT: ['MULTI_REPO', 'COMPONENT_GENERATE', 'VISUALIZATION'],
     MULTI_REPO: ['IR_HOLDER', 'FORMAL_VERIFY'],
     UPLOAD_IR: ['IR_HOLDER'],
     COMPONENT_GENERATE: ['COMPONENT_HOLDER'],
@@ -807,11 +807,63 @@ const PipelinePage: React.FC = () => {
                     await processNextNodes(targetNode.id, { ...payload, promptPayload: data }, updateStatus);
                 }
                 else if (targetNode.type === 'VISUALIZATION') {
-                    // Expects IR
-                    const irPayload = payload as PipelinePayload;
-                    if(!irPayload.irJson) throw new Error("Invalid input for Visualization");
+                    // 1. Look at the FRESH payload passed directly from the node that just triggered this
+                    const incomingIr = (payload as any)?.irJson;
+                    const incomingSystemName = (payload as any)?.systemName;
 
-                    updateStatus(targetNode.id, 'completed', 'Ready to Visualize.', { payload: irPayload });
+                    // 2. Look up the graph for settled state (nodes that finished previously)
+                    const irNode = nodes.find(n => n.type === 'IR_HOLDER' && 
+                        connections.some(c => c.source === n.id && c.target === targetNode.id)
+                    );
+                    const systemInputNode = nodes.find(n => 
+                        n.type === 'SYSTEM_INPUT' && 
+                        connections.some(c => c.source === n.id && c.target === targetNode.id)
+                    );
+
+                    const graphIrPayload = irNode?.data?.payload;
+                    const graphSystemPayload = systemInputNode?.data?.payload as SystemPayload | undefined;
+
+                    // 3. Merge them! Prefer the fresh incoming payload, fallback to graph state
+                    const actualIrJson = incomingIr || graphIrPayload?.irJson;
+                    const actualSystemName = incomingSystemName || graphSystemPayload?.systemName;
+
+                    let finalIrJson = null;
+                    let statusMessage = '';
+
+                    if (actualIrJson) {
+                        // Priority 1: Use IR from IR Holder (either fresh or from state)
+                        finalIrJson = { ...actualIrJson };
+                        statusMessage = 'Primary IR loaded.';
+
+                        if (actualSystemName) {
+                            finalIrJson.name = actualSystemName;
+                            statusMessage = `Primary IR loaded. History linked for ${finalIrJson.name}`;
+                        }
+                    } 
+                    else if (actualSystemName) {
+                        // Priority 2: Fetching using system name (either fresh or from state)
+                        finalIrJson = {
+                            name: actualSystemName,
+                            commitID: "historic-fetch-only-" + Date.now(),
+                            microservices: []
+                        };
+                        statusMessage = `Fetched IR History.`;
+                    } 
+                    else {
+                        throw new Error("Missing input data.");
+                    }
+
+                    const vizPayload: PipelinePayload = {
+                        ...(payload as PipelinePayload || {}),
+                        irJson: finalIrJson
+                    };
+
+                    updateStatus(targetNode.id, 'completed', statusMessage, { payload: vizPayload });
+
+                    // Old logic without historic data fetching.
+                    // const irPayload = payload as PipelinePayload;
+                    // if(!irPayload.irJson) throw new Error("Invalid input for Visualization");
+                    // updateStatus(targetNode.id, 'completed', 'Ready to Visualize.', { payload: irPayload });
                 }
                 else if (targetNode.type === 'AEGIS') {
                     // Type Guard
@@ -884,8 +936,56 @@ const PipelinePage: React.FC = () => {
                 const updateRepo = (index: number, field: string, value: string) => {
                     const newRepos = [...repositories];
                     newRepos[index] = { ...newRepos[index], [field]: value };
+                    
                     const legacyData = index === 0 ? { [field]: value } : {};
                     setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, ...legacyData, repositories: newRepos } } : n));
+                };
+
+                // --- CSV Parser ---
+                const handleCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+                    const file = event.target.files?.[0];
+                    if (!file) return;
+
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const text = e.target?.result as string;
+                        if (!text) return;
+
+                        const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+                        
+                        const parsedRepos: { repoUrl: string, branch: string, commit: string }[] = [];
+                        
+                        lines.forEach((line, i) => {
+                            const parts = line.split(',');
+                            
+                            // Skipping the first row if it looks like a header row instead of a URL
+                            if (i === 0 && !line.includes('/') && !line.includes('http') && line.toLowerCase().includes('url')) {
+                                return;
+                            }
+                            
+                            // Only push if there is at least a URL
+                            if (parts.length >= 1 && parts[0].trim()) {
+                                parsedRepos.push({
+                                    repoUrl: parts[0].trim(),
+                                    branch: parts[1]?.trim() || 'master',
+                                    commit: parts[2]?.trim() || ''
+                                });
+                            }
+                        });
+
+                        if (parsedRepos.length > 0) {
+                            const currentRepos = repositories.filter(r => r.repoUrl.trim() !== '');
+                            
+                            setNodes(nodes.map(n => n.id === node.id ? { 
+                                ...n, 
+                                data: { ...n.data, repositories: [...currentRepos, ...parsedRepos] } 
+                            } : n));
+                        }
+                    };
+                    reader.readAsText(file);
+                    
+                    // Reseting the input so the user can upload the same file again if they deleted it by mistake
+                    event.target.value = '';
                 };
 
                 return (
@@ -895,23 +995,78 @@ const PipelinePage: React.FC = () => {
                             className="w-full text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none"
                             onChange={(e) => setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, systemName: e.target.value }} : n))}
                         />
-                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
+                        
+                        <div className="space-y-3 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
                             {repositories.map((repo, index) => (
-                                <div key={`repo-${index}`} className="space-y-2 p-2 border border-slate-800 bg-slate-900 rounded relative">
-                                    {repositories.length > 1 && (
-                                        <button onClick={() => setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, repositories: repositories.filter((_, i) => i !== index) } } : n))} className="absolute top-1 right-2 text-slate-500 hover:text-red-500 text-xs font-bold">✕</button>
-                                    )}
-                                    <input type="text" placeholder="Repository URL" value={repo.repoUrl || ''} className="w-full text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none pr-6" onChange={(e) => updateRepo(index, 'repoUrl', e.target.value)} />
-                                    <div className="flex gap-1">
-                                        <input type="text" placeholder="Branch (master)" value={repo.branch || ''} className="w-1/2 text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none" onChange={(e) => updateRepo(index, 'branch', e.target.value)} />
-                                        <input type="text" placeholder="Commit (Latest)" value={repo.commit || ''} className="w-1/2 text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none" onChange={(e) => updateRepo(index, 'commit', e.target.value)} />
+                                <div key={`repo-${index}`} className="p-2 border border-slate-800 bg-slate-900 rounded">
+                                    
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">
+                                            Repository {index + 1}
+                                        </span>
+
+                                        {repositories.length > 1 && (
+                                            <button 
+                                                onClick={() => setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, repositories: repositories.filter((_, i) => i !== index) } } : n))} 
+                                                className="w-5 h-5 flex items-center justify-center text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors text-xs font-bold -mt-1 -mr-1"
+                                                title="Remove Repository"
+                                            >✕</button>
+                                        )}
                                     </div>
+                                    
+                                    {/* INPUTS CONTAINER */}
+                                    <div className="space-y-2">
+                                        <input type="text" placeholder="Repository URL" value={repo.repoUrl || ''} className="w-full text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none" onChange={(e) => updateRepo(index, 'repoUrl', e.target.value)} />
+                                        <div className="flex gap-1">
+                                            <input type="text" placeholder="Branch (master)" value={repo.branch || ''} className="w-1/2 text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none" onChange={(e) => updateRepo(index, 'branch', e.target.value)} />
+                                            <input type="text" placeholder="Commit (Latest)" value={repo.commit || ''} className="w-1/2 text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none" onChange={(e) => updateRepo(index, 'commit', e.target.value)} />
+                                        </div>
+                                    </div>
+
                                 </div>
                             ))}
                         </div>
-                        <button onClick={() => setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, repositories: [...repositories, { repoUrl: '', branch: 'master', commit: '' }] } } : n))} className="w-full py-1.5 text-xs text-blue-400 border border-dashed border-blue-800 rounded hover:bg-blue-900/30 transition-colors">
-                            + Add Repository
-                        </button>
+
+                        {/* ACTION BUTTONS */}
+                        <div className="flex items-center gap-2 mt-3">
+                            <button 
+                                onClick={() => setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, repositories: [...repositories, { repoUrl: '', branch: 'master', commit: '' }] } } : n))} 
+                                className="group relative flex-1 py-1.5 text-[10px] font-bold tracking-wider uppercase text-blue-400 border border-dashed border-blue-800 rounded hover:bg-blue-900/30 transition-colors"
+                            >
+                                + Add Repo
+
+                                {/* ADD REPO TOOLTIP */}
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-[150px] bg-slate-800 border border-slate-700 shadow-xl rounded p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-[100] normal-case tracking-normal text-left font-normal">
+                                    <p className="text-[10px] text-slate-200 font-bold mb-1 border-b border-slate-700 pb-1">Manual Entry</p>
+                                    <p className="text-[9px] text-slate-400 mt-1 leading-relaxed">
+                                        Add a new row to manually specify another repository.
+                                    </p>
+                                    {/* Arrow */}
+                                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-800"></div>
+                                </div>
+                            </button>
+                            
+                            <span className="text-[10px] text-slate-500 font-bold uppercase">or</span>
+                            
+                            <label className="group relative flex-1 py-1.5 text-[10px] font-bold tracking-wider uppercase text-teal-400 border border-dashed border-teal-800 rounded hover:bg-teal-900/30 transition-colors cursor-pointer text-center flex items-center justify-center gap-1">
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                </svg>
+                                CSV Upload
+                                <input type="file" accept=".csv" className="hidden" onChange={handleCsvUpload} />
+
+                                {/* TOOLTIP */}
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-[180px] bg-slate-800 border border-slate-700 shadow-xl rounded p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-[100] normal-case tracking-normal text-left font-normal">
+                                    <p className="text-[10px] text-slate-200 font-bold mb-1 border-b border-slate-700 pb-1">Expected CSV Columns:</p>
+                                    <ol className="text-[9px] text-slate-400 list-decimal pl-3 space-y-0.5">
+                                        <li><span className="text-teal-400">URL</span> <span className="text-slate-500">(Required)</span></li>
+                                        <li><span className="text-slate-300">Branch</span> <span className="text-slate-500">(Optional)</span></li>
+                                        <li><span className="text-slate-300">Commit ID</span> <span className="text-slate-500">(Optional)</span></li>
+                                    </ol>
+                                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-800"></div>
+                                </div>
+                            </label>
+                        </div>
                     </div>
                 );
             }
@@ -1683,7 +1838,7 @@ const PipelinePage: React.FC = () => {
                 return (
                      <button 
                         disabled={!node.data.payload?.irJson} 
-                        onClick={() => navigate('/', { state: { irData: node.data.payload?.irJson, fromPipeline: true } })} 
+                        onClick={() => navigate('/graph-visualize', { state: { irData: node.data.payload?.irJson, fromPipeline: true } })} 
                         className="mt-2 w-full py-1.5 text-xs bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded font-medium shadow transition-colors"
                     >
                         Launch Visualizer
@@ -1759,14 +1914,13 @@ const PipelinePage: React.FC = () => {
                     });
                 }
 
-                // Convert the Set to an Array to pass to the Executor
                 const systemRoles = Array.from(roleSet);
 
                 // Setup variables
                 const tests = testNode?.data.testSuitePayload?.tests || [];
                 const hasTests = tests.length > 0;
                 const targetLanguage = promptNode?.data.language || 'java';
-                const targetUrl = node.data.targetUrl || 'http://localhost:8080';
+                const targetUrl = node.data.targetUrl || 'http://localhost:1234';
 
                 return (
                     <div className="mt-2 space-y-3">
@@ -1786,7 +1940,7 @@ const PipelinePage: React.FC = () => {
                                 type="text"
                                 value={targetUrl}
                                 onChange={(e) => updateNodeData(node.id, { targetUrl: e.target.value })}
-                                placeholder="e.g. http://localhost:8080"
+                                placeholder="e.g. http://localhost:1234"
                                 className="w-full bg-slate-900/80 border border-slate-700 hover:border-slate-500 rounded-lg py-2 px-3 text-xs font-mono text-slate-200 outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 transition-all shadow-inner"
                             />
                         </div>
@@ -1864,10 +2018,32 @@ const PipelinePage: React.FC = () => {
                     
                     {/* Title Section */}
                     <div className="flex items-center gap-3">
-                        {/* Abstract Node/Network Icon for AridNova */}
-                        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-cyan-500 shadow-lg shadow-cyan-500/20">
-                            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
+                        
+                        {/* AridNova Custom Logo: "The Stellar Network" */}
+                        <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-600 via-violet-500 to-cyan-500 shadow-xl shadow-cyan-500/30 border border-white/10 group">
+                            <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                
+                                {/* Outer Hexagon (Rotating slowly like a network hub) */}
+                                <path 
+                                    className="origin-center animate-[spin_12s_linear_infinite]" 
+                                    strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} 
+                                    d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z" 
+                                />
+                                
+                                {/* Inner Nova Star (Pulsing to represent the active core) */}
+                                <path 
+                                    className="animate-pulse origin-center" 
+                                    strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                    d="M12 7l1.5 3.5 3.5 1.5-3.5 1.5L12 17l-1.5-3.5-3.5-1.5 3.5-1.5L12 7z" 
+                                />
+                                
+                                {/* Data Pipeline Connections (Pulsing out of sync with the star) */}
+                                <path 
+                                    className="animate-pulse origin-center" 
+                                    style={{ animationDelay: '500ms' }}
+                                    strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} opacity={0.5} 
+                                    d="M12 3v4M20 7.5l-3 1.5M20 16.5l-3-1.5M12 21v-4M4 16.5l3-1.5M4 7.5l3 1.5" 
+                                />
                             </svg>
                         </div>
                         
@@ -1994,6 +2170,21 @@ const PipelinePage: React.FC = () => {
                                 )}
                             </div>
                         ))}
+                    </div>
+
+                    <div className="p-4 border-t border-white/10 bg-slate-900/80 shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.3)] z-10">
+                        <button 
+                            onClick={() => navigate('/explore')}
+                            className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/20 hover:border-blue-400/50 hover:bg-blue-500/20 transition-all flex items-center justify-center gap-2 group"
+                        >
+                            <svg className="w-4 h-4 text-blue-400 group-hover:text-cyan-300 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            <span className="text-xs font-bold text-blue-400 group-hover:text-cyan-300 transition-colors uppercase tracking-widest">
+                                Preview Features
+                            </span>
+                        </button>
                     </div>
                 </div>
 

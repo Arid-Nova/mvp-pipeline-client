@@ -61,3 +61,28 @@ export const verifySystem = async (input: VerificationInput): Promise<Verificati
         throw error;
     }
 };
+
+export const checkHistoricalIRs = async (systemName: string): Promise<boolean> => {
+    try {
+        const response = await axios.get('/ir/meta', { 
+            params: { systemName }
+        });
+        return response.status === 200;
+    } catch (error: any) {
+        console.error("Failed to check historical IRs:", error);
+        return false;
+    }
+};
+
+export const fetchHistoricalIRs = async (systemName: string): Promise<any[]> => {
+    try {
+        const response = await axios.get('/ir', { 
+            params: { systemName }
+        });
+        return response.data;
+    } catch (error: any) {
+        console.error("Failed to fetch historical IRs:", error);
+        showError("Failed to load historical timeline data.");
+        throw error;
+    }
+};

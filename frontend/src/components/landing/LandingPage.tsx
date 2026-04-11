@@ -118,9 +118,46 @@ const LandingPage: React.FC<Props> = ({ onIRLoaded }) => {
             </div>
 
             {/* GLOBAL TITLE */}
-            <h1 className="relative z-10 text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-violet-400 to-emerald-400 mb-12 text-center drop-shadow-lg tracking-tight px-4">
-                AridNova Analysis Toolkit Explorer
-            </h1>
+            <div className="relative z-10 flex items-center justify-center gap-4 mb-12 drop-shadow-lg px-4">
+                
+                <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-600 via-violet-500 to-cyan-500 shadow-xl shadow-cyan-500/30 border border-white/10 group">
+                    <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        
+                        {/* Outer Hexagon (Rotating slowly like a network hub) */}
+                        <path 
+                            className="origin-center animate-[spin_12s_linear_infinite]" 
+                            strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} 
+                            d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z" 
+                        />
+                        
+                        {/* Inner Nova Star (Pulsing to represent the active core) */}
+                        <path 
+                            className="animate-pulse origin-center" 
+                            strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                            d="M12 7l1.5 3.5 3.5 1.5-3.5 1.5L12 17l-1.5-3.5-3.5-1.5 3.5-1.5L12 7z" 
+                        />
+                        
+                        {/* Data Pipeline Connections (Pulsing out of sync with the star) */}
+                        <path 
+                            className="animate-pulse origin-center" 
+                            style={{ animationDelay: '500ms' }}
+                            strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} opacity={0.5} 
+                            d="M12 3v4M20 7.5l-3 1.5M20 16.5l-3-1.5M12 21v-4M4 16.5l3-1.5M4 7.5l3 1.5" 
+                        />
+                    </svg>
+                </div>
+
+                <h1 className="text-5xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-cyan-400 to-teal-400">
+                    AridNova
+                </h1>
+                
+                <span className="text-slate-600 font-light text-5xl mx-2 mb-2">|</span>
+                
+                <h2 className="text-3xl font-extrabold text-slate-400 tracking-tight mt-2">
+                    Analysis Toolkit Explorer
+                </h2>
+                
+            </div>
 
             {/* MAIN CARD CONTAINER */}
             <div className="relative z-10 w-full max-w-5xl bg-slate-800/40 backdrop-blur-xl border border-slate-700/50 rounded-3xl shadow-2xl overflow-hidden flex flex-col">
