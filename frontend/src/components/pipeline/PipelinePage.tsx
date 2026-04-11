@@ -807,39 +807,47 @@ const PipelinePage: React.FC = () => {
                     await processNextNodes(targetNode.id, { ...payload, promptPayload: data }, updateStatus);
                 }
                 else if (targetNode.type === 'VISUALIZATION') {
+                    // 1. Look at the FRESH payload passed directly from the node that just triggered this
+                    const incomingIr = (payload as any)?.irJson;
+                    const incomingSystemName = (payload as any)?.systemName;
+
+                    // 2. Look up the graph for settled state (nodes that finished previously)
                     const irNode = nodes.find(n => n.type === 'IR_HOLDER' && 
                         connections.some(c => c.source === n.id && c.target === targetNode.id)
                     );
-
                     const systemInputNode = nodes.find(n => 
                         n.type === 'SYSTEM_INPUT' && 
                         connections.some(c => c.source === n.id && c.target === targetNode.id)
                     );
 
-                    const irPayload = irNode?.data?.payload;
-                    const systemPayload = systemInputNode?.data?.payload as SystemPayload | undefined;
+                    const graphIrPayload = irNode?.data?.payload;
+                    const graphSystemPayload = systemInputNode?.data?.payload as SystemPayload | undefined;
+
+                    // 3. Merge them! Prefer the fresh incoming payload, fallback to graph state
+                    const actualIrJson = incomingIr || graphIrPayload?.irJson;
+                    const actualSystemName = incomingSystemName || graphSystemPayload?.systemName;
 
                     let finalIrJson = null;
                     let statusMessage = '';
 
-                    if (irPayload?.irJson) {
-                        // Priority 1: Use IR from IR Holder
-                        finalIrJson = { ...irPayload.irJson };
-                        statusMessage = 'Primary IR loaded';
+                    if (actualIrJson) {
+                        // Priority 1: Use IR from IR Holder (either fresh or from state)
+                        finalIrJson = { ...actualIrJson };
+                        statusMessage = 'Primary IR loaded.';
 
-                        if (systemPayload?.systemName) {
-                            finalIrJson.name = systemPayload.systemName;
+                        if (actualSystemName) {
+                            finalIrJson.name = actualSystemName;
                             statusMessage = `Primary IR loaded. History linked for ${finalIrJson.name}`;
                         }
                     } 
-                    else if (systemPayload?.systemName) {
-                        // Priority 2: Fetching using system name. 
+                    else if (actualSystemName) {
+                        // Priority 2: Fetching using system name (either fresh or from state)
                         finalIrJson = {
-                            name: systemPayload.systemName,
+                            name: actualSystemName,
                             commitID: "historic-fetch-only-" + Date.now(),
                             microservices: []
                         };
-                        statusMessage = `Fetched IR Histroy.`;
+                        statusMessage = `Fetched IR History.`;
                     } 
                     else {
                         throw new Error("Missing input data.");
@@ -928,8 +936,56 @@ const PipelinePage: React.FC = () => {
                 const updateRepo = (index: number, field: string, value: string) => {
                     const newRepos = [...repositories];
                     newRepos[index] = { ...newRepos[index], [field]: value };
+                    
                     const legacyData = index === 0 ? { [field]: value } : {};
                     setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, ...legacyData, repositories: newRepos } } : n));
+                };
+
+                // --- CSV Parser ---
+                const handleCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+                    const file = event.target.files?.[0];
+                    if (!file) return;
+
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const text = e.target?.result as string;
+                        if (!text) return;
+
+                        const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+                        
+                        const parsedRepos: { repoUrl: string, branch: string, commit: string }[] = [];
+                        
+                        lines.forEach((line, i) => {
+                            const parts = line.split(',');
+                            
+                            // Skipping the first row if it looks like a header row instead of a URL
+                            if (i === 0 && !line.includes('/') && !line.includes('http') && line.toLowerCase().includes('url')) {
+                                return;
+                            }
+                            
+                            // Only push if there is at least a URL
+                            if (parts.length >= 1 && parts[0].trim()) {
+                                parsedRepos.push({
+                                    repoUrl: parts[0].trim(),
+                                    branch: parts[1]?.trim() || 'master',
+                                    commit: parts[2]?.trim() || ''
+                                });
+                            }
+                        });
+
+                        if (parsedRepos.length > 0) {
+                            const currentRepos = repositories.filter(r => r.repoUrl.trim() !== '');
+                            
+                            setNodes(nodes.map(n => n.id === node.id ? { 
+                                ...n, 
+                                data: { ...n.data, repositories: [...currentRepos, ...parsedRepos] } 
+                            } : n));
+                        }
+                    };
+                    reader.readAsText(file);
+                    
+                    // Reseting the input so the user can upload the same file again if they deleted it by mistake
+                    event.target.value = '';
                 };
 
                 return (
@@ -939,23 +995,78 @@ const PipelinePage: React.FC = () => {
                             className="w-full text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none"
                             onChange={(e) => setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, systemName: e.target.value }} : n))}
                         />
-                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
+                        
+                        <div className="space-y-3 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
                             {repositories.map((repo, index) => (
-                                <div key={`repo-${index}`} className="space-y-2 p-2 border border-slate-800 bg-slate-900 rounded relative">
-                                    {repositories.length > 1 && (
-                                        <button onClick={() => setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, repositories: repositories.filter((_, i) => i !== index) } } : n))} className="absolute top-1 right-2 text-slate-500 hover:text-red-500 text-xs font-bold">✕</button>
-                                    )}
-                                    <input type="text" placeholder="Repository URL" value={repo.repoUrl || ''} className="w-full text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none pr-6" onChange={(e) => updateRepo(index, 'repoUrl', e.target.value)} />
-                                    <div className="flex gap-1">
-                                        <input type="text" placeholder="Branch (master)" value={repo.branch || ''} className="w-1/2 text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none" onChange={(e) => updateRepo(index, 'branch', e.target.value)} />
-                                        <input type="text" placeholder="Commit (Latest)" value={repo.commit || ''} className="w-1/2 text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none" onChange={(e) => updateRepo(index, 'commit', e.target.value)} />
+                                <div key={`repo-${index}`} className="p-2 border border-slate-800 bg-slate-900 rounded">
+                                    
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">
+                                            Repository {index + 1}
+                                        </span>
+
+                                        {repositories.length > 1 && (
+                                            <button 
+                                                onClick={() => setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, repositories: repositories.filter((_, i) => i !== index) } } : n))} 
+                                                className="w-5 h-5 flex items-center justify-center text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors text-xs font-bold -mt-1 -mr-1"
+                                                title="Remove Repository"
+                                            >✕</button>
+                                        )}
                                     </div>
+                                    
+                                    {/* INPUTS CONTAINER */}
+                                    <div className="space-y-2">
+                                        <input type="text" placeholder="Repository URL" value={repo.repoUrl || ''} className="w-full text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none" onChange={(e) => updateRepo(index, 'repoUrl', e.target.value)} />
+                                        <div className="flex gap-1">
+                                            <input type="text" placeholder="Branch (master)" value={repo.branch || ''} className="w-1/2 text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none" onChange={(e) => updateRepo(index, 'branch', e.target.value)} />
+                                            <input type="text" placeholder="Commit (Latest)" value={repo.commit || ''} className="w-1/2 text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none" onChange={(e) => updateRepo(index, 'commit', e.target.value)} />
+                                        </div>
+                                    </div>
+
                                 </div>
                             ))}
                         </div>
-                        <button onClick={() => setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, repositories: [...repositories, { repoUrl: '', branch: 'master', commit: '' }] } } : n))} className="w-full py-1.5 text-xs text-blue-400 border border-dashed border-blue-800 rounded hover:bg-blue-900/30 transition-colors">
-                            + Add Repository
-                        </button>
+
+                        {/* ACTION BUTTONS */}
+                        <div className="flex items-center gap-2 mt-3">
+                            <button 
+                                onClick={() => setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, repositories: [...repositories, { repoUrl: '', branch: 'master', commit: '' }] } } : n))} 
+                                className="group relative flex-1 py-1.5 text-[10px] font-bold tracking-wider uppercase text-blue-400 border border-dashed border-blue-800 rounded hover:bg-blue-900/30 transition-colors"
+                            >
+                                + Add Repo
+
+                                {/* ADD REPO TOOLTIP */}
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-[150px] bg-slate-800 border border-slate-700 shadow-xl rounded p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-[100] normal-case tracking-normal text-left font-normal">
+                                    <p className="text-[10px] text-slate-200 font-bold mb-1 border-b border-slate-700 pb-1">Manual Entry</p>
+                                    <p className="text-[9px] text-slate-400 mt-1 leading-relaxed">
+                                        Add a new row to manually specify another repository.
+                                    </p>
+                                    {/* Arrow */}
+                                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-800"></div>
+                                </div>
+                            </button>
+                            
+                            <span className="text-[10px] text-slate-500 font-bold uppercase">or</span>
+                            
+                            <label className="group relative flex-1 py-1.5 text-[10px] font-bold tracking-wider uppercase text-teal-400 border border-dashed border-teal-800 rounded hover:bg-teal-900/30 transition-colors cursor-pointer text-center flex items-center justify-center gap-1">
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                </svg>
+                                CSV Upload
+                                <input type="file" accept=".csv" className="hidden" onChange={handleCsvUpload} />
+
+                                {/* TOOLTIP */}
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-[180px] bg-slate-800 border border-slate-700 shadow-xl rounded p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-[100] normal-case tracking-normal text-left font-normal">
+                                    <p className="text-[10px] text-slate-200 font-bold mb-1 border-b border-slate-700 pb-1">Expected CSV Columns:</p>
+                                    <ol className="text-[9px] text-slate-400 list-decimal pl-3 space-y-0.5">
+                                        <li><span className="text-teal-400">URL</span> <span className="text-slate-500">(Required)</span></li>
+                                        <li><span className="text-slate-300">Branch</span> <span className="text-slate-500">(Optional)</span></li>
+                                        <li><span className="text-slate-300">Commit ID</span> <span className="text-slate-500">(Optional)</span></li>
+                                    </ol>
+                                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-800"></div>
+                                </div>
+                            </label>
+                        </div>
                     </div>
                 );
             }

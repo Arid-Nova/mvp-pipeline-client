@@ -257,6 +257,10 @@ public class IRService {
     // Repository operations
     private String saveIR(JsonNode rootNode) {
         Map<String, Object> jsonMap = objectMapper.convertValue(rootNode, new TypeReference<>() {});
+        jsonMap.put("metadata", Map.of(
+            "createDate", new Date(),
+            "modifyDate", new Date()
+        ));
         MicroserviceEntity entity = new MicroserviceEntity(jsonMap);
 
         MicroserviceEntity savedEntity = repository.save(entity);
@@ -280,7 +284,7 @@ public class IRService {
 
     private JsonNode[] getIRsByName(String namePattern) {
         Pageable topFiveLatest = PageRequest.of(0, 5, 
-            Sort.by(Sort.Direction.DESC, "id"));
+            Sort.by(Sort.Direction.DESC, "payload.metadata.createDate"));
         List<MicroserviceEntity> entities = repository.findByPayloadNameMatching(namePattern, topFiveLatest);
     
         return entities.stream()

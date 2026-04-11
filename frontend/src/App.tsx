@@ -146,6 +146,7 @@ function App(data: any) {
         }
     }, [graphData, currentInstance, graphTimeline]);
 
+    // Handlers
     // Load the historical IRs
     const handleLoadHistory = async () => {
         try {
@@ -190,7 +191,7 @@ function App(data: any) {
         }
     };
 
-    // Handlers
+    // Manually uploading a IR (not from history)
     const handleIRLoaded = (irJson: any) => {
         try {
             if (!irJson.commitID) {
