@@ -309,15 +309,32 @@ const PipelinePage: React.FC = () => {
 
     const addNode = (type: CardType) => {
         const id = Math.random().toString(36).substr(2, 9);
+        
+        let newX = 100;
+        let newY = 100;
+
+        if (canvasRef.current) {
+            const rect = canvasRef.current.getBoundingClientRect();
+            
+            const viewportCenterX = rect.width / 2;
+            const viewportCenterY = rect.height / 2;
+
+            newX = (viewportCenterX - offset.x) / scale - 150;
+            newY = (viewportCenterY - offset.y) / scale - 100;
+        }
+
+        const stackingOffset = (nodes.length % 6) * 20;
+
         const newNode: NodeData = {
             id,
             type,
-            x: 50 + nodes.length * 20,
-            y: 50 + nodes.length * 20,
+            x: newX + stackingOffset,
+            y: newY + stackingOffset,
             data: {},
             status: 'idle',
             logs: []
         };
+        
         setNodes(prev => [...prev, newNode]);
     };
 
