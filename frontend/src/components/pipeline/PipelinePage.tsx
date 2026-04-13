@@ -314,7 +314,7 @@ const PipelinePage: React.FC = () => {
             type,
             x: 50 + nodes.length * 20,
             y: 50 + nodes.length * 20,
-            data: { branch: 'master' },
+            data: {},
             status: 'idle',
             logs: []
         };
@@ -458,9 +458,9 @@ const PipelinePage: React.FC = () => {
                 
                 // 1. EXECUTE INPUT NODES
                 if (node.type === 'SYSTEM_INPUT') {
-                    const reposToProcess = node.data.repositories || [{ repoUrl: node.data.repoUrl, branch: node.data.branch, commit: node.data.commit }];
+                    const reposToProcess = node.data.repositories;
                     
-                    if (!node.data.systemName || reposToProcess.length === 0 || !reposToProcess[0].repoUrl) {
+                    if (!node.data.systemName || !reposToProcess || reposToProcess.length === 0) {
                         updateStatus(node.id, 'failed', 'System Name and at least one Repository URL are required.');
                         continue;
                     }
@@ -482,12 +482,12 @@ const PipelinePage: React.FC = () => {
                     // For uploaded files, we default the metadata if not present
                     payload = {
                         irJson: node.data.payload.irJson,
-                        metadata: node.data.payload.metadata || {
+                        metadata: node.data.payload.metadata || [{
                             systemName: "Uploaded System",
                             repoUrl: "Local Upload",
                             branch: "master",
                             commitId: "HEAD"
-                        }
+                        }]
                     };
                     updateStatus(node.id, 'completed', 'File ready.', { payload });
                 }
@@ -525,7 +525,7 @@ const PipelinePage: React.FC = () => {
                         systemName: sysPayload.systemName,
                         systemRepositories: sysPayload.repositories.map(repo => ({
                             repoBranchPair: { repositoryURL: repo.repoUrl, branchName: repo.branch || "master" },
-                            commitID: repo.commit || undefined
+                            commitID: repo.commitId || undefined
                         }))
                     };
 
@@ -534,12 +534,12 @@ const PipelinePage: React.FC = () => {
                     
                     const nextPayload: PipelinePayload = {
                         irJson: ir,
-                        metadata: {
-                            systemName: sysPayload.systemName,
-                            repoUrl: sysPayload.repositories[0].repoUrl || "",
-                            branch: sysPayload.repositories[0].branch || "master",
-                            commitId: sysPayload.repositories[0].commit || "HEAD"
-                        }
+                        systemName: sysPayload.systemName,
+                        metadata: sysPayload.repositories.map(repo => ({
+                            repoUrl: repo.repoUrl || "",
+                            branch: repo.branch || "master",
+                            commitId: repo.commitId || "HEAD"
+                        }))
                     };
                     updateStatus(targetNode.id, 'completed', 'IR generated.', { payload: nextPayload });
                     await processNextNodes(targetNode.id, nextPayload, updateStatus);
@@ -556,7 +556,7 @@ const PipelinePage: React.FC = () => {
                         systemName: sysPayload.systemName,
                         systemRepositories: sysPayload.repositories.map(repo => ({
                             repoBranchPair: { repositoryURL: repo.repoUrl, branchName: repo.branch || "master" },
-                            commitID: repo.commit || undefined
+                            commitID: repo.commitId || undefined
                         })),
                         rolePriority: rolePriorityMap,
                         defaultRolePriority: 50
@@ -586,14 +586,15 @@ const PipelinePage: React.FC = () => {
 
                     const nextPayload: PipelinePayload = {
                         irJson: generatedComponents,
-                        metadata: {
-                            systemName: sysPayload.systemName,
-                            repoUrl: sysPayload.repositories[0].repoUrl || "",
-                            branch: sysPayload.repositories[0].branch || "master",
-                            commitId: sysPayload.repositories[0].commit || "HEAD"
-                        },
+                        systemName: sysPayload.systemName,
+                        metadata: sysPayload.repositories.map(repo => ({
+                            repoUrl: repo.repoUrl || "",
+                            branch: repo.branch || "master",
+                            commitId: repo.commitId || "HEAD"
+                        })),
                         additional: authVectors
                     };
+
                     updateStatus(targetNode.id, 'completed', 'Components generated.', { payload: nextPayload });
                     await processNextNodes(targetNode.id, nextPayload, updateStatus);
                 }
@@ -636,13 +637,16 @@ const PipelinePage: React.FC = () => {
                     const irPayload = payload as PipelinePayload;
                     if (!irPayload.irJson) throw new Error("No IR Data received");
                     
+
                     const input: VerificationInput = {
-                        systemName: irPayload.metadata.systemName,
-                        repoURL: irPayload.metadata.repoUrl,
-                        branch: irPayload.metadata.branch,
-                        commitId: irPayload.metadata.commitId,
+                        systemName: irPayload.systemName,
+                        repos: irPayload.metadata.map(repo => ({
+                            repoURL: repo.repoUrl || "",
+                            branch: repo.branch || "master",
+                            commitId: repo.commitId || "HEAD"
+                        })),
                         ir: irPayload.irJson
-                    };
+                    }
 
                     updateStatus(targetNode.id, 'running', 'Verifying...');
                     const result = await verifySystem(input);
@@ -653,7 +657,7 @@ const PipelinePage: React.FC = () => {
                     const downstreamPackage = {
                         result: result,
                         systemInfo: {
-                            systemName: irPayload.metadata.systemName,
+                            systemName: irPayload.systemName,
                             ir: irPayload.irJson
                         }
                     };
@@ -873,9 +877,10 @@ const PipelinePage: React.FC = () => {
                     updateStatus(targetNode.id, 'running', 'Analyzing in Background...');
 
                     // Constructing payload for Neuro-Symbolic Engine
+                    // This is a temporary construct until AEGIS is really ready for multi-repo
                     const enginePayload = {
-                        branch: irPayload.metadata.branch,
-                        repoUrl: irPayload.metadata.repoUrl,
+                        branch: irPayload.metadata[0]?.branch,
+                        repoUrl: irPayload.metadata[0]?.repoUrl,
                         ir: irPayload.irJson
                     };
 
@@ -931,7 +936,7 @@ const PipelinePage: React.FC = () => {
     const renderCardContent = (node: NodeData) => {
         switch (node.type) {
             case 'SYSTEM_INPUT': {
-                const repositories = node.data.repositories || [{ repoUrl: node.data.repoUrl || '', branch: node.data.branch || 'master', commit: node.data.commit || '' }];
+                const repositories = node.data.repositories || [{ repoUrl: '', branch: 'master', commitId: '' }];
 
                 const updateRepo = (index: number, field: string, value: string) => {
                     const newRepos = [...repositories];
@@ -953,7 +958,7 @@ const PipelinePage: React.FC = () => {
 
                         const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
                         
-                        const parsedRepos: { repoUrl: string, branch: string, commit: string }[] = [];
+                        const parsedRepos: { repoUrl: string, branch: string, commitId: string }[] = [];
                         
                         lines.forEach((line, i) => {
                             const parts = line.split(',');
@@ -968,7 +973,7 @@ const PipelinePage: React.FC = () => {
                                 parsedRepos.push({
                                     repoUrl: parts[0].trim(),
                                     branch: parts[1]?.trim() || 'master',
-                                    commit: parts[2]?.trim() || ''
+                                    commitId: parts[2]?.trim() || ''
                                 });
                             }
                         });
@@ -1019,7 +1024,7 @@ const PipelinePage: React.FC = () => {
                                         <input type="text" placeholder="Repository URL" value={repo.repoUrl || ''} className="w-full text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none" onChange={(e) => updateRepo(index, 'repoUrl', e.target.value)} />
                                         <div className="flex gap-1">
                                             <input type="text" placeholder="Branch (master)" value={repo.branch || ''} className="w-1/2 text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none" onChange={(e) => updateRepo(index, 'branch', e.target.value)} />
-                                            <input type="text" placeholder="Commit (Latest)" value={repo.commit || ''} className="w-1/2 text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none" onChange={(e) => updateRepo(index, 'commit', e.target.value)} />
+                                            <input type="text" placeholder="Commit (Latest)" value={repo.commitId || ''} className="w-1/2 text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none" onChange={(e) => updateRepo(index, 'commitId', e.target.value)} />
                                         </div>
                                     </div>
 
@@ -1030,7 +1035,7 @@ const PipelinePage: React.FC = () => {
                         {/* ACTION BUTTONS */}
                         <div className="flex items-center gap-2 mt-3">
                             <button 
-                                onClick={() => setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, repositories: [...repositories, { repoUrl: '', branch: 'master', commit: '' }] } } : n))} 
+                                onClick={() => setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, repositories: [...repositories, { repoUrl: '', branch: 'master', commitId: '' }] } } : n))} 
                                 className="group relative flex-1 py-1.5 text-[10px] font-bold tracking-wider uppercase text-blue-400 border border-dashed border-blue-800 rounded hover:bg-blue-900/30 transition-colors"
                             >
                                 + Add Repo
@@ -1257,7 +1262,7 @@ const PipelinePage: React.FC = () => {
                         {node.data.payload?.irJson ? (
                             <div className="w-full min-h-[96px] flex flex-col items-center justify-center border border-emerald-500/30 bg-emerald-900/10 rounded-lg p-2">
                                 <div className="text-emerald-400 font-bold text-sm mb-1">✓ JSON Ready</div>
-                                <div className="text-emerald-600 text-xs font-mono break-all text-center max-h-8 overflow-hidden">{node.data.payload.metadata.systemName}</div>
+                                <div className="text-emerald-600 text-xs font-mono break-all text-center max-h-8 overflow-hidden">{node.data.payload?.systemName || node.data?.systemName}</div>
                                 <button 
                                     onClick={() => setNodes(nodes.map(n => n.id === node.id ? { ...n, data: { ...n.data, payload: undefined } } : n))}
                                     className="mt-2 text-[10px] underline text-slate-500 hover:text-slate-300 transition-colors"
@@ -1272,7 +1277,7 @@ const PipelinePage: React.FC = () => {
                                     const json = JSON.parse(text);
                                     setNodes(nodes.map(n => n.id === node.id ? { 
                                         ...n, 
-                                        data: { ...n.data, payload: { irJson: json, metadata: { systemName: f.name, repoUrl: 'Local', branch: 'main', commitId: 'HEAD' }}} 
+                                        data: { ...n.data, payload: { irJson: json, systemName: f.name,metadata: [{ repoUrl: 'Local', branch: 'main', commitId: 'HEAD' }]}} 
                                     } : n));
                                 } catch(e) {
                                     alert("Invalid JSON File");
