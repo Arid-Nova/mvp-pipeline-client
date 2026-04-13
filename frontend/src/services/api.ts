@@ -16,10 +16,14 @@ export interface RepositoryInput {
 // Formal verification request schema
 export interface VerificationInput {
     systemName: string;
+    repos: VerifyRepo[];
+    ir: any; 
+}
+
+export interface VerifyRepo {
     repoURL: string;
     branch: string;
     commitId: string;
-    ir: any; 
 }
 
 export interface Suggestion {
