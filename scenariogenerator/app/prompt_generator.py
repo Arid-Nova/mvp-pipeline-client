@@ -11,6 +11,10 @@ from typing import Any, Dict, List, Optional, final
 
 def get_env_config() -> str:
     return (
+        "Target System URL Placeholder:\n"
+        "- Use the placeholder <TARGET_URL> in your code to represent the URL of the target system.\n"
+        "- For example, if the scenario involves calling an endpoint at /orders, your code should call <TARGET_URL>/orders.\n"
+        "- DO NOT hardcode actual URLs or use environment variables for the target system.\n\n"
         "Token Placeholder Configuration:\n"
         "- DO NOT use environment variables, .properties files, or dependency injection for tokens.\n"
         "- You MUST use exact, hardcoded string placeholders for JWT tokens in your code.\n"
