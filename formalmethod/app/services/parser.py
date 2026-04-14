@@ -14,6 +14,35 @@ from ..core.ms_system import (
     Repository
 )
 
+# --- Multi Repo Mapping Helper ---
+def find_best_repo_path(repo_mappings, msIR):
+    """
+    Heuristically attempting to match a microservice from the IR to the correct cloned repository folder.
+    """
+    if not repo_mappings:
+        return None
+        
+    ms_name = msIR.get("name", "").lower()
+    raw_path = msIR.get("path", "")
+    ms_path_tail = raw_path.split("/")[-1].lower() if raw_path else ""
+    
+    # 1. Try to match the microservice name to the end of the repository URL
+    for repo in repo_mappings:
+        url_tail = repo["url"].split("/")[-1].replace(".git", "").lower()
+        if url_tail == ms_name or (ms_path_tail and url_tail == ms_path_tail):
+            return repo["path"]
+    
+    # 2. Try to match by checking if the original relative path exists inside any cloned repo
+    relative_path = raw_path.replace("file://", "").lstrip("/")
+    if relative_path:
+        for repo in repo_mappings:
+            if (Path(repo["path"]) / relative_path).exists():
+                return repo["path"]
+            
+    # 3. Fallback: Return the first repository (handles legacy mono-repo behavior)
+    return repo_mappings[0]["path"]
+
+
 # --- Helper Functions ---
 
 def rolesAlreadySet(endpoint: Endpoint):
@@ -367,9 +396,13 @@ def findAllEndpointsWithGenericPath(msSystem, partialPath, msName=None):
 
 # --- Security Parsing ---
 
-def preScanRoles(systemRoles, msIR, codePath):
-    if not codePath: return
-    repo_root = Path(codePath)
+def preScanRoles(systemRoles, msIR, repo_mappings):
+    if not repo_mappings: return
+
+    best_repo_path = find_best_repo_path(repo_mappings, msIR)
+    if not best_repo_path: return
+
+    repo_root = Path(best_repo_path)
     
     # Clean path for older IR version compatibility (file:// prefix)
     raw_path = msIR.get("path", "")
@@ -399,10 +432,14 @@ def preScanRoles(systemRoles, msIR, codePath):
             except:
                 pass
 
-def getSecurityRoles(systemRoles, msIR, msSystem, codePath):
-    if not codePath: return
-    repo_root = Path(codePath)
+def getSecurityRoles(systemRoles, msIR, msSystem, repo_mappings):
+    if not repo_mappings: return
     
+    best_repo_path = find_best_repo_path(repo_mappings, msIR)
+    if not best_repo_path: return
+    
+    repo_root = Path(best_repo_path)
+
     # Clean path for older IR version compatibility (file:// prefix)
     raw_path = msIR.get("path", "")
     if raw_path.startswith("file://"):
@@ -502,7 +539,7 @@ def getSecurityRoles(systemRoles, msIR, msSystem, codePath):
             except Exception:
                 pass
 
-def getModelFromIRAndCode(ir_dict: dict, pathToCode: str):
+def getModelFromIRAndCode(ir_dict: dict, repo_mappings: list):
     scg = SystemConnectionGraph()
     sysRoles = {}
     addRoleToSystemRoles(sysRoles, "UnauthenticatedRole")
@@ -518,7 +555,7 @@ def getModelFromIRAndCode(ir_dict: dict, pathToCode: str):
             parseConnections(ms, scg, msSystem)
             
         for ms in ir_dict["microservices"]:
-            preScanRoles(sysRoles, ms, pathToCode)
+            preScanRoles(sysRoles, ms, repo_mappings)
 
     if 2 in sysRoles and 4 in sysRoles and sysRoles[4] == "user" and sysRoles[2] == "admin":
         sysRoles[2] = "user"
@@ -526,7 +563,7 @@ def getModelFromIRAndCode(ir_dict: dict, pathToCode: str):
 
     if "microservices" in ir_dict:
         for ms in ir_dict["microservices"]:
-            getSecurityRoles(sysRoles, ms, msSystem, pathToCode)
+            getSecurityRoles(sysRoles, ms, msSystem, repo_mappings)
 
     msSystem.populateBackReferences()
 
