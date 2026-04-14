@@ -22,24 +22,16 @@ git_manager = GitManager()
 
 @app.post("/verify", response_model=VerificationResponse)
 def verify(request: VerificationRequest, background_tasks: BackgroundTasks):
-    repo_path = None
+    repo_mappings = []
 
     try:
-        # Currently the formal methods support mono-repo security extraction.
-        # Hence, we only consider the first repository in the list for cloning and analysis. 
-
         # 1. Clone/Fetch Code
-        repo_path = git_manager.clone_repo(
-            request.repos[0].repoURL, 
-            request.repos[0].branch, 
-            request.repos[0].commitId
-        )
+        repo_mappings = git_manager.clone_repos_concurrently(request.repos)
 
         # 2. Run Analysis
-        result = run_verification(request.ir, repo_path)
+        result = run_verification(request.ir, repo_mappings)
         
         return result
-
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
