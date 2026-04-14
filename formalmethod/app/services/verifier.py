@@ -3,13 +3,13 @@ from z3 import sat, unsat
 from ..core.solver.auth_solver import AuthorizationConsistencySolver
 from ..services.parser import getModelFromIRAndCode
 
-def run_verification(ir_data: dict, code_path: str):
+def run_verification(ir_data: dict, repo_mappings: list):
     logs = []
     suggestions = []
     start_time = time.perf_counter()
 
-    logs.append("Building System Model...")
-    msSystem = getModelFromIRAndCode(ir_data, code_path)
+    logs.append(f"Building System Model from {len(repo_mappings)} repositories...")
+    msSystem = getModelFromIRAndCode(ir_data, repo_mappings)
 
     logs.append("Initializing Solver...")
     solver_wrapper = AuthorizationConsistencySolver(msSystem)

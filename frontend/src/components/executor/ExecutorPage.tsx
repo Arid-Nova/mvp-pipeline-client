@@ -7,7 +7,7 @@ const ExecutorPage: React.FC = () => {
     const navigate = useNavigate();
     
     // Grab the payload, including the dynamically passed roles
-    const { tests = [], language = 'curl', targetUrl = 'http://localhost:8080', roles = [] } = location.state || {};
+    const { tests = [], language = 'curl', targetUrl = 'http://localhost:1234', roles = [] } = location.state || {};
 
     const [activeTestIndex, setActiveTestIndex] = useState(0);
     const [results, setResults] = useState<Record<string, ExecutionResult>>({});
@@ -51,7 +51,8 @@ const ExecutorPage: React.FC = () => {
         let code = rawCode;
         // 1. Replace the generic URLs with the actual target
         code = code.replace(/http:\/\/localhost:\d+/g, targetUrl)
-                   .replace(/https:\/\/api\.example\.com/g, targetUrl);
+                   .replace(/https:\/\/api\.example\.com/g, targetUrl)
+                   .replace(/[<{\[]?TARGET_URL[>}\]]?/gi, targetUrl);
 
         // 2. Replace tokens
         Object.entries(globalTokens).forEach(([tokenKey, tokenValue]) => {

@@ -19,7 +19,7 @@ export type CardType =
 export interface SystemPayload {
     type: 'SYSTEM_PAYLOAD';
     systemName: string;
-    repositories: { repoUrl: string; branch: string; commit: string }[];
+    repositories: RepositoryMeta[];
 }
 
 export interface ComponentPayload {
@@ -29,14 +29,16 @@ export interface ComponentPayload {
     components: any;
 }
 
+export interface RepositoryMeta {
+    repoUrl: string;
+    branch: string;
+    commitId: string;
+}
+
 export interface PipelinePayload {
     irJson: any;
-    metadata: {
-        systemName: string;
-        repoUrl: string;
-        branch: string;
-        commitId: string;
-    };
+    systemName: string;
+    metadata: RepositoryMeta[];
     additional?: any;
 }
 
@@ -47,13 +49,10 @@ export interface NodeData {
     y: number;
     data: {
         systemName?: string;
-        repoUrl?: string;
-        branch?: string;
-        commit?: string;
         targetUrl?: string;
         filterEndpointText?: string;
         filterShowInconsistenciesOnly?: boolean;
-        repositories?: { repoUrl: string; branch: string; commit: string }[];
+        repositories?: RepositoryMeta[];
         rolePriorities?: { role: string; priority: number }[];
         componentPayload?: ComponentPayload;
         payload?: PipelinePayload; 

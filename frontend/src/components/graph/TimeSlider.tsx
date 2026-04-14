@@ -50,6 +50,23 @@ const TimeSlider: React.FC<Props> = ({
         setDefNodeColor(false);
     };
 
+    const formatEpoch = (epoch: any) => {
+        if (!epoch) return "Not Found";
+        
+        const num = Number(epoch);
+        if (isNaN(num)) return "Invalid Date";
+        
+        const date = new Date(num < 10000000000 ? num * 1000 : num);
+        
+        return date.toLocaleString(undefined, {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+
     // Return null if there's no data to prevent errors.
     if (!graphTimeline || graphTimeline.length === 0) {
         return null;
@@ -111,10 +128,10 @@ const TimeSlider: React.FC<Props> = ({
                                     Commit #{graphTimeline[currentInstance].commitID.substring(0, 7)}
                                 </div> */}
                                 <div>
-                                    Created: {(graphTimeline[currentInstance].metadata?.createDate || "Not Found")}
+                                    Created: {formatEpoch(graphTimeline[currentInstance].metadata?.createDate)}
                                 </div>
                                 <div>
-                                    Modified: {(graphTimeline[currentInstance].metadata?.modifyDate || "Not Found")}
+                                    Modified: {formatEpoch(graphTimeline[currentInstance].metadata?.modifyDate)}
                                 </div>
                             </>
                         )}

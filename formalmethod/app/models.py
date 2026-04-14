@@ -1,11 +1,14 @@
 from pydantic import BaseModel
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, List
+
+class VerifyRepo(BaseModel):
+    repoURL: str
+    branch: str
+    commitId: str
 
 class VerificationRequest(BaseModel):
     systemName: str
-    repoURL: str
-    branch: Optional[str] = "master"
-    commitId: Optional[str] = None
+    repos: List[VerifyRepo]
     ir: Dict[str, Any]  
 
 class Suggestion(BaseModel):

@@ -11,6 +11,10 @@ from typing import Any, Dict, List, Optional, final
 
 def get_env_config() -> str:
     return (
+        "Target System URL Placeholder:\n"
+        "- Use the placeholder <TARGET_URL> in your code to represent the URL of the target system.\n"
+        "- For example, if the scenario involves calling an endpoint at /orders, your code should call <TARGET_URL>/orders.\n"
+        "- DO NOT hardcode actual URLs or use environment variables for the target system.\n\n"
         "Token Placeholder Configuration:\n"
         "- DO NOT use environment variables, .properties files, or dependency injection for tokens.\n"
         "- You MUST use exact, hardcoded string placeholders for JWT tokens in your code.\n"
@@ -23,6 +27,15 @@ def get_env_config() -> str:
         "- For invalid/corrupted token tests, ALWAYS use the literal string `<INVALID_TOKEN>`.\n\n"
     )
 
+def _commenting_instructions() -> str:
+    return (
+        "Commenting Guidelines:\n"
+        "- Include comments in your generated code that explain the purpose of each test case.\n"
+        "- For scenarios with downstream inconsistencies, add detailed comments that analyze the expected behavior at each step of the call chain.\n"
+        "- Use comments to clarify why certain roles should be allowed or denied at each endpoint, and how this relates to the overall scenario goals.\n"
+        "- Focus comments on authorization behavior rather than business logic.\n\n"
+    )
+
 def _base_job(language: str) -> str:
     lang = language.lower()
     if lang == "python":
@@ -31,7 +44,7 @@ def _base_job(language: str) -> str:
             "Analyze the API endpoint descriptions and authorization scenario, and "
             "generate Pytest scripts (using requests or httpx) that exercise "
             "the described role-based access control behavior. Follow clean code practices and focus on the "
-            "authorization aspects (status codes, roles, and security headers)."
+            "authorization aspects (status codes, roles, and security headers).\n\n"
         )
     elif lang == "curl":
         return (
@@ -39,7 +52,7 @@ def _base_job(language: str) -> str:
             "Analyze the API endpoint descriptions and authorization scenario, and "
             "generate bash scripts containing cURL commands that exercise "
             "the described role-based access controlbehavior. Focus heavily on testing authorization "
-            "(status codes, roles, and security headers)."
+            "(status codes, roles, and security headers).\n\n" 
         )
     else: # default java
         return (
@@ -47,7 +60,7 @@ def _base_job(language: str) -> str:
             "Analyze the API endpoint descriptions and authorization scenario, and "
             "generate JUnit tests (using Spring MockMvc or WebTestClient) that exercise "
             "the described role-based access control behavior. Follow clean code practices and focus on the "
-            "authorization aspects (status codes, roles, and security headers)."
+            "authorization aspects (status codes, roles, and security headers).\n\n"
         )
 
 def _job_additions(inconsistency: bool = False) -> str:
@@ -345,6 +358,7 @@ def build_prompt_for_scenario(s: Dict[str, Any], language: str = "java") -> str:
     prompt += _base_prompt_header(language)
     prompt += _base_job(language)
     prompt += _job_additions(inconsistency)
+    prompt += _commenting_instructions()
     prompt += __base_input_format()
     prompt += _get_rules(inconsistency)
     prompt += get_env_config()
