@@ -25,6 +25,9 @@ import { PipelineCanvas } from './canvas/PipelineCanvas';
 import { ToolboxSidebar } from './canvas/ToolboxSideBar';
 import { PipelineHeader } from './canvas/PiplelineHeader';
 
+// In-browser cache to avoid data resetting
+let inMemoryPipelineCache: { nodes: NodeData[], connections: Connection[] } | null = null;
+
 const PipelinePage: React.FC = () => {
     // Zoom and Pan State
     const [scale, setScale] = useState(1);
@@ -77,6 +80,8 @@ const PipelinePage: React.FC = () => {
     // --- PERSISTENCE LOGIC ---
     // Initialize from session storage if available
     const [nodes, setNodes] = useState<NodeData[]>(() => {
+        if (inMemoryPipelineCache) return inMemoryPipelineCache.nodes;
+
         try {
             const savedNodes = sessionStorage.getItem('pipeline_nodes');
             return savedNodes ? JSON.parse(savedNodes) : [];
@@ -87,6 +92,8 @@ const PipelinePage: React.FC = () => {
     });
     
     const [connections, setConnections] = useState<Connection[]>(() => {
+        if (inMemoryPipelineCache) return inMemoryPipelineCache.connections;
+
         try {
             const savedConns = sessionStorage.getItem('pipeline_connections');
             return savedConns ? JSON.parse(savedConns) : [];
@@ -107,6 +114,8 @@ const PipelinePage: React.FC = () => {
     };
 
     useEffect(() => {
+        inMemoryPipelineCache = { nodes, connections };
+
         try {
             const nodesToSave = nodes.map(node => {
                 // Create a shallow copy of data
@@ -159,6 +168,7 @@ const PipelinePage: React.FC = () => {
         if(window.confirm("Are you sure you want to clear the pipeline? This cannot be undone.")) {
             setNodes([]);
             setConnections([]);
+            inMemoryPipelineCache = null;
             sessionStorage.removeItem('pipeline_nodes');
             sessionStorage.removeItem('pipeline_connections');
         }
