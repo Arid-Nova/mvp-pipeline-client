@@ -92,10 +92,8 @@ export const ComponentGenerateCard: React.FC<ComponentGenerateCardProps> = ({ no
             <div className="space-y-2 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
                 {rolePriorities.map((role: any, index: number) => (
                     <div 
-                        key={`role-${role.role}-${index}`} 
+                        key={`role-${index}`} 
                         className="nodrag flex gap-1.5 items-center relative group bg-slate-950 border border-slate-700 rounded focus-within:border-teal-500 overflow-hidden transition-colors cursor-grab active:cursor-grabbing"
-                        role="button"
-                        tabIndex={0}
                         draggable
                         onDragStart={(e) => handleDragStart(e, index)}
                         onDragOver={(e) => {
@@ -104,11 +102,6 @@ export const ComponentGenerateCard: React.FC<ComponentGenerateCardProps> = ({ no
                             e.dataTransfer.dropEffect = 'move';
                         }}
                         onDrop={(e) => handleDrop(e, index)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                            }
-                        }}
                     >
                         {/* Drag Handle */}
                         <div className="px-1.5 py-1 text-slate-600 hover:text-teal-400 flex items-center justify-center bg-slate-900 border-r border-slate-700" title="Drag to reorder">
