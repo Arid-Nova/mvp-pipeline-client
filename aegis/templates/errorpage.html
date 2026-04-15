@@ -5,128 +5,7 @@
     <title>Aegis - System Alert</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    
-    <style>
-        /* Replicating the implied variables from your dashboard for standalone rendering */
-        :root {
-            --primary-color: #3B82F6;
-            --primary-hover: #2563EB;
-            --danger-color: #EF4444;
-            --text-primary: #1F2937;
-            --text-light: #6B7280;
-            --border-color: #E5E7EB;
-            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #F9FAFB;
-            margin: 0;
-            color: var(--text-primary);
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .viz-container {
-            width: 100%;
-            max-width: 600px;
-            padding: 0 1rem;
-        }
-
-        /* Reusing your dashboard card style */
-        .chart-card {
-            background: white;
-            border-radius: 16px;
-            padding: 3rem 2rem;
-            box-shadow: var(--shadow-lg);
-            border: 1px solid var(--border-color);
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-        }
-
-        /* Error specific styles */
-        .error-icon-wrapper {
-            width: 80px;
-            height: 80px;
-            background: #FEF2F2; /* Light red */
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 1.5rem auto;
-        }
-
-        .error-icon {
-            width: 40px;
-            height: 40px;
-            color: var(--danger-color);
-        }
-
-        .error-code {
-            font-size: 0.9rem;
-            font-weight: 700;
-            color: var(--danger-color);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 0.5rem;
-        }
-
-        .error-title {
-            font-size: 2rem;
-            font-weight: 800;
-            color: var(--text-primary);
-            margin: 0 0 1rem 0;
-            line-height: 1.2;
-        }
-
-        .error-message {
-            color: var(--text-light);
-            font-size: 1.1rem;
-            line-height: 1.6;
-            margin-bottom: 2.5rem;
-        }
-
-        /* Reusing your navigation button style */
-        .back-nav-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center; 
-            gap: 0.75rem;            
-            background: white;
-            color: var(--text-light);
-            border: 1px solid var(--border-color);
-            padding: 0.75rem 2rem;   
-            min-width: 180px;      
-            border-radius: 8px;
-            font-weight: 600;
-            text-decoration: none;
-            font-size: 0.95rem;
-            transition: all 0.2s;
-            cursor: pointer;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .back-nav-btn:hover {
-            background: #F3F4F6;
-            color: var(--primary-color);
-            transform: translateY(-2px); 
-            border-color: var(--primary-color);
-        }
-
-        /* Decorative background element inside the card */
-        .bg-pattern {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 6px;
-            background: linear-gradient(90deg, var(--danger-color), var(--primary-color));
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/errorpage.css') }}">
 </head>
 <body>
 
@@ -155,6 +34,5 @@
             </a>
         </div>
     </div>
-
 </body>
 </html>
