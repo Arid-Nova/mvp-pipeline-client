@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { verifySystem, VerificationInput } from '../../services/api';
+
 import IRFileUpload from '../IRFileUpload';
+import { verifySystem } from '../../services/api';
+import { VerificationInput } from '../../services/types';
 import { showSuccess, showError } from '../../utils/notifications';
 
 interface Props {

@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { VerificationResponse } from '../../services/api';
+import { VerificationResponse } from '../../services/types';
 import getData from '../../parsers/getData'; 
 import GraphWrapper from '../graph/GraphWrapper'; 
 import { showError } from '../../utils/notifications';

@@ -1,4 +1,4 @@
-import { VerificationResponse } from '../../services/api';
+import { VerificationResponse } from '../../services/types';
 
 export type CardType = 
     | 'SYSTEM_INPUT'

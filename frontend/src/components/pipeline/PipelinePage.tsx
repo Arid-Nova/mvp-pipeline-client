@@ -1,5 +1,15 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { fetchIRFromRepo, verifySystem, RepositoryInput, VerificationInput } from '../../services/api';
+import { 
+    fetchIRFromRepo, 
+    verifySystem, 
+    createComponent,
+    generateAuthVectors,
+    generateScenarios,
+    generatePrompts,
+    generateTestSuites,
+    analyzeAegis
+} from '../../services/api';
+import { RepositoryInput, VerificationInput } from '../../services/types';
 import { CardType, SystemPayload, ComponentPayload, PipelinePayload, NodeData, Connection, ScenarioPayload} from './models';
 
 // Configuration and Constants
@@ -458,24 +468,9 @@ const PipelinePage: React.FC = () => {
                     updateStatus(targetNode.id, 'running', 'Calling Component API...');
                     
                     // Retrieves the components and endpoints
-                    const response = await fetch('http://localhost:8060/component/create', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(reqBody)
-                    });
-
-                    if (!response.ok) throw new Error(`API error ${response.status}`);
-                    const generatedComponents = await response.json();
-
+                    const generatedComponents = await createComponent(reqBody);
                     // Retrieves the authorization vectors
-                    const authVectorsResponse = await fetch('http://localhost:8050/vectors/generate-all', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ indexId: generatedComponents.id }) 
-                    });
-
-                    if (!authVectorsResponse.ok) throw new Error(`API error ${authVectorsResponse.status}`);
-                    const authVectors = await authVectorsResponse.json();
+                    const authVectors = await generateAuthVectors(generatedComponents.id)
 
                     const nextPayload: PipelinePayload = {
                         irJson: generatedComponents,
@@ -602,19 +597,7 @@ const PipelinePage: React.FC = () => {
                     const indexId = componentHolderNode?.data.componentPayload?.id;
                     const authVecId = componentHolderNode?.data.componentPayload?.authvecid;
 
-                    const actualScenarios = await fetch('http://localhost:8040/scenarios/generate', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(
-                            {   
-                                index_id: indexId,
-                                vectors_id: authVecId
-                            }
-                        ) 
-                    });
-
-                    if (!actualScenarios.ok) throw new Error(`API error ${actualScenarios.status}`);
-                    let scenarioJson = await actualScenarios.json();
+                    let scenarioJson = await generateScenarios(indexId, authVecId);
 
                     const scenarios: any[] = [];
 
@@ -653,18 +636,7 @@ const PipelinePage: React.FC = () => {
                     const selectedLlm = targetNode.data.selectedLlm || 'gpt-4o-mini'; 
                     updateStatus(targetNode.id, 'running', `Sending ${prompts.length} prompts to ${selectedLlm}...`);
 
-                    const response = await fetch('http://localhost:8030/testsuites/generate', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            llm_model: selectedLlm,
-                            prompts: prompts 
-                        })
-                    });
-
-                    if (!response.ok) throw new Error(`Test Generation API error: ${response.status}`);
-                    
-                    const data = await response.json(); // Assumes { status: "success", tests: [...] }
+                    const data = await generateTestSuites(selectedLlm, prompts); // Assumes { status: "success", tests: [...] }
                     
                     updateStatus(targetNode.id, 'completed', 'Test Suite Generated Successfully.', { 
                         testSuitePayload: data 
@@ -687,15 +659,7 @@ const PipelinePage: React.FC = () => {
 
                     updateStatus(targetNode.id, 'running', `Generating prompts for ${selectedIds.length} scenarios...`);
 
-                    const response = await fetch('http://localhost:8040/scenarios/prompts/generate', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ scenario_ids: selectedIds, language: targetLanguage })
-                    });
-
-                    if (!response.ok) throw new Error(`Prompt API error: ${response.status}`);
-                    
-                    const data = await response.json(); // Assuming { prompts: [...] }
+                    const data = await generatePrompts(selectedIds, targetLanguage); // Assuming { prompts: [...] }
                     
                     updateStatus(targetNode.id, 'completed', 'Prompts Generated Successfully.', { 
                         promptPayload: data 
@@ -778,11 +742,7 @@ const PipelinePage: React.FC = () => {
                     };
 
                     // Call the Python/Engine API
-                    fetch('http://localhost:8900/analyze', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(enginePayload)
-                    })
+                    analyzeAegis(enginePayload)
                     .then(async (response) => {
                         if (!response.ok) {
                             throw new Error(`Engine Status: ${response.status}`);

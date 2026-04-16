@@ -1,53 +1,14 @@
 import axios from 'axios';
 import { showError } from '../utils/notifications';
+import { RepositoryInput, VerificationInput, VerificationResponse } from './types';
+import { PromptItem } from '../components/pipeline/models';
 
-// IR request schema
-export interface RepositoryInput {
-  systemName: string;
-  systemRepositories: {
-    repoBranchPair: {
-      repositoryURL: string;
-      branchName: string;
-    };
-    commitID?: string;
-  }[];
-}
-
-// Formal verification request schema
-export interface VerificationInput {
-    systemName: string;
-    repos: VerifyRepo[];
-    ir: any; 
-}
-
-export interface VerifyRepo {
-    repoURL: string;
-    branch: string;
-    commitId: string;
-}
-
-export interface Suggestion {
-    endpoint_name: string;
-    id: string;
-    current_role_mask: number;
-    suggested_role_mask: number;
-    description: string;
-}
-
-export interface VerificationResponse {
-    status: "SAT" | "UNSAT";
-    is_satisfiable: boolean;
-    suggestions: Suggestion[];
-    logs: string[];
-    processing_time_seconds: number;
-}
 
 export const fetchIRFromRepo = async (input: RepositoryInput) => {
     try {
         const response = await axios.post('/ir/create', input);
         return response.data; 
     } catch (error: any) {
-        console.error("API Error:", error);
         const msg = error.response?.data?.message || "Failed to generate IR from repository.";
         showError(msg);
         throw error;
@@ -59,7 +20,6 @@ export const verifySystem = async (input: VerificationInput): Promise<Verificati
         const response = await axios.post('http://localhost:9000/verify', input);
         return response.data;
     } catch (error: any) {
-        console.error("Verification API Error:", error);
         const msg = error.response?.data?.message || "Verification service unreachable.";
         showError(msg);
         throw error;
@@ -89,4 +49,77 @@ export const fetchHistoricalIRs = async (systemName: string): Promise<any[]> => 
         showError("Failed to load historical timeline data.");
         throw error;
     }
+};
+
+export const createComponent = async (reqBody: any) => {
+    const response = await fetch('http://localhost:8060/component/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(reqBody)
+    });
+
+    if (!response.ok) throw new Error(`API error ${response.status}`);
+    return await response.json();
+};
+
+export const generateAuthVectors = async (indexId: string) => {
+    const authVectorsResponse = await fetch('http://localhost:8050/vectors/generate-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ indexId: indexId }) 
+    });
+
+    if (!authVectorsResponse.ok) throw new Error(`API error ${authVectorsResponse.status}`);
+    return await authVectorsResponse.json();
+};
+
+export const generateScenarios = async (indexId: string|undefined, vectorsId: string|undefined) => {
+    const actualScenarios = await fetch('http://localhost:8040/scenarios/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(
+            {   
+                index_id: indexId,
+                vectors_id: vectorsId
+            }
+        ) 
+    });
+
+    if (!actualScenarios.ok) throw new Error(`API error ${actualScenarios.status}`);
+    return await actualScenarios.json();
+};
+
+export const generateTestSuites = async (selectedLlm: string, prompts: PromptItem[]|undefined) => {
+    const response = await fetch('http://localhost:8030/testsuites/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            llm_model: selectedLlm,
+            prompts: prompts 
+        })
+    });
+
+    if (!response.ok) throw new Error(`Test Generation API error: ${response.status}`);
+    
+    return await response.json();
+};
+
+export const generatePrompts = async (selectedIds: string[], targetLanguage: string) => {
+    const response = await fetch('http://localhost:8040/scenarios/prompts/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scenario_ids: selectedIds, language: targetLanguage })
+    });
+
+    if (!response.ok) throw new Error(`Prompt API error: ${response.status}`);
+    
+    return await response.json(); 
+};
+
+export const analyzeAegis = async (enginePayload: any) => {
+    return fetch('http://localhost:8900/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(enginePayload)
+    })
 };
