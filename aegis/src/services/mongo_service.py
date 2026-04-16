@@ -37,6 +37,25 @@ class MongoService:
         except Exception as e:
             print(f"Error inserting into {collection}: {e}")
             return None
+        
+    def update(self, collection_name: str, query: Dict[str, Any], document: Dict[str, Any], upsert: bool = False) -> bool:
+        try:
+            collection = self.db[collection_name]
+            
+            update_payload = document.copy()
+
+            if '_id' in update_payload:
+                del update_payload['_id']
+                
+            update_operator = {"$set": update_payload}
+            
+            result = collection.update_one(query, update_operator, upsert=upsert)
+            
+            return result.modified_count > 0 or (upsert and result.upserted_id is not None)
+            
+        except Exception as e:
+            print(f"Error updating document in collection '{collection_name}': {e}")
+            return False
 
     def clear_database(self):
         # print("Clearing MongoDB database...")
