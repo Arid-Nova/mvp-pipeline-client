@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { fetchIRFromRepo, RepositoryInput } from '../../services/api';
+import { fetchIRFromRepo } from '../../services/api';
+import { RepositoryInput } from '../../services/types';
 
 interface Props {
     onIRLoaded: (irData: any) => void;

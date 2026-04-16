@@ -4,7 +4,7 @@ interface CanvasFooterProps {
     scale: number;
 }
 
-const CanvasFooter: React.FC<CanvasFooterProps> = ({ scale }) => {
+export const CanvasFooter: React.FC<CanvasFooterProps> = ({ scale }) => {
     const currentYear = new Date().getFullYear();
 
     return (
