@@ -94,7 +94,6 @@ function updateStats(data) {
 const MODERN_COLORS = [[0, '#e11d48'], [0.5, '#f59e0b'], [1, '#10b981']];
 const PLOTLY_FONT = { family: "'Plus Jakarta Sans', sans-serif", color: '#0f172a' };
 
-// Modernized Tooltip Styling
 const HOVER_LABEL_STYLE = {
     bgcolor: '#ffffff',
     bordercolor: '#cbd5e1',
@@ -113,8 +112,10 @@ function renderRiskCloud(data) {
         marker: {
             color: data.map(d => calculateExpectation(d.fused_opinion)),
             colorscale: MODERN_COLORS,
+            cmin: 0, 
+            cmax: 1, 
             size: 12, line: { width: 1.5, color: 'white' }, opacity: 0.9,
-            colorbar: { title: 'Health Score', thickness: 15, outlinewidth: 0 }
+            colorbar: { title: 'E(O)', thickness: 15, outlinewidth: 0 }
         },
         hoverinfo: 'text',
         hoverlabel: HOVER_LABEL_STYLE
@@ -147,8 +148,10 @@ function renderArchMap(data) {
             size: 8,
             color: data.map(d => calculateExpectation(d.fused_opinion)),
             colorscale: MODERN_COLORS,
+            cmin: 0,
+            cmax: 1,
             opacity: 0.9,
-            colorbar: { title: 'Health Score', len: 0.6, thickness: 15, outlinewidth: 0 }
+            colorbar: { title: 'E(O)', len: 0.6, thickness: 15, outlinewidth: 0 }
         },
         text: data.map(d => formatTooltip(d)),
         customdata: data.map(d => d.id),
@@ -360,11 +363,10 @@ function handleSearch(query) {
         
         if (isMatch) {
             opacities.push(0.9);
-            sizes2D.push(lowerQuery ? 16 : 12); // Enlarge slightly if actively searched
+            sizes2D.push(lowerQuery ? 16 : 12); 
             sizes3D.push(lowerQuery ? 12 : 8);
-            lineColors.push(lowerQuery ? '#0f172a' : 'white'); // Dark outline for focus
+            lineColors.push(lowerQuery ? '#0f172a' : 'white'); 
         } else {
-            // Dim unmatched points
             opacities.push(0.1);
             sizes2D.push(8);
             sizes3D.push(4);
