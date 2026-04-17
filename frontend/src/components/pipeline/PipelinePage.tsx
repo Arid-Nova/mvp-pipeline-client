@@ -512,6 +512,7 @@ const PipelinePage: React.FC = () => {
                     
                     await processNextNodes(targetNode.id, incomingPayload, updateStatus);
                 }
+
                 if (targetNode.type === 'IR_HOLDER') {
                     // Type Guard: Expects IR
                     const irPayload = payload as PipelinePayload;
@@ -519,6 +520,23 @@ const PipelinePage: React.FC = () => {
 
                     updateStatus(targetNode.id, 'completed', 'IR Stored.', { payload: irPayload });
                     await processNextNodes(targetNode.id, irPayload, updateStatus);
+                } 
+                if (targetNode.type === 'TEST_EXECUTOR') {
+                    const generatedTests = payload?.testSuitePayload?.tests;
+
+                    if (!generatedTests || generatedTests.length === 0) {
+                        throw new Error("No tests found to execute. Please ensure the 'Test Generation' step ran successfully.");
+                    }
+
+                    updateStatus(
+                        targetNode.id, 
+                        'completed', 
+                        `Received ${generatedTests.length} tests. Ready for execution.`, 
+                        { 
+                            tests: generatedTests,
+                            executionStarted: false 
+                        }
+                    );
                 } 
                 else if (targetNode.type === 'FORMAL_VERIFY') {
                     // Type Guard: Expects IR
