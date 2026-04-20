@@ -30,6 +30,7 @@ import { TestGenerateCard } from './cards/TestGenerateCard';
 import { PromptGenerateCard } from './cards/PromptGenerateCard';
 import { ScenarioGenerateCard } from './cards/ScenarioGenerateCard';
 import { VerificationComparisonCard } from './cards/VerificationComparisonCard';
+import { IRGenerationCard } from './cards/IRGenerationCard';
 
 // Canvas Components
 import { PipelineCanvas } from './canvas/PipelineCanvas';
@@ -845,12 +846,7 @@ const PipelinePage: React.FC = () => {
     const renderCardContent = (node: NodeData) => {
         switch (node.type) {
             case 'SYSTEM_INPUT': return <SystemInputCard node={node} updateNodeData={updateNodeData} />;
-            case 'MULTI_REPO':
-                return (
-                    <div className="mt-2 text-center p-3 border border-dashed border-slate-700 bg-slate-800/50 rounded-lg">
-                        <span className="text-xs text-slate-400 italic">Link to a System Source</span>
-                    </div>
-                );
+            case 'MULTI_REPO': return <IRGenerationCard node={node} />;
             case 'COMPONENT_GENERATE': return <ComponentGenerateCard node={node} updateNodeData={updateNodeData} />;
             case 'COMPONENT_HOLDER': return <ComponentHolderCard node={node} />;
             case 'UPLOAD_IR': return <UploadIRCard node={node} updateNodeData={updateNodeData} />;
