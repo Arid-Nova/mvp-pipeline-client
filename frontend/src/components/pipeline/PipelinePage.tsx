@@ -29,6 +29,7 @@ import { TestExecutorCard } from './cards/TestExecutorCard';
 import { TestGenerateCard } from './cards/TestGenerateCard';
 import { PromptGenerateCard } from './cards/PromptGenerateCard';
 import { ScenarioGenerateCard } from './cards/ScenarioGenerateCard';
+import { VerificationComparisonCard } from './cards/VerificationComparisonCard';
 
 // Canvas Components
 import { PipelineCanvas } from './canvas/PipelineCanvas';
@@ -795,6 +796,44 @@ const PipelinePage: React.FC = () => {
                         systemInfo: systemInfo
                     });
                 }
+                else if (targetNode.type === 'VERIFICATION_COMPARISON') {
+                    const verifyNode = nodes.find(n => n.type === 'FORMAL_VERIFY' && connections.some(c => c.source === n.id && c.target === targetNode.id));
+                    const scenarioNode = nodes.find(n => n.type === 'SCENARIO_GENERATE' && connections.some(c => c.source === n.id && c.target === targetNode.id));
+
+                    if (!verifyNode || !scenarioNode) {
+                        throw new Error("Link BOTH 'Formal Verification' and 'Scenario Generation' cards.");
+                    }
+
+                    if (verifyNode.status !== 'completed' || scenarioNode.status !== 'completed') {
+                        updateStatus(targetNode.id, 'running', 'Awaiting upstream completion...');
+                        return;
+                    }
+
+                    updateStatus(targetNode.id, 'running', 'Calculating Statistics...');
+
+                    const suggestions = verifyNode.data.verificationResult?.suggestions || [];
+                    const allScenarios = scenarioNode.data.scenarioPayload?.scenarios || [];
+
+                    const inconsistentScenarios = allScenarios.filter((s: any) => 
+                        s.policy_inconsistencies && s.policy_inconsistencies.length > 0
+                    );
+
+                    const mappedSuggestions = suggestions.filter((sug: any) => {
+                        return inconsistentScenarios.some((s: any) => {
+                            const scenarioSignature = `${s.method} ${s.endpoint}`;
+                            return sug.endpoint_name === scenarioSignature;
+                        });
+                    });
+
+                    const stats = {
+                        totalSuggestions: suggestions.length,
+                        totalScenarios: inconsistentScenarios.length, 
+                        mappedCoverage: mappedSuggestions.length,
+                        inconsistencyRate: suggestions.length > 0 ? (mappedSuggestions.length / suggestions.length) * 100 : 0
+                    };
+
+                    updateStatus(targetNode.id, 'completed', 'Comparison Generated.', { comparisonResult: stats });
+                }
 
             } catch (err: any) {
                 updateStatus(targetNode.id, 'failed', `Error: ${err.message}`);
@@ -852,6 +891,7 @@ const PipelinePage: React.FC = () => {
                         updateNodeData={updateNodeData} 
                     />
                 );
+            case 'VERIFICATION_COMPARISON': return <VerificationComparisonCard node={node} />;
             default: return null;
         }
     }

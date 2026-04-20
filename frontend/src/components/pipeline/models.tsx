@@ -14,7 +14,8 @@ export type CardType =
     | 'AEGIS' 
     | 'FORMAL_VIZ'
     | 'TEST_GENERATE'
-    | 'TEST_EXECUTOR';
+    | 'TEST_EXECUTOR'
+    | 'VERIFICATION_COMPARISON';
 
 export interface SystemPayload {
     type: 'SYSTEM_PAYLOAD';
@@ -53,7 +54,10 @@ export interface NodeData {
         filterEndpointText?: string;
         filterShowInconsistenciesOnly?: boolean;
         repositories?: RepositoryMeta[];
-        rolePriorities?: { role: string; priority: number }[];
+        rolePriorities?: { 
+            role: string; 
+            priority: number 
+        }[];
         componentPayload?: ComponentPayload;
         payload?: PipelinePayload; 
         verificationResult?: VerificationResponse;
@@ -67,6 +71,12 @@ export interface NodeData {
         systemInfo?: {
             systemName: string;
             ir: any;
+        };
+        comparisonResult?: {
+            totalSuggestions: number;
+            totalScenarios: number;
+            mappedCoverage: number;
+            inconsistencyRate: number;
         };
     };
     status: 'idle' | 'running' | 'completed' | 'failed';
