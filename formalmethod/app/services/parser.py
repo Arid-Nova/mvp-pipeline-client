@@ -94,6 +94,8 @@ def findClassInMicroservice(msIR, className, classLocation=None):
                     ret = findClassInMicroservice(msIR, className, "entities")
                     if ret is None:
                         ret = findClassInMicroservice(msIR, className, "feignClients")
+                        if ret is None:
+                            ret = findClassInMicroservice(msIR, className, "unknowns")
         return ret
     else:
         locations_to_check = [classLocation]
@@ -159,6 +161,9 @@ def findMethodCallsFromMethod(classIR, methodName, methodIR=None, requireEndpoin
     # STRATEGY 1: Check Nested Calls (New IR)
     if methodIR is not None and "methodCalls" in methodIR:
         for methodCall in methodIR["methodCalls"]:
+            # Verify the call is actually from this method (use calledFrom field for consistency)
+            if not is_call_match(methodCall.get("calledFrom"), methodName):
+                continue
             if requireEndpoint and methodCall.get("type") != "Endpoint":
                 continue
             mcs.append(methodCall)
@@ -206,7 +211,12 @@ def scanRestCalls(msIR, methodIR, scg, microserviceSystem, initialClassName):
             methodCalls = findMethodCallsFromMethod(theClass, method["name"], methodIR=method)
             
             for methodCall in methodCalls:
-                if methodCall.get("name") == method["name"]: 
+                is_recursive_self_call = (
+                    methodCall.get("name") == method["name"] and
+                    (methodCall.get("objectType", "") == "" or 
+                    methodCall.get("objectType") == currentClassName)
+                )
+                if is_recursive_self_call:
                     continue
 
                 if methodCall.get("type") == "RestCall":
@@ -295,11 +305,22 @@ def parseServiceRecursively(msIR, parentMC, serv, repositories, originalMethod):
     
     nested_calls = []
     if "methodCalls" in parentMC:
+        # In new nested IR format, methodCalls can be stored under a method/methodCall
         nested_calls = parentMC["methodCalls"]
-    elif "methodCalls" in serv:
-         for mc in serv["methodCalls"]:
-            if is_call_match(mc.get("calledFrom"), parentMC["name"]):
-                nested_calls.append(mc)
+    else:
+        # parentMC doesn't have nested methodCalls, so it's likely a method reference
+        # Try to find this method in the service and get its methodCalls
+        if parentMC.get("objectType") == "" or parentMC.get("objectType") == serv.get("name"):
+            # This is a call within the same service - look for the method
+            called_method = findMethodInClass(serv, parentMC["name"])
+            if called_method and "methodCalls" in called_method:
+                nested_calls = called_method["methodCalls"]
+        
+        # If still not found, try class-level methodCalls (old IR format fallback)
+        if not nested_calls and "methodCalls" in serv:
+            for mc in serv["methodCalls"]:
+                if is_call_match(mc.get("calledFrom"), parentMC["name"]):
+                    nested_calls.append(mc)
 
     for mc in nested_calls:
         if mc["name"] == parentMC["name"]: continue
@@ -311,7 +332,16 @@ def parseServiceRecursively(msIR, parentMC, serv, repositories, originalMethod):
             parseServiceRecursively(msIR, mc, serv, repositories, originalMethod)
 
 def parseService(msIR, mcIR, originalMethod):
+    # Search "services" location first (avoid picking wrong class if name collision exists)
+    # Only fallback to other locations if not found in services
     serv = findClassInMicroservice(msIR, mcIR.get("objectType"), "services")
+    if serv is None:
+        # If not found in services, try other locations (for services defined in unknowns, etc.)
+        serv = findClassInMicroservice(msIR, mcIR.get("objectType"), "repositories")
+        if serv is None:
+            serv = findClassInMicroservice(msIR, mcIR.get("objectType"), "entities")
+            if serv is None:
+                serv = findClassInMicroservice(msIR, mcIR.get("objectType"), "unknowns")
     if serv is None:
         return []
 
@@ -324,6 +354,10 @@ def parseService(msIR, mcIR, originalMethod):
     methodCalls = findMethodCallsFromMethod(serv, met["name"], methodIR=met)
     
     for methodCall in methodCalls:
+        # Skip RestCalls - they represent inter-service calls, not local database access
+        # Inter-service connections are tracked by scanRestCalls for the SystemConnectionGraph
+        if methodCall.get("type") == "RestCall":
+            continue
         parseServiceRecursively(msIR, methodCall, serv, repositories, originalMethod)
             
     return repositories
@@ -455,87 +489,143 @@ def getSecurityRoles(systemRoles, msIR, msSystem, repo_mappings):
             try:
                 with open(path, 'r', encoding="utf-8") as f:
                     securityConfig = f.read()
+
+                    if not "WebSecurityConfigurerAdapter" in securityConfig and not "EnableWebSecurity" in securityConfig and not "EnableGlobalMethodSecurity" in securityConfig:
+                        continue
+
                     pattern = r"""\.antMatchers\((.*?)\)\.hasRole\(\"(.*?)\"\)|\.antMatchers\((.*?)\)\.hasAnyRole\((.*?)\)|\.antMatchers\((.*?)\)\.permitAll\(\)|\.(.*?)\.authenticated\(\)"""
                     matches = re.findall(pattern, securityConfig)
 
                     authenticated = False
                     for match in matches:
+                        # hasRole
                         if match[0] and match[1]:
                             roleName = match[1].lower().replace("\"", "").replace(" ", "")
                             roleBitVec = addRoleToSystemRoles(systemRoles, roleName)
+                            addRoleToSystemRoles(systemRoles, roleName)
                             if "HttpMethod." in match[0]:
-                                methodBased = re.findall(r"HttpMethod.(.*), (.*)", match[0])
+                                methodBased = re.findall("HttpMethod.(.*), (.*)", match[0])
                                 for metRule in methodBased:
                                     url = metRule[1].replace("\"", "")
                                     httpMethod = metRule[0]
-                                    if "**" in url:
-                                        url = url.replace("*", "")
-                                        endpoints = findAllEndpointsWithGenericPath(msSystem, httpMethod + ' ' + url)
+                                    if url.endswith("**"):
+                                        url = url.replace("*", "").rstrip("/")
+                                        endpoints = msSystem.findAllEndpointsWithGenericPath(httpMethod + ' ' + url)
                                     else:
                                         url = url.replace("*", "{?}")
-                                        ep = msSystem.findEndpoint(httpMethod + ' ' + url)
-                                        endpoints = [ep] if ep else []
+                                        endpoints = msSystem.findEndpoint(httpMethod + ' ' + url)
+                                        if endpoints is not None:
+                                            endpoints = [endpoints]
+                                        else:
+                                            endpoints = []
                                     for endpoint in endpoints:
                                         if not rolesAlreadySet(endpoint):
                                             endpoint.allowedRoles |= roleBitVec
                             else:
                                 urls = match[0].replace("\"", "").split(",")
                                 for url in urls:
-                                    endpoints = findAllEndpointsWithGenericPath(msSystem, url)
+                                    if url.endswith("**"):
+                                        url = url.replace("*", "").rstrip("/")
+                                    else:
+                                        url = url.replace("*", "{?}")
+                                    endpoints = msSystem.findAllEndpointsWithGenericPath(url, msName=msIR["name"])
                                     for endpoint in endpoints:
                                         if not rolesAlreadySet(endpoint):
                                             endpoint.allowedRoles |= roleBitVec
+                        # hasAnyRole
                         elif match[2] and match[3]:
                             roles = match[3].lower().replace("\"", "").replace(" ", "").split(",")
-                            for roleName in roles:
-                                roleBitVec = addRoleToSystemRoles(systemRoles, roleName)
-                        elif match[4]:
-                            rule = match[4]
-                            if "HttpMethod." in rule:
-                                methodBased = re.findall(r"HttpMethod.(.*), (.*)", rule)
+                            if "HttpMethod." in match[2]:
+                                methodBased = re.findall("HttpMethod.(.*), (.*)", match[2])
                                 for metRule in methodBased:
                                     url = metRule[1].replace("\"", "")
                                     httpMethod = metRule[0]
-                                    if "**" in url:
-                                        url = url.replace("*", "")
-                                        endpoints = findAllEndpointsWithGenericPath(msSystem, httpMethod + ' ' + url)
+                                    if url.endswith("**"):
+                                        url = url.replace("*", "").rstrip("/")
+                                        endpoints = msSystem.findAllEndpointsWithGenericPath(httpMethod + ' ' + url, msName=msIR["name"])
                                     else:
                                         url = url.replace("*", "{?}")
-                                        ep = msSystem.findEndpoint(httpMethod + ' ' + url)
-                                        endpoints = [ep] if ep else []
+                                        endpoints = msSystem.findEndpoint(httpMethod + ' ' + url)
+                                        if endpoints is not None:
+                                            endpoints = [endpoints]
+                                        else:
+                                            endpoints = []
+                                    for endpoint in endpoints:
+                                        if not rolesAlreadySet(endpoint):
+                                            for roleName in roles:
+                                                roleBitVec = addRoleToSystemRoles(systemRoles, roleName)
+                                                endpoint.allowedRoles |= roleBitVec
+                            else:
+                                urls = match[2].replace("\"", "").split(",")
+                                for url in urls:
+                                    if url.endswith("**"):
+                                        url = url.replace("*", "").rstrip("/")
+                                    else:
+                                        url = url.replace("*", "{?}")
+                                    endpoints = msSystem.findAllEndpointsWithGenericPath(url, msName=msIR["name"])
+                                    for endpoint in endpoints:
+                                        if not rolesAlreadySet(endpoint):
+                                            for roleName in roles:
+                                                roleBitVec = addRoleToSystemRoles(systemRoles, roleName)
+                                                endpoint.allowedRoles |= roleBitVec
+                        # permitAll
+                        elif match[4]:
+                            rule = match[4]
+                            if "HttpMethod." in rule:
+                                methodBased = re.findall("HttpMethod.(.*), (.*)", rule)
+                                for metRule in methodBased:
+                                    url = metRule[1].replace("\"", "")
+                                    httpMethod = metRule[0]
+                                    if url.endswith("**"):
+                                        url = url.replace("*", "").rstrip("/")
+                                        endpoints = msSystem.findAllEndpointsWithGenericPath(httpMethod + ' ' + url, msName=msIR["name"])
+                                    else:
+                                        url = url.replace("*", "{?}")
+                                        endpoints = msSystem.findEndpoint(httpMethod + ' ' + url)
+                                        if endpoints is not None:
+                                            endpoints = [endpoints]
+                                        else:
+                                            endpoints = []
                                     for endpoint in endpoints:
                                         if not rolesAlreadySet(endpoint):
                                             endpoint._allowAllRoles = True
-                                            for role_bit in msSystem.systemRoles:
-                                                endpoint.allowedRoles |= role_bit
+                                            for role in systemRoles.keys():
+                                                endpoint.allowedRoles |= role
                             else:
                                 urls = rule.replace("\"", "").split(",")
                                 for url in urls:
-                                    endpoints = findAllEndpointsWithGenericPath(msSystem, url, msName=msIR.get("name"))
+                                    if url.endswith("**"):
+                                        url = url.replace("*", "").rstrip("/")
+                                    else:
+                                        url = url.replace("*", "{?}")
+                                    endpoints = msSystem.findAllEndpointsWithGenericPath(url, msName=msIR["name"])
                                     for endpoint in endpoints:
                                         if not rolesAlreadySet(endpoint):
                                             endpoint._allowAllRoles = True
-                                            for role_bit in msSystem.systemRoles:
-                                                endpoint.allowedRoles |= role_bit
+                                            for role in systemRoles.keys():
+                                                endpoint.allowedRoles |= role
+                        # authenticated
                         elif match[5]:
                             authenticated = True
 
                     if authenticated is False:
                         for ms in msSystem.microservices:
-                            if ms.name == msIR.get("name"):
+                            if ms.name == msIR["name"]:
                                 for endpoint in ms.endpoints:
                                     if not rolesAlreadySet(endpoint):
-                                        for role_bit in msSystem.systemRoles:
-                                            endpoint.allowedRoles |= role_bit
+                                        for roleVec in systemRoles.keys():
+                                            endpoint.allowedRoles |= roleVec
+                                break
                     else:
                         for ms in msSystem.microservices:
-                            if ms.name == msIR.get("name"):
+                            if ms.name == msIR["name"]:
                                 for endpoint in ms.endpoints:
                                     if not rolesAlreadySet(endpoint):
                                         for roleVec, roleName in systemRoles.items():
                                             if roleName == "UnauthenticatedRole":
                                                 continue
                                             endpoint.allowedRoles |= roleVec
+                                break
             except Exception:
                 pass
 
