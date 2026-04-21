@@ -15,7 +15,8 @@ export type CardType =
     | 'FORMAL_VIZ'
     | 'TEST_GENERATE'
     | 'TEST_EXECUTOR'
-    | 'VERIFICATION_COMPARISON';
+    | 'VERIFICATION_COMPARISON'
+    | 'CHANGE_IMPACT';
 
 export interface SystemPayload {
     type: 'SYSTEM_PAYLOAD';
@@ -59,6 +60,7 @@ export interface NodeData {
             priority: number 
         }[];
         componentPayload?: ComponentPayload;
+        changeImpactPayload?: any;
         payload?: PipelinePayload; 
         verificationResult?: VerificationResponse;
         scenarioPayload?: ScenarioPayload;
@@ -78,6 +80,7 @@ export interface NodeData {
             mappedCoverage: number;
             inconsistencyRate: number;
         };
+        targetedServices?: string[];
     };
     status: 'idle' | 'running' | 'completed' | 'failed';
     logs: string[];

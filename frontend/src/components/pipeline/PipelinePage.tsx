@@ -7,7 +7,8 @@ import {
     generateScenarios,
     generatePrompts,
     generateTestSuites,
-    analyzeAegis
+    analyzeAegis,
+    fetchChangeImpact
 } from '../../services/api';
 import { RepositoryInput, VerificationInput } from '../../services/types';
 import { CardType, SystemPayload, ComponentPayload, PipelinePayload, NodeData, Connection, ScenarioPayload} from './models';
@@ -36,6 +37,7 @@ import { IRGenerationCard } from './cards/IRGenerationCard';
 import { PipelineCanvas } from './canvas/PipelineCanvas';
 import { ToolboxSidebar } from './canvas/ToolboxSideBar';
 import { PipelineHeader } from './canvas/PiplelineHeader';
+import { ChangeImpactCard } from './cards/ChangeImpactCard';
 
 // In-browser cache to avoid data resetting
 let inMemoryPipelineCache: { nodes: NodeData[], connections: Connection[] } | null = null;
@@ -835,6 +837,64 @@ const PipelinePage: React.FC = () => {
 
                     updateStatus(targetNode.id, 'completed', 'Comparison Generated.', { comparisonResult: stats });
                 }
+                else if (targetNode.type === 'CHANGE_IMPACT') {
+                    // 1. Find the Base IR (either Generated or Uploaded)
+                    const baseNode = nodes.find(n => (n.type === 'MULTI_REPO' || n.type === 'IR_HOLDER') && connections.some(c => c.source === n.id && c.target === targetNode.id));
+                    // 2. Find the Target Commit (System Input)
+                    const targetInputNode = nodes.find(n => n.type === 'SYSTEM_INPUT' && connections.some(c => c.source === n.id && c.target === targetNode.id));
+
+                    if (!baseNode || !targetInputNode) {
+                        throw new Error("Missing Inputs: Please connect a Base IR (Generate IR / IR Holder) AND a Target Commit (System Source) to calculate Delta.");
+                    }
+
+                    if (baseNode.status !== 'completed' || !baseNode.data.payload) {
+                        updateStatus(targetNode.id, 'running', 'Awaiting Base IR completion...');
+                        return;
+                    }
+
+                    updateStatus(targetNode.id, 'running', 'Analyzing Codebase Delta...');
+
+                    try {
+                        const baseMeta = baseNode.data.payload.metadata || [];
+                        const targetMeta = targetInputNode.data.repositories || [];
+                        const systemName = baseNode.data.payload.systemName || targetInputNode.data.systemName || "train-ticket";
+
+                        // Construct the payload for /ir/delta
+                        const deltaInput = {
+                            id: baseNode.data.payload.irJson?.id || "delta-req",
+                            systemName: systemName,
+                            systemRepositories: baseMeta.map((m: any) => ({
+                                repoBranchPair: { repositoryURL: m.repoUrl, branchName: m.branch },
+                                commitID: m.commitId
+                            })),
+                            comparingRepositories: targetMeta.map((m: any) => ({
+                                repoBranchPair: { repositoryURL: m.repoUrl, branchName: m.branch },
+                                commitID: m.commitId
+                            }))
+                        };
+
+                        const result = await fetchChangeImpact(deltaInput);
+
+                        // Extract targeted services dynamically
+                        const changes = result.changes || [];
+                        const affectedSet = new Set<string>();
+                        changes.forEach((c: any) => {
+                            const parts = c.path.split('/');
+                            if (parts.length > 1 && parts[1].startsWith('ts-')) {
+                                affectedSet.add(parts[1]);
+                            } else if (parts.length > 2 && parts[2].startsWith('ts-')) {
+                                affectedSet.add(parts[2]);
+                            }
+                        });
+
+                        updateStatus(targetNode.id, 'completed', 'Impact Analysis Complete.', {
+                            changeImpactPayload: result,
+                            targetedServices: Array.from(affectedSet) 
+                        });
+                    } catch (error: any) {
+                        updateStatus(targetNode.id, 'failed', error.message);
+                    }
+                }
 
             } catch (err: any) {
                 updateStatus(targetNode.id, 'failed', `Error: ${err.message}`);
@@ -888,6 +948,7 @@ const PipelinePage: React.FC = () => {
                     />
                 );
             case 'VERIFICATION_COMPARISON': return <VerificationComparisonCard node={node} />;
+            case 'CHANGE_IMPACT': return <ChangeImpactCard node={node} />;
             default: return null;
         }
     }

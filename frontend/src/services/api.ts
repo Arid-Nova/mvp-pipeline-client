@@ -123,3 +123,13 @@ export const analyzeAegis = async (enginePayload: any) => {
         body: JSON.stringify(enginePayload)
     })
 };
+
+export const fetchChangeImpact = async (deltaInput: any) => {
+    const response = await fetch('http://localhost:8080/ir/delta', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(deltaInput)
+    });
+    if (!response.ok) throw new Error(`Delta API error: ${response.status}`);
+    return await response.json();
+};

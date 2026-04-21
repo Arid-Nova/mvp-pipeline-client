@@ -2,7 +2,7 @@ import { CardType } from './models';
 
 export const CATEGORIES: Record<string, CardType[]> = {
     "Input": ['SYSTEM_INPUT', 'UPLOAD_IR'],
-    "Generators": ['MULTI_REPO', 'COMPONENT_GENERATE'],
+    "Generators": ['MULTI_REPO', 'COMPONENT_GENERATE', 'CHANGE_IMPACT'],
     "Intermediate Results": ['IR_HOLDER', 'COMPONENT_HOLDER'],
     "Processes": ['FORMAL_VERIFY', 'SCENARIO_GENERATE', 'PROMPT_GENERATE', 'TEST_GENERATE'],
     "Execution": ['TEST_EXECUTOR'],
@@ -148,16 +148,25 @@ export const CARD_CONFIG: Record<CardType, { title: string; color: string; icon:
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
             </svg>
         )
+    },
+    CHANGE_IMPACT: {
+        title: "Change Impact",
+        color: "border-orange-500 bg-orange-900/20",
+        description: "Extract the changes betwen versions",
+        icon: 
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+            </svg>
     }
 };
 
 export const VALID_CONNECTIONS: Record<CardType, CardType[]> = {
-    SYSTEM_INPUT: ['MULTI_REPO', 'COMPONENT_GENERATE', 'VISUALIZATION'],
-    MULTI_REPO: ['IR_HOLDER', 'FORMAL_VERIFY'],
+    SYSTEM_INPUT: ['MULTI_REPO', 'COMPONENT_GENERATE', 'VISUALIZATION', 'CHANGE_IMPACT'],
+    MULTI_REPO: ['IR_HOLDER', 'FORMAL_VERIFY', 'CHANGE_IMPACT'],
     UPLOAD_IR: ['IR_HOLDER'],
     COMPONENT_GENERATE: ['COMPONENT_HOLDER'],
     COMPONENT_HOLDER: ['SCENARIO_GENERATE'],
-    IR_HOLDER: ['FORMAL_VERIFY', 'VISUALIZATION', 'AEGIS'],
+    IR_HOLDER: ['FORMAL_VERIFY', 'VISUALIZATION', 'AEGIS', 'CHANGE_IMPACT'],
     SCENARIO_GENERATE: ['PROMPT_GENERATE', 'VERIFICATION_COMPARISON'],
     PROMPT_GENERATE: ['TEST_GENERATE'],
     TEST_GENERATE: ['TEST_EXECUTOR'],
@@ -167,4 +176,5 @@ export const VALID_CONNECTIONS: Record<CardType, CardType[]> = {
     AEGIS: [],        
     FORMAL_VIZ: [],
     VERIFICATION_COMPARISON: [],  
+    CHANGE_IMPACT: ['SCENARIO_GENERATE']
 };
