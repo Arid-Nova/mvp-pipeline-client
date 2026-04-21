@@ -588,32 +588,52 @@ const PipelinePage: React.FC = () => {
                         connections.some(c => c.source === n.id && c.target === targetNode.id)
                     );
 
+                    // 3. Look back up the graph to find the connected CHANGE_IMPACT (if any)
+                    const changeNode = nodes.find(n => 
+                        n.type === 'CHANGE_IMPACT' && 
+                        connections.some(c => c.source === n.id && c.target === targetNode.id)
+                    );
+
                     const endpoints = componentHolderNode?.data.componentPayload?.endpoints;
                     
                     if (!endpoints) {
-                        throw new Error("No endpoints found. Please connect a COMPONENT_HOLDER to this card and ensure it has run.");
+                        throw new Error("No endpoints found. Please connect a COMPONENT HOLDER to this card and ensure it has run.");
                     }
 
                     // --- FILTERING LOGIC ---
                     let endpointsToProcess = Object.entries(endpoints);
                     const suggestions = formalVerifyNode?.data.verificationResult?.suggestions;
 
-                    // If Formal Verify is connected and has results, filter the endpoints
+                    // Filter 1: If Formal Verify is connected and has results, filter the endpoints
                     if (suggestions && suggestions.length > 0) {
                         const allowedSignatures = new Set(suggestions.map((s: any) => s.id));
 
                         endpointsToProcess = endpointsToProcess.filter(([id, ep]: [string, any]) => {
                             const signature = `${ep.physicalServiceName}.${ep.controllerClass}.${ep.methodName}`;
-                            const isMatch = allowedSignatures.has(signature);
-
-                            return isMatch;
+                            return allowedSignatures.has(signature);
                         });
-
-                        updateStatus(targetNode.id, 'running', `Filtered to ${endpointsToProcess.length} endpoints based on Verification suggestions...`);
-                    } else {
-                        updateStatus(targetNode.id, 'running', `Generating scenarios for all ${endpointsToProcess.length} endpoints...`);
                     }
-                    
+
+                    let targetedServices: string[] | undefined = undefined;
+                    if (changeNode) {
+                        if (changeNode.status !== 'completed') {
+                            updateStatus(targetNode.id, 'running', 'Awaiting Changes...');
+                            return;
+                        }
+                        
+                        targetedServices = changeNode.data.targetedServices;
+                        if (targetedServices && targetedServices.length > 0) {
+                            endpointsToProcess = endpointsToProcess.filter(([id, ep]: [string, any]) => {
+                                return targetedServices!.includes(ep.serviceName); 
+                            });
+                        }
+                    }
+
+                    // Setting up status messages
+                    let statusMsg = `Generating scenarios for ${endpointsToProcess.length} endpoints`;
+                    if (targetedServices) statusMsg += ` (Regression Testing)`;
+                    if (suggestions && suggestions.length > 0) statusMsg += ` (FV Filtered)`;
+                    updateStatus(targetNode.id, 'running', statusMsg + '...');
 
                     // Actually retrueving the scnarios from the API
                     const indexId = componentHolderNode?.data.componentPayload?.id;
@@ -627,7 +647,9 @@ const PipelinePage: React.FC = () => {
                     for (const [id, ep] of endpointsToProcess) {
                         let scenario_id = `scn_${id}`;
                         const scenario = scenarioJson.scenarios.find((s: any) => s.scenario_id === scenario_id);
-                        scenarios.push(scenario)
+                        if (scenario) { 
+                            scenarios.push(scenario);
+                        }
                     }
 
                     const scenarioPayload: ScenarioPayload = { 
@@ -637,7 +659,8 @@ const PipelinePage: React.FC = () => {
                     
                     updateStatus(targetNode.id, 'completed', `Generated ${scenarios.length} scenarios.`, {
                         scenarioPayload,
-                        selectedScenarios: scenarios.map(s => s.scenario_id) 
+                        selectedScenarios: scenarios.map(s => s.scenario_id),
+                        targetedServices
                     });
 
                     await processNextNodes(targetNode.id, { ...payload, scenarioPayload }, updateStatus);

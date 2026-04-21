@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NodeData } from '../models'; 
 
 interface ScenarioGenerateCardProps {
@@ -7,6 +7,9 @@ interface ScenarioGenerateCardProps {
 }
 
 export const ScenarioGenerateCard: React.FC<ScenarioGenerateCardProps> = ({ node, updateNodeData }) => {
+    // Add this state for the services toggle
+    const [showAllServices, setShowAllServices] = useState(false);
+
     const scPayload = node.data.scenarioPayload;
     const selectedScenarios = node.data.selectedScenarios || [];
     const isExpanded = node.data.isExpanded || false;
@@ -31,6 +34,12 @@ export const ScenarioGenerateCard: React.FC<ScenarioGenerateCardProps> = ({ node
             : true;
         return matchesText && matchesInconsistencies;
     });
+
+    // Helpers for regression testing
+    const services = node.data.targetedServices || [];
+    const maxVisible = 4;
+    const visibleServices = showAllServices ? services : services.slice(0, maxVisible);
+    const hiddenCount = services.length - maxVisible;
 
     // Updated to respect active filters
     const setAllScenarios = (selected: boolean) => {
@@ -71,6 +80,50 @@ export const ScenarioGenerateCard: React.FC<ScenarioGenerateCardProps> = ({ node
 
     return (
         <div className="mt-2 space-y-2">
+            {/* Regression Testing Alert */}
+            {node.data.targetedServices && node.data.targetedServices.length > 0 && (
+                <div className="mb-2 p-2 bg-amber-900/20 border border-amber-500/30 rounded-lg flex items-start gap-2">
+                    <svg className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <div>
+                        <div className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">
+                            Regression Testing Active
+                        </div>
+                        <div className="text-[9px] text-amber-200/70 leading-snug mt-0.5">
+                            Targeting <strong>{node.data.targetedServices.length}</strong> modified microservices.
+                        </div>
+                        
+                        {/* Collapsible changed impacted services list */}
+                        <div className="mt-1 flex flex-wrap items-center gap-1">
+                            {visibleServices.map((svc: string) => (
+                                <span key={svc} className="text-[8px] px-1 py-0.5 bg-amber-950 border border-amber-500/20 rounded text-amber-300">
+                                    {svc}
+                                </span>
+                            ))}
+                            
+                            {/* Toggle Button */}
+                            {!showAllServices && hiddenCount > 0 && (
+                                <button 
+                                    onClick={() => setShowAllServices(true)}
+                                    className="text-[8px] px-1.5 py-0.5 text-amber-500/70 hover:text-amber-400 font-bold transition-colors"
+                                >
+                                    +{hiddenCount} more
+                                </button>
+                            )}
+                            {showAllServices && hiddenCount > 0 && (
+                                <button 
+                                    onClick={() => setShowAllServices(false)}
+                                    className="text-[8px] px-1.5 py-0.5 text-amber-500/70 hover:text-amber-400 font-bold transition-colors"
+                                >
+                                    Show less
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="flex flex-col gap-1 mb-2">
                 <div className="flex items-center justify-between">
                     <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
