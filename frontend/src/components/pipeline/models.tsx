@@ -16,7 +16,8 @@ export type CardType =
     | 'TEST_GENERATE'
     | 'TEST_EXECUTOR'
     | 'VERIFICATION_COMPARISON'
-    | 'CHANGE_IMPACT';
+    | 'CHANGE_IMPACT'
+    | 'SECURITY_REGRESSION';
 
 export interface SystemPayload {
     type: 'SYSTEM_PAYLOAD';
@@ -81,6 +82,13 @@ export interface NodeData {
             inconsistencyRate: number;
         };
         targetedServices?: string[];
+        regressionPayload?: {
+            baseCount: number;
+            targetCount: number;
+            resolved: any[];
+            introduced: any[];
+            persistent: any[];
+        };
     };
     status: 'idle' | 'running' | 'completed' | 'failed';
     logs: string[];

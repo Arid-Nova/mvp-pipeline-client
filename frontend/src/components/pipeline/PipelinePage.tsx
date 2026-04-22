@@ -38,6 +38,7 @@ import { PipelineCanvas } from './canvas/PipelineCanvas';
 import { ToolboxSidebar } from './canvas/ToolboxSideBar';
 import { PipelineHeader } from './canvas/PiplelineHeader';
 import { ChangeImpactCard } from './cards/ChangeImpactCard';
+import { SecurityRegressionCard } from './cards/SecurityRegressionCard';
 
 // In-browser cache to avoid data resetting
 let inMemoryPipelineCache: { nodes: NodeData[], connections: Connection[] } | null = null;
@@ -115,6 +116,9 @@ const PipelinePage: React.FC = () => {
             return [];
         }
     });
+
+    const nodesRef = useRef(nodes);
+    useEffect(() => { nodesRef.current = nodes; }, [nodes]);
 
     // --- COLLAPSIBLE SIDEBAR FOR ADDING NODES --- //
     const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>(() => {
@@ -823,100 +827,171 @@ const PipelinePage: React.FC = () => {
                     });
                 }
                 else if (targetNode.type === 'VERIFICATION_COMPARISON') {
-                    const verifyNode = nodes.find(n => n.type === 'FORMAL_VERIFY' && connections.some(c => c.source === n.id && c.target === targetNode.id));
-                    const scenarioNode = nodes.find(n => n.type === 'SCENARIO_GENERATE' && connections.some(c => c.source === n.id && c.target === targetNode.id));
+                    setTimeout(async () => {
+                        const liveNodes = nodesRef.current || nodes;
 
-                    if (!verifyNode || !scenarioNode) {
-                        throw new Error("Link BOTH 'Formal Verification' and 'Scenario Generation' cards.");
-                    }
+                        const verifyNode = liveNodes.find(n => n.type === 'FORMAL_VERIFY' 
+                            && connections.some(c => c.source === n.id && c.target === targetNode.id));
+                        
+                            const scenarioNode = liveNodes.find(n => n.type === 'SCENARIO_GENERATE' 
+                            && connections.some(c => c.source === n.id && c.target === targetNode.id));
 
-                    if (verifyNode.status !== 'completed' || scenarioNode.status !== 'completed') {
-                        updateStatus(targetNode.id, 'running', 'Awaiting upstream completion...');
-                        return;
-                    }
+                        if (!verifyNode || !scenarioNode) {
+                            updateStatus(targetNode.id, 'failed', "Link BOTH 'Formal Verification' and 'Scenario Generation' cards.");
+                            return;
+                        }
 
-                    updateStatus(targetNode.id, 'running', 'Calculating Statistics...');
+                        if (verifyNode.status !== 'completed' || scenarioNode.status !== 'completed') {
+                            updateStatus(targetNode.id, 'running', 'Awaiting upstream completion...');
+                            return;
+                        }
 
-                    const suggestions = verifyNode.data.verificationResult?.suggestions || [];
-                    const allScenarios = scenarioNode.data.scenarioPayload?.scenarios || [];
+                        updateStatus(targetNode.id, 'running', 'Calculating Statistics...');
 
-                    const inconsistentScenarios = allScenarios.filter((s: any) => 
-                        s.policy_inconsistencies && s.policy_inconsistencies.length > 0
-                    );
+                        try {
+                            const suggestions = verifyNode.data.verificationResult?.suggestions || [];
+                            const allScenarios = scenarioNode.data.scenarioPayload?.scenarios || [];
 
-                    const mappedSuggestions = suggestions.filter((sug: any) => {
-                        return inconsistentScenarios.some((s: any) => {
-                            const scenarioSignature = `${s.method} ${s.endpoint}`;
-                            return sug.endpoint_name === scenarioSignature;
-                        });
-                    });
+                            const inconsistentScenarios = allScenarios.filter((s: any) => 
+                                s.policy_inconsistencies && s.policy_inconsistencies.length > 0
+                            );
 
-                    const stats = {
-                        totalSuggestions: suggestions.length,
-                        totalScenarios: inconsistentScenarios.length, 
-                        mappedCoverage: mappedSuggestions.length,
-                        inconsistencyRate: suggestions.length > 0 ? (mappedSuggestions.length / suggestions.length) * 100 : 0
-                    };
+                            const mappedSuggestions = suggestions.filter((sug: any) => {
+                                return inconsistentScenarios.some((s: any) => {
+                                    const scenarioSignature = `${s.method} ${s.endpoint}`;
+                                    return sug.endpoint_name === scenarioSignature;
+                                });
+                            });
 
-                    updateStatus(targetNode.id, 'completed', 'Comparison Generated.', { comparisonResult: stats });
+                            const stats = {
+                                totalSuggestions: suggestions.length,
+                                totalScenarios: inconsistentScenarios.length, 
+                                mappedCoverage: mappedSuggestions.length,
+                                inconsistencyRate: suggestions.length > 0 ? (mappedSuggestions.length / suggestions.length) * 100 : 0
+                            };
+
+                            updateStatus(targetNode.id, 'completed', 'Comparison Generated.', { comparisonResult: stats });
+
+                            await processNextNodes(targetNode.id, { ...payload, comparisonResult: stats }, updateStatus);
+
+                        } catch (error: any) {
+                            updateStatus(targetNode.id, 'failed', error.message || "Failed to calculate comparison statistics.");
+                        }
+                    }, 50);
                 }
                 else if (targetNode.type === 'CHANGE_IMPACT') {
-                    // 1. Find the Base IR (either Generated or Uploaded)
-                    const baseNode = nodes.find(n => (n.type === 'MULTI_REPO' || n.type === 'IR_HOLDER') && connections.some(c => c.source === n.id && c.target === targetNode.id));
-                    // 2. Find the Target Commit (System Input)
-                    const targetInputNode = nodes.find(n => n.type === 'SYSTEM_INPUT' && connections.some(c => c.source === n.id && c.target === targetNode.id));
+                    setTimeout(async () => {
+                        const liveNodes = nodesRef.current || nodes;
 
-                    if (!baseNode || !targetInputNode) {
-                        throw new Error("Missing Inputs: Please connect a Base IR (Generate IR / IR Holder) AND a Target Commit (System Source) to calculate Delta.");
-                    }
+                        const baseNode = liveNodes.find(n => (n.type === 'MULTI_REPO' || n.type === 'IR_HOLDER') 
+                            && connections.some(c => c.source === n.id && c.target === targetNode.id));
+                        
+                            const targetInputNode = liveNodes.find(n => n.type === 'SYSTEM_INPUT' 
+                            && connections.some(c => c.source === n.id && c.target === targetNode.id));
 
-                    if (baseNode.status !== 'completed' || !baseNode.data.payload) {
-                        updateStatus(targetNode.id, 'running', 'Awaiting Base IR completion...');
-                        return;
-                    }
+                        if (!baseNode || !targetInputNode) {
+                            updateStatus(targetNode.id, 'failed', "Missing Inputs: Please connect a Base IR (Generate IR / IR Holder) AND a Target Commit (System Source) to calculate Delta.");
+                            return;
+                        }
 
-                    updateStatus(targetNode.id, 'running', 'Analyzing Codebase Delta...');
+                        if (baseNode.status !== 'completed' || !baseNode.data.payload) {
+                            updateStatus(targetNode.id, 'running', 'Awaiting Base IR completion...');
+                            return;
+                        }
 
-                    try {
-                        const baseMeta = baseNode.data.payload.metadata || [];
-                        const targetMeta = targetInputNode.data.repositories || [];
-                        const systemName = baseNode.data.payload.systemName || targetInputNode.data.systemName || "train-ticket";
+                        updateStatus(targetNode.id, 'running', 'Analyzing Codebase Delta...');
 
-                        // Construct the payload for /ir/delta
-                        const deltaInput = {
-                            id: baseNode.data.payload.irJson?.id || "delta-req",
-                            systemName: systemName,
-                            systemRepositories: baseMeta.map((m: any) => ({
-                                repoBranchPair: { repositoryURL: m.repoUrl, branchName: m.branch },
-                                commitID: m.commitId
-                            })),
-                            comparingRepositories: targetMeta.map((m: any) => ({
-                                repoBranchPair: { repositoryURL: m.repoUrl, branchName: m.branch },
-                                commitID: m.commitId
-                            }))
-                        };
+                        try {
+                            const baseMeta = baseNode.data.payload.metadata || [];
+                            const targetMeta = targetInputNode.data.repositories || [];
+                            const systemName = baseNode.data.payload.systemName || targetInputNode.data.systemName || "train-ticket";
 
-                        const result = await fetchChangeImpact(deltaInput);
+                            const deltaInput = {
+                                id: baseNode.data.payload.irJson?.id || "delta-req",
+                                systemName: systemName,
+                                systemRepositories: baseMeta.map((m: any) => ({
+                                    repoBranchPair: { repositoryURL: m.repoUrl, branchName: m.branch },
+                                    commitID: m.commitId
+                                })),
+                                comparingRepositories: targetMeta.map((m: any) => ({
+                                    repoBranchPair: { repositoryURL: m.repoUrl, branchName: m.branch },
+                                    commitID: m.commitId
+                                }))
+                            };
 
-                        // Extract targeted services dynamically
-                        const changes = result.changes || [];
-                        const affectedSet = new Set<string>();
-                        changes.forEach((c: any) => {
-                            const parts = c.path.split('/');
-                            if (parts.length > 1 && parts[1].startsWith('ts-')) {
-                                affectedSet.add(parts[1]);
-                            } else if (parts.length > 2 && parts[2].startsWith('ts-')) {
-                                affectedSet.add(parts[2]);
-                            }
-                        });
+                            const result = await fetchChangeImpact(deltaInput);
 
-                        updateStatus(targetNode.id, 'completed', 'Impact Analysis Complete.', {
-                            changeImpactPayload: result,
-                            targetedServices: Array.from(affectedSet) 
-                        });
-                    } catch (error: any) {
-                        updateStatus(targetNode.id, 'failed', error.message);
-                    }
+                            const changes = result.changes || [];
+                            const affectedSet = new Set<string>();
+                            changes.forEach((c: any) => {
+                                const parts = c.path.split('/');
+                                if (parts.length > 1 && parts[1].startsWith('ts-')) {
+                                    affectedSet.add(parts[1]);
+                                } else if (parts.length > 2 && parts[2].startsWith('ts-')) {
+                                    affectedSet.add(parts[2]);
+                                }
+                            });
+
+                            updateStatus(targetNode.id, 'completed', 'Impact Analysis Complete.', {
+                                changeImpactPayload: result,
+                                targetedServices: Array.from(affectedSet) 
+                            });
+                            
+                            // Trigger downstream cards now that this is complete
+                            await processNextNodes(targetNode.id, { ...payload, changeImpactPayload: result }, updateStatus);
+                        } catch (error: any) {
+                            updateStatus(targetNode.id, 'failed', error.message);
+                        }
+                    }, 50);
+                }
+                else if (targetNode.type === 'SECURITY_REGRESSION') {
+                    setTimeout(() => {
+                        const liveNodes = nodesRef.current || nodes;
+
+                        const fvNodes = liveNodes.filter(n => 
+                            n.type === 'FORMAL_VERIFY' && 
+                            connections.some(c => c.source === n.id && c.target === targetNode.id)
+                        );
+
+                        if (fvNodes.length !== 2) return;
+
+                        const [baseNode, prNode] = fvNodes.sort((a, b) => a.y - b.y);
+
+                        const baseResult = baseNode.data.verificationResult;
+                        const prResult = prNode.data.verificationResult;
+
+                        // If still missing after the flush, one is genuinely still running
+                        if (!baseResult || !prResult) {
+                            updateStatus(targetNode.id, 'running', 'Awaiting both Verifications to finish...');
+                            return;
+                        }
+
+                        updateStatus(targetNode.id, 'running', 'Calculating Security Drift...');
+
+                        try {
+                            const baseSugs = baseResult.suggestions || [];
+                            const targetSugs = prResult.suggestions || [];
+
+                            // Extremely safe Array diffing to prevent infinite loops
+                            const persistent = baseSugs.filter((b: any) => targetSugs.some((t: any) => t.id === b.id));
+                            const resolved = baseSugs.filter((b: any) => !targetSugs.some((t: any) => t.id === b.id));
+                            const introduced = targetSugs.filter((t: any) => !baseSugs.some((b: any) => b.id === t.id));
+
+                            const regressionPayload = {
+                                baseCount: baseSugs.length,
+                                targetCount: targetSugs.length,
+                                resolved,
+                                introduced,
+                                persistent
+                            };
+
+                            updateStatus(targetNode.id, 'completed', `Found ${introduced.length} regressions.`, { 
+                                regressionPayload 
+                            });
+                        } catch (error: any) {
+                            updateStatus(targetNode.id, 'failed', error.message || "Failed to calculate drift.");
+                        }
+                    }, 50);
                 }
 
             } catch (err: any) {
@@ -972,6 +1047,7 @@ const PipelinePage: React.FC = () => {
                 );
             case 'VERIFICATION_COMPARISON': return <VerificationComparisonCard node={node} />;
             case 'CHANGE_IMPACT': return <ChangeImpactCard node={node} />;
+            case 'SECURITY_REGRESSION': return <SecurityRegressionCard node={node} />;
             default: return null;
         }
     }
