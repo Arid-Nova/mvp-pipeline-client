@@ -16,6 +16,7 @@ export const FormalVizCard: React.FC<FormalVizCardProps> = ({ node }) => {
                 state: { 
                     result: node.data.verificationResult,
                     systemInfo: node.data.systemInfo,
+                    regressionPayload: node.data.regressionPayload,
                     fromPipeline: true 
                 } 
             })}

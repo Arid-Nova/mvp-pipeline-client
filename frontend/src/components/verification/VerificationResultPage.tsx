@@ -38,6 +38,7 @@ const VerificationResultPage = () => {
     // Retrieve data passed from the Landing Page
     const result = location.state?.result as VerificationResponse;
     const systemInfo = location.state?.systemInfo;
+    const regressionPayload = location.state?.regressionPayload;
     const fromPipeline = location.state?.fromPipeline; 
 
     // View State: 'results' or 'graph'
@@ -84,6 +85,75 @@ const VerificationResultPage = () => {
     }
 
     const isSat = result.status === "SAT";
+    const hasRegression = !!regressionPayload;
+
+    const renderSuggestionCard = (sugg: any, idx: number, diffType?: 'INTRODUCED' | 'RESOLVED' | 'PERSISTENT') => {
+        let borderClass = "border-slate-700";
+        
+        if (diffType === 'INTRODUCED') {
+            borderClass = "border-rose-500/50 shadow-rose-900/20";
+        } else if (diffType === 'RESOLVED') {
+            borderClass = "border-emerald-500/50 shadow-emerald-900/20 opacity-80";
+        } else if (diffType === 'PERSISTENT') {
+            borderClass = "border-amber-500/50 shadow-amber-900/20";
+        }
+
+        const currentMask = sugg.current_role_mask ?? sugg.upstream_auth_mask;
+        const suggestedMask = sugg.suggested_role_mask ?? sugg.downstream_auth_mask;
+        
+        const endpointName = sugg.endpoint_name || sugg.id || "UNKNOWN ENDPOINT";
+        const isGet = endpointName.includes('GET');
+        const isPost = endpointName.includes('POST');
+        const isDelete = endpointName.includes('DELETE');
+
+        return (
+            <div key={idx} className={`bg-slate-800 rounded-xl border ${borderClass} p-6 shadow-lg hover:shadow-2xl transition-all duration-300 relative overflow-hidden group`}>
+                <div className={`absolute top-0 left-0 w-1.5 h-full ${
+                    isGet ? 'bg-blue-500' :
+                    isPost ? 'bg-green-500' :
+                    isDelete ? 'bg-red-500' : 'bg-orange-500'
+                }`}></div>
+
+                <div className="flex flex-col md:flex-row gap-6 items-start md:items-center justify-between pl-4 pt-2 md:pt-0">
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-2 pr-20">
+                            <span className={`text-xs font-black px-2 py-1 rounded uppercase tracking-wide
+                                ${isGet ? 'bg-blue-900/50 text-blue-300 border border-blue-500/30' :
+                                isPost ? 'bg-green-900/50 text-green-300 border border-green-500/30' :
+                                isDelete ? 'bg-red-900/50 text-red-300 border border-red-500/30' : 
+                                'bg-orange-900/50 text-orange-300 border border-orange-500/30'}`}>
+                                {endpointName.split(' ')[0]}
+                            </span>
+                            <span className="font-mono text-sm text-white truncate font-medium">
+                                {endpointName.split(' ').slice(1).join(' ')}
+                            </span>
+                        </div>
+                        <p className="text-sm text-slate-400 leading-relaxed pr-16 md:pr-0">{sugg.description}</p>
+                    </div>
+
+                    {/* DYNAMIC TRANSFORMATION UI */}
+                    {diffType === 'RESOLVED' ? (
+                        <div className="flex items-center gap-3 bg-emerald-900/20 p-4 rounded-xl border border-emerald-500/30 shrink-0">
+                            <div className="flex items-center gap-2 text-emerald-400">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                <span className="text-sm font-bold uppercase tracking-wider">Fix Applied / Not Needed</span>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-4 bg-slate-900/80 p-4 rounded-xl border border-slate-700 shrink-0">
+                            <RoleBadge mask={currentMask} />
+                            <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${diffType === 'PERSISTENT' ? 'text-amber-500' : 'text-slate-500 animate-pulse'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                            </svg>
+                            <RoleBadge mask={suggestedMask} />
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
 
     return (
         <div className="min-h-screen bg-slate-900 text-slate-100 font-sans flex flex-col">
@@ -96,34 +166,20 @@ const VerificationResultPage = () => {
                             ← Back {fromPipeline ? 'to Pipeline' : ''}
                         </button>
                         <h1 className="text-xl font-bold flex items-center gap-2">
-                            Verification: {systemInfo?.systemName}
+                            {hasRegression ? "Regression Analysis:" : "Verification:"} {systemInfo?.systemName}
                             <span className={`text-sm px-2 py-0.5 rounded border ${isSat ? 'bg-green-500/20 text-green-400 border-green-500/50' : 'bg-red-500/20 text-red-400 border-red-500/50'}`}>
-                                {result.status}
+                                {hasRegression ? "DIFF COMPLETE" : result.status}
                             </span>
                         </h1>
                     </div>
 
                     {/* VIEW TOGGLE - Only show if UNSAT (Graph is most useful for debugging failures) */}
-                    {!isSat && (
+                    {(!isSat || hasRegression) && (
                         <div className="bg-slate-900/80 p-1 rounded-lg border border-slate-600 flex gap-1">
-                            <button
-                                onClick={() => setViewMode('results')}
-                                className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${
-                                    viewMode === 'results' 
-                                    ? 'bg-slate-700 text-white shadow' 
-                                    : 'text-slate-400 hover:text-white'
-                                }`}
-                            >
+                            <button onClick={() => setViewMode('results')} className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${viewMode === 'results' ? 'bg-slate-700 text-white shadow' : 'text-slate-400 hover:text-white'}`}>
                                 List View
                             </button>
-                            <button
-                                onClick={() => setViewMode('graph')}
-                                className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${
-                                    viewMode === 'graph' 
-                                    ? 'bg-red-600 text-white shadow shadow-red-500/20' 
-                                    : 'text-slate-400 hover:text-white'
-                                }`}
-                            >
+                            <button onClick={() => setViewMode('graph')} className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${viewMode === 'graph' ? 'bg-red-600 text-white shadow shadow-red-500/20' : 'text-slate-400 hover:text-white'}`}>
                                 3D Graph Analysis
                             </button>
                         </div>
@@ -156,76 +212,86 @@ const VerificationResultPage = () => {
 
                         {/* Right Column: Suggestions or Success */}
                         <div className="lg:col-span-2">
-                        {isSat ? (
-                            <div className="h-full bg-green-900/10 border border-green-500/20 rounded-3xl p-12 text-center flex flex-col items-center justify-center shadow-2xl">
-                                <div className="w-32 h-32 bg-green-500 rounded-full flex items-center justify-center mb-8 shadow-2xl shadow-green-500/30 animate-pulse-slow">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                    </svg>
-                                </div>
-                                <h2 className="text-4xl font-extrabold text-white mb-4">Policy Consistent</h2>
-                                <p className="text-green-200 text-xl max-w-lg leading-relaxed">
-                                    The authorization policy is consistent and no violations were found.
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="flex flex-col gap-6">
-                                <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6 flex items-center gap-4">
-                                    <div className="p-3 bg-red-500/20 rounded-full text-red-400">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                                    </div>
-                                    <div>
-                                        <h3 className="text-xl font-bold text-white">Policy Inconsistent</h3>
-                                        <p className="text-red-200 text-sm">The optimizer found {result.suggestions.length} constraint violations. Apply the suggestions below to fix the policy.</p>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-4">
-                                    {result.suggestions.map((sugg, idx) => (
-                                        <div key={idx} className="bg-slate-800 rounded-xl border border-slate-700 p-6 shadow-lg hover:shadow-2xl hover:border-slate-600 transition-all duration-300 relative overflow-hidden group">
-                                            
-                                            {/* Colored Side Bar */}
-                                            <div className={`absolute top-0 left-0 w-1.5 h-full ${
-                                                sugg.endpoint_name.includes('GET') ? 'bg-blue-500' :
-                                                sugg.endpoint_name.includes('POST') ? 'bg-green-500' :
-                                                sugg.endpoint_name.includes('DELETE') ? 'bg-red-500' : 'bg-orange-500'
-                                            }`}></div>
-
-                                            <div className="flex flex-col md:flex-row gap-6 items-start md:items-center justify-between pl-4">
-                                                
-                                                {/* Left: Endpoint Info */}
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-3 mb-2">
-                                                        <span className={`text-xs font-black px-2 py-1 rounded uppercase tracking-wide
-                                                            ${sugg.endpoint_name.includes('GET') ? 'bg-blue-900/50 text-blue-300 border border-blue-500/30' :
-                                                            sugg.endpoint_name.includes('POST') ? 'bg-green-900/50 text-green-300 border border-green-500/30' :
-                                                            sugg.endpoint_name.includes('DELETE') ? 'bg-red-900/50 text-red-300 border border-red-500/30' : 
-                                                            'bg-orange-900/50 text-orange-300 border border-orange-500/30'}`}>
-                                                            {sugg.endpoint_name.split(' ')[0]}
-                                                        </span>
-                                                        <span className="font-mono text-sm text-white truncate font-medium">
-                                                            {sugg.endpoint_name.split(' ').slice(1).join(' ')}
-                                                        </span>
-                                                    </div>
-                                                    <p className="text-sm text-slate-400 leading-relaxed">{sugg.description}</p>
-                                                </div>
-
-                                                {/* Right: Transformation Arrow */}
-                                                <div className="flex items-center gap-4 bg-slate-900/80 p-4 rounded-xl border border-slate-700 shrink-0">
-                                                    <RoleBadge mask={sugg.current_role_mask} />
-                                                    
-                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-slate-500 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                                                    </svg>
-
-                                                    <RoleBadge mask={sugg.suggested_role_mask} />
-                                                </div>
-                                            </div>
+                            {hasRegression ? (
+                                <div className="flex flex-col gap-6">
+                                    <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-6 flex items-center gap-4">
+                                        <div className="p-3 bg-indigo-500/20 rounded-full text-indigo-400">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
                                         </div>
-                                    ))}
+                                        <div>
+                                            <h3 className="text-xl font-bold text-white">Security Regression Diff</h3>
+                                            <p className="text-indigo-200 text-sm">Comparing current branch against baseline verification.</p>
+                                        </div>
+                                    </div>
+                                    
+                                    {(() => {
+                                        const introduced = regressionPayload.introduced || regressionPayload.introduced_vulnerabilities || [];
+                                        const persistent = regressionPayload.persistent || regressionPayload.persistent_vulnerabilities || [];
+                                        const resolved = regressionPayload.resolved || regressionPayload.resolved_vulnerabilities || [];
+
+                                        return (
+                                            <>
+                                                {introduced.length > 0 && (
+                                                    <div className="space-y-4 mt-6">
+                                                        <h4 className="text-rose-400 font-bold border-b border-rose-500/30 pb-2 flex justify-between">
+                                                            <span>New Policy Recommendations</span>
+                                                            <span className="bg-rose-500/20 px-2 rounded-full">{introduced.length}</span>
+                                                        </h4>
+                                                        {introduced.map((sugg: any, idx: number) => renderSuggestionCard(sugg, idx, 'INTRODUCED'))}
+                                                    </div>
+                                                )}
+
+                                                {persistent.length > 0 && (
+                                                    <div className="space-y-4 mt-8">
+                                                        <h4 className="text-amber-400 font-bold border-b border-amber-500/30 pb-2 flex justify-between">
+                                                            <span>Persistent Policy Change Recommendations</span>
+                                                            <span className="bg-amber-500/20 px-2 rounded-full">{persistent.length}</span>
+                                                        </h4>
+                                                        {persistent.map((sugg: any, idx: number) => renderSuggestionCard(sugg, idx, 'PERSISTENT'))}
+                                                    </div>
+                                                )}
+
+                                                {resolved.length > 0 && (
+                                                    <div className="space-y-4 mt-8">
+                                                        <h4 className="text-emerald-400 font-bold border-b border-emerald-500/30 pb-2 flex justify-between">
+                                                            <span>Resolved (No Longer Needed / Fixed)</span>
+                                                            <span className="bg-emerald-500/20 px-2 rounded-full">{resolved.length}</span>
+                                                        </h4>
+                                                        {resolved.map((sugg: any, idx: number) => renderSuggestionCard(sugg, idx, 'RESOLVED'))}
+                                                    </div>
+                                                )}
+                                            </>
+                                        );
+                                    })()}
                                 </div>
-                            </div>
-                        )}
+                            ) : isSat ? (
+                                <div className="h-full bg-green-900/10 border border-green-500/20 rounded-3xl p-12 text-center flex flex-col items-center justify-center shadow-2xl">
+                                    <div className="w-32 h-32 bg-green-500 rounded-full flex items-center justify-center mb-8 shadow-2xl shadow-green-500/30 animate-pulse-slow">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    </div>
+                                    <h2 className="text-4xl font-extrabold text-white mb-4">Policy Consistent</h2>
+                                    <p className="text-green-200 text-xl max-w-lg leading-relaxed">
+                                        The authorization policy is consistent and no violations were found.
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="flex flex-col gap-6">
+                                    <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6 flex items-center gap-4">
+                                        <div className="p-3 bg-red-500/20 rounded-full text-red-400">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                        </div>
+                                        <div>
+                                            <h3 className="text-xl font-bold text-white">Policy Inconsistent</h3>
+                                            <p className="text-red-200 text-sm">The optimizer found {result.suggestions.length} constraint violations.</p>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-4">
+                                        {result.suggestions.map((sugg, idx) => renderSuggestionCard(sugg, idx))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
@@ -242,19 +308,16 @@ const VerificationResultPage = () => {
                                 Red nodes represent endpoints that violate authorization policy consistency.
                                 <br/>Labels show [Current → Suggested] roles.
                             </p>
-                            <div className="text-xs text-slate-500 border-t border-slate-700 pt-2">
-                                Drag to rotate • Scroll to zoom <br/> Double click nodes to expand
-                            </div>
                         </div>
-
                         <GraphWrapper
                             width={window.innerWidth}
-                            height={window.innerHeight - 80} // approximate header height
+                            height={window.innerHeight - 80}
                             graphRef={graphRef}
                             graphData={graphData}
                             verificationSuggestions={result.suggestions} 
                             
                             // Interactive State Props
+                            regressionPayload={regressionPayload}
                             expandedNodes={expandedNodes}
                             setExpandedNodes={setExpandedNodes}
                             isHighLevelExpanded={isHighLevelExpanded}

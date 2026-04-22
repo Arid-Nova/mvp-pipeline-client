@@ -37,6 +37,7 @@ type Props = {
     isHighLevelExpanded: boolean;
     setExpandedNodes: React.Dispatch<React.SetStateAction<Set<string>>>;
     verificationSuggestions?: any[];
+    regressionPayload?: any;
 };
 
 const cleanNodeId = (id: string) => {
@@ -80,6 +81,7 @@ const Graph: React.FC<Props> = ({
     setExpandedNodes,
     isHighLevelExpanded,
     verificationSuggestions,
+    regressionPayload
 }) => {
     const [highlightNodes, setHighlightNodes] = useState<Set<string>>(new Set());
     const [highlightLinks, setHighlightLinks] = useState<Set<string>>(new Set());
@@ -118,8 +120,20 @@ const Graph: React.FC<Props> = ({
 
                 // 2. Dynamically update Color
                 let newColor;
-                if (verificationSuggestions && getSuggestionForNode(node.nodeName)) {
-                    newColor = "#f43e3e";
+                const nodeId = cleanNodeId(node.nodeName);
+                if (regressionPayload) {
+                    if (regressionPayload.introduced?.some((s: any) => cleanNodeId(s.id) === nodeId || cleanNodeId(s.endpoint_name) === nodeId)) {
+                        newColor = '#f43f5e'; // Rose-500 (New Vulns)
+                    } else if (regressionPayload.resolved?.some((s: any) => cleanNodeId(s.id) === nodeId || cleanNodeId(s.endpoint_name) === nodeId)) {
+                        newColor = '#10b981'; // Emerald-500 (Fixed)
+                    } else if (regressionPayload.persistent?.some((s: any) => cleanNodeId(s.id) === nodeId || cleanNodeId(s.endpoint_name) === nodeId)) {
+                        newColor = '#f59e0b'; // Amber-500 (Persistent)
+                    } else {
+                        // Fallback if node isn't in diff
+                        newColor = getColor(node, sharedProps.graphData, threshold, highlightNodes, hoverNode, defNodeColor, setDefNodeColor, antiPattern, colorMode, selectedAntiPattern, trackNodes, focusNode, trackChanges);
+                    }
+                } else if (verificationSuggestions && getSuggestionForNode(node.nodeName)) {
+                    newColor = "#f43e3e"; 
                 } else {
                     newColor = getColor(node, sharedProps.graphData, threshold, highlightNodes, hoverNode, defNodeColor, setDefNodeColor, antiPattern, colorMode, selectedAntiPattern, trackNodes, focusNode, trackChanges);
                 }
@@ -160,6 +174,13 @@ const Graph: React.FC<Props> = ({
             // VERIFICATION MODE OVERRIDE
             if (verificationSuggestions && verificationSuggestions.length > 0) {
                 const suggestedIds = new Set(verificationSuggestions.map(s => s.id));
+
+                if (regressionPayload && regressionPayload.introduced) {
+                    regressionPayload.introduced.forEach((s: any) => {
+                        if (s.id) suggestedIds.add(s.id);
+                        if (s.endpoint_name) suggestedIds.add(s.endpoint_name);
+                    });
+                }
 
                 // 1. Pre-calculate: Find methods that are actually attached to a controller
                 // We need to look at 'allLinks' to determine this relationship.
@@ -408,14 +429,30 @@ const Graph: React.FC<Props> = ({
                     opacity = 0.6; 
                 }
 
-                if (suggestionMap && getSuggestionForNode(node.nodeName)) {
+                const nodeId = cleanNodeId(node.nodeName);
+                
+                if (regressionPayload) {
+                    if (regressionPayload.introduced?.some((s: any) => cleanNodeId(s.id) === nodeId || cleanNodeId(s.endpoint_name) === nodeId)) {
+                        color = '#f43f5e'; // Rose-500
+                    } else if (regressionPayload.resolved?.some((s: any) => cleanNodeId(s.id) === nodeId || cleanNodeId(s.endpoint_name) === nodeId)) {
+                        color = '#10b981'; // Emerald-500
+                    } else if (regressionPayload.persistent?.some((s: any) => cleanNodeId(s.id) === nodeId || cleanNodeId(s.endpoint_name) === nodeId)) {
+                        color = '#f59e0b'; // Amber-500
+                    } else {
+                        color = getColor(
+                            node, sharedProps.graphData, threshold, highlightNodes, 
+                            hoverNode, defNodeColor, setDefNodeColor, antiPattern, 
+                            colorMode, selectedAntiPattern, trackNodes, focusNode, trackChanges
+                        );
+                    }
+                } else if (suggestionMap && getSuggestionForNode(node.nodeName)) {
                     color = "#f43e3e"; // RED for violations
                 } else {
                     color = getColor(
                         node, sharedProps.graphData, threshold, highlightNodes, 
                         hoverNode, defNodeColor, setDefNodeColor, antiPattern, 
-                        colorMode, selectedAntiPattern, trackNodes, focusNode, 
-                        trackChanges);
+                        colorMode, selectedAntiPattern, trackNodes, focusNode, trackChanges
+                    );
                 }
 
                 const material = new THREE.MeshLambertMaterial({
@@ -552,16 +589,28 @@ const Graph: React.FC<Props> = ({
             }}
 
             nodeVal={(node: any) => {
-                // Scaling up specific anti-patterns so they visually dominate the graph
+                const nodeId = cleanNodeId(node.nodeName);
+
+                // For regression
+                if (regressionPayload) {
+                    if (regressionPayload.introduced?.some((s: any) => cleanNodeId(s.id) === nodeId || cleanNodeId(s.endpoint_name) === nodeId)) {
+                        return 25; 
+                    }
+                    if (regressionPayload.resolved?.some((s: any) => cleanNodeId(s.id) === nodeId || cleanNodeId(s.endpoint_name) === nodeId)) {
+                        return 15; 
+                    }
+                }
+
+                // For antipatterns
                 if (antiPattern && node.antiPattern) {
                     const isActive = !selectedAntiPattern || selectedAntiPattern === "ALL" || selectedAntiPattern === "none" || selectedAntiPattern === node.antiPattern;
                     if (isActive) {
-                        if (node.antiPattern === 'GOD_SERVICE') return 400; // Massive scale
-                        if (node.antiPattern === 'SHARED_DB') return 200;  // Large scale
+                        if (node.antiPattern === 'GOD_SERVICE') return 400; 
+                        if (node.antiPattern === 'SHARED_DB') return 200;  
                     }
                 }
-                // Fallback to your default logic
-                return node.nodeType === 'microservice' ? 10 : 3; 
+                
+                return node.nodeType === 'microservice' ? 10 : 3;
             }}
             
             linkDirectionalParticleColor={(link: any) => {
