@@ -816,15 +816,62 @@ const PipelinePage: React.FC = () => {
                     });
                 }
                 else if (targetNode.type === 'FORMAL_VIZ') {
-                    // Expects Combined Result Packet from FORMAL_VERIFY
-                    const { result, systemInfo } = payload;
-                    
-                    if(!result || (!result.status && !result.suggestions)) throw new Error("Invalid input: Expected Verification Result");
+                    // Use the deadlock fix to safely get state
+                    setTimeout(() => {
+                        const liveNodes = nodesRef.current || nodes;
+                        
+                        const verifyNode = liveNodes.find(n => n.type === 'FORMAL_VERIFY' && connections.some(c => c.source === n.id && c.target === targetNode.id));
+                        const regressionNode = liveNodes.find(n => n.type === 'SECURITY_REGRESSION' && connections.some(c => c.source === n.id && c.target === targetNode.id));
 
-                    updateStatus(targetNode.id, 'completed', 'Results Ready.', { 
-                        verificationResult: result,
-                        systemInfo: systemInfo
-                    });
+                        if (!verifyNode) {
+                            updateStatus(targetNode.id, 'failed', "Please connect a Formal Verify base card.");
+                            return;
+                        }
+
+                        const regressionStillRunning = regressionNode && regressionNode.status !== 'completed' && !payload?.regressionPayload;
+
+                        if (verifyNode.status !== 'completed' || regressionStillRunning) {
+                            updateStatus(targetNode.id, 'running', 'Awaiting upstream completion...');
+                            return;
+                        }
+
+                        let systemInfo = verifyNode.data.systemInfo;
+
+                        if (!systemInfo || !systemInfo.ir) {
+                            let rawIr = null;
+                            let sysName = "default-system";
+
+                            const verifyParentConn = connections.find(c => c.target === verifyNode.id);
+                            if (verifyParentConn) {
+                                const parentNode = liveNodes.find(n => n.id === verifyParentConn.source);
+                                if (parentNode && parentNode.data.payload) {
+                                    rawIr = parentNode.data.payload.irJson || parentNode.data.payload;
+                                    sysName = parentNode.data.payload.systemName || sysName;
+                                }
+                            }
+
+                            if (!rawIr) {
+                                const baseNode = liveNodes.find(n => (n.type === 'MULTI_REPO' || n.type === 'IR_HOLDER' || n.type === 'COMPONENT_GENERATE' || n.type === 'COMPONENT_HOLDER') && connections.some(c => c.source === n.id && c.target === targetNode.id));
+                                if (baseNode && baseNode.data.payload) {
+                                    rawIr = baseNode.data.payload.irJson || baseNode.data.payload;
+                                    sysName = baseNode.data.payload.systemName || sysName;
+                                }
+                            }
+
+                            if (rawIr) {
+                                systemInfo = {
+                                    systemName: sysName,
+                                    ir: rawIr
+                                };
+                            }
+                        }
+
+                        updateStatus(targetNode.id, 'completed', regressionNode ? 'Ready for Diff Visualization' : 'Ready for Visualization', { 
+                            verificationResult: verifyNode.data.verificationResult,
+                            systemInfo: systemInfo, 
+                            regressionPayload: regressionNode?.data.regressionPayload
+                        });
+                    }, 50);
                 }
                 else if (targetNode.type === 'VERIFICATION_COMPARISON') {
                     setTimeout(async () => {
@@ -945,7 +992,7 @@ const PipelinePage: React.FC = () => {
                     }, 50);
                 }
                 else if (targetNode.type === 'SECURITY_REGRESSION') {
-                    setTimeout(() => {
+                    setTimeout(async () => {
                         const liveNodes = nodesRef.current || nodes;
 
                         const fvNodes = liveNodes.filter(n => 
@@ -988,6 +1035,7 @@ const PipelinePage: React.FC = () => {
                             updateStatus(targetNode.id, 'completed', `Found ${introduced.length} regressions.`, { 
                                 regressionPayload 
                             });
+                            await processNextNodes(targetNode.id, { ...payload, regressionPayload }, updateStatus);
                         } catch (error: any) {
                             updateStatus(targetNode.id, 'failed', error.message || "Failed to calculate drift.");
                         }

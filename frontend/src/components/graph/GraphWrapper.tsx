@@ -25,6 +25,7 @@ type Props = {
     trackChanges: any;
 
     verificationSuggestions?: any[];
+    regressionPayload?: any;
     
     expandedNodes: Set<string>;
     isHighLevelExpanded: boolean;
@@ -55,7 +56,8 @@ const VisualizationOptions: React.FC<Props> = ({
     expandedNodes,
     setExpandedNodes,
     isHighLevelExpanded,
-    verificationSuggestions
+    verificationSuggestions,
+    regressionPayload
 }) => {
     const Shared2D3DProps: SharedProps = {
         linkDirectionalArrowRelPos: 1,
@@ -92,6 +94,7 @@ const VisualizationOptions: React.FC<Props> = ({
                 setExpandedNodes={setExpandedNodes}
                 isHighLevelExpanded={isHighLevelExpanded}
                 verificationSuggestions={verificationSuggestions}
+                regressionPayload={regressionPayload}
             />
         </div>
     );
