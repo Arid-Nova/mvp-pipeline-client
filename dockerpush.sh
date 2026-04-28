@@ -1,18 +1,19 @@
 #! /bin/bash
 
-DOCKER_HUB_USER="cloudhub"
+DOCKER_HUB_USER="aridnova"
 TAG="latest"
 
 SERVICES=(
-  "cloudhub-toolkit-backend"
-  "cloudhub-toolkit-frontend"
-  "cloudhub-toolkit-components"
-  "cloudhub-toolkit-verifier"
-  "cloudhub-toolkit-testgenerator"
-  "cloudhub-toolkit-scenariogenerator"
-  "cloudhub-toolkit-vectorgenerator"
-  "cloudhub-toolkit-aegis_api"
-  "cloudhub-toolkit-aegis_dashboard" 
+  "aridnova-toolkit-backend"
+  "aridnova-toolkit-frontend"
+  "aridnova-toolkit-verifier"
+  "aridnova-toolkit-components"
+  "aridnova-toolkit-vectorgenerator"
+  "aridnova-toolkit-scenariogenerator"
+  "aridnova-toolkit-testgenerator"
+  "aridnova-toolkit-testexecutor"
+  "aridnova-toolkit-aegis_api"
+  "aridnova-toolkit-aegis_dashboard" 
 )
 
 echo "Starting build and push process for user: $DOCKER_HUB_USER"
