@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { saveGitHubToken, deleteGitHubToken } from '../../../services/api';
+import { saveGitHubToken, deleteGitHubToken, checkGitHubTokenStatus } from '../../../services/api';
 
 import { useNavigate } from 'react-router-dom';
 
@@ -116,13 +116,30 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
 }) => {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [tokenInput, setTokenInput] = useState('');
+    const [showWarning, setShowWarning] = useState(false);
     const settingsRef = useRef<HTMLDivElement>(null);
+
+    // Checking token availability
+    useEffect(() => {
+        const verifyToken = async () => {
+            if (sessionStorage.getItem('skipped_github_token')) return;
+
+            const hasToken = await checkGitHubTokenStatus();
+            if (!hasToken) {
+                setIsSettingsOpen(true);
+                setShowWarning(true);
+                sessionStorage.setItem('skipped_github_token', 'true');
+            }
+        };
+        verifyToken();
+    }, []);
 
     // Close dropdown if user clicks outside of it
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (settingsRef.current && !settingsRef.current.contains(event.target as Node)) {
                 setIsSettingsOpen(false);
+                setShowWarning(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -138,6 +155,7 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
             console.log("Token successfully updated on backend");
             setTokenInput(''); 
             setIsSettingsOpen(false);
+            setShowWarning(false);
         } catch{
             console.error("Failed to save/update token");
         }
@@ -148,9 +166,15 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
             await deleteGitHubToken();
             console.log("Token successfully deleted removed!");
             setIsSettingsOpen(false);
+            setShowWarning(false);
         } catch {
             console.error("Failed to delete token");
         }
+    };
+
+    const handleSkip = () => {
+        setIsSettingsOpen(false);
+        setShowWarning(false);
     };
 
     return (
@@ -174,7 +198,10 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                 {/* --- Settings Cogwheel & Dropdown --- */}
                 <div className="relative" ref={settingsRef}>
                     <button 
-                        onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                        onClick={() => {
+                            setIsSettingsOpen(!isSettingsOpen)
+                            setShowWarning(false);
+                        }}
                         className={`p-2 rounded-lg transition-all duration-200 border ${
                             isSettingsOpen 
                                 ? 'bg-slate-700 text-purple-400 border-purple-500/50 shadow-inner' 
@@ -200,6 +227,17 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                                     <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Authentication</h3>
                                 </div>
 
+                                {showWarning && (
+                                    <div className="bg-amber-500/10 border border-amber-500/30 p-2.5 rounded-lg flex gap-2 items-start">
+                                        <svg className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                        </svg>
+                                        <p className="text-[10px] text-amber-200 leading-tight">
+                                            A GitHub token is necessary for accessing private repositories and bypassing API rate limits.
+                                        </p>
+                                    </div>
+                                )}
+
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Set GitHub Token</label>
                                     <input 
@@ -215,7 +253,22 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                                 </div>
 
                                 <div className="flex items-center gap-2 pt-2">
-                                    {/* Delete Button is always available since we don't know if a token exists */}
+                                    {showWarning ? (
+                                        <button 
+                                            onClick={handleSkip}
+                                            className="px-3 py-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors flex-shrink-0"
+                                        >
+                                            Skip
+                                        </button>
+                                    ) : (
+                                        <button 
+                                            onClick={handleDeleteToken}
+                                            className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors flex-shrink-0"
+                                        >
+                                            Delete
+                                        </button>
+                                    )}
+
                                     <button 
                                         onClick={handleDeleteToken}
                                         className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors flex-shrink-0"
@@ -231,7 +284,6 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                                         Set Token
                                     </button>
                                 </div>
-                                
                             </div>
                         </div>
                     )}

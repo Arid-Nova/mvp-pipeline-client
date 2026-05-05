@@ -173,3 +173,15 @@ export const deleteGitHubToken = async () => {
     if (!response.ok) throw new Error(`API error ${response.status}`);
     return await response.json();
 };
+
+export const checkGitHubTokenStatus = async () => {
+    try {
+        const response = await fetch('http://localhost:8020/settings/github-token/status');
+        if (!response.ok) return false;
+        const data = await response.json();
+        return data.hasToken;
+    } catch (error) {
+        console.error("Failed to check token status", error);
+        return false; 
+    }
+};

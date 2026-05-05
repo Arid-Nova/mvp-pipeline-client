@@ -58,7 +58,12 @@ async def delete_github_token():
     await config_db_service.delete_token()
     return {"message": "Token deleted successfully."}
 
-if __name__ == "__main__":
-    import uvicorn
-    # Run on port 8020 as requested
-    uvicorn.run(app, host="127.0.0.1", port=8020)
+@app.get("/settings/github-token/status")
+async def check_github_token_status():
+    token = await config_db_service.get_token()
+    return {"hasToken": token is not None}
+
+# if __name__ == "__main__":
+#     import uvicorn
+#     # Run on port 8020 as requested
+#     uvicorn.run(app, host="127.0.0.1", port=8020)
