@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { showError } from '../utils/notifications';
-import { RepositoryInput, VerificationInput, VerificationResponse } from './types';
+import { RepositoryInput, VerificationInput, VerificationResponse, OrgImportResponse } from './types';
 import { PromptItem } from '../components/pipeline/models';
 
 
@@ -131,5 +131,45 @@ export const fetchChangeImpact = async (deltaInput: any) => {
         body: JSON.stringify(deltaInput)
     });
     if (!response.ok) throw new Error(`Delta API error: ${response.status}`);
+    return await response.json();
+};
+
+export const importOrganization = async (orgUrl: string): Promise<OrgImportResponse> => {
+    const response = await fetch('http://localhost:8020/import/organization', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ org_url: orgUrl })
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        const errorMessage = errorData?.detail || `API error ${response.status}: Failed to import organization`;
+        showError(errorMessage);
+        throw new Error(errorMessage);
+    }
+    
+    return await response.json();
+};
+
+export const saveGitHubToken = async (token: string) => {
+    const response = await fetch('http://localhost:8020/settings/github-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ github_token: token })
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.detail || `API error ${response.status}`);
+    }
+    return await response.json();
+};
+
+export const deleteGitHubToken = async () => {
+    const response = await fetch('http://localhost:8020/settings/github-token', {
+        method: 'DELETE'
+    });
+
+    if (!response.ok) throw new Error(`API error ${response.status}`);
     return await response.json();
 };

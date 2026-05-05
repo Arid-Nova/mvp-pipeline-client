@@ -1,4 +1,4 @@
-import { VerificationResponse } from '../../services/types';
+import { VerificationResponse, OrgImportResponse } from '../../services/types';
 
 export type CardType = 
     | 'SYSTEM_INPUT'
@@ -89,6 +89,7 @@ export interface NodeData {
             introduced: any[];
             persistent: any[];
         };
+        orgImportData?: OrgImportResponse;
     };
     status: 'idle' | 'running' | 'completed' | 'failed';
     logs: string[];

@@ -38,3 +38,17 @@ export interface VerificationResponse {
     logs: string[];
     processing_time_seconds: number;
 }
+
+// Organization Import Types
+export interface RepoData {
+    url: string;
+    branch: string;
+    branches: string[]; 
+    commitMap: Record<string, string>;
+}
+
+export interface OrgImportResponse {
+    proposedSystemName: string;
+    relevantRepos: RepoData[];
+    suggestedRepos: RepoData[];
+}

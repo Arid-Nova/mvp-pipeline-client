@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { saveGitHubToken, deleteGitHubToken } from '../../../services/api';
+
 import { useNavigate } from 'react-router-dom';
 
 const BrandSection = () => {
@@ -112,6 +114,45 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
     clearPipeline,
     runPipeline
 }) => {
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [tokenInput, setTokenInput] = useState('');
+    const settingsRef = useRef<HTMLDivElement>(null);
+
+    // Close dropdown if user clicks outside of it
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (settingsRef.current && !settingsRef.current.contains(event.target as Node)) {
+                setIsSettingsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const handleSaveToken = async () => {
+        if (!tokenInput.trim()) return;
+        
+        try {
+            await saveGitHubToken(tokenInput.trim());
+            
+            console.log("Token successfully updated on backend");
+            setTokenInput(''); 
+            setIsSettingsOpen(false);
+        } catch{
+            console.error("Failed to save/update token");
+        }
+    };
+
+    const handleDeleteToken = async () => {
+        try {
+            await deleteGitHubToken();
+            console.log("Token successfully deleted removed!");
+            setIsSettingsOpen(false);
+        } catch {
+            console.error("Failed to delete token");
+        }
+    };
+
     return (
         <div className="h-16 border-b border-slate-700 bg-slate-800 flex items-center justify-between px-6 z-20 shadow-md">
             {/* Left Side: Brand and Navigation */}
@@ -129,6 +170,73 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                         Clear All
                     </button>
                 )}
+
+                {/* --- Settings Cogwheel & Dropdown --- */}
+                <div className="relative" ref={settingsRef}>
+                    <button 
+                        onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                        className={`p-2 rounded-lg transition-all duration-200 border ${
+                            isSettingsOpen 
+                                ? 'bg-slate-700 text-purple-400 border-purple-500/50 shadow-inner' 
+                                : 'bg-slate-800 text-slate-400 border-transparent hover:bg-slate-700 hover:text-slate-200'
+                        }`}
+                        title="Settings"
+                    >
+                        <svg className={`w-5 h-5 transition-transform duration-500 ${isSettingsOpen ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </button>
+
+                    {/* Settings Dropdown Box */}
+                    {isSettingsOpen && (
+                        <div className="absolute right-0 top-full mt-2 w-72 bg-slate-800/95 backdrop-blur-md border border-slate-600 rounded-xl shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200 origin-top-right">
+                            <div className="p-4 space-y-4">
+                                
+                                <div className="flex items-center gap-2 border-b border-slate-700 pb-2">
+                                    <svg className="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                                    </svg>
+                                    <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Authentication</h3>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Set GitHub Token</label>
+                                    <input 
+                                        type="password" 
+                                        placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                                        value={tokenInput}
+                                        onChange={(e) => setTokenInput(e.target.value)}
+                                        className="w-full text-xs bg-slate-900 border border-slate-700 rounded-md p-2 focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50 outline-none text-slate-200 font-mono shadow-inner transition-all"
+                                    />
+                                    <p className="text-[9px] text-slate-500 leading-tight pt-1">
+                                        For security, existing tokens are never displayed. Entering a new token will overwrite the old one.
+                                    </p>
+                                </div>
+
+                                <div className="flex items-center gap-2 pt-2">
+                                    {/* Delete Button is always available since we don't know if a token exists */}
+                                    <button 
+                                        onClick={handleDeleteToken}
+                                        className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors flex-shrink-0"
+                                    >
+                                        Delete
+                                    </button>
+                                    
+                                    <button 
+                                        onClick={handleSaveToken}
+                                        disabled={!tokenInput.trim()}
+                                        className="flex-1 py-1.5 bg-purple-600 hover:bg-purple-500 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors shadow-md"
+                                    >
+                                        Set Token
+                                    </button>
+                                </div>
+                                
+                            </div>
+                        </div>
+                    )}
+                </div>
+
                 <div className="relative group flex items-center">
                     <button 
                         onClick={runPipeline}

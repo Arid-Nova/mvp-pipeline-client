@@ -193,6 +193,28 @@ services:
         condition: service_healthy
     networks:
       - app_network
+  
+  repohandler :
+    build:
+      context: ./repomanager
+      dockerfile: Dockerfile
+    container_name: cloudhub_repohandler
+    ports:
+      - "8020:8020" 
+    environment:
+      - OPENAI_API_KEY=22hsgSpZGYB83odKbOaAtrZd82MWLOo6MSzIKypkd12Xx0yZQyMAJQQJ99BLACMsfrFXJ3w3AAAAACOGD7qp
+      - OPENAI_BASE_URL=https://posturaneuroengine.cognitiveservices.azure.com/openai/v1/
+      - LLM_TEMPERATURE=0.1
+      - MAX_TOKENS=10000
+      - OPENAI_API_MODEL=gpt-4o-mini
+      - MONGO_URI=mongodb://cloudhub_mongo:27017
+      - MONGO_DB=aridnova_system
+      - MONGO_USER=root
+      - MONGO_PASSWORD=aeGis2026Rocks
+      - GITHUB_API_VERSION=2026-03-10
+    networks:
+      - app_network
+    restart: always
 
 volumes:
   mariadb_data:
