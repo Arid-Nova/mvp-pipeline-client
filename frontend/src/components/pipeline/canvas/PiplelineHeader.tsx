@@ -268,13 +268,6 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                                             Delete
                                         </button>
                                     )}
-
-                                    <button 
-                                        onClick={handleDeleteToken}
-                                        className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors flex-shrink-0"
-                                    >
-                                        Delete
-                                    </button>
                                     
                                     <button 
                                         onClick={handleSaveToken}
