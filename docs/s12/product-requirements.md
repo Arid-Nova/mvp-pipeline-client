@@ -38,6 +38,7 @@ A local, evidence-grounded chatbot is needed to provide fast, explainable answer
 - No cloud LLM requirement for core chatbot operation.
 - No natural-language-to-pipeline auto-execution in initial release.
 - No general internet search or external knowledge grounding in initial release.
+- No production-blocking decisions made solely by chatbot output without human review.
 
 ## 7. Scope
 
@@ -56,6 +57,8 @@ A local, evidence-grounded chatbot is needed to provide fast, explainable answer
 - Fine-tuning custom foundation models in this phase.
 
 ## 8. User Value Proposition
+
+Terminology note: This document uses `Local LLM Chatbot` and `Architecture-Grounded Assistant` as equivalent capability names; responses are expected to be evidence-grounded answers built from retrieval context and displayed with a confidence label.
 
 Users can ask architecture and analysis questions in natural language and receive fast, evidence-cited, locally generated answers that are traceable to AridNova artifacts, reducing manual cross-tool effort while improving decision quality.
 
@@ -137,6 +140,7 @@ To support end-to-end traceability across PRD, stories, backlog, release milesto
 
 ## 13. Evidence Grounding Requirements
 
+- Responses shall distinguish evidence-backed facts from recommendations or inferred guidance, with recommendations explicitly labeled.
 - Every substantive claim in supported answers must map to at least one evidence item.
 - Citation block shall include, at minimum:
   - Artifact type.
@@ -197,6 +201,9 @@ Each source should be versioned or timestamped in retrieval metadata when availa
 
 ## 17. Privacy and Security Requirements
 
+- Source code and IR artifacts used for chatbot grounding shall remain local to the deployment environment by default.
+- Prompt assembly shall occur locally within AridNova backend services.
+- Model inference calls shall target a configured local endpoint (for example Ollama, llama.cpp server, or compatible local API).
 - Default operation shall be local-network/local-host oriented.
 - No mandatory outbound transfer of user artifacts to third-party LLM APIs.
 - Secrets (if any optional providers exist) must be environment-based and not exposed to frontend.

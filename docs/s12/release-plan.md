@@ -33,7 +33,7 @@
 ### S12-M1: Local chatbot foundation
 
 **Included stories:** S12-001, S12-002, S12-003, S12-004, S12-005, S12-006, S12-019, S12-031, S12-042, S12-045  
-**Included backlog tasks:** BL-S12-001, BL-S12-002, BL-S12-003, BL-S12-004, BL-S12-005, BL-S12-009, BL-S12-010, BL-S12-011, BL-S12-012, BL-S12-014
+**Included backlog tasks:** S12-BL-001, S12-BL-002, S12-BL-003, S12-BL-004, S12-BL-005, S12-BL-009, S12-BL-010, S12-BL-011, S12-BL-012, S12-BL-014
 
 **Demo after milestone:**
 - Start stack with local model service profile.
@@ -50,7 +50,7 @@
 ### S12-M2: Evidence-grounded architecture Q&A
 
 **Included stories:** S12-007, S12-010, S12-012, S12-013, S12-014, S12-015, S12-016, S12-029, S12-030  
-**Included backlog tasks:** BL-S12-006, BL-S12-007, BL-S12-008, BL-S12-013, BL-S12-015, BL-S12-016, BL-S12-021, BL-S12-022
+**Included backlog tasks:** S12-BL-006, S12-BL-007, S12-BL-008, S12-BL-013, S12-BL-015, S12-BL-016, S12-BL-021, S12-BL-022
 
 **Demo after milestone:**
 - Ask architecture topology question grounded in IR.
@@ -67,7 +67,7 @@
 ### S12-M3: Verification, risk, and change-impact Q&A
 
 **Included stories:** S12-020, S12-021, S12-024, S12-027, plus supporting runtime-failure handling from S12-004  
-**Included backlog tasks:** BL-S12-017, BL-S12-018, BL-S12-019, BL-S12-020, BL-S12-023
+**Included backlog tasks:** S12-BL-017, S12-BL-018, S12-BL-019, S12-BL-020, S12-BL-023
 
 **Demo after milestone:**
 - Ask verification findings question and get cited result summary.
@@ -83,7 +83,7 @@
 ### S12-M4: Hardening, telemetry, and release readiness
 
 **Included stories:** S12-003, S12-039, S12-043, S12-045 (plus release quality outcomes)  
-**Included backlog tasks:** BL-S12-024, BL-S12-025, BL-S12-026, BL-S12-027, BL-S12-028, BL-S12-029, BL-S12-030, BL-S12-031
+**Included backlog tasks:** S12-BL-024, S12-BL-025, S12-BL-026, S12-BL-027, S12-BL-028, S12-BL-029, S12-BL-030, S12-BL-031
 
 **Demo after milestone:**
 - Run automated unit/integration suites and show pass report.
@@ -103,6 +103,7 @@
 - Replacing existing pipeline cards or graph UI flows.
 - Cloud LLM dependency as a requirement for chatbot operation.
 - Internet-grounded or external-knowledge answers beyond AridNova artifacts.
+- No production-blocking decisions made solely from chatbot output without human review.
 
 ## 6. Dependency Plan
 
@@ -219,20 +220,20 @@ Release is Done when S12-M1 through S12-M4 are completed and sign-off is recorde
 
 | Requirement ID | Requirement Summary | Story IDs | Backlog IDs | JIRA Summary | Milestone |
 |---|---|---|---|---|---|
-| LLM-REQ-001 | Ask architecture questions | S12-015, S12-017 | BL-S12-015, BL-S12-006 | S12-015 Architecture topology Q and A; BL-S12-015 IR architecture context provider | S12-M2 |
-| LLM-REQ-002 | Ask dependency questions | S12-016 | BL-S12-016, BL-S12-007 | S12-016 Dependency path explanation; BL-S12-016 Graph dependency context provider | S12-M2 |
-| LLM-REQ-003 | Ask verification/finding questions | S12-020, S12-022, S12-023 | BL-S12-017 | S12-020 Verification findings Q and A; BL-S12-017 Verification context provider | S12-M3 |
-| LLM-REQ-004 | Ask change impact questions | S12-024, S12-025 | BL-S12-018 | S12-024 What changed questions; BL-S12-018 Change impact context provider | S12-M3 |
-| LLM-REQ-005 | Ask risk questions | S12-021, S12-022 | BL-S12-020 | S12-021 Risk-focused Q and A; BL-S12-020 Aegis risk context provider | S12-M3 |
-| LLM-REQ-006 | Ask endpoint/service questions | S12-017 | BL-S12-006, BL-S12-015 | S12-017 Endpoint-level Q and A; BL-S12-006 Context retrieval service | S12-M2 |
-| LLM-REQ-007 | Ask "what changed?" questions | S12-024 | BL-S12-018 | S12-024 What changed questions; BL-S12-018 Change impact context provider | S12-M3 |
-| LLM-REQ-008 | Ask "what should I test?" questions | S12-026, S12-027, S12-028 | BL-S12-019 | S12-026 What should I test guidance; BL-S12-019 Scenario and test context provider | S12-M3 |
-| LLM-REQ-009 | Evidence citation in every supported answer | S12-019, S12-032 | BL-S12-011, BL-S12-006 | S12-019 Citation requirement for architecture claims; BL-S12-011 Answer schema with citations | S12-M2 |
-| LLM-REQ-010 | Missing evidence handling | S12-029, S12-033 | BL-S12-022 | S12-029 Missing evidence refusal behavior; BL-S12-022 Missing evidence refusal logic | S12-M2 |
-| LLM-REQ-011 | Local-only model inference support | S12-001, S12-002, S12-003, S12-042 | BL-S12-001, BL-S12-002, BL-S12-004, BL-S12-010 | S12-001 Configure model endpoint and model id via env; BL-S12-010 Local model invocation service | S12-M1 |
-| LLM-REQ-012 | Session context binding | S12-006, S12-011, S12-034 | BL-S12-014, BL-S12-013 | S12-006 Show active context; BL-S12-014 Context binding from selected IR index session | S12-M1 |
-| LLM-REQ-013 | Follow-up question continuity | S12-007, S12-034 | BL-S12-013 | S12-007 Preserve follow-up context; BL-S12-013 Conversation state management | S12-M2 |
-| LLM-REQ-014 | Deterministic evidence mode | S12-014, S12-031 | BL-S12-008, BL-S12-009 | S12-014 Deterministic context truncation; BL-S12-009 Prompt assembly service | S12-M2 |
+| LLM-REQ-001 | Ask architecture questions | S12-015, S12-017 | S12-BL-015, S12-BL-006 | S12-015 Architecture topology Q and A; S12-BL-015 IR architecture context provider | S12-M2 |
+| LLM-REQ-002 | Ask dependency questions | S12-016 | S12-BL-016, S12-BL-007 | S12-016 Dependency path explanation; S12-BL-016 Graph dependency context provider | S12-M2 |
+| LLM-REQ-003 | Ask verification/finding questions | S12-020, S12-022, S12-023 | S12-BL-017 | S12-020 Verification findings Q and A; S12-BL-017 Verification context provider | S12-M3 |
+| LLM-REQ-004 | Ask change impact questions | S12-024, S12-025 | S12-BL-018 | S12-024 What changed questions; S12-BL-018 Change impact context provider | S12-M3 |
+| LLM-REQ-005 | Ask risk questions | S12-021, S12-022 | S12-BL-020 | S12-021 Risk-focused Q and A; S12-BL-020 Aegis risk context provider | S12-M3 |
+| LLM-REQ-006 | Ask endpoint/service questions | S12-017 | S12-BL-006, S12-BL-015 | S12-017 Endpoint-level Q and A; S12-BL-006 Context retrieval service | S12-M2 |
+| LLM-REQ-007 | Ask "what changed?" questions | S12-024 | S12-BL-018 | S12-024 What changed questions; S12-BL-018 Change impact context provider | S12-M3 |
+| LLM-REQ-008 | Ask "what should I test?" questions | S12-026, S12-027, S12-028 | S12-BL-019 | S12-026 What should I test guidance; S12-BL-019 Scenario and test context provider | S12-M3 |
+| LLM-REQ-009 | Evidence citation in every supported answer | S12-019, S12-032 | S12-BL-011, S12-BL-006 | S12-019 Citation requirement for architecture claims; S12-BL-011 Answer schema with citations | S12-M2 |
+| LLM-REQ-010 | Missing evidence handling | S12-029, S12-033 | S12-BL-022 | S12-029 Missing evidence refusal behavior; S12-BL-022 Missing evidence refusal logic | S12-M2 |
+| LLM-REQ-011 | Local-only model inference support | S12-001, S12-002, S12-003, S12-042 | S12-BL-001, S12-BL-002, S12-BL-004, S12-BL-010 | S12-001 Configure model endpoint and model id via env; S12-BL-010 Local model invocation service | S12-M1 |
+| LLM-REQ-012 | Session context binding | S12-006, S12-011, S12-034 | S12-BL-014, S12-BL-013 | S12-006 Show active context; S12-BL-014 Context binding from selected IR index session | S12-M1 |
+| LLM-REQ-013 | Follow-up question continuity | S12-007, S12-034 | S12-BL-013 | S12-007 Preserve follow-up context; S12-BL-013 Conversation state management | S12-M2 |
+| LLM-REQ-014 | Deterministic evidence mode | S12-014, S12-031 | S12-BL-008, S12-BL-009 | S12-014 Deterministic context truncation; S12-BL-009 Prompt assembly service | S12-M2 |
 
 ### Milestone User-Visible Outcomes
 
@@ -243,3 +244,15 @@ Release is Done when S12-M1 through S12-M4 are completed and sign-off is recorde
 | S12-M3 | User asks verification/risk/change/test-focus questions and receives evidence-grounded answers |
 | S12-M4 | User benefits from hardened reliability, clearer failure handling, and improved quality/operability signals |
 
+
+## Documentation Quality Notes
+
+- Review scope: `product-requirements.md`, `user-stories.md`, `backlog.md`, `release-plan.md`, and `jira-import.csv`.
+- Terminology normalized: `Local LLM Chatbot`, `Architecture-Grounded Assistant`, `IR`, `evidence-grounded answer`, `retrieval context`, and `confidence label`.
+- Milestones normalized: `S12-M1`, `S12-M2`, `S12-M3`, `S12-M4` only.
+- Story IDs verified as `S12-###` across stories, backlog links, release plan mappings, and JIRA rows.
+- Backlog IDs normalized from `BL-S12-###` to `S12-BL-###` across backlog, release plan, and JIRA import rows.
+- Non-goals clarity verified and strengthened: no cloud LLM dependency required, no autonomous code modification, and no production-blocking decisions without human review.
+- Privacy/security language strengthened: source code and IR remain local by default, prompt assembly is local, and model calls use configured local endpoints.
+- Evidence-grounding behavior verified: cite evidence, identify missing evidence, and distinguish facts from recommendations.
+- CSV import safety rechecked: quoted fields, valid 10-column schema, permitted enum values, numeric story points, and valid milestone values.
