@@ -217,9 +217,29 @@ Release is Done when S12-M1 through S12-M4 are completed and sign-off is recorde
 
 ## 15. Traceability Matrix
 
-| Milestone | Included Stories | Included Backlog Items |
-|---|---|---|
-| S12-M1: Local chatbot foundation | S12-001, S12-002, S12-003, S12-004, S12-005, S12-006, S12-019, S12-031, S12-042, S12-045 | BL-S12-001, BL-S12-002, BL-S12-003, BL-S12-004, BL-S12-005, BL-S12-009, BL-S12-010, BL-S12-011, BL-S12-012, BL-S12-014 |
-| S12-M2: Evidence-grounded architecture Q&A | S12-007, S12-010, S12-012, S12-013, S12-014, S12-015, S12-016, S12-029, S12-030 | BL-S12-006, BL-S12-007, BL-S12-008, BL-S12-013, BL-S12-015, BL-S12-016, BL-S12-021, BL-S12-022 |
-| S12-M3: Verification, risk, and change-impact Q&A | S12-020, S12-021, S12-024, S12-027, S12-004 | BL-S12-017, BL-S12-018, BL-S12-019, BL-S12-020, BL-S12-023 |
-| S12-M4: Hardening, telemetry, and release readiness | S12-003, S12-039, S12-043, S12-045 | BL-S12-024, BL-S12-025, BL-S12-026, BL-S12-027, BL-S12-028, BL-S12-029, BL-S12-030, BL-S12-031 |
+| Requirement ID | Requirement Summary | Story IDs | Backlog IDs | JIRA Summary | Milestone |
+|---|---|---|---|---|---|
+| LLM-REQ-001 | Ask architecture questions | S12-015, S12-017 | BL-S12-015, BL-S12-006 | S12-015 Architecture topology Q and A; BL-S12-015 IR architecture context provider | S12-M2 |
+| LLM-REQ-002 | Ask dependency questions | S12-016 | BL-S12-016, BL-S12-007 | S12-016 Dependency path explanation; BL-S12-016 Graph dependency context provider | S12-M2 |
+| LLM-REQ-003 | Ask verification/finding questions | S12-020, S12-022, S12-023 | BL-S12-017 | S12-020 Verification findings Q and A; BL-S12-017 Verification context provider | S12-M3 |
+| LLM-REQ-004 | Ask change impact questions | S12-024, S12-025 | BL-S12-018 | S12-024 What changed questions; BL-S12-018 Change impact context provider | S12-M3 |
+| LLM-REQ-005 | Ask risk questions | S12-021, S12-022 | BL-S12-020 | S12-021 Risk-focused Q and A; BL-S12-020 Aegis risk context provider | S12-M3 |
+| LLM-REQ-006 | Ask endpoint/service questions | S12-017 | BL-S12-006, BL-S12-015 | S12-017 Endpoint-level Q and A; BL-S12-006 Context retrieval service | S12-M2 |
+| LLM-REQ-007 | Ask "what changed?" questions | S12-024 | BL-S12-018 | S12-024 What changed questions; BL-S12-018 Change impact context provider | S12-M3 |
+| LLM-REQ-008 | Ask "what should I test?" questions | S12-026, S12-027, S12-028 | BL-S12-019 | S12-026 What should I test guidance; BL-S12-019 Scenario and test context provider | S12-M3 |
+| LLM-REQ-009 | Evidence citation in every supported answer | S12-019, S12-032 | BL-S12-011, BL-S12-006 | S12-019 Citation requirement for architecture claims; BL-S12-011 Answer schema with citations | S12-M2 |
+| LLM-REQ-010 | Missing evidence handling | S12-029, S12-033 | BL-S12-022 | S12-029 Missing evidence refusal behavior; BL-S12-022 Missing evidence refusal logic | S12-M2 |
+| LLM-REQ-011 | Local-only model inference support | S12-001, S12-002, S12-003, S12-042 | BL-S12-001, BL-S12-002, BL-S12-004, BL-S12-010 | S12-001 Configure model endpoint and model id via env; BL-S12-010 Local model invocation service | S12-M1 |
+| LLM-REQ-012 | Session context binding | S12-006, S12-011, S12-034 | BL-S12-014, BL-S12-013 | S12-006 Show active context; BL-S12-014 Context binding from selected IR index session | S12-M1 |
+| LLM-REQ-013 | Follow-up question continuity | S12-007, S12-034 | BL-S12-013 | S12-007 Preserve follow-up context; BL-S12-013 Conversation state management | S12-M2 |
+| LLM-REQ-014 | Deterministic evidence mode | S12-014, S12-031 | BL-S12-008, BL-S12-009 | S12-014 Deterministic context truncation; BL-S12-009 Prompt assembly service | S12-M2 |
+
+### Milestone User-Visible Outcomes
+
+| Milestone | At Least One User-Visible Outcome |
+|---|---|
+| S12-M1 | User opens chatbot panel and receives a basic response from local model via backend |
+| S12-M2 | User receives architecture/dependency answers with citations and safe missing-evidence qualification |
+| S12-M3 | User asks verification/risk/change/test-focus questions and receives evidence-grounded answers |
+| S12-M4 | User benefits from hardened reliability, clearer failure handling, and improved quality/operability signals |
+

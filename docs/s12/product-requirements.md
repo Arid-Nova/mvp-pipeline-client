@@ -78,6 +78,28 @@ Users can ask architecture and analysis questions in natural language and receiv
 | FR-013 | Follow-up question continuity | Should | Chatbot supports short conversational follow-ups while preserving citation discipline. |
 | FR-014 | Deterministic evidence mode | Should | Optional strict mode: answer only from retrieved evidence chunks; refuse unsupported inference. |
 
+## 9.1 Canonical Requirement ID Mapping
+
+To support end-to-end traceability across PRD, stories, backlog, release milestones, and JIRA imports, each major functional requirement is assigned a canonical `LLM-REQ-*` ID while preserving existing `FR-*` IDs.
+
+| Canonical ID | Existing ID | Requirement Summary |
+|---|---|---|
+| LLM-REQ-001 | FR-001 | Ask architecture questions |
+| LLM-REQ-002 | FR-002 | Ask dependency questions |
+| LLM-REQ-003 | FR-003 | Ask verification/finding questions |
+| LLM-REQ-004 | FR-004 | Ask change impact questions |
+| LLM-REQ-005 | FR-005 | Ask risk questions |
+| LLM-REQ-006 | FR-006 | Ask endpoint/service questions |
+| LLM-REQ-007 | FR-007 | Ask "what changed?" questions |
+| LLM-REQ-008 | FR-008 | Ask "what should I test?" questions |
+| LLM-REQ-009 | FR-009 | Evidence citation in every supported answer |
+| LLM-REQ-010 | FR-010 | Missing evidence handling |
+| LLM-REQ-011 | FR-011 | Local-only model inference support |
+| LLM-REQ-012 | FR-012 | Session context binding |
+| LLM-REQ-013 | FR-013 | Follow-up question continuity |
+| LLM-REQ-014 | FR-014 | Deterministic evidence mode |
+
+
 ## 10. Non-Functional Requirements
 
 | ID | Category | Requirement | Target |
