@@ -53,3 +53,225 @@ This implementation backlog is derived from `docs/s12/product-requirements.md` a
 - Milestone check: all values are in `{S12-M1, S12-M2, S12-M3, S12-M4}`.
 - Story Points check: all values are numeric.
 - Auto-fix actions: none required.
+
+## Developer Handoff Notes
+
+### 1. Probable Frontend Files To Modify
+
+- `frontend/src/App.tsx`
+  - Add chatbot panel mount point and route/context wiring.
+- `frontend/src/services/api.ts`
+  - Add chatbot API client function for `POST /chat/ask` and health/status calls.
+- `frontend/src/components/pipeline/PipelinePage.tsx`
+  - Pass active `analysisId`, `indexId`, `sessionId`, and selected node context to chatbot.
+- `frontend/src/components/graph/GraphWrapper.tsx`
+  - Surface selected node identifier (`selectedNodeId`) for context-aware question asking.
+- `frontend/src/components/graph/NodeInfoBox.tsx`
+  - Optional entry point for “ask about this node” action.
+- New suggested files:
+  - `frontend/src/components/chatbot/ChatbotPanel.tsx`
+  - `frontend/src/components/chatbot/ChatMessageList.tsx`
+  - `frontend/src/components/chatbot/ChatComposer.tsx`
+  - `frontend/src/components/chatbot/EvidenceList.tsx`
+  - `frontend/src/components/chatbot/ConfidenceBadge.tsx`
+  - `frontend/src/hooks/useChatbotState.ts`
+  - `frontend/src/services/chatbotTypes.ts`
+
+### 2. Probable Backend Files/Packages To Create Or Modify
+
+- Existing backend base:
+  - `backend/src/main/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/`
+- Probable new package root (verify package path before implementation):
+  - `backend/src/main/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/`
+- Suggested classes (create):
+  - `ChatController` (endpoint handler)
+  - `ChatRequest` / `ChatResponse` DTOs
+  - `EvidenceItem` DTO
+  - `ChatService` (orchestrator)
+  - `ContextAssemblyService`
+  - `PromptAssemblyService`
+  - `LocalLlmClient` + provider adapters
+  - `ConfidenceService`
+  - `EvidenceGuardrailService`
+- Existing services likely to integrate with:
+  - `backend/.../api/ir/IRService.java`
+  - `backend/.../api/ir/DeltaService.java`
+  - `backend/.../api/graph/GraphService.java`
+- External service contract integrations (no direct frontend call):
+  - `formalmethod/app/main.py`
+  - `scenariogenerator/app/main.py`
+  - `testgenerator/app/main.py`
+  - `aegis/service.py`
+
+### 3. Docker Compose Changes Needed For Local LLM Runtime
+
+- Update `docker-compose.yaml` to support local model runtime and chatbot usage path.
+- Add optional local model service/profile (for example Ollama or compatible local endpoint).
+- Ensure chatbot backend service receives model endpoint env vars.
+- Keep model runtime and chatbot services on existing `app_network`.
+- Add healthcheck for model service and wire dependency order where appropriate.
+- Keep local-only default behavior; do not require cloud provider services for chatbot flow.
+
+### 4. Environment Variables To Add
+
+Use environment-driven config for portability and local-only operation.
+
+- `CHAT_MODEL_PROVIDER` (example: `ollama`, `llamacpp`, `openai_compatible_local`)
+- `CHAT_MODEL_NAME` (example: `llama3.1:8b-instruct`)
+- `CHAT_MODEL_BASE_URL` (example: `http://local-llm:11434`)
+- `CHAT_MODEL_TIMEOUT_MS` (example: `30000`)
+- `CHAT_MODEL_MAX_TOKENS` (example: `4096`)
+- Optional:
+  - `CHAT_MODEL_TEMPERATURE`
+  - `CHAT_EVIDENCE_TOP_K`
+  - `CHAT_STRICT_EVIDENCE_MODE`
+  - `CHAT_REQUEST_LOGGING_ENABLED`
+
+### 5. Proposed API Contract For Chatbot Request/Response
+
+Endpoint:
+
+- `POST /chat/ask`
+
+Request:
+
+```json
+{
+  "question": "string",
+  "analysisId": "string",
+  "indexId": "string",
+  "sessionId": "string",
+  "selectedNodeId": "string | null",
+  "contextTypes": ["IR", "GRAPH", "VERIFICATION", "CHANGE_IMPACT", "RISK", "TESTS"]
+}
+```
+
+Response:
+
+```json
+{
+  "answer": "string",
+  "confidence": "HIGH | MEDIUM | LOW | INSUFFICIENT_EVIDENCE",
+  "evidence": [
+    {
+      "type": "IR | GRAPH | VERIFICATION | CHANGE_IMPACT | RISK | TEST",
+      "sourceId": "string",
+      "label": "string",
+      "excerpt": "string"
+    }
+  ],
+  "missingEvidence": ["string"],
+  "followUpQuestions": ["string"]
+}
+```
+
+Recommended error envelope (for consistency):
+
+```json
+{
+  "error": {
+    "code": "LOCAL_MODEL_UNAVAILABLE | INVALID_REQUEST | INSUFFICIENT_EVIDENCE | INTERNAL_ERROR",
+    "message": "string",
+    "requestId": "string"
+  }
+}
+```
+
+### 6. Proposed Evidence Object Schema
+
+Use a normalized internal evidence model before formatting response:
+
+```json
+{
+  "type": "IR | GRAPH | VERIFICATION | CHANGE_IMPACT | RISK | TEST",
+  "sourceId": "string",
+  "label": "string",
+  "excerpt": "string",
+  "artifactVersion": "string",
+  "timestamp": "string",
+  "entityRefs": ["string"],
+  "locationHint": "string",
+  "score": 0.0
+}
+```
+
+Minimum response mapping:
+
+- `type`, `sourceId`, `label`, `excerpt` required in API response.
+- Keep richer fields internal or expose later via expanded citation UI.
+
+### 7. Suggested Frontend Component Hierarchy
+
+- `ChatbotPanel`
+  - `ChatHeader` (scope + health)
+  - `ChatMessageList`
+    - `ChatMessage`
+    - `EvidenceList`
+      - `EvidenceItem`
+    - `ConfidenceBadge`
+  - `MissingEvidenceNotice`
+  - `RuntimeErrorNotice`
+  - `FollowUpQuestionChips`
+  - `ChatComposer`
+
+State split recommendation:
+
+- `useChatbotState` for messages/loading/errors
+- API functions in `frontend/src/services/api.ts`
+- shared types in `frontend/src/services/chatbotTypes.ts`
+
+### 8. Suggested Backend Service Hierarchy
+
+- `ChatController`
+  - validates request
+  - invokes `ChatService`
+- `ChatService`
+  - orchestrates pipeline
+  - calls:
+    - `ContextAssemblyService`
+    - `PromptAssemblyService`
+    - `LocalLlmClient`
+    - `ConfidenceService`
+    - `EvidenceGuardrailService`
+- `ContextAssemblyService`
+  - provider modules:
+    - `IrContextProvider`
+    - `GraphContextProvider`
+    - `VerificationContextProvider`
+    - `ChangeImpactContextProvider`
+    - `RiskContextProvider`
+    - `TestContextProvider`
+- `LocalLlmClient`
+  - provider adapters per runtime
+- `EvidenceGuardrailService`
+  - enforces no-speculation and missing evidence behavior
+
+### 9. Testing Plan
+
+- Backend unit tests:
+  - request validation
+  - context assembly per `contextTypes`
+  - prompt assembly guardrails
+  - confidence mapping
+  - missing-evidence refusal behavior
+- Frontend unit tests:
+  - message rendering
+  - evidence list rendering
+  - confidence badge states
+  - unavailable-runtime error state
+- Integration tests:
+  - `POST /chat/ask` happy path with local model stub
+  - missing evidence path returns `INSUFFICIENT_EVIDENCE`
+  - local runtime timeout/unavailable path returns stable error envelope
+- Non-functional checks:
+  - ensure no direct browser-to-model calls
+  - ensure no cloud credential requirement for local flow
+
+### 10. Known Repository Gotchas
+
+- Hardcoded localhost service URLs already exist in `frontend/src/services/api.ts`; avoid adding more hardcoded endpoints for chatbot and centralize config.
+- Multiple backend/service stacks are split across Java and Python services; contract mismatches are a likely failure mode.
+- CORS settings vary by service; chatbot endpoints should use explicit safe origins.
+- `docker-compose.yaml` currently includes cloud-oriented env vars for other services; chatbot path must remain local-only by default.
+- Existing docs and backlog use `S12-BL-###`; keep this ID format consistent in any new planning artifacts.
+- Package paths under backend Java modules should be verified before implementation to avoid namespace drift.
