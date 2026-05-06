@@ -40,3 +40,16 @@ This implementation backlog is derived from `docs/s12/product-requirements.md` a
 
 - `Arid-Nova-description.txt` was not found in the repository root or `docs/` directory at the time of backlog creation.
 - For Java chatbot package paths under `backend/src/main/java/.../chatbot/`, verify exact package structure before implementation.
+
+## CSV Validation Notes
+
+- Validation status: `Passed`
+- File checked: `docs/s12/jira-import.csv`
+- Rows validated (excluding header): 86
+- Header check: exact 10-column header matches required schema.
+- Column count check: all rows contain exactly 10 columns.
+- Issue Type check: all values are in `{Epic, Story, Task}`.
+- Priority check: all values are in `{Highest, High, Medium, Low}`.
+- Milestone check: all values are in `{S12-M1, S12-M2, S12-M3, S12-M4}`.
+- Story Points check: all values are numeric.
+- Auto-fix actions: none required.
