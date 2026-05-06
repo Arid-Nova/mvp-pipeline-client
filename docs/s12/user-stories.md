@@ -19,6 +19,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Service fails startup validation with clear error if required configuration is missing.
 - **Dependencies:** Existing backend service configuration patterns.
 - **Suggested milestone:** M1 Foundation
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-001 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-001, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-001, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-001-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-001, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-001, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-002
 - **User story:** As a developer, I want support for Ollama, llama.cpp server, and OpenAI-style local endpoints, so that we can choose runtime based on hardware and performance.
@@ -27,6 +34,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Provider selection is runtime-configurable.
 - **Dependencies:** S12-001.
 - **Suggested milestone:** M1 Foundation
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-002 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-002, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-002, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-002-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-002, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-002, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-003
 - **User story:** As a security engineer, I want chatbot operation to not require cloud API keys, so that sensitive architecture artifacts remain local.
@@ -35,6 +49,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Documentation states cloud credentials are optional and not required for chatbot.
 - **Dependencies:** S12-001.
 - **Suggested milestone:** M1 Foundation
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-003 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-003, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-003, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-003-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-003, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-003, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-004
 - **User story:** As an end user, I want a clear runtime health status, so that I know when chatbot answers may be unavailable.
@@ -43,6 +64,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Frontend shows actionable runtime-unavailable message.
 - **Dependencies:** S12-001, S12-002.
 - **Suggested milestone:** M1 Foundation
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-004 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-004, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-004, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-004-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-004, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-004, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ## Epic 2: Chatbot UI and Conversation Experience
 
@@ -61,6 +89,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Panel can open/close without losing current analysis state.
 - **Dependencies:** App navigation structure.
 - **Suggested milestone:** M2 Grounding
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-005 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-005, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-005, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-005-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-005, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-005, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-006
 - **User story:** As an end user, I want the chatbot to show active system/context, so that I know which artifacts answers are based on.
@@ -69,6 +104,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Response includes scope indicator (current run vs historical run where available).
 - **Dependencies:** S12-005.
 - **Suggested milestone:** M2 Grounding
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-006 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-006, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-006, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-006-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-006, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-006, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-007
 - **User story:** As an end user, I want follow-up questions to preserve conversational context, so that I can refine analysis quickly.
@@ -77,6 +119,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Context window is bounded and communicated when older context is dropped.
 - **Dependencies:** S12-005.
 - **Suggested milestone:** M3 Beta
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-007 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-007, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-007, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-007-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-007, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-007, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-008
 - **User story:** As an end user, I want response sections for answer, citations, and confidence, so that I can evaluate trust quickly.
@@ -85,6 +134,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Missing citation state is visually distinct.
 - **Dependencies:** S12-019, S12-030.
 - **Suggested milestone:** M2 Grounding
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-008 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-008, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-008, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-008-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-008, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-008, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-009
 - **User story:** As a QA engineer, I want keyboard-friendly message input and submit behavior, so that conversation is efficient during test sessions.
@@ -93,6 +149,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Input and send controls meet baseline accessibility behavior.
 - **Dependencies:** S12-005.
 - **Suggested milestone:** M3 Beta
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-009 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-009, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-009, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-009-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-009, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-009, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ## Epic 3: Evidence Retrieval and Context Assembly
 
@@ -111,6 +174,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Schema supports both structured and text-rich artifacts.
 - **Dependencies:** Existing service outputs.
 - **Suggested milestone:** M1 Foundation
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-010 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-010, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-010, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-010-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-010, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-010, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-011
 - **User story:** As an end user, I want retrieval to prioritize artifacts from my active analysis context, so that answers stay relevant.
@@ -119,6 +189,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Cross-system retrieval is blocked unless user explicitly changes scope.
 - **Dependencies:** S12-006, S12-010.
 - **Suggested milestone:** M2 Grounding
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-011 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-011, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-011, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-011-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-011, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-011, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-012
 - **User story:** As a developer, I want hybrid retrieval (structured lookup + semantic search), so that both exact and exploratory questions are handled.
@@ -127,6 +204,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Explanatory questions use semantic ranking over evidence corpus.
 - **Dependencies:** S12-010.
 - **Suggested milestone:** M2 Grounding
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-012 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-012, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-012, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-012-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-012, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-012, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-013
 - **User story:** As a platform operator, I want context refresh controls, so that chatbot uses latest pipeline outputs after reruns.
@@ -135,6 +219,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Refresh result reports success, failures, and updated artifact counts.
 - **Dependencies:** S12-010.
 - **Suggested milestone:** M2 Grounding
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-013 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-013, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-013, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-013-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-013, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-013, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-014
 - **User story:** As a developer, I want deterministic context truncation rules, so that long contexts remain predictable and debuggable.
@@ -143,6 +234,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Response metadata indicates when truncation occurred.
 - **Dependencies:** S12-012.
 - **Suggested milestone:** M3 Beta
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-014 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-014, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-014, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-014-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-014, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-014, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ## Epic 4: Architecture Question Answering
 
@@ -161,6 +259,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Output references relevant services and relations with citations.
 - **Dependencies:** S12-011, S12-012.
 - **Suggested milestone:** M2 Grounding
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-015 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-015, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-015, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-015-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-015, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-015, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-016
 - **User story:** As a backend engineer, I want dependency path explanations between services, so that I can assess coupling and blast radius.
@@ -169,6 +274,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Response distinguishes inferred vs explicitly represented links.
 - **Dependencies:** S12-015.
 - **Suggested milestone:** M2 Grounding
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-016 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-016, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-016, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-016-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-016, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-016, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-017
 - **User story:** As a backend engineer, I want endpoint-level question answering, so that I can trace endpoint behavior and related components.
@@ -177,6 +289,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Missing endpoint evidence triggers qualified response.
 - **Dependencies:** S12-010, S12-012.
 - **Suggested milestone:** M2 Grounding
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-017 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-017, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-017, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-017-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-017, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-017, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-018
 - **User story:** As a security engineer, I want anti-pattern-aware architecture responses, so that risks in structure are highlighted during Q&A.
@@ -185,6 +304,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Citations point to graph nodes/links or analysis artifacts containing markers.
 - **Dependencies:** S12-015.
 - **Suggested milestone:** M3 Beta
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-018 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-018, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-018, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-018-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-018, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-018, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-019
 - **User story:** As an end user, I want citations for architecture claims, so that I can verify statements.
@@ -193,6 +319,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Citation metadata identifies artifact type and source identifier.
 - **Dependencies:** S12-010.
 - **Suggested milestone:** M2 Grounding
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-019 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-019, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-019, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-019-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-019, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-019, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ## Epic 5: Verification and Risk Question Answering
 
@@ -211,6 +344,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Response distinguishes pass/fail/unknown states when data is partial.
 - **Dependencies:** S12-011.
 - **Suggested milestone:** M2 Grounding
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-020 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-020, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-020, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-020-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-020, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-020, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-021
 - **User story:** As a security engineer, I want to ask risk-focused questions, so that I can understand potential vulnerabilities from Aegis analysis.
@@ -219,6 +359,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Response cites risk evidence and flags unavailable data.
 - **Dependencies:** S12-011, S12-019.
 - **Suggested milestone:** M2 Grounding
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-021 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-021, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-021, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-021-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-021, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-021, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-022
 - **User story:** As an architect, I want verification and risk findings summarized together, so that I can prioritize mitigation work.
@@ -227,6 +374,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Summary separates confirmed findings from low-confidence inferences.
 - **Dependencies:** S12-020, S12-021, S12-030.
 - **Suggested milestone:** M3 Beta
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-022 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-022, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-022, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-022-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-022, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-022, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-023
 - **User story:** As a QA engineer, I want actionable follow-up prompts from findings, so that I can derive validation steps.
@@ -235,6 +389,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Suggested prompts reference known evidence gaps where relevant.
 - **Dependencies:** S12-020.
 - **Suggested milestone:** M3 Beta
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-023 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-023, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-023, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-023-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-023, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-023, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ## Epic 6: Change Impact and Testing Question Answering
 
@@ -253,6 +414,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Output identifies baseline and comparison versions where available.
 - **Dependencies:** S12-011.
 - **Suggested milestone:** M2 Grounding
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-024 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-024, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-024, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-024-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-024, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-024, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-025
 - **User story:** As a backend engineer, I want to ask change impact questions, so that I can estimate downstream effects before release.
@@ -261,6 +429,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Response includes qualification when impact chain is incomplete.
 - **Dependencies:** S12-024, S12-016.
 - **Suggested milestone:** M2 Grounding
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-025 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-025, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-025, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-025-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-025, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-025, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-026
 - **User story:** As a QA engineer, I want to ask "what should I test?", so that I can prioritize regression effort.
@@ -269,6 +444,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Recommendations include rationale citations.
 - **Dependencies:** S12-024, S12-027.
 - **Suggested milestone:** M3 Beta
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-026 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-026, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-026, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-026-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-026, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-026, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-027
 - **User story:** As a QA engineer, I want scenario and generated-test-aware answers, so that guidance aligns with already generated artifacts.
@@ -277,6 +459,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - If artifacts are absent, chatbot requests generation steps instead of inventing content.
 - **Dependencies:** S12-011.
 - **Suggested milestone:** M3 Beta
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-027 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-027, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-027, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-027-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-027, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-027, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-028
 - **User story:** As a release lead, I want a change-risk-test summary response, so that I can make go/no-go decisions faster.
@@ -285,6 +474,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Summary clearly marks any missing evidence.
 - **Dependencies:** S12-021, S12-024, S12-026.
 - **Suggested milestone:** M4 MVP Release
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-028 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-028, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-028, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-028-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-028, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-028, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ## Epic 7: Guardrails, Confidence, and Explainability
 
@@ -303,6 +499,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Response includes explicit missing-evidence list.
 - **Dependencies:** S12-012.
 - **Suggested milestone:** M2 Grounding
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-029 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-029, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-029, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-029-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-029, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-029, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-030
 - **User story:** As an end user, I want confidence labels on answers, so that I can weigh recommendations appropriately.
@@ -311,6 +514,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Low-confidence responses include caution language and next-step suggestions.
 - **Dependencies:** S12-014.
 - **Suggested milestone:** M2 Grounding
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-030 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-030, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-030, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-030-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-030, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-030, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-031
 - **User story:** As a security engineer, I want hallucination prevention guardrails in prompt orchestration, so that model output remains bounded by evidence.
@@ -319,6 +529,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Post-generation validation checks citations for key claims.
 - **Dependencies:** S12-012, S12-019.
 - **Suggested milestone:** M2 Grounding
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-031 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-031, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-031, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-031-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-031, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-031, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-032
 - **User story:** As an end user, I want citation drill-down details, so that I can inspect the source artifacts behind each claim.
@@ -327,6 +544,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Invalid citation references are surfaced as system errors, not hidden.
 - **Dependencies:** S12-019, S12-008.
 - **Suggested milestone:** M3 Beta
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-032 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-032, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-032, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-032-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-032, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-032, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-033
 - **User story:** As a product owner, I want policy controls for strict evidence-only mode, so that teams with higher assurance needs can enforce conservative behavior.
@@ -335,6 +559,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - In strict mode, unsupported inference is refused by default.
 - **Dependencies:** S12-029, S12-031.
 - **Suggested milestone:** M4 MVP Release
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-033 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-033, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-033, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-033-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-033, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-033, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ## Epic 8: Persistence, Export, and Session Continuity
 
@@ -353,6 +584,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Context scope remains visible and updates when project context changes.
 - **Dependencies:** S12-005, S12-006.
 - **Suggested milestone:** M3 Beta
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-034 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-034, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-034, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-034-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-034, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-034, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-035
 - **User story:** As a QA engineer, I want to export answer + citations, so that I can attach evidence to test planning artifacts.
@@ -361,6 +599,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Export format is machine-readable and human-readable.
 - **Dependencies:** S12-008, S12-032.
 - **Suggested milestone:** M3 Beta
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-035 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-035, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-035, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-035-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-035, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-035, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-036
 - **User story:** As an architect, I want a clear indication when session context is stale, so that I avoid using outdated answers.
@@ -369,6 +614,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - User can trigger context refresh from chatbot controls.
 - **Dependencies:** S12-013, S12-034.
 - **Suggested milestone:** M3 Beta
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-036 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-036, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-036, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-036-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-036, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-036, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-037
 - **User story:** As an end user, I want the ability to clear conversation history, so that I can start a fresh analysis thread.
@@ -377,6 +629,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Clear action does not delete underlying analysis artifacts.
 - **Dependencies:** S12-034.
 - **Suggested milestone:** M3 Beta
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-037 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-037, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-037, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-037-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-037, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-037, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ## Epic 9: Observability and Product Feedback
 
@@ -395,6 +654,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Sensitive payload logging can be disabled by configuration.
 - **Dependencies:** S12-001.
 - **Suggested milestone:** M3 Beta
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-038 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-038, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-038, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-038-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-038, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-038, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-039
 - **User story:** As a product owner, I want lightweight user feedback capture on answer usefulness, so that we can prioritize improvements.
@@ -403,6 +669,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Feedback events include query type and confidence label.
 - **Dependencies:** S12-008, S12-030.
 - **Suggested milestone:** M4 MVP Release
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-039 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-039, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-039, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-039-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-039, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-039, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-040
 - **User story:** As a developer, I want quality metrics for citation coverage and refusal correctness, so that grounding regressions are detected early.
@@ -411,6 +684,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Alert thresholds are configurable.
 - **Dependencies:** S12-029, S12-031, S12-038.
 - **Suggested milestone:** M4 MVP Release
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-040 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-040, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-040, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-040-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-040, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-040, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-041
 - **User story:** As a platform operator, I want health dashboards for chatbot and local model runtime, so that operational incidents are visible.
@@ -419,6 +699,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Degraded states provide actionable remediation hints.
 - **Dependencies:** S12-004, S12-038.
 - **Suggested milestone:** M4 MVP Release
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-041 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-041, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-041, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-041-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-041, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-041, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ## Epic 10: Developer Experience and Deployment
 
@@ -437,6 +724,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Startup docs define minimal commands and required env vars.
 - **Dependencies:** S12-001, S12-002.
 - **Suggested milestone:** M1 Foundation
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-042 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-042, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-042, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-042-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-042, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-042, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-043
 - **User story:** As a developer, I want local integration test scenarios for major question categories, so that regressions are caught before release.
@@ -445,6 +739,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Tests verify citation presence and refusal behavior.
 - **Dependencies:** S12-015, S12-021, S12-024, S12-029.
 - **Suggested milestone:** M3 Beta
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-043 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-043, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-043, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-043-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-043, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-043, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-044
 - **User story:** As a platform operator, I want startup-time configuration validation, so that misconfiguration is detected before users hit runtime errors.
@@ -453,6 +754,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Validation failures return clear diagnostics.
 - **Dependencies:** S12-001, S12-004.
 - **Suggested milestone:** M1 Foundation
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-044 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-044, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-044, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-044-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-044, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-044, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ### S12-045
 - **User story:** As a developer, I want API contracts for chatbot endpoints documented, so that frontend integration remains stable.
@@ -461,6 +769,13 @@ This story map defines implementation-ready stories for the AridNova Local LLM C
   - Contract changes require versioned update notes.
 - **Dependencies:** S12-005, S12-008.
 - **Suggested milestone:** M2 Grounding
+- **Gherkin acceptance criteria:**
+  - Given valid local model runtime and complete analysis artifacts for the active system, When the user executes S12-045 through the chatbot UI, Then the expected happy-path outcome is returned with correct formatting and no blocking errors.
+  - Given one or more required analysis artifacts are missing or incomplete, When the user executes S12-045, Then the assistant returns a qualified partial response or explicit insufficiency notice that names missing artifact types.
+  - Given the assistant provides an answer for S12-045, When claims are presented, Then each material claim includes an evidence source reference to IR, graph, verification, scenario, test, or risk artifacts as applicable.
+  - Given retrieval for required evidence returns no support for the user claim, When the user asks S12-045-relevant speculative questions, Then the assistant refuses speculation and states that evidence is unavailable.
+  - Given the local LLM endpoint is unavailable, times out, or returns an error, When the user submits a question under S12-045, Then the system handles failure gracefully with a non-crashing error state and actionable retry guidance.
+  - Given confidence is limited by sparse, stale, or conflicting evidence, When the assistant responds under S12-045, Then the UI clearly communicates uncertainty and includes confidence or qualification labeling.
 
 ## Milestone Rollup (Suggested)
 
