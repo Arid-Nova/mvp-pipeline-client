@@ -109,7 +109,7 @@ docker-compose logs -f
 
 The backend now supports local chatbot runtime configuration through environment variables. Defaults are local-only and do not require cloud API keys.
 
-- `CHATBOT_PROVIDER` (default: `local`)
+- `CHATBOT_PROVIDER` (default: `OLLAMA`, valid: `OLLAMA`, `LLAMA_CPP`, `OPENAI_COMPATIBLE`)
 - `CHATBOT_MODEL` (default: `llama3.2`)
 - `CHATBOT_BASE_URL` (default: `http://ollama:11434`)
 - `CHATBOT_TIMEOUT_MS` (default: `30000`)
