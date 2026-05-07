@@ -105,6 +105,23 @@ You can view the logs of the running containers using the following command:
 docker-compose logs -f
 ```
 
+## Local Chatbot Runtime (S12-M1)
+
+The backend now supports local chatbot runtime configuration through environment variables. Defaults are local-only and do not require cloud API keys.
+
+- `CHATBOT_PROVIDER` (default: `local`)
+- `CHATBOT_MODEL` (default: `llama3.2`)
+- `CHATBOT_BASE_URL` (default: `http://ollama:11434`)
+- `CHATBOT_TIMEOUT_MS` (default: `30000`)
+- `CHATBOT_MAX_TOKENS` (default: `1024`)
+- `CHATBOT_TEMPERATURE` (default: `0.2`)
+
+`docker-compose.yaml` passes these into the `backend` service. You can override any value via shell env or `.env` file before `docker compose up`.
+
+Optional local model runtime:
+- `ollama` service is available behind the Compose profile `local-llm`.
+- Start it only when needed: `docker compose --profile local-llm up -d ollama`.
+
 ## Stopping the Application
 
 To stop the running containers, press `Ctrl+C` in the terminal where `docker-compose` is running, or run the following command from the root directory of the project:

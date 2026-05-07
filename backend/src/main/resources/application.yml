@@ -8,3 +8,11 @@ spring:
     username: root
     password: csi3335rocks
     driver-class-name: org.mariadb.jdbc.Driver
+
+chatbot:
+  provider: ${CHATBOT_PROVIDER:local}
+  model: ${CHATBOT_MODEL:llama3.2}
+  base-url: ${CHATBOT_BASE_URL:http://ollama:11434}
+  timeout-ms: ${CHATBOT_TIMEOUT_MS:30000}
+  max-tokens: ${CHATBOT_MAX_TOKENS:1024}
+  temperature: ${CHATBOT_TEMPERATURE:0.2}

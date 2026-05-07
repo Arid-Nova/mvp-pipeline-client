@@ -38,6 +38,12 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mariadb://cache_db:3306/msGraph
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: csi3335rocks
+      CHATBOT_PROVIDER: ${CHATBOT_PROVIDER:-local}
+      CHATBOT_MODEL: ${CHATBOT_MODEL:-llama3.2}
+      CHATBOT_BASE_URL: ${CHATBOT_BASE_URL:-http://ollama:11434}
+      CHATBOT_TIMEOUT_MS: ${CHATBOT_TIMEOUT_MS:-30000}
+      CHATBOT_MAX_TOKENS: ${CHATBOT_MAX_TOKENS:-1024}
+      CHATBOT_TEMPERATURE: ${CHATBOT_TEMPERATURE:-0.2}
     depends_on:
       - mariadb
     networks:
@@ -216,11 +222,25 @@ services:
       - app_network
     restart: always
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: cloudhub_ollama
+    profiles:
+      - local-llm
+    ports:
+      - "11434:11434"
+    networks:
+      - app_network
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
 volumes:
   mariadb_data:
   verifier_cache:
   neo4j_data:
   mongo_data:
+  ollama_data:
 
 networks:
   app_network:
