@@ -1,5 +1,7 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+
+from .utils.verifier import verify_internal_service
 
 from .services.configdb import config_db_service
 
@@ -58,12 +60,9 @@ async def delete_github_token():
     await config_db_service.delete_token()
     return {"message": "Token deleted successfully."}
 
-@app.get("/settings/github-token", 
-         responses={404: {"description": "GitHub token not configured."}})
-async def check_github_token_status():
+@app.get("/settings/github-token", dependencies=[Depends(verify_internal_service)])
+async def get_encrypted_github_token():
     token = await config_db_service.get_token()
-    if not token:
-        raise HTTPException(status_code=404, detail="GitHub token not configured.")
     return {"token": token}
 
 @app.get("/settings/github-token/status")

@@ -1,49 +1,51 @@
 import os
 import hashlib
-import concurrent.futures
-import httpx
-from cryptography.fernet import Fernet
+import urllib.request
+import json
+import base64
 from git import Repo
+import concurrent.futures
 
 class GitManager:
     def __init__(self, base_work_dir="/tmp/ms_verifier_cache"):
         # Changed default dir to indicate it is a cache
         self.base_work_dir = base_work_dir
         os.makedirs(self.base_work_dir, exist_ok=True)
+        self.config_server_url = os.getenv("CONFIG_SERVER_URL", "http://cloudhub_repohandler:8020/settings/github-token")
 
-    def __get_decrypted_github_token(self) -> str:
+    def _get_github_token(self) -> str:
+        internal_key = os.getenv("INTERNAL_SERVICE_KEY", "")
         try:
-            response = httpx.get("http://localhost:8020/settings/github-token")
-            if response.status_code != 200:
-                return None
-                
-            encrypted_token = response.json().get("token")         
-            encryption_key = os.getenv("ENCRYPTION_KEY")
-
-            cipher_suite = Fernet(encryption_key.encode('utf-8'))
-            decrypted_token = cipher_suite.decrypt(encrypted_token.encode('utf-8')).decode('utf-8')
+            req = urllib.request.Request(self.config_server_url)
+            req.add_header("X-Internal-Service-Auth", internal_key)
             
-            return decrypted_token
+            with urllib.request.urlopen(req, timeout=2.0) as response:
+                if response.status == 200:
+                    data = json.loads(response.read().decode('utf-8'))
+                    return data.get("token")
         except Exception as e:
-            print(f"Failed to fetch and decrypt token: {e}")
-            return None
-
-    def __get_authenticated_url(self, repo_url: str) -> str:
-        """
-        Injects the GitHub token into the HTTPS URL if available.
-        Replaces https://github.com... with https://<token>@github.com...
-        """
-        token = self.__get_decrypted_github_token()
- 
-        if token and repo_url.startswith("https://"):
-            return repo_url.replace("https://", f"https://{token}@")
-        return repo_url
-
+            print(f"Failed to fetch authorized token: {e}")
+        return None
+    
     def clone_repo(self, repo_url: str, branch: str = "master", commit_id: str = None) -> str:
         # Generate a stable directory name based on the Repo URL
         repo_hash = hashlib.md5(repo_url.encode()).hexdigest()
         target_dir = os.path.join(self.base_work_dir, repo_hash)
-        auth_url = self.__get_authenticated_url(repo_url)
+
+        # Securely injecting the token into the URL
+        token = self._get_github_token()
+
+        # Ephemeral Git Configuration
+        git_env = {
+            "GIT_TERMINAL_PROMPT": "0" 
+        }
+        if token:
+            auth_str = f"x-access-token:{token}"
+            b64_auth = base64.b64encode(auth_str.encode('utf-8')).decode('utf-8')
+            
+            git_env["GIT_CONFIG_COUNT"] = "1"
+            git_env["GIT_CONFIG_KEY_0"] = "http.https://github.com/.extraHeader"
+            git_env["GIT_CONFIG_VALUE_0"] = f"AUTHORIZATION: basic {b64_auth}"
 
         try:
             repo = None
@@ -52,12 +54,15 @@ class GitManager:
             if os.path.exists(target_dir) and os.path.isdir(os.path.join(target_dir, ".git")):
                 print(f"Cache hit: {target_dir}. Fetching updates...")
                 repo = Repo(target_dir)
-                repo.remotes.origin.set_url(auth_url) 
-                repo.remotes.origin.fetch()  
+
+                # Using the context manager to apply env variables securely
+                with repo.git.custom_environment(**git_env):
+                    repo.remotes.origin.fetch()  
             else:
                 # 2. If not, clone it fresh
                 print(f"Cache miss: Cloning {repo_url} into {target_dir}...")
-                repo = Repo.clone_from(auth_url, target_dir)
+                # Cloning using the clean URL, but passing the secure environment variables
+                repo = Repo.clone_from(repo_url, target_dir, env=git_env)
 
             # 3. Checkout the specific state
             if commit_id:
@@ -66,13 +71,17 @@ class GitManager:
             else:
                 print(f"Checking out branch {branch}...")
                 repo.git.checkout(branch)
-                repo.remotes.origin.pull() 
+                with repo.git.custom_environment(**git_env):
+                    repo.remotes.origin.pull()
 
             print("Repo check out is successful.")
             return target_dir
 
         except Exception as e:
-            raise Exception(f"Git operation failed: {str(e)}")
+            error_msg = str(e)
+            if token:
+                error_msg = error_msg.replace(token, "***REDACTED***")
+            raise Exception(f"Git operation failed: {error_msg}")
     
     def clone_repos_concurrently(self, repos: list, max_workers: int = 5) -> list:
         """

@@ -13,8 +13,6 @@ fastapi
 uvicorn
 pydantic
 python-multipart
-cryptography
-httpx
 
 # Frontend
 Flask

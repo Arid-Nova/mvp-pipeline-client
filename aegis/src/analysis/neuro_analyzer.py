@@ -341,6 +341,7 @@ class NeuroAnalyzer:
         for flow_item in execution_path.method_flow:
             self._analyze_single_method(execution_path, flow_item)
 
+        # print(f"Neuro analysis for {execution_path.id} complete. Total evidence found: {len(execution_path.neuro_evidence)}.")
         return execution_path
 
     def _analyze_single_method(self, execution_path: ExecutionPath, flow_item: MethodFlowItem)-> ExecutionPath:

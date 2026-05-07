@@ -1,5 +1,7 @@
 import os
-from cryptography.fernet import Fernet
+import base64
+import hashlib
+from Crypto.Cipher import AES
 from motor.motor_asyncio import AsyncIOMotorClient
 
 class ConfigDatabase:
@@ -17,27 +19,46 @@ class ConfigDatabase:
         self.db = self.client[self.db_name]
         self.collection = self.db["settings"]
 
-        encryption_key = os.getenv("ENCRYPTION_KEY")
-        self.cipher_suite = Fernet(encryption_key.encode('utf-8'))
-
+    def _get_aes_key(self):
+        raw_key = os.getenv("ENCRYPTION_KEY")
+        if not raw_key:
+            raw_key = "default_fallback_key"
+        return hashlib.sha256(raw_key.encode('utf-8')).digest()
+    
     async def save_token(self, token: str):
+        aes_key = self._get_aes_key()
+        cipher = AES.new(aes_key, AES.MODE_EAX)
+        ciphertext, tag = cipher.encrypt_and_digest(token.encode('utf-8'))
+        encrypted_payload = base64.b64encode(cipher.nonce + tag + ciphertext).decode('utf-8')
+
         await self.collection.update_one(
             {"key": "github_token"},
-            {"$set": {"value": token}},
+            {"$set": {"value": encrypted_payload}},
             upsert=True
         )
 
     async def get_token(self) -> str:
         doc = await self.collection.find_one({"key": "github_token"})
-        if doc and doc.get("value"):
-            plain_token = doc["value"]
+        if not doc or not doc.get("value"):
+            return None
+
+        try:
+            encrypted_payload = base64.b64decode(doc["value"])
+
+            nonce = encrypted_payload[:16]
+            tag = encrypted_payload[16:32]
+            ciphertext = encrypted_payload[32:]
             
-            if self.cipher_suite:
-                encrypted_bytes = self.cipher_suite.encrypt(plain_token.encode('utf-8'))
-                return encrypted_bytes.decode('utf-8')
-            else:
-                return plain_token
-        return None
+            aes_key = self._get_aes_key()
+            cipher = AES.new(aes_key, AES.MODE_EAX, nonce=nonce)
+            
+            # Decrypt back to plain text string
+            decrypted_token = cipher.decrypt_and_verify(ciphertext, tag)
+            return decrypted_token.decode('utf-8')
+            
+        except Exception as e:
+            print(f"Failed to decryption: {e}", flush=True)
+            return None
 
     async def delete_token(self):
         await self.collection.delete_one({"key": "github_token"})

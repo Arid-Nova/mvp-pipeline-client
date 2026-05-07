@@ -6,8 +6,8 @@ services:
     image: mariadb:latest
     container_name: cache_db
     environment:
-      - MYSQL_ROOT_PASSWORD=csi3335rocks
-      - MYSQL_DATABASE=msGraph
+      MYSQL_ROOT_PASSWORD: csi3335rocks
+      MYSQL_DATABASE: msGraph
     ports:
       - "3306:3306"
     networks:
@@ -20,8 +20,8 @@ services:
     ports:
       - "27017:27017"
     environment:
-      - MONGO_INITDB_ROOT_USERNAME=root
-      - MONGO_INITDB_ROOT_PASSWORD=aeGis2026Rocks
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: aeGis2026Rocks
     networks:
       - app_network
     volumes:
@@ -35,10 +35,10 @@ services:
     ports:
       - "8080:8080" 
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mariadb://cache_db:3306/msGraph
-      - SPRING_DATASOURCE_USERNAME=root
-      - SPRING_DATASOURCE_PASSWORD=csi3335rocks
-      - ENCRYPTION_KEY=HKBCefIGR0o6bWqppWM6Iih4cLqw7lz0l3frkMMSABI=
+      SPRING_DATASOURCE_URL: jdbc:mariadb://cache_db:3306/msGraph
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: csi3335rocks
+      INTERNAL_SERVICE_KEY: d2lsZGNhdPXXiE7tr17M+AXew75O2K6IYDbcnYHXnCE=
     depends_on:
       - mariadb
     networks:
@@ -64,10 +64,11 @@ services:
     container_name: cloudhub_formalverifier
     ports:
       - "9000:9000"
+    environment:
+      PYTHONUNBUFFERED: 1
+      INTERNAL_SERVICE_KEY: d2lsZGNhdPXXiE7tr17M+AXew75O2K6IYDbcnYHXnCE=
     networks:
       - app_network
-    environment:
-      - ENCRYPTION_KEY=HKBCefIGR0o6bWqppWM6Iih4cLqw7lz0l3frkMMSABI=
     volumes:
       - verifier_cache:/tmp/ms_verifier_cache
 
@@ -78,8 +79,6 @@ services:
     container_name: cloudhub_components
     ports:
       - "8060:8060" 
-    environment:
-      - ENCRYPTION_KEY=HKBCefIGR0o6bWqppWM6Iih4cLqw7lz0l3frkMMSABI=
     networks:
       - app_network
     restart: always
@@ -174,8 +173,8 @@ services:
     ports:
       - "8900:8900"
     environment:
-      - PYTHONUNBUFFERED=1
-      - ENCRYPTION_KEY=HKBCefIGR0o6bWqppWM6Iih4cLqw7lz0l3frkMMSABI=
+      PYTHONUNBUFFERED: 1
+      INTERNAL_SERVICE_KEY: d2lsZGNhdPXXiE7tr17M+AXew75O2K6IYDbcnYHXnCE=
     depends_on:
       aegis_neo4j:
         condition: service_healthy
@@ -218,7 +217,8 @@ services:
       - MONGO_USER=root
       - MONGO_PASSWORD=aeGis2026Rocks
       - GITHUB_API_VERSION=2026-03-10
-      - ENCRYPTION_KEY=HKBCefIGR0o6bWqppWM6Iih4cLqw7lz0l3frkMMSABI=
+      - ENCRYPTION_KEY=$uper-w!ldC@t-f47ac10b-2026
+      - INTERNAL_SERVICE_KEY=d2lsZGNhdPXXiE7tr17M+AXew75O2K6IYDbcnYHXnCE=
     networks:
       - app_network
     restart: always
