@@ -58,9 +58,12 @@ async def delete_github_token():
     await config_db_service.delete_token()
     return {"message": "Token deleted successfully."}
 
-@app.get("/settings/github-token")
+@app.get("/settings/github-token", 
+         responses={404: {"description": "GitHub token not configured."}})
 async def check_github_token_status():
     token = await config_db_service.get_token()
+    if not token:
+        raise HTTPException(status_code=404, detail="GitHub token not configured.")
     return {"token": token}
 
 @app.get("/settings/github-token/status")

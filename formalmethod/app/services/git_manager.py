@@ -1,7 +1,9 @@
 import os
 import hashlib
-from git import Repo
 import concurrent.futures
+import httpx
+from cryptography.fernet import Fernet
+from git import Repo
 
 class GitManager:
     def __init__(self, base_work_dir="/tmp/ms_verifier_cache"):
@@ -9,10 +11,39 @@ class GitManager:
         self.base_work_dir = base_work_dir
         os.makedirs(self.base_work_dir, exist_ok=True)
 
+    def __get_decrypted_github_token(self) -> str:
+        try:
+            response = httpx.get("http://localhost:8020/settings/github-token")
+            if response.status_code != 200:
+                return None
+                
+            encrypted_token = response.json().get("token")         
+            encryption_key = os.getenv("ENCRYPTION_KEY")
+
+            cipher_suite = Fernet(encryption_key.encode('utf-8'))
+            decrypted_token = cipher_suite.decrypt(encrypted_token.encode('utf-8')).decode('utf-8')
+            
+            return decrypted_token
+        except Exception as e:
+            print(f"Failed to fetch and decrypt token: {e}")
+            return None
+
+    def __get_authenticated_url(self, repo_url: str) -> str:
+        """
+        Injects the GitHub token into the HTTPS URL if available.
+        Replaces https://github.com... with https://<token>@github.com...
+        """
+        token = self.__get_decrypted_github_token()
+ 
+        if token and repo_url.startswith("https://"):
+            return repo_url.replace("https://", f"https://{token}@")
+        return repo_url
+
     def clone_repo(self, repo_url: str, branch: str = "master", commit_id: str = None) -> str:
         # Generate a stable directory name based on the Repo URL
         repo_hash = hashlib.md5(repo_url.encode()).hexdigest()
         target_dir = os.path.join(self.base_work_dir, repo_hash)
+        auth_url = self.__get_authenticated_url(repo_url)
 
         try:
             repo = None
@@ -21,11 +52,12 @@ class GitManager:
             if os.path.exists(target_dir) and os.path.isdir(os.path.join(target_dir, ".git")):
                 print(f"Cache hit: {target_dir}. Fetching updates...")
                 repo = Repo(target_dir)
+                repo.remotes.origin.set_url(auth_url) 
                 repo.remotes.origin.fetch()  
             else:
                 # 2. If not, clone it fresh
                 print(f"Cache miss: Cloning {repo_url} into {target_dir}...")
-                repo = Repo.clone_from(repo_url, target_dir)
+                repo = Repo.clone_from(auth_url, target_dir)
 
             # 3. Checkout the specific state
             if commit_id:

@@ -3,3 +3,5 @@ uvicorn
 pydantic
 gitpython
 z3-solver
+cryptography
+httpx
