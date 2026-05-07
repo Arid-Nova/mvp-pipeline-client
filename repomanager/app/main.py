@@ -58,6 +58,11 @@ async def delete_github_token():
     await config_db_service.delete_token()
     return {"message": "Token deleted successfully."}
 
+@app.get("/settings/github-token")
+async def check_github_token_status():
+    token = await config_db_service.get_token()
+    return {"token": token}
+
 @app.get("/settings/github-token/status")
 async def check_github_token_status():
     token = await config_db_service.get_token()

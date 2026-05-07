@@ -1,4 +1,5 @@
 import os
+from cryptography.fernet import Fernet
 from motor.motor_asyncio import AsyncIOMotorClient
 
 class ConfigDatabase:
@@ -16,6 +17,9 @@ class ConfigDatabase:
         self.db = self.client[self.db_name]
         self.collection = self.db["settings"]
 
+        encryption_key = os.getenv("ENCRYPTION_KEY")
+        self.cipher_suite = Fernet(encryption_key.encode('utf-8'))
+
     async def save_token(self, token: str):
         await self.collection.update_one(
             {"key": "github_token"},
@@ -25,7 +29,15 @@ class ConfigDatabase:
 
     async def get_token(self) -> str:
         doc = await self.collection.find_one({"key": "github_token"})
-        return doc["value"] if doc else None
+        if doc and doc.get("value"):
+            plain_token = doc["value"]
+            
+            if self.cipher_suite:
+                encrypted_bytes = self.cipher_suite.encrypt(plain_token.encode('utf-8'))
+                return encrypted_bytes.decode('utf-8')
+            else:
+                return plain_token
+        return None
 
     async def delete_token(self):
         await self.collection.delete_one({"key": "github_token"})
