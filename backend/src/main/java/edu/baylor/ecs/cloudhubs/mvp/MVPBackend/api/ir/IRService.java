@@ -6,6 +6,10 @@ import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.ir.MicroserviceEntity
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.ir.MicroserviceIRRepository;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.request.SystemRepository;
 
+import com.github.javaparser.ParserConfiguration;
+import com.github.javaparser.StaticJavaParser;
+import com.github.javaparser.ast.CompilationUnit;
+
 import edu.university.ecs.lab.common.config.Config;
 import edu.university.ecs.lab.common.config.RepositoryBranchPair;
 import edu.university.ecs.lab.common.config.RepositoryConfig;
@@ -102,6 +106,28 @@ public class IRService {
 
     private MicroserviceSystem basicCreate(IRRequestModel irRequestModel)
             throws Exception {
+        // Configure JavaParser for Java 21 syntax before CIMET extraction runs.
+        // Without this, files using records, sealed classes, pattern matching, etc.
+        // cause StaticJavaParser.parse() to throw, leaving SourceToObjectUtils.cu=null,
+        // which then NPEs on cu.findAll() — a bug in cimet-extract-lib that silently
+        // swallows parse exceptions without resetting the static cu field.
+        StaticJavaParser.setConfiguration(
+                new ParserConfiguration().setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21));
+
+        // Pre-initialize SourceToObjectUtils.cu to an empty CompilationUnit so that
+        // any remaining parse failures (non-Java-version issues) skip the file gracefully
+        // instead of NPE-ing. When cu is empty, findAll() returns an empty list, the
+        // class role resolves to UNKNOWN, and parseClass() returns null (skipped).
+        try {
+            java.lang.reflect.Field cuField = Class
+                    .forName("edu.university.ecs.lab.common.utils.SourceToObjectUtils")
+                    .getDeclaredField("cu");
+            cuField.setAccessible(true);
+            cuField.set(null, new CompilationUnit());
+        } catch (Exception e) {
+            log.warn("Could not pre-initialize SourceToObjectUtils.cu — parse failures may still cause errors: {}", e.getMessage());
+        }
+
         IRExtractionService extractionService = getIrExtractionService(irRequestModel);
         MicroserviceSystem microserviceSystem = new MicroserviceSystem(irRequestModel.systemName,
                 new HashSet<>(), new HashSet<>());
