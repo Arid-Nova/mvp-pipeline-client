@@ -7,6 +7,7 @@ import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.runtime.model.Chatbot
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.runtime.model.LocalLlmFailureCode;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.runtime.model.LocalLlmResult;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.config.ChatbotConfig;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
@@ -16,9 +17,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
-@Component
+    @Component
 public class OllamaLocalLlmAdapter extends AbstractHttpLocalLlmAdapter {
 
+    @Autowired
     public OllamaLocalLlmAdapter(ObjectMapper objectMapper) {
         super(objectMapper);
     }
