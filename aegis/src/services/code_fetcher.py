@@ -1,10 +1,13 @@
+import os
 import git
+import httpx
 import tempfile
 import shutil
 import javalang
-from javalang.tree import MethodDeclaration
 from pathlib import Path
 from typing import Optional
+from cryptography.fernet import Fernet
+from javalang.tree import MethodDeclaration
 
 class CodeFetcher:
     # Clones a Git repository to a temporary location and provides
@@ -19,14 +22,36 @@ class CodeFetcher:
     def get_temp_dir(self):
         return self.temp_dir
     
+    def _get_decrypted_github_token(self) -> str:
+        try:
+            response = httpx.get("http://localhost:8020/settings/github-token")
+            if response.status_code != 200:
+                return None
+                
+            encrypted_token = response.json().get("token")         
+            encryption_key = os.getenv("ENCRYPTION_KEY")
+            
+            cipher_suite = Fernet(encryption_key.encode('utf-8'))
+            decrypted_token = cipher_suite.decrypt(encrypted_token.encode('utf-8')).decode('utf-8')
+            
+            return decrypted_token
+        except Exception:
+            return None
+
+    def _get_authenticated_url(self, repo_url: str) -> str:
+        token = self._get_decrypted_github_token()
+      
+        if token and repo_url.startswith("https://"):
+            return repo_url.replace("https://", f"https://{token}@")
+        return repo_url
+
+
     def _clone_repo(self):
         # Clones the repository.
         try:
-            # print(f"Cloning {self.repo_url} into {self.temp_dir}...")
-            git.Repo.clone_from(self.repo_url, self.temp_dir, branch=self.branch)
-            # print("Repository cloned successfully.")
+            auth_url = self._get_authenticated_url(self.repo_url)
+            git.Repo.clone_from(auth_url, self.temp_dir, branch=self.branch)
         except Exception:
-            # print(f"Error cloning repository: {e}")
             raise
 
     def get_method_body(self, file_path_suffix: Path, method_name: str) -> Optional[str]:
