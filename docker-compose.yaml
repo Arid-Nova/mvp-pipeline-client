@@ -38,6 +38,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mariadb://cache_db:3306/msGraph
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: csi3335rocks
+      INTERNAL_SERVICE_KEY: d2lsZGNhdPXXiE7tr17M+AXew75O2K6IYDbcnYHXnCE=
     depends_on:
       - mariadb
     networks:
@@ -63,6 +64,9 @@ services:
     container_name: cloudhub_formalverifier
     ports:
       - "9000:9000"
+    environment:
+      PYTHONUNBUFFERED: 1
+      INTERNAL_SERVICE_KEY: d2lsZGNhdPXXiE7tr17M+AXew75O2K6IYDbcnYHXnCE=
     networks:
       - app_network
     volumes:
@@ -169,7 +173,8 @@ services:
     ports:
       - "8900:8900"
     environment:
-      - PYTHONUNBUFFERED=1
+      PYTHONUNBUFFERED: 1
+      INTERNAL_SERVICE_KEY: d2lsZGNhdPXXiE7tr17M+AXew75O2K6IYDbcnYHXnCE=
     depends_on:
       aegis_neo4j:
         condition: service_healthy
@@ -212,6 +217,8 @@ services:
       - MONGO_USER=root
       - MONGO_PASSWORD=aeGis2026Rocks
       - GITHUB_API_VERSION=2026-03-10
+      - ENCRYPTION_KEY=$uper-w!ldC@t-f47ac10b-2026
+      - INTERNAL_SERVICE_KEY=d2lsZGNhdPXXiE7tr17M+AXew75O2K6IYDbcnYHXnCE=
     networks:
       - app_network
     restart: always
