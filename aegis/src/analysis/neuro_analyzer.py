@@ -324,7 +324,7 @@ class OpenAILLMService(BaseLLMService):
         # 2. Worker function that handles a single LLM call
         def _process_single_batch(batch_info: tuple) -> List[Dict[str, Any]]:
             batch_num, input_json_str = batch_info
-            print(f"Processing batch {batch_num} of {len(prepared_batches)}...")
+            # print(f"Processing batch {batch_num} of {len(prepared_batches)}...")
             
             try:
                 response = self.client.chat.completions.create(
