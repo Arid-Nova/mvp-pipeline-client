@@ -809,7 +809,7 @@ const PipelinePage: React.FC = () => {
                         // Triggering the custom notification
                         setNotification({
                             type: 'success',
-                            message: 'Aegis Analysis Complete! You can now view the results.',
+                            message: 'Aegis Analysis Complete!',
                             duration: 5000
                         });
 
