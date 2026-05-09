@@ -1,8 +1,8 @@
 import os
-from pathlib import Path
 import time
 import json
 import dataclasses
+import concurrent.futures
 from typing import List, Dict, Any
 
 # Import all our modules
@@ -76,7 +76,7 @@ class AnalysisFacade:
 
         return results
 
-    def run_analysis(self, payload: Dict[str, Any]) -> List[ExecutionPath]:
+    def run_analysis(self, payload: Dict[str, Any], max_workers: int = 3) -> List[ExecutionPath]:
         # Executes the end-to-end analysis pipeline.
         print("\nStarting AEGIS analysis!")
         start_time = time.perf_counter()
@@ -106,10 +106,11 @@ class AnalysisFacade:
         
         analyzed_paths = []
         self.neuro_analyzer = NeuroAnalyzer(self.code_fetcher, self.traversal_service, self.llm_config)
-        
-        for i, path in enumerate(execution_paths):
-            # print(f"\nAnalyzing Path {i+1}/{len(execution_paths)}: {path.id}.")
+        # total_paths = len(execution_paths)
 
+        # 1. Worker function for a single path
+        def process_single_path(path_info):
+            _, path = path_info
             try:
                 # Step 1: Symbolic Analysis
                 # print(f"[Step 1] Running symbolic analysis for {path.id}.")
@@ -127,20 +128,32 @@ class AnalysisFacade:
                 # print(f"[Step 4] Fusing {len(path.initial_opinions)} opinions for {path.id}.")
                 path.fused_opinion = fuse_opinions_list(path.initial_opinions)
                 
-                print(f"({i+1}/{len(execution_paths)}) ANALYSIS COMPLETE for {path.id}.")
+                # print(f"({i+1}/{len(execution_paths)}) ANALYSIS COMPLETE for {path.id}.")
                 # print(f"ANALYSIS COMPLETE for {path.id}. Final Opinion: {path.fused_opinion}")
-                analyzed_paths.append(path)
-                
+                # analyzed_paths.append(path)
+                return path
+            
             except Exception as e:
                 print(f"CRITICAL ERROR analyzing path {path.id}: {e} !!!")
-                continue
+                return None
 
+        # 2. Concurrent processing of paths
+        path_tuples = [(i, path) for i, path in enumerate(execution_paths)]
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [executor.submit(process_single_path, pt) for pt in path_tuples]
+            
+            for future in concurrent.futures.as_completed(futures):
+                result = future.result()
+                if result:
+                    analyzed_paths.append(result)
+        
         end_time = time.perf_counter()
         elapsed_time = end_time - start_time
 
         print(f"\nAEGIS full analysis completed! Execution time: {elapsed_time:.6f} seconds")
-    
-        # Format the output
+
+        # 3. Format the output
         results = []
         if analyzed_paths:
             for path in analyzed_paths:

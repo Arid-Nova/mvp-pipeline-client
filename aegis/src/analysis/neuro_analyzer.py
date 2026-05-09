@@ -1,6 +1,9 @@
+from datetime import time
 import json
+from random import random
 import re
 import openai as oai
+import concurrent.futures
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional
 from ..domain.models import ExecutionPath, NeuroEvidence, MethodFlowItem
@@ -13,6 +16,11 @@ class BaseLLMService(ABC):
     def analyze_code(self, code_snippet: str, method_name: str, context: str) -> Optional[Dict[str, Any]]:
         # Analyzes a code snippet and returns its business context.
         # This handles prompt engineering and API calls.
+        pass
+    
+    @abstractmethod
+    def analyze_path(self, path_code_context: list) -> Optional[Dict[str, Any]]:
+        # Analyzes an entire execution path and returns consolidated findings.
         pass
 
     @abstractmethod
@@ -27,7 +35,7 @@ class OpenAILLMService(BaseLLMService):
         self.model = model
         # print("Using OpenAI LLM Service")
 
-    def _get_system_prompt(self, method_name: str, context: str) -> str:
+    def _get_system_prompt_method(self, method_name: str, context: str) -> str:
         return f"""
         You are an expert Security and Logic Analyst. Your task is to perform a comprehensive anaysis of the Java method "{method_name}" within the {context} of a microservice system.
         
@@ -132,37 +140,97 @@ class OpenAILLMService(BaseLLMService):
         # }}]
         # """
 
-    def analyze_code(self, code_snippet: str, method_name: str, context: str) -> Optional[Dict[str, Any]]:
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                response_format={"type": "json_object"},
-                messages=[
-                    {"role": "system", "content": self._get_system_prompt(method_name, context)},
-                    {"role": "user", "content": f"Analyze this Java method:\n\n{code_snippet}"}
-                ]
-            )
-            json_response = json.loads(response.choices[0].message.content)
-            return json_response
-        except Exception as e:
-            print(f"Error calling OpenAI API: {e}")
-            return None
-    
-    def analyse_latent_vulnerabilities(self, analyzed_paths: List[ExecutionPath], batch_size: int = 5) -> List[Dict[str, Any]]:
-        all_parsed_outcomes = []
-        system_prompt = """
-            You are an expert Microservice Security Analyzer. 
+    def _get_system_prompt_path(self) -> str:
+        return """
+        You are an expert Security and Logic Analyst. Your task is to perform a comprehensive analysis of a Java execution path (a sequence of method calls) within a distributed microservice system.
+        
+        You will receive a JSON payload detailing the sequence of methods in this path and their source code. You must extract ALL relevant semantic information across the entire flow, categorizing aspects of the execution path into three distinct dimensions:
+        1. Business Utility (What overarching feature does this path serve?)
+        2. Security Risks (Does the sequence expand the attack surface, leak data, or lack necessary checks?)
+        3. Security Controls (Are there mitigations, validations, or protections enforced across the call chain?)
+
+        Respond ONLY in a JSON format containing a single key "findings" which holds an array of your findings.
+        Format each finding object using the following keys:
+        - "finding": (string) A concise description of the logic, security liability, or control observed in the flow.
+        - "confidence": (float) Your confidence in this finding (0.0 to 1.0).
+        - "polarity": (string) "risk-increasing" or "risk-decreasing" or "unsure" or "business-critical"
+        - "context": (string) Specify the exact method(s) or the interaction (e.g., "Method: updateProfile" or "Path: Controller -> Service") that caused this finding.
+
+        DEFINITIONS:
+        - "risk-increasing": Logic that introduces side-effects, unnecessary exposure, or specific vulnerabilities. 
+            Examples: Logging sensitive data (PII) down the chain, bypassing validation, unauthenticated entry points, executing external calls without timeouts, or a repository saving unencrypted sensitive data.
+        - "business-critical": High-value business logic that performs necessary state changes or data processing. 
+            Examples: Booking a ticket, updating a profile across services, processing a payment. 
+            **NOTE:** Do not label these as "risk-increasing" unless they imply a specific security weakness.
+        - "risk-decreasing": Logic explicitly designed to reduce risk.
+            Examples: Input validation at the controller, JWT verification before business logic, permissions checks (RBAC), data encryption before saving to the database.
+        - "unsure": Insufficient context to classify.
+
+        INSTRUCTIONS:
+        - A single execution path WILL generate MULTIPLE findings. Evaluate individual methods as well as the holistic flow (e.g., A path might be "business-critical" overall, have a "risk-decreasing" validation step at the start, but a "risk-increasing" logging step at the end).
+        - Do not classify standard CRUD operations (Create, Read, Update, Delete) as "risk-increasing" solely because they modify a database. Classify them as "business-critical".
+        - Focus on *semantic* security issues (data leaks, lack of controls) rather than functional importance.
+        - Actively look for positive security evidence as much as negative security evidence where possible and vice versa.
+
+        JSON FORMAT:
+        {
+          "findings": [
+            {
+              "finding": "(string) A concise description of the logic or risk.",
+              "confidence": (float) 0.0 to 1.0,
+              "polarity": "(string) One of: ['risk-increasing', 'business-critical', 'risk-decreasing', 'unsure']",
+              "context": "(string) The method name or flow interaction"
+            }
+          ]
+        }
+
+        EXAMPLE OUTPUT:
+        {
+          "findings": [
+            {
+              "finding": "Standard flow to process a user payment and update the database.",
+              "confidence": 0.95,
+              "polarity": "business-critical",
+              "context": "Flow: PaymentController -> PaymentService -> Repository"
+            },
+            {
+              "finding": "Validates the payment token before processing.",
+              "confidence": 0.90,
+              "polarity": "risk-decreasing",
+              "context": "Method: validateToken"
+            },
+            {
+              "finding": "Logs sensitive transaction details which may lead to PII leakage in the monitoring system.",
+              "confidence": 0.85,
+              "polarity": "risk-increasing",
+              "context": "Interaction: PaymentService -> auditLog"
+            }
+          ]
+        }
+        """
+
+    def _get_vulnarability_prompt(self) -> str:
+        return """
+            You are an expert Distributed Systems Security Forecaster.
 
             Data Context:
             You will receive a JSON payload containing system metadata and security findings for distributed microservice paths.
             For each path (identified by `id`, `http_method`, and `path_template`), the JSON provides:
             * `raw_ir_data`: An intermaediate representation of the distributed path in concern, detailing including remote `methodCalls`, `parameters`, and `annotations`.
             * `symbolic_evidence`: Deterministic binary security findings (e.g., UNPROTECTED_ENDPOINT, HARDCODED_SECRET, LDA). There are other variable finidings such as path_length.
-            * `neuro_evidence`: Semantic security findings generated by LLMs, containing a `finding` text and `polarity` (e.g., risk-increasing).
-            * `fused_opinion`: Contains a `disbelief` score representing the probability mass of the endpoint *not* being secure.
+            * `neuro_evidence`: Semantic security findings generated by LLMs, containing a `finding` text and `polarity` (e.g., risk-increasing, risk-decreasing).
+            * `fused_opinion`: Contains a `disbelief` (probability mass of the distributed path *not* being secure); `belief` (probability mass of the distributed path being secure); and `uncertainty` (probability mass of being unsure about the security of the path (lack of evidence)).
 
             Your Task:
-            Analyze each path in the provided JSON and generate a new JSON array. For each path, infer the latent vulnerabilities (probable future exposures), their root causes, suspected locations (pinpointing exactly using `raw_ir_data`), and possible solutions.
+            Analyze the holistic flow of each distributed path. 
+            Do NOT merely repeat the `symbolic_evidence` or `neuro_evidence`. 
+            You must synthesize this data to infer LATENT VULNERABILITIES. 
+            Think in terms of "second-order effects" and "cascading failures" across the microservice boundaries.
+            
+            Definitions:
+            Latent Vulnerability: A dormant architectural, logical, or inter-service trust flaw. It is a future exposure that will manifest as a critical security incident when the system scales, edge-cases occur, or outer perimeter protections (like an API gateway) are bypassed.
+            - BAD EXAMPLES (Immediate/Known): "UNPROTECTED_ENDPOINT", "SQL_INJECTION", "HARDCODED_SECRET".
+            - GOOD EXAMPLES (Latent/Future): "Cascading Privilege Escalation", "Downstream Resource Exhaustion (DoS)", "Data Poisoning via Unvalidated Inter-service Trust", "Future PII Exposure if logging verbosity increases".
 
             Output Format:
             You MUST output a valid JSON object containing a single key "results" which holds an array of your analysis. No markdown, no conversational text.
@@ -173,62 +241,141 @@ class OpenAILLMService(BaseLLMService):
                 "http_method": "<method>",
                 "path_template": "<path_template>",
                 "risk_score_disbelief": <float_value_from_fused_opinion>,
-                "latent_vulnerabilities": ["<Vulnerability Name>"],
-                "root_causes": ["<Explanation of why this vulnerability exists based on the evidence>"],
-                "suspected_locations": ["<Exact pinpointed location using raw_ir_data>"],
-                "possible_solutions": ["<Actionable remediation step>"]
+                "latent_vulnerabilities": ["<Forecasted Future Vulnerability Name based on path architecture>"],
+                "root_causes": ["<Explanation of how the current evidence combines to create this future risk>"],
+                "suspected_locations": ["<Exact pinpointed interaction or method using raw_ir_data where the chain breaks down>"],
+                "possible_solutions": ["<Actionable architectural or code-level remediation step>"]
                 }
             ]
             }
-            """
-        
-        for i in range(0, len(analyzed_paths), batch_size):
-            batch = analyzed_paths[i:i + batch_size]
-            batch_data = []
-            
-            for path in batch:
-                p_dict = path.model_dump() if hasattr(path, 'model_dump') else (path.__dict__ if not isinstance(path, dict) else path)  
-                batch_data.append(p_dict)
+        """
 
-            input_json_str = json.dumps(batch_data)
-            print(f"Processing batch {i//batch_size + 1} of {(len(analyzed_paths) + batch_size - 1)//batch_size}...")
-
-            # 3. Call the LLM for this batch
+    def analyze_code(self, code_snippet: str, method_name: str, context: str, max_retries: int = 5) -> Optional[Dict[str, Any]]:
+        base_delay = 1
+        for attempt in range(max_retries):
             try:
                 response = self.client.chat.completions.create(
                     model=self.model,
                     response_format={"type": "json_object"},
                     messages=[
-                        {"role": "system", "content": system_prompt},
+                        {"role": "system", "content": self._get_system_prompt_method(method_name, context)},
+                        {"role": "user", "content": f"Analyze this Java method:\n\n{code_snippet}"}
+                    ]
+                )
+                json_response = json.loads(response.choices[0].message.content)
+                return json_response
+            except Exception as e:
+                error_msg = str(e).lower()
+            
+                # Checking if rate limit (429)
+                if "429" in error_msg or "too_many_requests" in error_msg or "rate limit" in error_msg:
+                    if attempt == max_retries - 1:
+                        print(f"Max retries reached for {method_name}. Failing permanently: {e}")
+                        return None
+                        
+                    sleep_time = (base_delay * (2 ** attempt)) + random.uniform(0, 1)
+                    # print(f"Rate limit hit for {method_name}. Retrying in {sleep_time:.2f}s (Attempt {attempt + 1}/{max_retries})...")
+                    time.sleep(sleep_time)
+                    
+                else:
+                    # If it is any other type of error, fail immediately without retrying
+                    print(f"Error calling OpenAI API for {method_name}: {e}")
+                    return None
+        return None
+
+    def analyze_path(self, path_code_context: list, max_retries: int = 5) -> Optional[Dict[str, Any]]:
+        base_delay = 1
+        input_json_str = json.dumps(path_code_context, indent=2)
+        
+        for attempt in range(max_retries):
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    response_format={"type": "json_object"},
+                    messages=[
+                        {"role": "system", "content": self._get_system_prompt_path()},
+                        {"role": "user", "content": f"Analyze this Java execution path:\n\n{input_json_str}"}
+                    ]
+                )
+                json_response = json.loads(response.choices[0].message.content)
+                return json_response
+                
+            except Exception as e:
+                error_msg = str(e).lower()
+                if "429" in error_msg or "too_many_requests" in error_msg or "rate limit" in error_msg:
+                    if attempt == max_retries - 1:
+                        print(f"Max retries reached for path analysis. Failing permanently: {e}")
+                        return None
+                    sleep_time = (base_delay * (2 ** attempt)) + random.uniform(0, 1)
+                    # print(f"Rate limit hit. Retrying in {sleep_time:.2f}s (Attempt {attempt + 1}/{max_retries})...")
+                    time.sleep(sleep_time)
+                else:
+                    print(f"Error calling OpenAI API for path analysis: {e}")
+                    return None
+                    
+        return None
+    
+    def analyse_latent_vulnerabilities(self, analyzed_paths: List[ExecutionPath], batch_size: int = 5) -> List[Dict[str, Any]]:
+        all_parsed_outcomes = []
+
+        # Preparing batches of paths to analyze in parallel
+        prepared_batches = []
+        for i in range(0, len(analyzed_paths), batch_size):
+            batch = analyzed_paths[i:i + batch_size]
+            batch_data = [
+                path.model_dump() if hasattr(path, 'model_dump') else (path.__dict__ if not isinstance(path, dict) else path)
+                for path in batch
+            ]
+            batch_num = (i // batch_size) + 1
+            prepared_batches.append((batch_num, json.dumps(batch_data)))
+        
+        # 2. Worker function that handles a single LLM call
+        def _process_single_batch(batch_info: tuple) -> List[Dict[str, Any]]:
+            batch_num, input_json_str = batch_info
+            # print(f"Processing batch {batch_num} of {len(prepared_batches)}...")
+            
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    response_format={"type": "json_object"},
+                    messages=[
+                        {"role": "system", "content": self._get_vulnarability_prompt()},
                         {"role": "user", "content": f"Here is the DATA JSON to analyze:\n{input_json_str}"}
                     ],
-                    temperature=0.0
+                    temperature=0.1
                 )
                 
                 raw_output = response.choices[0].message.content.strip()
                 
-                # 4. Parse JSON
+                # Parse JSON
                 try:
                     parsed_json = json.loads(raw_output)
-                    # Extract the array from the "results" key we forced the LLM to use
                     if "results" in parsed_json:
-                        all_parsed_outcomes.extend(parsed_json["results"])
+                        return parsed_json["results"]
                     else:
-                        print("Warning: LLM response missing 'results' key. Appending raw object.")
-                        all_parsed_outcomes.append(parsed_json)
+                        print(f"Warning: LLM response missing 'results' key in batch {batch_num}. Appending raw object.")
+                        return [parsed_json]
                         
                 except json.JSONDecodeError:
-                    # Fallback regex cleanup if LLM still hallucinated markdown ticks despite json_object mode
                     if raw_output.startswith("```json"):
                         raw_output = re.sub(r"^```json", "", raw_output)
                         raw_output = re.sub(r"```$", "", raw_output).strip()
                     parsed_json = json.loads(raw_output)
-                    all_parsed_outcomes.extend(parsed_json.get("results", []))
+                    return parsed_json.get("results", [])
 
             except Exception as e:
-                print(f"Error during LLM call on batch {i//batch_size + 1}: {e}")
-                continue 
-
+                print(f"Error during LLM call on batch {batch_num}: {e}")
+                return []
+        
+        # 3. Execute batches in parallel
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+            futures = [executor.submit(_process_single_batch, b) for b in prepared_batches]
+            
+            for future in concurrent.futures.as_completed(futures):
+                batch_result = future.result()
+                if batch_result:
+                    all_parsed_outcomes.extend(batch_result)
+        
         return all_parsed_outcomes
 
 class HuggingFaceLLMService(BaseLLMService):
@@ -336,57 +483,47 @@ class NeuroAnalyzer:
     def analyze(self, execution_path: ExecutionPath) -> ExecutionPath:
         execution_path.method_flow = self.traverser.get_method_flow(execution_path.id)
         execution_path.neuro_evidence = []
+
+        path_code_context = []
         
-        # Starting analysis from the endpoint and proceed down the call chain.
         for flow_item in execution_path.method_flow:
-            self._analyze_single_method(execution_path, flow_item)
-
-        # print(f"Neuro analysis for {execution_path.id} complete. Total evidence found: {len(execution_path.neuro_evidence)}.")
-        return execution_path
-
-    def _analyze_single_method(self, execution_path: ExecutionPath, flow_item: MethodFlowItem)-> ExecutionPath:
-        source_file_path = flow_item.source_file_path
-        method_name = flow_item.method_name
-        
-        if not source_file_path or not method_name:
-            print(f"Skipping analysis for method {flow_item.id}: missing file/method name.")
-            return execution_path
-
-        # Fetching the code using the robust CodeFetcher
-        code_snippet = self.code_fetcher.get_method_body(
-            source_file_path,
-            method_name
-        )
-        
-        if not code_snippet:
-            # print(f"Could not fetch code for {method_name}. Skipping LLM analysis.")
-            return execution_path
+            if not flow_item.source_file_path or not flow_item.method_name:
+                continue
+                
+            code_snippet = self.code_fetcher.get_method_body(
+                flow_item.source_file_path,
+                flow_item.method_name
+            )
             
-        # Analyzing the code with the LLM
-        # Providing some context to imporve the response.
-        analysis_result = self.llm_service.analyze_code(
-            code_snippet, 
-            method_name, 
-            flow_item.node_type
-        )
-        
+            if code_snippet:
+                path_code_context.append({
+                    "method_name": flow_item.method_name,
+                    "node_type": flow_item.node_type,
+                    "code": code_snippet
+                })
+
+        if not path_code_context:
+            print(f"No code could be fetched for path {execution_path.id}.")
+            return execution_path
+
+        # 2. Making ONE LLM call for the entire Path
+        analysis_result = self.llm_service.analyze_path(path_code_context)
         if not analysis_result:
-            print(f"LLM analysis failed for {method_name}.")
+            print(f"LLM analysis failed for path {execution_path.id}.")
             return execution_path
             
-        # Creating and appending the evidence
+        # 3. Parsing the consolidated results
         try:
-            for finding in analysis_result['findings']:
+            for finding in analysis_result.get('findings', []):
                 evidence = NeuroEvidence(
                     finding=finding["finding"],
                     confidence=float(finding["confidence"]),
                     polarity=finding["polarity"],
-                    context=finding["context"]
+                    context=finding.get("context", "")
                 )
                 execution_path.neuro_evidence.append(evidence)
             
         except (KeyError, ValueError, TypeError) as e:
             print(f"Error parsing LLM response for {execution_path.id}: {e}")
-            print(f"Raw response: {analysis_result}")
 
         return execution_path
