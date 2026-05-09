@@ -30,8 +30,8 @@ import { TestExecutorCard } from './cards/TestExecutorCard';
 import { TestGenerateCard } from './cards/TestGenerateCard';
 import { PromptGenerateCard } from './cards/PromptGenerateCard';
 import { ScenarioGenerateCard } from './cards/ScenarioGenerateCard';
-import { VerificationComparisonCard } from './cards/VerificationComparisonCard';
 import { IRGenerationCard } from './cards/IRGenerationCard';
+import { VerificationComparisonCard } from './cards/VerificationComparisonCard';
 
 // Canvas Components
 import { PipelineCanvas } from './canvas/PipelineCanvas';
@@ -39,6 +39,9 @@ import { ToolboxSidebar } from './canvas/ToolboxSideBar';
 import { PipelineHeader } from './canvas/PiplelineHeader';
 import { ChangeImpactCard } from './cards/ChangeImpactCard';
 import { SecurityRegressionCard } from './cards/SecurityRegressionCard';
+import { Notification as ToastNotification } from '../../utils/notifications';
+import NotificationToast from '../generic/NotificationToast';
+
 
 // In-browser cache to avoid data resetting
 let inMemoryPipelineCache: { nodes: NodeData[], connections: Connection[] } | null = null;
@@ -53,6 +56,9 @@ const PipelinePage: React.FC = () => {
     const MIN_SCALE = 0.2;
     const MAX_SCALE = 2;
     const ZOOM_SENSITIVITY = 0.001;
+
+    // Notification States
+    const [notification, setNotification] = useState<ToastNotification | null>(null);
 
     // Zoom handling
     const handleWheel = (e: React.WheelEvent) => {
@@ -800,14 +806,19 @@ const PipelinePage: React.FC = () => {
                         // UI State Update
                         updateStatus(targetNode.id, 'completed', 'Analysis Complete. Click to View.', { payload: irPayload });
 
+                        // Triggering the custom notification
+                        setNotification({
+                            type: 'success',
+                            message: 'Aegis Analysis Complete! You can now view the results.',
+                            duration: 5000
+                        });
+
                         // Triggering Browser Notification
-                        if (Notification.permission === 'granted') {
+                        if (document.hidden && Notification.permission === 'granted') {
                             new Notification('Aegis Analysis Complete', {
                                 body: 'You can now view the results!',
                                 icon: '/health.ico' 
                             });
-                        } else {
-                            alert('Aegis Analysis Complete! You can now view the results.');
                         }
                     })
                     .catch((error) => {
@@ -1102,6 +1113,11 @@ const PipelinePage: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-slate-900 text-white flex flex-col font-sans overflow-hidden">
+            <NotificationToast 
+                notification={notification} 
+                onClose={() => setNotification(null)} 
+            />
+            
             {/* Header */}
             <PipelineHeader 
                 isLinking={isLinking}
