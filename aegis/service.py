@@ -57,14 +57,16 @@ app.add_middleware(
     allow_headers=["*"],        
 )
 
-@app.get("/health")
+@app.get("/health", 
+         responses={503: {"description": "Engine not initialized"}})
 def health_check():
     if facade:
-        return {"status": "healthy", "service": "Aegis Analysis Engine"}
+        return {"status": "healthy", "description": "Aegis Analysis Engine"}
     else:
         raise HTTPException(status_code=503, detail="Engine not initialized")
 
-@app.post("/analyze")
+@app.post("/analyze", 
+          responses={500: {"description": "Internal Error"}})
 async def analyze_endpoint(payload: Dict[str, Any]):
     global facade
     if not facade:
