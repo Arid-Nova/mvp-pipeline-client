@@ -9,7 +9,7 @@ import {
 
 import { useNavigate } from 'react-router-dom';
 
-const BrandSection = ({ sessionName }: { sessionName?: string }) => {
+const BrandSection = ({ sessionName, hasUnsavedChanges }: { sessionName?: string; hasUnsavedChanges: boolean }) => {
     const navigate = useNavigate();
 
     const displayTitle = sessionName ? sessionName.split('-').slice(0, 2).join(' ') : '';
@@ -79,9 +79,15 @@ const BrandSection = ({ sessionName }: { sessionName?: string }) => {
                             <span className="text-[13px] font-bold text-slate-200 tracking-wider uppercase" title={sessionName}>
                                 {displayTitle}
                             </span>
-                            <span className="bg-slate-700/50 text-slate-400 border border-slate-600 text-[9px] px-1.5 py-0.5 rounded-sm uppercase tracking-widest font-semibold">
-                                Unsaved
-                            </span>
+                            {hasUnsavedChanges ? (
+                                <span className="bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[9px] px-1.5 py-0.5 rounded-sm uppercase tracking-widest font-semibold transition-colors duration-300">
+                                    Unsaved
+                                </span>
+                            ) : (
+                                <span className="bg-teal-500/10 text-teal-400 border border-teal-500/20 text-[9px] px-1.5 py-0.5 rounded-sm uppercase tracking-widest font-semibold transition-colors duration-300">
+                                    Saved
+                                </span>
+                            )}
                         </div>
                     ) : (
                         <span className="text-[13px] font-semibold text-slate-400 tracking-wider uppercase">
@@ -132,6 +138,7 @@ interface PipelineHeaderProps {
     isRunning: boolean;
     sessionName?: string;
     sessionId: string | null;
+    hasUnsavedChanges: boolean;
     clearPipeline: () => void;
     runPipeline: () => void;
     onLoad: (sessionId: string) => Promise<void>;
@@ -144,6 +151,7 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
     isRunning,
     sessionName,
     sessionId,
+    hasUnsavedChanges,
     onSave,
     onLoad,
     clearPipeline,
@@ -288,7 +296,7 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
     return (
         <div className="h-16 border-b border-slate-700 bg-slate-800 flex items-center justify-between px-6 z-20 shadow-md">
             {/* Left Side: Brand and Navigation */}
-            <BrandSection sessionName={sessionName}/>
+            <BrandSection sessionName={sessionName} hasUnsavedChanges={hasUnsavedChanges}/>
 
             {/* Right Side: Status and Controls */}
             <div className="flex items-center gap-4">

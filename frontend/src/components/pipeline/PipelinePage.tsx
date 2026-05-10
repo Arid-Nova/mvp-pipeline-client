@@ -47,7 +47,12 @@ import NotificationToast from '../generic/NotificationToast';
 
 
 // In-browser cache to avoid data resetting
-let inMemoryPipelineCache: { nodes: NodeData[], connections: Connection[] } | null = null;
+let inMemoryPipelineCache: { 
+    nodes: NodeData[], 
+    connections: Connection[], 
+    sessionName: string,
+    sessionId: string | null
+} | null = null;
 
 const PipelinePage: React.FC = () => {
     // Zoom and Pan State
@@ -64,8 +69,22 @@ const PipelinePage: React.FC = () => {
     const [notification, setNotification] = useState<ToastNotification | null>(null);
 
     // Named Session State
-    const [sessionName, setSessionName] = useState<string>('');
-    const [sessionId, setSessionId] = useState<string | null>(null);
+    const [sessionName, setSessionName] = useState<string>(() => {
+        if (inMemoryPipelineCache) return inMemoryPipelineCache.sessionName;
+        return sessionStorage.getItem('pipeline_session_name') || '';
+    });
+    
+    const [sessionId, setSessionId] = useState<string | null>(() => {
+        if (inMemoryPipelineCache) return inMemoryPipelineCache.sessionId;
+        return sessionStorage.getItem('pipeline_session_id');
+    });
+
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
+    const lastSavedStateRef = useRef<string>('');
+
+    useEffect(() => {
+        lastSavedStateRef.current = JSON.stringify({ nodes, connections });
+    }, []);
 
     // Names Session Management 
     useEffect(() => {
@@ -103,6 +122,9 @@ const PipelinePage: React.FC = () => {
             
             setSessionName(newName);
             setSessionId(newSessionId);
+
+            lastSavedStateRef.current = JSON.stringify({ nodes, connections });
+            setHasUnsavedChanges(false);
             
             setNotification({
                 type: 'success',
@@ -135,6 +157,12 @@ const PipelinePage: React.FC = () => {
             // Restoreing Viewport states
             if (canvas_data.ui?.expandedCategories)
                 setExpandedCategories(canvas_data.ui.expandedCategories);
+
+            lastSavedStateRef.current = JSON.stringify({ 
+                nodes: canvas_data.nodes || [], 
+                connections: canvas_data.connections || [] 
+            });
+            setHasUnsavedChanges(false);
             
             setNotification({
                 type: 'success',
@@ -229,9 +257,23 @@ const PipelinePage: React.FC = () => {
     };
 
     useEffect(() => {
-        inMemoryPipelineCache = { nodes, connections };
+        inMemoryPipelineCache = { nodes, connections, sessionName, sessionId };
+
+        const currentStateStr = JSON.stringify({ nodes, connections });
+        if (currentStateStr !== lastSavedStateRef.current) {
+            setHasUnsavedChanges(true);
+        } else {
+            setHasUnsavedChanges(false);
+        }
 
         try {
+            sessionStorage.setItem('pipeline_session_name', sessionName);
+            if (sessionId) {
+                sessionStorage.setItem('pipeline_session_id', sessionId);
+            } else {
+                sessionStorage.removeItem('pipeline_session_id');
+            }
+
             const nodesToSave = nodes.map(node => {
                 // Create a shallow copy of data
                 const cleanData = { ...node.data };
@@ -277,12 +319,15 @@ const PipelinePage: React.FC = () => {
         } catch (e) {
             console.warn("Failed to save pipeline state to session storage:", e);
         }
-    }, [nodes, connections]);
+    }, [nodes, connections, sessionName, sessionId]);
 
     const clearPipeline = () => {
         if(window.confirm("Are you sure you want to clear the pipeline? This cannot be undone.")) {
             setNodes([]);
             setConnections([]);
+            setSessionName(''); 
+            setSessionId(null);
+
             inMemoryPipelineCache = null;
             sessionStorage.removeItem('pipeline_nodes');
             sessionStorage.removeItem('pipeline_connections');
@@ -1216,6 +1261,7 @@ const PipelinePage: React.FC = () => {
                 isRunning={isRunning}
                 sessionName={sessionName}
                 sessionId={sessionId}  
+                hasUnsavedChanges={hasUnsavedChanges}
                 onLoad={handleLoadSession}
                 clearPipeline={clearPipeline}
                 runPipeline={runPipeline}
