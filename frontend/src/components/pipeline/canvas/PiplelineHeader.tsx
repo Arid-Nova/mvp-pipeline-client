@@ -3,7 +3,8 @@ import {
     saveGitHubToken, 
     deleteGitHubToken, 
     checkGitHubTokenStatus, 
-    getAvailableSessions 
+    getAvailableSessions, 
+    deleteSession
 } from '../../../services/api';
 
 import { useNavigate } from 'react-router-dom';
@@ -208,6 +209,22 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
     const handleSessionSelect = async (id: string) => {
         setIsLoadModalOpen(false);
         await onLoad(id);
+    };
+
+    const handleDeleteSession = async (e: React.MouseEvent, id: string, name: string) => {
+        e.stopPropagation(); 
+        
+        if (window.confirm(`Are you sure you want to delete the session "${name}"? This cannot be undone.`)) {
+            setIsLoadingSessions(true);
+            try {
+                await deleteSession(id);
+                await fetchSessionsPage(currentPage); 
+            } catch (error) {
+                console.error("Failed to delete session", error);
+            } finally {
+                setIsLoadingSessions(false);
+            }
+        }
     };
 
     // Checking token availability
@@ -526,9 +543,25 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                                                 {new Date(session.updated_at).toLocaleString()}
                                             </span>
                                         </div>
-                                        <svg className="w-4 h-4 text-slate-600 group-hover:text-teal-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                        </svg>
+                                        
+                                        {/* Actions Container */}
+                                        <div className="flex items-center space-x-3">
+                                            {/* Delete Button */}
+                                            <div 
+                                                onClick={(e) => handleDeleteSession(e, session.id, session.name)}
+                                                className="p-1.5 text-slate-600 hover:text-red-400 hover:bg-slate-800 rounded transition-colors opacity-0 group-hover:opacity-100"
+                                                title="Delete Session"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                            </div>
+                                            
+                                            {/* Load Arrow */}
+                                            <svg className="w-4 h-4 text-slate-600 group-hover:text-teal-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                            </svg>
+                                        </div>
                                     </button>
                                 ))
                             )}

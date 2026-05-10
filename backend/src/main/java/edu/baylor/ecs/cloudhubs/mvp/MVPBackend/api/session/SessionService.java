@@ -93,4 +93,12 @@ public class SessionService {
                 .orElseThrow(() -> new IllegalArgumentException("Session not found"));
         return document.getCanvasData();
     }
+
+    public void deleteSession(String id) {
+        if (!repository.existsById(id)) {
+            throw new IllegalArgumentException("Session not found with ID: " + id);
+        }
+        repository.deleteById(id);
+        log.info("Successfully deleted session with ID: {}", id);
+    }
 }

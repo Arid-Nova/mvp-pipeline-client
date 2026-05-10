@@ -76,4 +76,17 @@ public class SessionController {
             return ResponseEntity.internalServerError().build();
         }
     }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteSession(@PathVariable("id") String id) {
+        try {
+            sessionService.deleteSession(id);
+            return ResponseEntity.ok().build(); 
+        } catch (IllegalArgumentException e) {
+            return Errors.Response400BadRequest(e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Errors.Response500InternalServerError(e.getCause(), e.getMessage());
+        }
+    }
 }

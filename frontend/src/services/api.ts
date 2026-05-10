@@ -69,6 +69,10 @@ export const loadSession = async (sessionId: string): Promise<any> => {
     };
 };
 
+export const deleteSession = async (sessionId: string): Promise<void> => {
+    await axios.delete(`/sessions/${sessionId}`);
+};
+
 export const verifySystem = async (input: VerificationInput): Promise<VerificationResponse> => {
     try {
         const response = await axios.post('http://localhost:9000/verify', input);
