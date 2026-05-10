@@ -34,16 +34,15 @@ public class SessionService {
         SessionEntity sessionDocument;
 
         if (sessionId != null && !sessionId.trim().isEmpty()) {
-            // Updating an existing session
-            sessionDocument = repository.findById(sessionId).orElseGet(SessionEntity::new);
-            if (sessionDocument.getId() == null) {
-                sessionDocument.setId(sessionId);
-                sessionDocument.setCreatedAt(Instant.now());
-            }
+            // Strictly updating an existing session only if it exists
+            sessionDocument = repository.findById(sessionId)
+                    .orElseThrow(() -> new IllegalArgumentException("No existing session found with ID " + sessionId));
+            log.info("Updating existing session: {}", sessionId);
         } else {
             // New session
             sessionDocument = new SessionEntity();
             sessionDocument.setCreatedAt(Instant.now());
+            log.info("Creating new session workspace");
         }
 
         sessionDocument.setName(name);

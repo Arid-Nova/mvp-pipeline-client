@@ -32,11 +32,9 @@ public class SessionController {
             SessionResponse response = sessionService.saveSession(name, sessionId, canvasDataFile);
             return ResponseEntity.ok(response);
         } catch (ForbiddenException e) {
-            e.printStackTrace();
             return Errors.Response403Forbidden(e.getMessage());
         } catch (IllegalArgumentException e) {
-            e.printStackTrace();
-            return Errors.Response400BadRequest(e.getMessage());
+            return Errors.Response404NotFound(e.getMessage());
         } catch (Exception e) {
             e.printStackTrace();
             return Errors.Response500InternalServerError(e.getCause(), e.getMessage());
@@ -60,7 +58,10 @@ public class SessionController {
     public ResponseEntity<?> getSessionMetadata(@PathVariable("id") String id) {
         try {
             return ResponseEntity.ok(sessionService.getSessionMetadata(id));
+        } catch (IllegalArgumentException e) {
+            return Errors.Response404NotFound(e.getMessage());
         } catch (Exception e) {
+            e.printStackTrace();
             return Errors.Response500InternalServerError(e.getCause(), e.getMessage());
         }
     }
@@ -72,7 +73,10 @@ public class SessionController {
             return ResponseEntity.ok()
                     .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"canvas.json.gz\"")
                     .body(compressedData);
-        } catch (Exception e) {
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+        catch (Exception e) {
             return ResponseEntity.internalServerError().build();
         }
     }
@@ -83,7 +87,7 @@ public class SessionController {
             sessionService.deleteSession(id);
             return ResponseEntity.ok().build(); 
         } catch (IllegalArgumentException e) {
-            return Errors.Response400BadRequest(e.getMessage());
+            return Errors.Response404NotFound(e.getMessage());
         } catch (Exception e) {
             e.printStackTrace();
             return Errors.Response500InternalServerError(e.getCause(), e.getMessage());
