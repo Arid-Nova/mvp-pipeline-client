@@ -16,10 +16,23 @@ export const fetchIRFromRepo = async (input: RepositoryInput) => {
 };
 
 export const saveSession = async (name: string, canvasData: any, sessionId?: string): Promise<string> => {
-    const response = await axios.post('/sessions', {
-        name: name,
-        canvas_data: canvasData,
-        session_id: sessionId || null
+    // Compresing the session data
+    const jsonString = JSON.stringify(canvasData);
+    const stream = new Blob([jsonString]).stream().pipeThrough(new CompressionStream('gzip'));
+    const compressedBlob = await new Response(stream).blob();
+
+    const formData = new FormData();
+    formData.append('name', name);
+    if (sessionId) {
+        formData.append('session_id', sessionId);
+    }
+
+    formData.append('canvas_data_file', compressedBlob, 'canvas.json.gz');
+
+    const response = await axios.post('/sessions', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data'
+        }
     });
 
     return response.data.session_id; 
