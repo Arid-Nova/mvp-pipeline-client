@@ -3,6 +3,7 @@ package edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.session;
 import lombok.RequiredArgsConstructor;
 
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.model.ForbiddenException;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.session.SessionListResponse;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.session.SessionResponse;
 
 import org.springframework.http.ResponseEntity;
@@ -35,6 +36,17 @@ public class SessionController {
         } catch (IllegalArgumentException e) {
             e.printStackTrace();
             return Errors.Response400BadRequest(e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Errors.Response500InternalServerError(e.getCause(), e.getMessage());
+        }
+    }
+
+    @GetMapping
+    public ResponseEntity<?> getAvailableSessions() {
+        try {
+            SessionListResponse response = sessionService.getAvailableSessions();
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             e.printStackTrace();
             return Errors.Response500InternalServerError(e.getCause(), e.getMessage());

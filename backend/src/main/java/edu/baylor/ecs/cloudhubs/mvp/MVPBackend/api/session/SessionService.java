@@ -7,9 +7,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.session.SessionEntity;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.session.SessionListResponse;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.session.SessionResponse;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.session.SessionRepository;
 
+import java.util.*;
+import java.util.stream.Collectors;
 import java.time.Instant;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,5 +50,20 @@ public class SessionService {
         log.info("Successfully saved session with ID: {}", savedSession.getId());
 
         return new SessionResponse(savedSession.getId());
+    }
+
+    public SessionListResponse getAvailableSessions() {
+        List<SessionEntity> documents = repository.findAllWithoutCanvasData();
+
+        List<SessionListResponse.SessionSummary> summaries = documents.stream()
+                .map(doc -> new SessionListResponse.SessionSummary(
+                        doc.getId(), 
+                        doc.getName(), 
+                        doc.getUpdatedAt() != null ? doc.getUpdatedAt() : doc.getCreatedAt()
+                ))
+                .sorted(Comparator.comparing(SessionListResponse.SessionSummary::getUpdatedAt).reversed())
+                .collect(Collectors.toList());
+
+        return new SessionListResponse(summaries);
     }
 }
