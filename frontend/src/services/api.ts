@@ -16,13 +16,23 @@ export const fetchIRFromRepo = async (input: RepositoryInput) => {
 };
 
 export const saveSession = async (name: string, canvasData: any, sessionId?: string): Promise<string> => {
-    const response = await axios.post(`/sessions`, {
+    const response = await axios.post('/sessions', {
         name: name,
         canvas_data: canvasData,
         session_id: sessionId || null
     });
 
     return response.data.session_id; 
+};
+
+export const getAvailableSessions = async (): Promise<any[]> => {
+    const response = await axios.get('/sessions');
+    return response.data.sessions;
+};
+
+export const loadSession = async (sessionId: string): Promise<any> => {
+    const response = await axios.get(`/sessions/${sessionId}`);
+    return response.data;
 };
 
 export const verifySystem = async (input: VerificationInput): Promise<VerificationResponse> => {

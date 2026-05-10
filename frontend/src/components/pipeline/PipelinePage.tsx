@@ -9,7 +9,8 @@ import {
     generateTestSuites,
     analyzeAegis,
     fetchChangeImpact,
-    saveSession
+    saveSession,
+    loadSession
 } from '../../services/api';
 import { RepositoryInput, VerificationInput } from '../../services/types';
 import { CardType, SystemPayload, ComponentPayload, PipelinePayload, NodeData, Connection, ScenarioPayload} from './models';
@@ -112,6 +113,39 @@ const PipelinePage: React.FC = () => {
             setNotification({
                 type: 'error',
                 message: 'Failed to save session.',
+                duration: 5000
+            });   
+        }
+    };
+
+    const handleLoadSession = async (targetSessionId: string) => {
+        try {
+            const sessionData = await loadSession(targetSessionId);
+
+            const { name, canvas_data } = sessionData;
+            
+            // Setting the session identity
+            setSessionName(name);
+            setSessionId(targetSessionId);
+            
+            // Restoring Canvas State
+            if (canvas_data.nodes) setNodes(canvas_data.nodes);
+            if (canvas_data.connections) setConnections(canvas_data.connections);
+            
+            // Restoreing Viewport states
+            if (canvas_data.ui?.expandedCategories)
+                setExpandedCategories(canvas_data.ui.expandedCategories);
+            
+            setNotification({
+                type: 'success',
+                message: `Workspace loaded successfully!`,
+                duration: 5000
+            });      
+        } catch (error) {
+            console.error("Failed to load session:", error);
+            setNotification({
+                type: 'error',
+                message: 'Failed to load session data.',
                 duration: 5000
             });   
         }
@@ -1182,6 +1216,7 @@ const PipelinePage: React.FC = () => {
                 isRunning={isRunning}
                 sessionName={sessionName}
                 sessionId={sessionId}  
+                onLoad={handleLoadSession}
                 clearPipeline={clearPipeline}
                 runPipeline={runPipeline}
                 onSave={handleSaveSession}       

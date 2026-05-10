@@ -1,5 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { saveGitHubToken, deleteGitHubToken, checkGitHubTokenStatus } from '../../../services/api';
+import { 
+    saveGitHubToken, 
+    deleteGitHubToken, 
+    checkGitHubTokenStatus, 
+    getAvailableSessions 
+} from '../../../services/api';
 
 import { useNavigate } from 'react-router-dom';
 
@@ -128,6 +133,7 @@ interface PipelineHeaderProps {
     sessionId: string | null;
     clearPipeline: () => void;
     runPipeline: () => void;
+    onLoad: (sessionId: string) => Promise<void>;
     onSave: (name: string, isSaveAs: boolean) => Promise<void>;
 }
 
@@ -138,6 +144,7 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
     sessionName,
     sessionId,
     onSave,
+    onLoad,
     clearPipeline,
     runPipeline
 }) => {
@@ -150,6 +157,11 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
     const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
     const [editSessionName, setEditSessionName] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+
+    // Session Loading States
+    const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
+    const [sessionsList, setSessionsList] = useState<any[]>([]);
+    const [isLoadingSessions, setIsLoadingSessions] = useState(false);
 
     // Session Hadlers
     const handleQuickSave = async () => {
@@ -169,6 +181,25 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
     const openSaveAsModal = () => {
         setEditSessionName(sessionName || '');
         setIsSaveModalOpen(true);
+    };
+
+    const openLoadModal = async () => {
+        setIsLoadModalOpen(true);
+        setIsSettingsOpen(false);
+        setIsLoadingSessions(true);
+        try {
+            const sessions = await getAvailableSessions();
+            setSessionsList(sessions);
+        } catch (error) {
+            console.error("Failed to fetch sessions", error);
+        } finally {
+            setIsLoadingSessions(false);
+        }
+    };
+
+    const handleSessionSelect = async (id: string) => {
+        setIsLoadModalOpen(false);
+        await onLoad(id);
     };
 
     // Checking token availability
@@ -283,31 +314,29 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                                     <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Session</h3>
                                 </div>
 
-                                <div className="flex items-center gap-2 pb-2">
+                                <div className="grid grid-cols-3 gap-2 pb-2">
                                     <button 
                                         onClick={handleQuickSave}
                                         disabled={isSaving}
-                                        className="flex-1 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors shadow-inner flex items-center justify-center gap-2"
+                                        className="col-span-1 py-2 bg-slate-900 border border-slate-700 hover:bg-slate-700 text-slate-300 hover:text-white rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed gap-1.5"
                                     >
-                                        {isSaving ? (
-                                            <svg className="animate-spin h-3.5 w-3.5 text-slate-300" fill="none" viewBox="0 0 24 24">
-                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                                            </svg>
-                                        ) : (
-                                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                                            </svg>
-                                        )}
                                         Save
                                     </button>
                                     
                                     <button 
                                         onClick={openSaveAsModal}
                                         disabled={isSaving}
-                                        className="flex-1 py-2 bg-slate-900 border border-slate-700 hover:bg-slate-700 hover:text-white text-slate-300 rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center"
+                                        className="col-span-1 py-2 bg-slate-900 border border-slate-700 hover:bg-slate-700 text-slate-300 hover:text-white rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                        Save As...
+                                        Save As
+                                    </button>
+                                    
+                                    <button 
+                                        onClick={openLoadModal}
+                                        disabled={isSaving}
+                                        className="col-span-1 py-2 bg-slate-900 border border-slate-700 hover:bg-slate-700 text-slate-300 hover:text-white rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Load
                                     </button>
                                 </div>
                                 
@@ -439,6 +468,62 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                             >
                                 {isSaving ? "Saving..." : "Save Session"}
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {isLoadModalOpen && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+                    <div className="bg-slate-800 border border-slate-600 rounded-xl p-6 w-[450px] shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[80vh]">
+                        
+                        <div className="flex justify-between items-start mb-4">
+                            <div>
+                                <h2 className="text-lg font-bold text-white mb-1">Load Session</h2>
+                                <p className="text-xs text-slate-400">Select a saved workspace to restore.</p>
+                            </div>
+                            <button onClick={() => setIsLoadModalOpen(false)} className="text-slate-400 hover:text-white p-1">
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        
+                        {/* Session List */}
+                        <div className="flex-1 overflow-y-auto pr-2 space-y-2 min-h-[200px]">
+                            {isLoadingSessions ? (
+                                <div className="flex flex-col items-center justify-center h-full text-slate-400 space-y-3">
+                                    <svg className="animate-spin h-6 w-6 text-teal-500" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                    </svg>
+                                    <span className="text-xs font-medium uppercase tracking-wider">Loading sessions...</span>
+                                </div>
+                            ) : sessionsList.length === 0 ? (
+                                <div className="flex items-center justify-center h-full text-xs text-slate-500">
+                                    No saved sessions found.
+                                </div>
+                            ) : (
+                                sessionsList.map((session) => (
+                                    <button
+                                        key={session.id}
+                                        onClick={() => handleSessionSelect(session.id)}
+                                        className="w-full text-left p-3 rounded-lg bg-slate-900 border border-slate-700 hover:border-teal-500/50 hover:bg-slate-800 transition-all group flex justify-between items-center"
+                                    >
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-bold text-slate-200 group-hover:text-teal-400 transition-colors">
+                                                {session.name}
+                                            </span>
+                                            <span className="text-[10px] text-slate-500 mt-0.5 font-mono">
+                                                {new Date(session.updated_at).toLocaleString()}
+                                            </span>
+                                        </div>
+                                        <svg className="w-4 h-4 text-slate-600 group-hover:text-teal-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </button>
+                                ))
+                            )}
                         </div>
                     </div>
                 </div>
