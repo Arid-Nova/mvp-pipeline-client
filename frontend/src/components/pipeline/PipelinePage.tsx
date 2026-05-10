@@ -8,7 +8,8 @@ import {
     generatePrompts,
     generateTestSuites,
     analyzeAegis,
-    fetchChangeImpact
+    fetchChangeImpact,
+    saveSession
 } from '../../services/api';
 import { RepositoryInput, VerificationInput } from '../../services/types';
 import { CardType, SystemPayload, ComponentPayload, PipelinePayload, NodeData, Connection, ScenarioPayload} from './models';
@@ -63,6 +64,7 @@ const PipelinePage: React.FC = () => {
 
     // Named Session State
     const [sessionName, setSessionName] = useState<string>('');
+    const [sessionId, setSessionId] = useState<string | null>(null);
 
     // Names Session Management 
     useEffect(() => {
@@ -80,6 +82,40 @@ const PipelinePage: React.FC = () => {
             setSessionName(generateSessionName());
         }
     }, [sessionName]);
+
+    const handleSaveSession = async (newName: string, isSaveAs: boolean = false) => {
+        try {
+            const canvasData = {
+                nodes: nodes,               
+                connections: connections,  
+                viewport: {
+                    scale: scale,           
+                    offset: offset          
+                },
+                ui: {
+                    expandedCategories: expandedCategories 
+                }
+            };
+
+            const targetSessionId = isSaveAs ? undefined : (sessionId || undefined);
+            const newSessionId = await saveSession(newName, canvasData, targetSessionId);
+            
+            setSessionName(newName);
+            setSessionId(newSessionId);
+            
+            setNotification({
+                type: 'success',
+                message: 'Session saved successfully!',
+                duration: 5000
+            });      
+        } catch {
+            setNotification({
+                type: 'error',
+                message: 'Failed to save session.',
+                duration: 5000
+            });   
+        }
+    };
 
     // Zoom handling
     const handleWheel = (e: React.WheelEvent) => {
@@ -1144,9 +1180,11 @@ const PipelinePage: React.FC = () => {
                 isLinking={isLinking}
                 nodesCount={nodes.length}
                 isRunning={isRunning}
+                sessionName={sessionName}
+                sessionId={sessionId}  
                 clearPipeline={clearPipeline}
                 runPipeline={runPipeline}
-                sessionName={sessionName}
+                onSave={handleSaveSession}       
             />
             
             <div className="flex flex-1 overflow-hidden">

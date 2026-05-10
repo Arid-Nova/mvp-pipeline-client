@@ -15,6 +15,16 @@ export const fetchIRFromRepo = async (input: RepositoryInput) => {
     }
 };
 
+export const saveSession = async (name: string, canvasData: any, sessionId?: string): Promise<string> => {
+    const response = await axios.post(`/sessions`, {
+        name: name,
+        canvas_data: canvasData,
+        session_id: sessionId || null
+    });
+
+    return response.data.session_id; 
+};
+
 export const verifySystem = async (input: VerificationInput): Promise<VerificationResponse> => {
     try {
         const response = await axios.post('http://localhost:9000/verify', input);

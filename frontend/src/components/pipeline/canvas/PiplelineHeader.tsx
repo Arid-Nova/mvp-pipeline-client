@@ -125,8 +125,10 @@ interface PipelineHeaderProps {
     nodesCount: number; 
     isRunning: boolean;
     sessionName?: string;
+    sessionId: string | null;
     clearPipeline: () => void;
     runPipeline: () => void;
+    onSave: (name: string, isSaveAs: boolean) => Promise<void>;
 }
 
 export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
@@ -134,6 +136,8 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
     nodesCount,
     isRunning,
     sessionName,
+    sessionId,
+    onSave,
     clearPipeline,
     runPipeline
 }) => {
@@ -141,6 +145,31 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
     const [tokenInput, setTokenInput] = useState('');
     const [showWarning, setShowWarning] = useState(false);
     const settingsRef = useRef<HTMLDivElement>(null);
+
+    // Session Saving States
+    const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+    const [editSessionName, setEditSessionName] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+
+    // Session Hadlers
+    const handleQuickSave = async () => {
+        setIsSaving(true);
+        await onSave(sessionName || 'Untitled Session', !sessionId);
+        setIsSaving(false);
+    };
+
+    const handleSaveAsSubmit = async () => {
+        if (!editSessionName.trim()) return;
+        setIsSaving(true);
+        await onSave(editSessionName.trim(), true);
+        setIsSaving(false);
+        setIsSaveModalOpen(false);
+    };
+
+    const openSaveAsModal = () => {
+        setEditSessionName(sessionName || '');
+        setIsSaveModalOpen(true);
+    };
 
     // Checking token availability
     useEffect(() => {
@@ -208,6 +237,7 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
             {/* Right Side: Status and Controls */}
             <div className="flex items-center gap-4">
                 <StatusIndicators isLinking={isLinking} />
+
                 {nodesCount > 0 && (
                     <button 
                         onClick={clearPipeline}
@@ -242,7 +272,46 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                     {isSettingsOpen && (
                         <div className="absolute right-0 top-full mt-2 w-72 bg-slate-800/95 backdrop-blur-md border border-slate-600 rounded-xl shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200 origin-top-right">
                             <div className="p-4 space-y-4">
+
+                                {/* Session Saving Settings */}
+                                <div className="flex items-center gap-2 border-b border-slate-700 pb-2">
+                                   <svg className="w-4 h-4 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 21v-8H7v8" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 3v5h8V3" />
+                                    </svg>
+                                    <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Session</h3>
+                                </div>
+
+                                <div className="flex items-center gap-2 pb-2">
+                                    <button 
+                                        onClick={handleQuickSave}
+                                        disabled={isSaving}
+                                        className="flex-1 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors shadow-inner flex items-center justify-center gap-2"
+                                    >
+                                        {isSaving ? (
+                                            <svg className="animate-spin h-3.5 w-3.5 text-slate-300" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                            </svg>
+                                        ) : (
+                                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        )}
+                                        Save
+                                    </button>
+                                    
+                                    <button 
+                                        onClick={openSaveAsModal}
+                                        disabled={isSaving}
+                                        className="flex-1 py-2 bg-slate-900 border border-slate-700 hover:bg-slate-700 hover:text-white text-slate-300 rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center"
+                                    >
+                                        Save As...
+                                    </button>
+                                </div>
                                 
+                                {/* GitHub Token Settings */}
                                 <div className="flex items-center gap-2 border-b border-slate-700 pb-2">
                                     <svg className="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
@@ -340,6 +409,40 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                     </div>
                 </div>
             </div>
+            
+            {isSaveModalOpen && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+                    <div className="bg-slate-800 border border-slate-600 rounded-xl p-6 w-96 shadow-2xl animate-in zoom-in-95 duration-200">
+                        <h2 className="text-lg font-bold text-white mb-1">Save Session As</h2>
+                        <p className="text-xs text-slate-400 mb-4">Save your current workspace for later use.</p>
+                        
+                        <input 
+                            type="text" 
+                            value={editSessionName}
+                            onChange={(e) => setEditSessionName(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-md p-2.5 text-sm text-white focus:border-teal-500 focus:ring-1 focus:ring-teal-500/50 outline-none mb-5 transition-all"
+                            placeholder="Session Name"
+                            autoFocus
+                        />
+                        
+                        <div className="flex gap-3 justify-end">
+                            <button 
+                                onClick={() => setIsSaveModalOpen(false)}
+                                className="px-4 py-2 text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-700 rounded-md transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={handleSaveAsSubmit}
+                                disabled={!editSessionName.trim() || isSaving}
+                                className="px-4 py-2 text-xs font-bold text-white bg-teal-600 hover:bg-teal-500 disabled:bg-slate-700 disabled:text-slate-500 rounded-md transition-colors shadow-md flex items-center gap-2"
+                            >
+                                {isSaving ? "Saving..." : "Save Session"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
