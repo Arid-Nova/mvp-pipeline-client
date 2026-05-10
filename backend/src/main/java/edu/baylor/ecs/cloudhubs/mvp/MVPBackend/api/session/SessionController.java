@@ -6,6 +6,7 @@ import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.model.ForbiddenException;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.session.SessionPageResponse;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.session.SessionResponse;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -52,6 +53,27 @@ public class SessionController {
         } catch (Exception e) {
             e.printStackTrace();
             return Errors.Response500InternalServerError(e.getCause(), e.getMessage());
+        }
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getSessionMetadata(@PathVariable("id") String id) {
+        try {
+            return ResponseEntity.ok(sessionService.getSessionMetadata(id));
+        } catch (Exception e) {
+            return Errors.Response500InternalServerError(e.getCause(), e.getMessage());
+        }
+    }
+
+    @GetMapping(value = "/{id}/canvas", produces = "application/gzip")
+    public ResponseEntity<byte[]> getSessionCanvas(@PathVariable("id") String id) {
+        try {
+            byte[] compressedData = sessionService.getSessionCanvasData(id);
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"canvas.json.gz\"")
+                    .body(compressedData);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
         }
     }
 }

@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.web.multipart.MultipartFile;
 
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.session.SessionDetailResponse;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.session.SessionEntity;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.session.SessionResponse;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.session.SessionRepository;
@@ -74,5 +75,22 @@ public class SessionService {
                 documentPage.getTotalPages(),
                 documentPage.getTotalElements()
         );
+    }
+
+    public SessionDetailResponse getSessionMetadata(String id) {
+        SessionEntity document = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Session not found"));
+                
+        return new SessionDetailResponse(
+                document.getId(),
+                document.getName(),
+                document.getUpdatedAt() != null ? document.getUpdatedAt() : document.getCreatedAt()
+        );
+    }
+
+    public byte[] getSessionCanvasData(String id) {
+        SessionEntity document = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Session not found"));
+        return document.getCanvasData();
     }
 }

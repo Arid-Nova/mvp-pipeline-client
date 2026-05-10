@@ -46,8 +46,27 @@ export const getAvailableSessions = async (page: number = 0, size: number = 10):
 };
 
 export const loadSession = async (sessionId: string): Promise<any> => {
-    const response = await axios.get(`/sessions/${sessionId}`);
-    return response.data;
+    // Metadata about the session
+    const metaResponse = await axios.get(`/sessions/${sessionId}`);
+    const sessionName = metaResponse.data.name;
+
+    // Retreiving the compressed binary blob
+    const fileResponse = await axios.get(`/sessions/${sessionId}/canvas`, {
+        responseType: 'blob'
+    });
+
+    // Decompressing
+    const compressedStream = fileResponse.data.stream();
+    const decompressionStream = new DecompressionStream('gzip');
+    const decompressedStream = compressedStream.pipeThrough(decompressionStream);
+    
+    const decompressedText = await new Response(decompressedStream).text();
+    const canvasData = JSON.parse(decompressedText);
+
+    return {
+        name: sessionName,
+        canvas_data: canvasData
+    };
 };
 
 export const verifySystem = async (input: VerificationInput): Promise<VerificationResponse> => {
