@@ -8,8 +8,11 @@ import lombok.Data;
 
 @Data
 @AllArgsConstructor
-public class SessionListResponse {
+public class SessionPageResponse {
     private List<SessionSummary> sessions;
+    private int currentPage;
+    private int totalPages;
+    private long totalElements;
     
     @Data
     @AllArgsConstructor

@@ -3,7 +3,7 @@ package edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.session;
 import lombok.RequiredArgsConstructor;
 
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.model.ForbiddenException;
-import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.session.SessionListResponse;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.session.SessionPageResponse;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.session.SessionResponse;
 
 import org.springframework.http.ResponseEntity;
@@ -43,9 +43,11 @@ public class SessionController {
     }
 
     @GetMapping
-    public ResponseEntity<?> getAvailableSessions() {
+    public ResponseEntity<?> getAvailableSessions(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
         try {
-            SessionListResponse response = sessionService.getAvailableSessions();
+            SessionPageResponse response = sessionService.getAvailableSessions(page, size);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             e.printStackTrace();

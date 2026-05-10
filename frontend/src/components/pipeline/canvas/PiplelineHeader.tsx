@@ -162,6 +162,8 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
     const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
     const [sessionsList, setSessionsList] = useState<any[]>([]);
     const [isLoadingSessions, setIsLoadingSessions] = useState(false);
+    const [currentPage, setCurrentPage] = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
 
     // Session Hadlers
     const handleQuickSave = async () => {
@@ -183,18 +185,24 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
         setIsSaveModalOpen(true);
     };
 
-    const openLoadModal = async () => {
-        setIsLoadModalOpen(true);
-        setIsSettingsOpen(false);
+    const fetchSessionsPage = async (page: number) => {
         setIsLoadingSessions(true);
         try {
-            const sessions = await getAvailableSessions();
-            setSessionsList(sessions);
+            const data = await getAvailableSessions(page, 10); 
+            setSessionsList(data.sessions);
+            setCurrentPage(data.currentPage);
+            setTotalPages(data.totalPages);
         } catch (error) {
             console.error("Failed to fetch sessions", error);
         } finally {
             setIsLoadingSessions(false);
         }
+    };
+
+    const openLoadModal = async () => {
+        setIsLoadModalOpen(true);
+        setIsSettingsOpen(false);
+        fetchSessionsPage(0);
     };
 
     const handleSessionSelect = async (id: string) => {
@@ -482,7 +490,7 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                                 <h2 className="text-lg font-bold text-white mb-1">Load Session</h2>
                                 <p className="text-xs text-slate-400">Select a saved workspace to restore.</p>
                             </div>
-                            <button onClick={() => setIsLoadModalOpen(false)} className="text-slate-400 hover:text-white p-1">
+                            <button onClick={() => setIsLoadModalOpen(false)} className="text-slate-400 hover:text-white p-1 transition-colors">
                                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                 </svg>
@@ -525,6 +533,32 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                                 ))
                             )}
                         </div>
+
+                        {/* Pagination Footer */}
+                        {totalPages > 1 && (
+                            <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-700">
+                                <button
+                                    onClick={() => fetchSessionsPage(currentPage - 1)}
+                                    disabled={currentPage === 0 || isLoadingSessions}
+                                    className="px-3 py-1.5 bg-slate-900 border border-slate-700 hover:bg-slate-700 text-slate-300 hover:text-white rounded text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Previous
+                                </button>
+                                
+                                <span className="text-xs text-slate-500 font-mono">
+                                    Page {currentPage + 1} of {totalPages}
+                                </span>
+                                
+                                <button
+                                    onClick={() => fetchSessionsPage(currentPage + 1)}
+                                    disabled={currentPage >= totalPages - 1 || isLoadingSessions}
+                                    className="px-3 py-1.5 bg-slate-900 border border-slate-700 hover:bg-slate-700 text-slate-300 hover:text-white rounded text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        )}
+                        
                     </div>
                 </div>
             )}

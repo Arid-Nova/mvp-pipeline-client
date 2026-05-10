@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { showError } from '../utils/notifications';
-import { RepositoryInput, VerificationInput, VerificationResponse, OrgImportResponse } from './types';
+import { RepositoryInput, VerificationInput, VerificationResponse, OrgImportResponse, SessionPageResponse } from './types';
 import { PromptItem } from '../components/pipeline/models';
 
 
@@ -38,9 +38,11 @@ export const saveSession = async (name: string, canvasData: any, sessionId?: str
     return response.data.session_id; 
 };
 
-export const getAvailableSessions = async (): Promise<any[]> => {
-    const response = await axios.get('/sessions');
-    return response.data.sessions;
+export const getAvailableSessions = async (page: number = 0, size: number = 10): Promise<SessionPageResponse> => {
+    const response = await axios.get('/sessions', {
+        params: { page, size }
+    });
+    return response.data;
 };
 
 export const loadSession = async (sessionId: string): Promise<any> => {

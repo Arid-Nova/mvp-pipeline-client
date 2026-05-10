@@ -3,17 +3,20 @@ package edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.session;
 import lombok.extern.log4j.Log4j2;
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.web.multipart.MultipartFile;
 
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.session.SessionEntity;
-import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.session.SessionListResponse;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.session.SessionResponse;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.session.SessionRepository;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.session.SessionPageResponse;
 
 import java.util.*;
-import java.util.stream.Collectors;
 import java.time.Instant;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -52,18 +55,24 @@ public class SessionService {
         return new SessionResponse(savedSession.getId());
     }
 
-    public SessionListResponse getAvailableSessions() {
-        List<SessionEntity> documents = repository.findAllWithoutCanvasData();
+    public SessionPageResponse getAvailableSessions(int page, int size) {
+        PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "updatedAt"));
 
-        List<SessionListResponse.SessionSummary> summaries = documents.stream()
-                .map(doc -> new SessionListResponse.SessionSummary(
+        Page<SessionEntity> documentPage = repository.findAllWithoutCanvasData(pageRequest);
+
+        List<SessionPageResponse.SessionSummary> summaries = documentPage.getContent().stream()
+                .map(doc -> new SessionPageResponse.SessionSummary(
                         doc.getId(), 
                         doc.getName(), 
                         doc.getUpdatedAt() != null ? doc.getUpdatedAt() : doc.getCreatedAt()
                 ))
-                .sorted(Comparator.comparing(SessionListResponse.SessionSummary::getUpdatedAt).reversed())
                 .collect(Collectors.toList());
 
-        return new SessionListResponse(summaries);
+        return new SessionPageResponse(
+                summaries,
+                documentPage.getNumber(),
+                documentPage.getTotalPages(),
+                documentPage.getTotalElements()
+        );
     }
 }
