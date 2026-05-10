@@ -15,6 +15,7 @@ import { CardType, SystemPayload, ComponentPayload, PipelinePayload, NodeData, C
 
 // Configuration and Constants
 import {CATEGORIES, VALID_CONNECTIONS} from './pipelineConfig'
+import sessionDictionary from '../../utils/sessionDictionary.json';
 
 // Card Components
 import { SystemInputCard } from './cards/SystemInputCard';
@@ -59,6 +60,26 @@ const PipelinePage: React.FC = () => {
 
     // Notification States
     const [notification, setNotification] = useState<ToastNotification | null>(null);
+
+    // Named Session State
+    const [sessionName, setSessionName] = useState<string>('');
+
+    // Names Session Management 
+    useEffect(() => {
+        const generateSessionName = (): string => {
+            const { adjectives, nouns } = sessionDictionary;
+            
+            const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+            const noun = nouns[Math.floor(Math.random() * nouns.length)];
+            const date = new Date().toISOString().split('T')[0]; 
+            
+            return `${adj}-${noun}-${date}`;
+        };
+
+        if (!sessionName) {
+            setSessionName(generateSessionName());
+        }
+    }, [sessionName]);
 
     // Zoom handling
     const handleWheel = (e: React.WheelEvent) => {
@@ -1125,6 +1146,7 @@ const PipelinePage: React.FC = () => {
                 isRunning={isRunning}
                 clearPipeline={clearPipeline}
                 runPipeline={runPipeline}
+                sessionName={sessionName}
             />
             
             <div className="flex flex-1 overflow-hidden">

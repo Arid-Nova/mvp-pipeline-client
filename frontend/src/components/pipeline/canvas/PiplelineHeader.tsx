@@ -3,8 +3,10 @@ import { saveGitHubToken, deleteGitHubToken, checkGitHubTokenStatus } from '../.
 
 import { useNavigate } from 'react-router-dom';
 
-const BrandSection = () => {
+const BrandSection = ({ sessionName }: { sessionName?: string }) => {
     const navigate = useNavigate();
+
+    const displayTitle = sessionName ? sessionName.split('-').slice(0, 2).join(' ') : '';
 
     return (
         <div className="flex items-center gap-6">
@@ -58,10 +60,29 @@ const BrandSection = () => {
                 {/* Divider */}
                 <span className="text-slate-600 font-light text-2xl mx-1 mb-1">|</span>
                 
-                {/* Subtitle */}
-                <span className="text-[13px] font-semibold text-slate-400 tracking-wider uppercase mt-1">
-                    Microservice Analysis Pipeline Creator
-                </span>
+                {/* Subtitle or Session Name */}
+                <div className="flex flex-col mt-1">
+                    {sessionName ? (
+                        <div className="flex items-center gap-2">
+                            <span className="text-[13px] font-semibold text-slate-400 tracking-wider uppercase">
+                                Microservice Analysis Pipeline Creator
+                            </span>
+
+                            <span className="text-slate-600 font-light text-2xl mx-1 mb-1">|</span>
+                            
+                            <span className="text-[13px] font-bold text-slate-200 tracking-wider uppercase" title={sessionName}>
+                                {displayTitle}
+                            </span>
+                            <span className="bg-slate-700/50 text-slate-400 border border-slate-600 text-[9px] px-1.5 py-0.5 rounded-sm uppercase tracking-widest font-semibold">
+                                Unsaved
+                            </span>
+                        </div>
+                    ) : (
+                        <span className="text-[13px] font-semibold text-slate-400 tracking-wider uppercase">
+                            Microservice Analysis Pipeline Creator
+                        </span>
+                    )}
+                </div>
             </div>
         </div>
     );
@@ -103,6 +124,7 @@ interface PipelineHeaderProps {
     isLinking: boolean | string | null;
     nodesCount: number; 
     isRunning: boolean;
+    sessionName?: string;
     clearPipeline: () => void;
     runPipeline: () => void;
 }
@@ -111,6 +133,7 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
     isLinking,
     nodesCount,
     isRunning,
+    sessionName,
     clearPipeline,
     runPipeline
 }) => {
@@ -180,7 +203,7 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
     return (
         <div className="h-16 border-b border-slate-700 bg-slate-800 flex items-center justify-between px-6 z-20 shadow-md">
             {/* Left Side: Brand and Navigation */}
-            <BrandSection />
+            <BrandSection sessionName={sessionName}/>
 
             {/* Right Side: Status and Controls */}
             <div className="flex items-center gap-4">
