@@ -43,6 +43,8 @@ class AnalysisFacade:
             uri=config['MONGO']['uri'],
             db_name=config['MONGO']['db_name']
         )
+
+        self.ir_endpoint = config['IR']['url']
         
         # 2. Initialize graph loader
         self.graph_loader = GraphLoader(self.neo4j_service)
@@ -80,8 +82,6 @@ class AnalysisFacade:
         return results
     
     def _get_ir_for_analysis(self, ir_id: str) -> Dict[str, Any]:
-        url = "http://host.docker.internal:8080/ir/create"
-
         payload = {
             "id": ir_id,
             "systemName": "",
@@ -94,7 +94,7 @@ class AnalysisFacade:
         }
         
         try:
-            response = requests.post(url, json=payload, headers=headers, timeout=30)
+            response = requests.post(self.ir_endpoint, json=payload, headers=headers, timeout=30)
             if response.status_code != 200:
                 response.raise_for_status()
 
