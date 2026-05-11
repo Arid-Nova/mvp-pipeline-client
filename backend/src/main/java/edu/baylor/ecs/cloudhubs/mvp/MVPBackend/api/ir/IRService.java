@@ -29,6 +29,10 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.zip.GZIPOutputStream;
+
 import java.util.*;
 
 @Log4j2
@@ -41,7 +45,7 @@ public class IRService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public JsonNode createAndWrite(IRRequestModel irRequestModel)
+    public byte[] createAndWrite(IRRequestModel irRequestModel)
             throws Exception {
         // Pre-checking if the IR already exists
         if(irRequestModel.getId() != null)
@@ -57,9 +61,7 @@ public class IRService {
         enrichWithAntiPatterns(rootNode);
 
         // 4. Save the IR in DB and return the ID
-        ((ObjectNode) rootNode).put("id", saveIR(rootNode));
-
-        return rootNode;
+        return saveIR(microserviceSystem.getName(),rootNode);
     }
 
     public String getIRMetaByName(IRByNameRequest irRequestModel) 
@@ -255,28 +257,34 @@ public class IRService {
     }
 
     // Repository operations
-    private String saveIR(JsonNode rootNode) {
-        Map<String, Object> jsonMap = objectMapper.convertValue(rootNode, new TypeReference<>() {});
-        jsonMap.put("metadata", Map.of(
-            "createDate", new Date(),
-            "modifyDate", new Date()
-        ));
-        MicroserviceEntity entity = new MicroserviceEntity(jsonMap);
+    private  byte[] saveIR(String systemName, JsonNode rootNode) throws IOException {
+        ObjectNode objectNode = (ObjectNode) rootNode;
+        String id = new org.bson.types.ObjectId().toString();
+        objectNode.put("id", id);
 
-        MicroserviceEntity savedEntity = repository.save(entity);
-        return savedEntity.getId();
+        ObjectNode metadata = objectNode.putObject("metadata");
+        metadata.put("createDate", new Date().toString());
+        metadata.put("modifyDate", new Date().toString());
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (GZIPOutputStream gzos = new GZIPOutputStream(baos)) {
+            objectMapper.writeValue(gzos, objectNode);
+        }
+        byte[] compressedData = baos.toByteArray();
+
+        MicroserviceEntity entity = new MicroserviceEntity(systemName, compressedData);
+        entity.setId(id);
+        repository.save(entity);
+
+        return compressedData;
     }
 
-    private JsonNode getIRById(String id) {
+    private byte[] getIRById(String id) {
         Optional<MicroserviceEntity> optionalEntity = repository.findById(id);
 
         if (optionalEntity.isPresent()) {
             MicroserviceEntity entity = optionalEntity.get();
-            JsonNode rootNode = objectMapper.valueToTree(entity.getPayload());
-            if (rootNode.isObject()) {
-                ((ObjectNode) rootNode).put("id", entity.getId());
-            }
-            return rootNode;
+            return entity.getPayload();
         } else {
             throw new IllegalArgumentException("No microservice system found with ID: " + id);
         }

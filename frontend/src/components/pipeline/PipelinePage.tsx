@@ -210,7 +210,7 @@ const PipelinePage: React.FC = () => {
         }
     };
 
-    // --- Reequesting Notification Permission ---
+    // --- Requesting Notification Permission ---
     useEffect(() => {
         if ('Notification' in window && Notification.permission === 'default') {
             Notification.requestPermission();
@@ -415,7 +415,6 @@ const PipelinePage: React.FC = () => {
     };
 
     // --- Linking Logic ---
-
     const handleLinkClick = (id: string, type: string) => {
         if (!isLinking) {
             setIsLinking(id);
