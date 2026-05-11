@@ -29,8 +29,10 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
 import java.util.*;
@@ -78,21 +80,14 @@ public class IRService {
         throw new IllegalArgumentException("No microservice system found with name pattern: " + irRequestModel.getSystemName());
     }
 
-    public JsonNode[] getIRsByName(IRByNameRequest irRequestModel) 
-            throws IllegalArgumentException {
-
-        String rawSystemName = irRequestModel.getSystemName();
+    public byte[] getIRsByName(IRByNameRequest irRequestModel) 
+            throws IllegalArgumentException, IOException {
 
         // 1. Transforming the string into a flexible regex pattern
-        String flexiblePattern = buildFlexibleRegex(rawSystemName);
+        String flexiblePattern = buildFlexibleRegex(irRequestModel.getSystemName());
 
         // 2. Searching based on generic pattern
-        JsonNode[] response = getIRsByName(flexiblePattern);
-        if (response.length == 0) {
-            throw new IllegalArgumentException("No microservice system found with name pattern: " + irRequestModel.getSystemName());
-        }
-
-        return response;
+        return getIRsByName(flexiblePattern);
     }
 
     private String buildFlexibleRegex(String input) {
@@ -290,20 +285,33 @@ public class IRService {
         }
     }
 
-    private JsonNode[] getIRsByName(String namePattern) {
-        Pageable topFiveLatest = PageRequest.of(0, 5, 
-            Sort.by(Sort.Direction.DESC, "payload.metadata.createDate"));
+    private byte[] getIRsByName(String namePattern) throws IOException {
+        Pageable topFiveLatest = PageRequest.of(0, 4, 
+            Sort.by(Sort.Direction.DESC, "createdAt"));
         List<MicroserviceEntity> entities = repository.findByPayloadNameMatching(namePattern, topFiveLatest);
     
-        return entities.stream()
-                .map(entity -> {
-                    JsonNode rootNode = objectMapper.valueToTree(entity.getPayload());
-                    if (rootNode.isObject()) {
-                        ((ObjectNode) rootNode).put("id", entity.getId());
-                    }
-                    return rootNode;
-                })
-                .toArray(JsonNode[]::new);
+        if (entities.isEmpty()) {
+            throw new IllegalArgumentException("No systems found with name!");
+        }
+        
+        ArrayNode resultArray = objectMapper.createArrayNode();
+        
+        for (MicroserviceEntity entity : entities) {
+            // Decompress individual payload
+            try (GZIPInputStream gis = new GZIPInputStream(new ByteArrayInputStream(entity.getPayload()))) {
+                JsonNode irJson = objectMapper.readTree(gis);
+                if (irJson.isObject()) {
+                    ((ObjectNode) irJson).put("id", entity.getId());
+                }
+                resultArray.add(irJson);
+            }
+        }
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (GZIPOutputStream gzos = new GZIPOutputStream(baos)) {
+            objectMapper.writeValue(gzos, resultArray);
+        }
+        return baos.toByteArray();
     }
 
     private boolean getIRMetaByName(String namePattern) {

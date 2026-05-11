@@ -50,9 +50,19 @@ export const checkHistoricalIRs = async (systemName: string): Promise<boolean> =
 export const fetchHistoricalIRs = async (systemName: string): Promise<any[]> => {
     try {
         const response = await axios.get('/ir', { 
-            params: { systemName }
+            params: { systemName },
+            responseType: 'blob'
         });
-        return response.data;
+
+        const ds = new DecompressionStream("gzip");
+        const decompressedStream = response.data.stream().pipeThrough(ds);
+        const responseText = await new Response(decompressedStream).text();
+
+        let irs = JSON.parse(responseText);
+
+        console.log("Fetched historical IRs:", irs);
+
+        return irs;
     } catch (error: any) {
         console.error("Failed to fetch historical IRs:", error);
         showError("Failed to load historical timeline data.");
