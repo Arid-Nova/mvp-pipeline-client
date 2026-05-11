@@ -52,3 +52,17 @@ export interface OrgImportResponse {
     relevantRepos: RepoData[];
     suggestedRepos: RepoData[];
 }
+
+// Session Management Types
+export interface SessionSummary {
+    id: string;
+    name: string;
+    updated_at: string; 
+}
+
+export interface SessionPageResponse {
+    sessions: SessionSummary[];
+    currentPage: number;
+    totalPages: number;
+    totalElements: number;
+}

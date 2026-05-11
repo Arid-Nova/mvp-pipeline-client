@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { showError } from '../utils/notifications';
-import { RepositoryInput, VerificationInput, VerificationResponse, OrgImportResponse } from './types';
+import { RepositoryInput, VerificationInput, VerificationResponse, OrgImportResponse, SessionPageResponse } from './types';
 import { PromptItem } from '../components/pipeline/models';
 
 
@@ -13,6 +13,64 @@ export const fetchIRFromRepo = async (input: RepositoryInput) => {
         showError(msg);
         throw error;
     }
+};
+
+export const saveSession = async (name: string, canvasData: any, sessionId?: string): Promise<string> => {
+    // Compresing the session data
+    const jsonString = JSON.stringify(canvasData);
+    const stream = new Blob([jsonString]).stream().pipeThrough(new CompressionStream('gzip'));
+    const compressedBlob = await new Response(stream).blob();
+
+    const formData = new FormData();
+    formData.append('name', name);
+    if (sessionId) {
+        formData.append('session_id', sessionId);
+    }
+
+    formData.append('canvas_data_file', compressedBlob, 'canvas.json.gz');
+
+    const response = await axios.post('/sessions', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data'
+        }
+    });
+
+    return response.data.session_id; 
+};
+
+export const getAvailableSessions = async (page: number = 0, size: number = 10): Promise<SessionPageResponse> => {
+    const response = await axios.get('/sessions', {
+        params: { page, size }
+    });
+    return response.data;
+};
+
+export const loadSession = async (sessionId: string): Promise<any> => {
+    // Metadata about the session
+    const metaResponse = await axios.get(`/sessions/${sessionId}`);
+    const sessionName = metaResponse.data.name;
+
+    // Retreiving the compressed binary blob
+    const fileResponse = await axios.get(`/sessions/${sessionId}/canvas`, {
+        responseType: 'blob'
+    });
+
+    // Decompressing
+    const compressedStream = fileResponse.data.stream();
+    const decompressionStream = new DecompressionStream('gzip');
+    const decompressedStream = compressedStream.pipeThrough(decompressionStream);
+    
+    const decompressedText = await new Response(decompressedStream).text();
+    const canvasData = JSON.parse(decompressedText);
+
+    return {
+        name: sessionName,
+        canvas_data: canvasData
+    };
+};
+
+export const deleteSession = async (sessionId: string): Promise<void> => {
+    await axios.delete(`/sessions/${sessionId}`);
 };
 
 export const verifySystem = async (input: VerificationInput): Promise<VerificationResponse> => {

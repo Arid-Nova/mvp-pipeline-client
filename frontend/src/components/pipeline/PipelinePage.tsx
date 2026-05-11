@@ -8,13 +8,16 @@ import {
     generatePrompts,
     generateTestSuites,
     analyzeAegis,
-    fetchChangeImpact
+    fetchChangeImpact,
+    saveSession,
+    loadSession
 } from '../../services/api';
 import { RepositoryInput, VerificationInput } from '../../services/types';
 import { CardType, SystemPayload, ComponentPayload, PipelinePayload, NodeData, Connection, ScenarioPayload} from './models';
 
 // Configuration and Constants
 import {CATEGORIES, VALID_CONNECTIONS} from './pipelineConfig'
+import sessionDictionary from '../../utils/sessionDictionary.json';
 
 // Card Components
 import { SystemInputCard } from './cards/SystemInputCard';
@@ -44,7 +47,12 @@ import NotificationToast from '../generic/NotificationToast';
 
 
 // In-browser cache to avoid data resetting
-let inMemoryPipelineCache: { nodes: NodeData[], connections: Connection[] } | null = null;
+let inMemoryPipelineCache: { 
+    nodes: NodeData[], 
+    connections: Connection[], 
+    sessionName: string,
+    sessionId: string | null
+} | null = null;
 
 const PipelinePage: React.FC = () => {
     // Zoom and Pan State
@@ -59,6 +67,117 @@ const PipelinePage: React.FC = () => {
 
     // Notification States
     const [notification, setNotification] = useState<ToastNotification | null>(null);
+
+    // Named Session State
+    const [sessionName, setSessionName] = useState<string>(() => {
+        if (inMemoryPipelineCache) return inMemoryPipelineCache.sessionName;
+        return sessionStorage.getItem('pipeline_session_name') || '';
+    });
+    
+    const [sessionId, setSessionId] = useState<string | null>(() => {
+        if (inMemoryPipelineCache) return inMemoryPipelineCache.sessionId;
+        return sessionStorage.getItem('pipeline_session_id');
+    });
+
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
+    const lastSavedStateRef = useRef<string>('');
+
+    useEffect(() => {
+        lastSavedStateRef.current = JSON.stringify({ nodes, connections });
+    }, []);
+
+    // Names Session Management 
+    useEffect(() => {
+        const generateSessionName = (): string => {
+            const { adjectives, nouns } = sessionDictionary;
+            
+            const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+            const noun = nouns[Math.floor(Math.random() * nouns.length)];
+            const date = new Date().toISOString().split('T')[0]; 
+            
+            return `${adj}-${noun}-${date}`;
+        };
+
+        if (!sessionName) {
+            setSessionName(generateSessionName());
+        }
+    }, [sessionName]);
+
+    const handleSaveSession = async (newName: string, isSaveAs: boolean = false) => {
+        try {
+            const canvasData = {
+                nodes: nodes,               
+                connections: connections,  
+                viewport: {
+                    scale: scale,           
+                    offset: offset          
+                },
+                ui: {
+                    expandedCategories: expandedCategories 
+                }
+            };
+
+            const targetSessionId = isSaveAs ? undefined : (sessionId || undefined);
+            const newSessionId = await saveSession(newName, canvasData, targetSessionId);
+            
+            setSessionName(newName);
+            setSessionId(newSessionId);
+
+            lastSavedStateRef.current = JSON.stringify({ nodes, connections });
+            setHasUnsavedChanges(false);
+            
+            setNotification({
+                type: 'success',
+                message: 'Session saved successfully!',
+                duration: 5000
+            });      
+        } catch {
+            setNotification({
+                type: 'error',
+                message: 'Failed to save session.',
+                duration: 5000
+            });   
+        }
+    };
+
+    const handleLoadSession = async (targetSessionId: string) => {
+        try {
+            const sessionData = await loadSession(targetSessionId);
+
+            const { name, canvas_data } = sessionData;
+            
+            // Setting the session identity
+            setSessionName(name);
+            setSessionId(targetSessionId);
+            
+            // Restoring Canvas State
+            if (canvas_data.nodes) setNodes(canvas_data.nodes);
+            if (canvas_data.connections) setConnections(canvas_data.connections);
+            
+            // Restoreing Viewport states
+            if (canvas_data.ui?.expandedCategories)
+                setExpandedCategories(canvas_data.ui.expandedCategories);
+
+            lastSavedStateRef.current = JSON.stringify({ 
+                nodes: canvas_data.nodes || [], 
+                connections: canvas_data.connections || [] 
+            });
+            setHasUnsavedChanges(false);
+            
+            setNotification({
+                type: 'success',
+                message: `Workspace loaded successfully!`,
+                duration: 5000
+            });      
+        } catch (error) {
+            console.error("Failed to load session:", error);
+            setNotification({
+                type: 'error',
+                message: 'Failed to load session data.',
+                duration: 5000
+            });   
+        }
+    };
 
     // Zoom handling
     const handleWheel = (e: React.WheelEvent) => {
@@ -138,9 +257,23 @@ const PipelinePage: React.FC = () => {
     };
 
     useEffect(() => {
-        inMemoryPipelineCache = { nodes, connections };
+        inMemoryPipelineCache = { nodes, connections, sessionName, sessionId };
+
+        const currentStateStr = JSON.stringify({ nodes, connections });
+        if (currentStateStr !== lastSavedStateRef.current) {
+            setHasUnsavedChanges(true);
+        } else {
+            setHasUnsavedChanges(false);
+        }
 
         try {
+            sessionStorage.setItem('pipeline_session_name', sessionName);
+            if (sessionId) {
+                sessionStorage.setItem('pipeline_session_id', sessionId);
+            } else {
+                sessionStorage.removeItem('pipeline_session_id');
+            }
+
             const nodesToSave = nodes.map(node => {
                 // Create a shallow copy of data
                 const cleanData = { ...node.data };
@@ -186,12 +319,15 @@ const PipelinePage: React.FC = () => {
         } catch (e) {
             console.warn("Failed to save pipeline state to session storage:", e);
         }
-    }, [nodes, connections]);
+    }, [nodes, connections, sessionName, sessionId]);
 
     const clearPipeline = () => {
         if(window.confirm("Are you sure you want to clear the pipeline? This cannot be undone.")) {
             setNodes([]);
             setConnections([]);
+            setSessionName(''); 
+            setSessionId(null);
+
             inMemoryPipelineCache = null;
             sessionStorage.removeItem('pipeline_nodes');
             sessionStorage.removeItem('pipeline_connections');
@@ -1123,8 +1259,13 @@ const PipelinePage: React.FC = () => {
                 isLinking={isLinking}
                 nodesCount={nodes.length}
                 isRunning={isRunning}
+                sessionName={sessionName}
+                sessionId={sessionId}  
+                hasUnsavedChanges={hasUnsavedChanges}
+                onLoad={handleLoadSession}
                 clearPipeline={clearPipeline}
                 runPipeline={runPipeline}
+                onSave={handleSaveSession}       
             />
             
             <div className="flex flex-1 overflow-hidden">
