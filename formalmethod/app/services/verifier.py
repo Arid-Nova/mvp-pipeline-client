@@ -1,18 +1,25 @@
 import time
+from typing import Any, Dict
 from z3 import sat, unsat
+import requests
+import gzip
+import json
 from ..core.solver.auth_solver import AuthorizationConsistencySolver
 from ..services.parser import getModelFromIRAndCode
 
-def run_verification(ir_data: dict, repo_mappings: list):
+def run_verification(ir_id: str, repo_mappings: list):
     logs = []
     suggestions = []
     start_time = time.perf_counter()
 
     logs.append(f"Building System Model from {len(repo_mappings)} repositories...")
-    msSystem = getModelFromIRAndCode(ir_data, repo_mappings)
+    
+    ir_data = _getIRData(ir_id) 
 
+    ms_system = getModelFromIRAndCode(ir_data, repo_mappings)
+    
     logs.append("Initializing Solver...")
-    solver_wrapper = AuthorizationConsistencySolver(msSystem)
+    solver_wrapper = AuthorizationConsistencySolver(ms_system)
     
     # Add Standard Constraints
     solver_wrapper.addAtLeastOnePermittedRoleConstraints()
@@ -43,7 +50,7 @@ def run_verification(ir_data: dict, repo_mappings: list):
 
     if opt_result == sat:
         model = opt.model()
-        suggestions = extract_suggestions(model, msSystem)
+        suggestions = extract_suggestions(model, ms_system)
         logs.append(f"Optimizer found {len(suggestions)} suggestions.")
     else:
         logs.append("Optimizer could not find a solution.")
@@ -90,3 +97,33 @@ def roleMap(role_mask):
     if role_mask == 6: return "User + Admin Only"
     if role_mask == 7: return "Any Authenticated User"
     return role_mask
+
+def _getIRData(ir_id: str) -> Dict[str, Any]:
+    url = "http://host.docker.internal:8080/ir/create"
+
+    payload = {
+        "id": ir_id,
+        "systemName": "",
+        "systemRepositories": []
+    }
+
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/gzip"
+    }
+    
+    try:
+        response = requests.post(url, json=payload, headers=headers, timeout=30)
+        if response.status_code != 200:
+            response.raise_for_status()
+
+        decompressed_data = gzip.decompress(response.content)
+        ir_data = json.loads(decompressed_data)
+        
+        return ir_data
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching IR data: {e}")
+        raise
+    except Exception as e:
+        print(f"Error parsing IR data: {e}")
+        raise

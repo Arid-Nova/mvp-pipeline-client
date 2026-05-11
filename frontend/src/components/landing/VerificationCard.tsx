@@ -56,7 +56,7 @@ const VerificationCard: React.FC<Props> = ({ setLoading }) => {
                 branch: r.branch || 'master',
                 commitId: r.commitId || "HEAD"
             })),
-            ir: irJson
+            ir_id: irJson['id']
         };
 
         try {

@@ -8,6 +8,7 @@ import java.util.zip.GZIPInputStream;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import edu.university.ecs.lab.common.models.ir.MicroserviceSystem;
@@ -22,18 +23,27 @@ import edu.university.ecs.lab.common.config.RepositoryConfig;
 import edu.university.ecs.lab.common.config.RepositoryBranchPair;
 import edu.university.ecs.lab.delta.services.DeltaExtractionService;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 
 @Log4j2
 @Service
-@RequiredArgsConstructor(onConstructor = @__(@Autowired))
 public class DeltaService {
 
     @Autowired
     private MicroserviceIRRepository repository;
 
     private final ObjectMapper objectMapper;
+
+    @Autowired
+    public DeltaService(MicroserviceIRRepository repository) {
+        this.repository = repository;
+        this.objectMapper = new ObjectMapper();
+        
+        this.objectMapper.registerModule(new com.fasterxml.jackson.datatype.jsonorg.JsonOrgModule());
+        this.objectMapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule()); 
+    
+        this.objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    }
 
     public SystemChange retrieveDelta(DeltaRequestModel requestModel)
             throws Exception {

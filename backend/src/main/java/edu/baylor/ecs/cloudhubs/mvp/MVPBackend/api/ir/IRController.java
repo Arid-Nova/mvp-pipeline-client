@@ -1,7 +1,6 @@
 package edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.ir;
 
 import lombok.RequiredArgsConstructor;
-import com.fasterxml.jackson.databind.JsonNode;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
@@ -18,14 +17,16 @@ import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.request.DeltaRequestM
 @RestController
 @RequiredArgsConstructor(onConstructor = @__(@Autowired))
 @RequestMapping("/ir")
-@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
 public class IRController {
 
     protected final IRService irService;
     protected final DeltaService deltaService;
 
     @PostMapping("/create")
-    @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
+    @CrossOrigin(origins = {
+        "http://localhost:3000", "http://localhost:8080",
+        "http://localhost:8900", "http://localhost:9000"
+    }, maxAge = 3600, allowedHeaders = "*")
     public ResponseEntity<?> createIR(@RequestBody IRRequestModel irRequestModel) {
         byte[] responseModel;
         try {

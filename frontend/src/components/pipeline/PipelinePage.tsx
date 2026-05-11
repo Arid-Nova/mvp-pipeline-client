@@ -700,7 +700,7 @@ const PipelinePage: React.FC = () => {
                             branch: repo.branch || "master",
                             commitId: repo.commitId || "HEAD"
                         })),
-                        ir: irPayload.irJson
+                        ir_id: irPayload.irJson['id'],
                     }
 
                     updateStatus(targetNode.id, 'running', 'Verifying...');
