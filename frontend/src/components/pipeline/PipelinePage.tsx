@@ -928,7 +928,7 @@ const PipelinePage: React.FC = () => {
                     const enginePayload = {
                         branch: irPayload.metadata[0]?.branch,
                         repoUrl: irPayload.metadata[0]?.repoUrl,
-                        ir: irPayload.irJson
+                        ir_id: irPayload.irJson['id']
                     };
 
                     // Call the Python/Engine API

@@ -1,9 +1,12 @@
+import gzip
 import os
 import time
 import json
 import dataclasses
 import concurrent.futures
 from typing import List, Dict, Any
+
+import requests
 
 # Import all our modules
 from src.config_loader import ConfigLoader
@@ -75,16 +78,45 @@ class AnalysisFacade:
         self.update_results_with_vulnerabilities(ir_id, results)
 
         return results
+    
+    def _get_ir_for_analysis(self, ir_id: str) -> Dict[str, Any]:
+        url = "http://host.docker.internal:8080/ir/create"
+
+        payload = {
+            "id": ir_id,
+            "systemName": "",
+            "systemRepositories": []
+        }
+
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/gzip"
+        }
+        
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=30)
+            if response.status_code != 200:
+                response.raise_for_status()
+
+            decompressed_data = gzip.decompress(response.content)
+            ir_data = json.loads(decompressed_data)
+            
+            return ir_data
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching IR data: {e}")
+            raise
+        except Exception as e:
+            print(f"Error parsing IR data: {e}")
+            raise
 
     def run_analysis(self, payload: Dict[str, Any], max_workers: int = 3) -> List[ExecutionPath]:
         # Executes the end-to-end analysis pipeline.
         print("\nStarting AEGIS analysis!")
         start_time = time.perf_counter()
-        ir_id = payload['ir']['id']
 
         # Checking if analysis has already been performed.
         existing = self.mongo_service.find(self.config['MONGO']['collection_name'], {
-            "irID": ir_id
+            "irID": payload['ir_id']
         })
 
         if existing:
@@ -96,7 +128,9 @@ class AnalysisFacade:
         self.code_fetcher = CodeFetcher(payload['repoUrl'], payload['branch'])
 
         # Load graph and get execution paths
-        execution_paths = self.graph_loader.load_graph_from_ir(payload['ir'], self.code_fetcher.get_temp_dir())
+        # But, first need to fetch the IR 
+        ir = self._get_ir_for_analysis(payload['ir_id'])
+        execution_paths = self.graph_loader.load_graph_from_ir(ir, self.code_fetcher.get_temp_dir())
         
         if not execution_paths:
             print("No execution paths found. Exiting.")
@@ -162,11 +196,15 @@ class AnalysisFacade:
                 path_dict.pop("method_flow", None)             
                 results.append(path_dict)
 
+        # Compresing results befpre saving to DB
+        json_str = json.dumps(results)
+        compressed_results = gzip.compress(json_str.encode('utf-8'))
+
         self.save_results_to_db({
             "system_name": payload['ir']['name'],
-            "irID": ir_id,
+            "irID": payload['ir_id'],
             "timestamp": time.time(),
-            "results": results
+            "results": compressed_results
         })
 
         return results
@@ -183,8 +221,15 @@ class AnalysisFacade:
                 return False
             
             existing_result = existing[0]
-            existing_result['vulnerabilities'] = vulnerabilities
-            self.mongo_service.update(self.config['MONGO']['collection_name'], {"_id": existing_result['_id']}, existing_result)
+
+            # Compressing before updating to DB
+            vuln_json = json.dumps(vulnerabilities)
+            compressed_vulns = gzip.compress(vuln_json.encode('utf-8'))
+            existing_result['vulnerabilities'] = compressed_vulns
+
+            self.mongo_service.update(
+                self.config['MONGO']['collection_name'], 
+                {"_id": existing_result['_id']}, existing_result)
             print(f"Successfully updated vulnerabilities for IR ID '{ir_id}'.")
             return True
 
