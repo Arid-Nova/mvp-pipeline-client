@@ -2,6 +2,7 @@ import axios from 'axios';
 import { showError } from '../utils/notifications';
 import { RepositoryInput, VerificationInput, VerificationResponse, OrgImportResponse, SessionPageResponse } from './types';
 import { PromptItem } from '../components/pipeline/models';
+import { decompressPayload } from '../utils/decompress';
 
 // IR generation and retrieval functions
 export const fetchIRFromRepo = async (input: RepositoryInput) => {
@@ -172,7 +173,10 @@ export const generateAuthVectors = async (indexId: string) => {
     });
 
     if (!authVectorsResponse.ok) throw new Error(`API error ${authVectorsResponse.status}`);
-    return await authVectorsResponse.json();
+    
+    let int_result = await authVectorsResponse.json();
+    int_result['vectors'] = decompressPayload(int_result.vectors);;
+    return int_result
 };
 
 export const generateScenarios = async (indexId: string|undefined, vectorsId: string|undefined) => {
