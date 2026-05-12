@@ -1,12 +1,11 @@
+from ..utils.decompress import decompress_field
+
 from .mongo_service import MongoService
 from ..models.generatescenarios import GenerateScenariosRequest, FullGenerateScenariosRequest
 
 from bson.objectid import ObjectId
 from typing import Any, Dict, List
 
-import base64
-import gzip
-import json
 import os
 
 class DataService:
@@ -63,12 +62,10 @@ class DataService:
         
         results = self.mongo_service.find(collection="microservice_endpoints", query=query)
 
-        if results:
-            document = results[0] 
-            return document.get("payload", {})
+        if not results:
+            return {}
         
-        print(f"No endpoint found with ID: {endpoint_id}")
-        return {}
+        return decompress_field(results[0], "payload")
 
     def fetch_components(self, component_id: str) -> dict:
         try:
@@ -80,36 +77,12 @@ class DataService:
         results = self.mongo_service.find(collection="microservice_components", query=query)
 
         if not results:
-            print(f"No component found with ID: {component_id}")
             return {}
 
         document = results[0] 
         
         if "compressedPayload" in document:
-            compressed_data = document["compressedPayload"]
-            
-            try:
-                if isinstance(compressed_data, dict) and "$binary" in compressed_data:
-                    b64_string = compressed_data["$binary"].get("base64", "")
-                    compressed_bytes = base64.b64decode(b64_string)
-                    
-                elif isinstance(compressed_data, (bytes, bytearray)):
-                    compressed_bytes = compressed_data
-                    
-                elif isinstance(compressed_data, str):
-                    compressed_bytes = base64.b64decode(compressed_data)
-                    
-                else:
-                    raise ValueError("Unknown format for compressedPayload")
-
-                decompressed_bytes = gzip.decompress(compressed_bytes)
-                
-                decompressed_string = decompressed_bytes.decode('utf-8')
-                return json.loads(decompressed_string)
-                
-            except Exception as e:
-                print(f"Error decompressing payload for component {component_id}: {e}")
-                return {}
+            return decompress_field(document, "compressedPayload")
         
         return {}
     
@@ -121,12 +94,14 @@ class DataService:
             return {}
         
         results = self.mongo_service.find(collection="auth_vectors", query=query)
+        if not results:
+            return {}
 
-        if results:
-            return results[0] 
-        
-        print(f"No auth_vectors document found with ID: {auth_vectors_id}")
-        return {}
+        document = results[0]
+        document["vectors"] = decompress_field(document, "vectors")
+        document["_id"] = str(document["_id"])
+
+        return document
     
     def add_scenarios(self, scenarios: list) -> list:
         try:
