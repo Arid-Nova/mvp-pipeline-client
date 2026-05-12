@@ -13,6 +13,7 @@ import {
     loadSession
 } from '../../services/api';
 import { RepositoryInput, VerificationInput } from '../../services/types';
+import { canonicalizeGithubUrl } from '../../utils/githubUrl';
 import { CardType, SystemPayload, ComponentPayload, PipelinePayload, NodeData, Connection, ScenarioPayload} from './models';
 
 // Configuration and Constants
@@ -577,7 +578,7 @@ const PipelinePage: React.FC = () => {
                     const input: RepositoryInput = {
                         systemName: sysPayload.systemName,
                         systemRepositories: sysPayload.repositories.map(repo => ({
-                            repoBranchPair: { repositoryURL: repo.repoUrl, branchName: repo.branch || "master" },
+                            repoBranchPair: { repositoryURL: canonicalizeGithubUrl(repo.repoUrl), branchName: repo.branch || "master" },
                             commitID: repo.commitId || undefined
                         }))
                     };

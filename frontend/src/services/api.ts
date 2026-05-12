@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { showError } from '../utils/notifications';
-import { RepositoryInput, VerificationInput, VerificationResponse, OrgImportResponse, SessionPageResponse } from './types';
+import { RepositoryInput, VerificationInput, VerificationResponse, OrgImportResponse, SessionPageResponse, RepoMetadata } from './types';
 import { PromptItem } from '../components/pipeline/models';
 import { decompressPayload } from '../utils/decompress';
 
@@ -246,6 +246,22 @@ export const importOrganization = async (orgUrl: string): Promise<OrgImportRespo
         throw new Error(errorMessage);
     }
     
+    return await response.json();
+};
+
+export const fetchRepoMetadata = async (repoUrl: string): Promise<RepoMetadata> => {
+    const response = await fetch('http://localhost:8020/import/repository', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repo_url: repoUrl })
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        const errorMessage = errorData?.detail || `API error ${response.status}: Failed to fetch repository metadata`;
+        throw new Error(errorMessage);
+    }
+
     return await response.json();
 };
 

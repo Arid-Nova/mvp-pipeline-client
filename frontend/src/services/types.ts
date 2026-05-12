@@ -57,7 +57,7 @@ export interface OrgImportResponse {
 export interface SessionSummary {
     id: string;
     name: string;
-    updated_at: string; 
+    updated_at: string;
 }
 
 export interface SessionPageResponse {
@@ -65,4 +65,12 @@ export interface SessionPageResponse {
     currentPage: number;
     totalPages: number;
     totalElements: number;
+}
+
+// Single-repo metadata fetched from the repomanager service
+export interface RepoMetadata {
+    name: string;
+    repoUrl: string;
+    defaultBranch: string;
+    latestCommit: string;
 }

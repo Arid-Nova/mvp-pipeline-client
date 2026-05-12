@@ -1,8 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { NodeData } from '../models';
-import { importOrganization } from '../../../services/api';
+import { importOrganization, fetchRepoMetadata } from '../../../services/api';
 import { RepoData } from '../../../services/types';
 import { BranchDropdown } from './BranchDropdown';
+import { parseGithubRepoUrl, canonicalizeGithubUrl } from '../../../utils/githubUrl';
+
+type FetchStatus = 'idle' | 'loading' | 'ok' | 'error';
 
 interface SystemInputCardProps {
     node: NodeData;
@@ -22,6 +25,13 @@ export const SystemInputCard: React.FC<SystemInputCardProps> = ({ node, updateNo
 
     const repositories = node.data.repositories || [{ repoUrl: '', branch: 'master', commitId: '' }];
     const orgData = node.data.orgImportData;
+
+    // Per-row auto-fetch state — local only, does not persist to node.data
+    const [fetchStatus, setFetchStatus] = useState<Record<number, FetchStatus>>({});
+    const [fetchError, setFetchError] = useState<Record<number, string | null>>({});
+    const [detailsOpen, setDetailsOpen] = useState<Record<number, boolean>>({});
+    // Track last URL we successfully fetched per row so blurring twice doesn't refetch
+    const lastFetchedUrlRef = useRef<Record<number, string>>({});
 
     useEffect(() => {
         if (orgData) {
@@ -48,9 +58,69 @@ export const SystemInputCard: React.FC<SystemInputCardProps> = ({ node, updateNo
     const updateRepo = (index: number, field: string, value: string) => {
         const newRepos = [...repositories];
         newRepos[index] = { ...newRepos[index], [field]: value };
-        
+
         const legacyData = index === 0 ? { [field]: value } : {};
         updateNodeData(node.id, { ...legacyData, repositories: newRepos });
+    };
+
+    // Fetch GitHub metadata for a repo row. Triggered by the explicit Import button.
+    // Soft-fills branch/commit/systemName only when the user hasn't already provided values.
+    const handleFetchMetadata = async (index: number) => {
+        const url = (repositories[index]?.repoUrl || '').trim();
+        if (!url) return;
+
+        const parsed = parseGithubRepoUrl(url);
+        if (!parsed) {
+            setFetchStatus(prev => ({ ...prev, [index]: 'error' }));
+            setFetchError(prev => ({ ...prev, [index]: 'Not a valid GitHub repository URL.' }));
+            setDetailsOpen(prev => ({ ...prev, [index]: true }));
+            return;
+        }
+
+        if (lastFetchedUrlRef.current[index] === url && fetchStatus[index] === 'ok') return;
+
+        setFetchStatus(prev => ({ ...prev, [index]: 'loading' }));
+        setFetchError(prev => ({ ...prev, [index]: null }));
+
+        try {
+            const metadata = await fetchRepoMetadata(url);
+
+            const current = repositories[index] || { repoUrl: '', branch: 'master', commitId: '' };
+            const canonicalUrl = metadata.repoUrl || canonicalizeGithubUrl(url);
+
+            const branchUntouched = !current.branch || current.branch === 'master';
+            const commitUntouched = !current.commitId;
+
+            const updatedRepo = {
+                ...current,
+                repoUrl: canonicalUrl,
+                branch: branchUntouched ? metadata.defaultBranch : current.branch,
+                commitId: commitUntouched ? metadata.latestCommit : current.commitId,
+            };
+
+            const newRepos = [...repositories];
+            newRepos[index] = updatedRepo;
+
+            const patch: Partial<NodeData['data']> = { repositories: newRepos };
+            if (index === 0) {
+                // Mirror updateRepo's legacy back-fill for row 0
+                (patch as any).repoUrl = updatedRepo.repoUrl;
+                (patch as any).branch = updatedRepo.branch;
+                (patch as any).commitId = updatedRepo.commitId;
+                if (!node.data.systemName) {
+                    patch.systemName = metadata.name;
+                }
+            }
+
+            updateNodeData(node.id, patch);
+
+            lastFetchedUrlRef.current[index] = canonicalUrl;
+            setFetchStatus(prev => ({ ...prev, [index]: 'ok' }));
+        } catch (err: any) {
+            setFetchStatus(prev => ({ ...prev, [index]: 'error' }));
+            setFetchError(prev => ({ ...prev, [index]: err?.message || 'Failed to fetch repository metadata.' }));
+            setDetailsOpen(prev => ({ ...prev, [index]: true }));
+        }
     };
 
     // --- CSV Parser ---
@@ -220,41 +290,121 @@ export const SystemInputCard: React.FC<SystemInputCardProps> = ({ node, updateNo
 
             {mode === 'manual' ? (
                 <>
-                    <input 
-                        type="text" placeholder="System Name" value={node.data.systemName || ''}
-                        className="w-full text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none"
-                        onChange={(e) => updateNodeData(node.id, { systemName: e.target.value })}
-                    />
-                    
-                    <div className="space-y-3 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
-                        {repositories.map((repo, index) => (
-                            <div key={`repo-${index}`} className="p-2 border border-slate-800 bg-slate-900 rounded">
-                                
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">
-                                        Repository {index + 1}
-                                    </span>
+                    <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1 custom-scrollbar">
+                        {repositories.map((repo, index) => {
+                            const isOpen = detailsOpen[index] === true;
+                            const status = fetchStatus[index] || 'idle';
+                            const isMultiRepo = repositories.length > 1;
 
-                                    {repositories.length > 1 && (
-                                        <button 
-                                            onClick={() => updateNodeData(node.id, { repositories: repositories.filter((_, i) => i !== index) })} 
-                                            className="w-5 h-5 flex items-center justify-center text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors text-xs font-bold -mt-1 -mr-1"
-                                            title="Remove Repository"
-                                        >✕</button>
+                            return (
+                                <div key={`repo-${index}`} className={isMultiRepo ? "p-2 border border-slate-800 bg-slate-900 rounded" : ""}>
+
+                                    {isMultiRepo && (
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">
+                                                Repository {index + 1}
+                                            </span>
+                                            <button
+                                                onClick={() => updateNodeData(node.id, { repositories: repositories.filter((_, i) => i !== index) })}
+                                                className="w-5 h-5 flex items-center justify-center text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors text-xs font-bold -mt-1 -mr-1"
+                                                title="Remove Repository"
+                                            >✕</button>
+                                        </div>
                                     )}
-                                </div>
-                                
-                                {/* INPUTS CONTAINER */}
-                                <div className="space-y-2">
-                                    <input type="text" placeholder="Repository URL" value={repo.repoUrl || ''} className="w-full text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none" onChange={(e) => updateRepo(index, 'repoUrl', e.target.value)} />
-                                    <div className="flex gap-1">
-                                        <input type="text" placeholder="Branch (master)" value={repo.branch || ''} className="w-1/2 text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none" onChange={(e) => updateRepo(index, 'branch', e.target.value)} />
-                                        <input type="text" placeholder="Commit (Latest)" value={repo.commitId || ''} className="w-1/2 text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none" onChange={(e) => updateRepo(index, 'commitId', e.target.value)} />
-                                    </div>
-                                </div>
 
-                            </div>
-                        ))}
+                                    {!isMultiRepo && (
+                                        <label className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 ml-0.5">
+                                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.21 11.39.6.11.82-.26.82-.58v-2.17c-3.34.72-4.04-1.41-4.04-1.41-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.21.09 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.5.99.11-.78.42-1.3.76-1.6-2.67-.31-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.17 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 016 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.65.24 2.87.12 3.17.77.84 1.24 1.91 1.24 3.22 0 4.61-2.8 5.62-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.69.83.58A12.01 12.01 0 0024 12c0-6.63-5.37-12-12-12z" />
+                                            </svg>
+                                            Repository URL
+                                        </label>
+                                    )}
+
+                                    <div className="space-y-2">
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                placeholder="e.g., https://github.com/FudanSELab/train-ticket"
+                                                value={repo.repoUrl || ''}
+                                                className={`w-full text-xs bg-slate-950 border rounded p-1.5 pr-7 outline-none transition-colors ${
+                                                    status === 'error'
+                                                        ? 'border-red-500/60 focus:border-red-500'
+                                                        : status === 'ok'
+                                                            ? 'border-emerald-600/50 focus:border-emerald-500'
+                                                            : 'border-slate-700 focus:border-blue-500'
+                                                }`}
+                                                onChange={(e) => updateRepo(index, 'repoUrl', e.target.value)}
+                                            />
+                                            {status === 'ok' && (
+                                                <svg className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            )}
+                                        </div>
+
+                                        <button
+                                            onClick={() => handleFetchMetadata(index)}
+                                            disabled={!repo.repoUrl?.trim() || status === 'loading'}
+                                            className={`w-full py-1.5 text-[10px] font-bold tracking-wider uppercase rounded border transition-all flex items-center justify-center gap-1.5 ${
+                                                status === 'loading'
+                                                    ? 'border-slate-700 bg-slate-800/40 text-slate-500 cursor-wait'
+                                                    : !repo.repoUrl?.trim()
+                                                        ? 'border-slate-800 bg-slate-900/40 text-slate-600 cursor-not-allowed'
+                                                        : status === 'ok'
+                                                            ? 'border-emerald-800/60 bg-emerald-950/30 text-emerald-400 hover:bg-emerald-900/30'
+                                                            : 'border-blue-700/60 bg-blue-900/20 text-blue-300 hover:bg-blue-800/30'
+                                            }`}
+                                        >
+                                            {status === 'loading' ? (
+                                                <>
+                                                    <div className="w-3 h-3 border-2 border-blue-500/40 border-t-blue-400 rounded-full animate-spin" />
+                                                    Importing...
+                                                </>
+                                            ) : status === 'ok' ? (
+                                                <>Re-fetch from GitHub</>
+                                            ) : (
+                                                <>Import Repository</>
+                                            )}
+                                        </button>
+
+                                        {status === 'error' && fetchError[index] && (
+                                            <p className="text-[9px] text-red-400 leading-snug">{fetchError[index]}</p>
+                                        )}
+
+                                        {(status === 'ok' || status === 'error' || isOpen) && (
+                                            <div className="space-y-2 pt-1 animate-in fade-in duration-200">
+                                                {index === 0 && (
+                                                    <input
+                                                        type="text"
+                                                        placeholder="System Name"
+                                                        value={node.data.systemName || ''}
+                                                        className="w-full text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none"
+                                                        onChange={(e) => updateNodeData(node.id, { systemName: e.target.value })}
+                                                    />
+                                                )}
+                                                <div className="flex gap-1">
+                                                    <input type="text" placeholder="Branch" value={repo.branch || ''} className="w-1/2 text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none" onChange={(e) => updateRepo(index, 'branch', e.target.value)} />
+                                                    <input type="text" placeholder="Commit (Latest)" value={repo.commitId || ''} className="w-1/2 text-xs bg-slate-950 border border-slate-700 rounded p-1.5 focus:border-blue-500 outline-none" onChange={(e) => updateRepo(index, 'commitId', e.target.value)} />
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {status === 'idle' && repo.repoUrl && !isOpen && (
+                                            <div className="flex justify-end">
+                                                <button
+                                                    onClick={() => setDetailsOpen(prev => ({ ...prev, [index]: true }))}
+                                                    className="text-[9px] uppercase tracking-wider font-bold text-slate-500 hover:text-slate-300 transition-colors"
+                                                >
+                                                    Enter branch / commit manually
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                </div>
+                            );
+                        })}
                     </div>
 
                     {/* ACTION BUTTONS */}

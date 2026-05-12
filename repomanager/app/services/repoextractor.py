@@ -86,3 +86,61 @@ async def fetchorganizationrepos(org_name):
 
         return __prepareforllm(active_repos)
 
+
+# Fetching single repository metadata from GitHub API
+@staticmethod
+async def fetchrepositorymetadata(owner: str, repo: str) -> dict:
+    headers = {
+        "Accept": "application/vnd.github.v3+json",
+        "X-GitHub-Api-Version": os.getenv("GITHUB_API_VERSION")
+    }
+
+    system_token = await config_db_service.get_token()
+    if system_token:
+        headers["Authorization"] = f"Bearer {system_token}"
+
+    repo_api_url = f"https://api.github.com/repos/{owner}/{repo}"
+
+    async with httpx.AsyncClient() as client:
+        repo_res = await client.get(repo_api_url, headers=headers)
+
+        if repo_res.status_code == 404:
+            raise HTTPException(status_code=404, detail="Repository not found or private.")
+        if repo_res.status_code == 403:
+            raise HTTPException(
+                status_code=403,
+                detail="GitHub API rate-limited. Configure a GitHub token in Settings."
+            )
+        if repo_res.status_code != 200:
+            raise HTTPException(
+                status_code=repo_res.status_code,
+                detail="Failed to fetch repository metadata."
+            )
+
+        repo_data = repo_res.json()
+        default_branch = repo_data.get("default_branch")
+        clone_url = repo_data.get("clone_url")
+        repo_name = repo_data.get("name")
+
+        if not default_branch or not clone_url or not repo_name:
+            raise HTTPException(status_code=502, detail="Incomplete repository metadata from GitHub.")
+
+        commit_api_url = f"https://api.github.com/repos/{owner}/{repo}/commits/{default_branch}"
+        commit_res = await client.get(commit_api_url, headers=headers)
+
+        if commit_res.status_code != 200:
+            raise HTTPException(
+                status_code=commit_res.status_code,
+                detail=f"Failed to fetch latest commit on '{default_branch}'."
+            )
+
+        latest_sha = commit_res.json().get("sha")
+        if not latest_sha:
+            raise HTTPException(status_code=502, detail="Latest commit SHA missing from GitHub response.")
+
+        return {
+            "name": repo_name,
+            "repoUrl": clone_url,
+            "defaultBranch": default_branch,
+            "latestCommit": latest_sha,
+        }
