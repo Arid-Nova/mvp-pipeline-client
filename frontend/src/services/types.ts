@@ -14,7 +14,7 @@ export interface RepositoryInput {
 export interface VerificationInput {
     systemName: string;
     repos: VerifyRepo[];
-    ir: any; 
+    ir_id: string; 
 }
 
 export interface VerifyRepo {

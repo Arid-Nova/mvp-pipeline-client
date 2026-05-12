@@ -53,10 +53,16 @@ const TimeSlider: React.FC<Props> = ({
     const formatEpoch = (epoch: any) => {
         if (!epoch) return "Not Found";
         
+        let date: Date;
         const num = Number(epoch);
-        if (isNaN(num)) return "Invalid Date";
         
-        const date = new Date(num < 10000000000 ? num * 1000 : num);
+        if (Number.isNaN(num)) {
+            date = new Date(epoch);
+        } else {
+            date = new Date(num < 10000000000 ? num * 1000 : num);
+        }
+
+        if (Number.isNaN(date.getTime())) return "Invalid Date";
         
         return date.toLocaleString(undefined, {
             year: 'numeric',

@@ -1557,9 +1557,6 @@ public class EnhancedASTControlFlowGenerator extends VoidVisitorAdapter<Enhanced
             // Examples: order_service_url → ts-order-service, userServiceUrl → ts-user-service
             if (service == null) {
                 service = extractServiceNameFromVariableName(varName);
-                if (service != null) {
-                    System.out.println("Extracted service name " + service + " from variable name " + varName);
-                }
             }
         } else if (left instanceof StringLiteralExpr) {
             // Left is a string literal (might be service name or base URL)

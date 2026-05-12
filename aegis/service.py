@@ -80,7 +80,7 @@ async def analyze_endpoint(payload: Dict[str, Any]):
         if 'vulnerabilities' in results:
             return {"status": "success"}
 
-        facade.get_latent_vulnerabilities(payload['ir']['id'], results)
+        facade.get_latent_vulnerabilities(payload['ir_id'], results)
         return {"status": "success"}
 
     except Exception as e:

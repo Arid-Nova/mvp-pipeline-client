@@ -45,6 +45,7 @@ import { SecurityRegressionCard } from './cards/SecurityRegressionCard';
 import { Notification as ToastNotification } from '../../utils/notifications';
 import NotificationToast from '../generic/NotificationToast';
 
+import { decompressPayload } from '../../utils/decompress';
 
 // In-browser cache to avoid data resetting
 let inMemoryPipelineCache: { 
@@ -210,7 +211,7 @@ const PipelinePage: React.FC = () => {
         }
     };
 
-    // --- Reequesting Notification Permission ---
+    // --- Requesting Notification Permission ---
     useEffect(() => {
         if ('Notification' in window && Notification.permission === 'default') {
             Notification.requestPermission();
@@ -415,7 +416,6 @@ const PipelinePage: React.FC = () => {
     };
 
     // --- Linking Logic ---
-
     const handleLinkClick = (id: string, type: string) => {
         if (!isLinking) {
             setIsLinking(id);
@@ -618,7 +618,13 @@ const PipelinePage: React.FC = () => {
                     updateStatus(targetNode.id, 'running', 'Calling Component API...');
                     
                     // Retrieves the components and endpoints
-                    const generatedComponents = await createComponent(reqBody);
+                    const rawResponse = await createComponent(reqBody);
+                    const generatedComponents = {
+                        id: rawResponse.id,
+                        componentIndex: decompressPayload(rawResponse.componentIndex),
+                        endpointIndex: decompressPayload(rawResponse.endpointIndex)
+                    };
+
                     // Retrieves the authorization vectors
                     const authVectors = await generateAuthVectors(generatedComponents.id)
 
@@ -701,7 +707,7 @@ const PipelinePage: React.FC = () => {
                             branch: repo.branch || "master",
                             commitId: repo.commitId || "HEAD"
                         })),
-                        ir: irPayload.irJson
+                        ir_id: irPayload.irJson['id'],
                     }
 
                     updateStatus(targetNode.id, 'running', 'Verifying...');
@@ -929,7 +935,7 @@ const PipelinePage: React.FC = () => {
                     const enginePayload = {
                         branch: irPayload.metadata[0]?.branch,
                         repoUrl: irPayload.metadata[0]?.repoUrl,
-                        ir: irPayload.irJson
+                        ir_id: irPayload.irJson['id']
                     };
 
                     // Call the Python/Engine API
@@ -1248,7 +1254,7 @@ const PipelinePage: React.FC = () => {
     }
 
     return (
-        <div className="min-h-screen bg-slate-900 text-white flex flex-col font-sans overflow-hidden">
+        <div className="h-screen bg-slate-900 text-white flex flex-col font-sans overflow-hidden">
             <NotificationToast 
                 notification={notification} 
                 onClose={() => setNotification(null)} 

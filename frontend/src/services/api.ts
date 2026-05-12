@@ -2,19 +2,87 @@ import axios from 'axios';
 import { showError } from '../utils/notifications';
 import { RepositoryInput, VerificationInput, VerificationResponse, OrgImportResponse, SessionPageResponse } from './types';
 import { PromptItem } from '../components/pipeline/models';
+import { decompressPayload } from '../utils/decompress';
 
-
+// IR generation and retrieval functions
 export const fetchIRFromRepo = async (input: RepositoryInput) => {
     try {
-        const response = await axios.post('/ir/create', input);
-        return response.data; 
+        const response = await axios.post('/ir/create', input, {
+            responseType: 'blob' 
+        });
+
+        const ds = new DecompressionStream("gzip");
+        const decompressedStream = response.data.stream().pipeThrough(ds);
+
+        const responseText = await new Response(decompressedStream).text();
+        return JSON.parse(responseText);
     } catch (error: any) {
-        const msg = error.response?.data?.message || "Failed to generate IR from repository.";
+        let msg = "Failed to generate IR from repository.";
+
+        if (error.response?.data instanceof Blob) {
+            const errorText = await error.response.data.text();
+            try {
+                const errorJson = JSON.parse(errorText);
+                msg = errorJson.message || msg;
+            } catch {
+                console.log("Failed to parse error response:");
+            }
+        } else if (error.response?.data?.message) {
+            msg = error.response.data.message;
+        }
+
         showError(msg);
         throw error;
     }
 };
 
+export const checkHistoricalIRs = async (systemName: string): Promise<boolean> => {
+    try {
+        const response = await axios.get('/ir/meta', { 
+            params: { systemName }
+        });
+        return response.status === 200;
+    } catch (error: any) {
+        console.error("Failed to check historical IRs:", error);
+        return false;
+    }
+};
+
+export const fetchHistoricalIRs = async (systemName: string): Promise<any[]> => {
+    try {
+        const response = await axios.get('/ir', { 
+            params: { systemName },
+            responseType: 'blob'
+        });
+
+        const ds = new DecompressionStream("gzip");
+        const decompressedStream = response.data.stream().pipeThrough(ds);
+        const responseText = await new Response(decompressedStream).text();
+
+        let irs = JSON.parse(responseText);
+
+        console.log("Fetched historical IRs:", irs);
+
+        return irs;
+    } catch (error: any) {
+        console.error("Failed to fetch historical IRs:", error);
+        showError("Failed to load historical timeline data.");
+        throw error;
+    }
+};
+
+// Change impact analysis function
+export const fetchChangeImpact = async (deltaInput: any) => {
+    const response = await fetch('http://localhost:8080/ir/delta', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(deltaInput)
+    });
+    if (!response.ok) throw new Error(`Delta API error: ${response.status}`);
+    return await response.json();
+};
+
+// Session management functions
 export const saveSession = async (name: string, canvasData: any, sessionId?: string): Promise<string> => {
     // Compresing the session data
     const jsonString = JSON.stringify(canvasData);
@@ -73,6 +141,7 @@ export const deleteSession = async (sessionId: string): Promise<void> => {
     await axios.delete(`/sessions/${sessionId}`);
 };
 
+// Formal verification function
 export const verifySystem = async (input: VerificationInput): Promise<VerificationResponse> => {
     try {
         const response = await axios.post('http://localhost:9000/verify', input);
@@ -84,31 +153,7 @@ export const verifySystem = async (input: VerificationInput): Promise<Verificati
     }
 };
 
-export const checkHistoricalIRs = async (systemName: string): Promise<boolean> => {
-    try {
-        const response = await axios.get('/ir/meta', { 
-            params: { systemName }
-        });
-        return response.status === 200;
-    } catch (error: any) {
-        console.error("Failed to check historical IRs:", error);
-        return false;
-    }
-};
-
-export const fetchHistoricalIRs = async (systemName: string): Promise<any[]> => {
-    try {
-        const response = await axios.get('/ir', { 
-            params: { systemName }
-        });
-        return response.data;
-    } catch (error: any) {
-        console.error("Failed to fetch historical IRs:", error);
-        showError("Failed to load historical timeline data.");
-        throw error;
-    }
-};
-
+// AI Test generation functions
 export const createComponent = async (reqBody: any) => {
     const response = await fetch('http://localhost:8060/component/create', {
         method: 'POST',
@@ -128,7 +173,10 @@ export const generateAuthVectors = async (indexId: string) => {
     });
 
     if (!authVectorsResponse.ok) throw new Error(`API error ${authVectorsResponse.status}`);
-    return await authVectorsResponse.json();
+    
+    let int_result = await authVectorsResponse.json();
+    int_result['vectors'] = decompressPayload(int_result.vectors);;
+    return int_result
 };
 
 export const generateScenarios = async (indexId: string|undefined, vectorsId: string|undefined) => {
@@ -174,6 +222,7 @@ export const generatePrompts = async (selectedIds: string[], targetLanguage: str
     return await response.json(); 
 };
 
+// Aegis introspection functions 
 export const analyzeAegis = async (enginePayload: any) => {
     return fetch('http://localhost:8900/analyze', {
         method: 'POST',
@@ -182,16 +231,7 @@ export const analyzeAegis = async (enginePayload: any) => {
     })
 };
 
-export const fetchChangeImpact = async (deltaInput: any) => {
-    const response = await fetch('http://localhost:8080/ir/delta', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(deltaInput)
-    });
-    if (!response.ok) throw new Error(`Delta API error: ${response.status}`);
-    return await response.json();
-};
-
+// GitHub repository management functions
 export const importOrganization = async (orgUrl: string): Promise<OrgImportResponse> => {
     const response = await fetch('http://localhost:8020/import/organization', {
         method: 'POST',

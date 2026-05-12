@@ -9,7 +9,7 @@ class VerifyRepo(BaseModel):
 class VerificationRequest(BaseModel):
     systemName: str
     repos: List[VerifyRepo]
-    ir: Dict[str, Any]  
+    ir_id: str  
 
 class Suggestion(BaseModel):
     endpoint_name: str

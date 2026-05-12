@@ -1,4 +1,6 @@
 
+from ..utils.decompress import decompress_mongo_payload
+
 from ..models.generateoutputdata import GeneratedOutputData
 from ..models.generateallrequest import GenerateAllRequest
 
@@ -59,12 +61,14 @@ class DataService:
         
         results = self.mongo_service.find(collection="microservice_endpoints", query=query)
 
-        if results:
-            document = results[0] 
-            return document.get("payload", {})
-        
-        print(f"No endpoint found with ID: {endpoint_id}")
-        return {}
+        if not results:
+            return {}
+
+        try:
+            return decompress_mongo_payload(results[0], "payload")
+        except Exception as e:
+            print(f"Error parsing endpoints: {e}")
+            return {}
 
     def fetch_components(self, component_id: str) -> dict:
         try:
@@ -82,34 +86,23 @@ class DataService:
         document = results[0] 
         
         if "compressedPayload" in document:
-            compressed_data = document["compressedPayload"]
-            
             try:
-                if isinstance(compressed_data, dict) and "$binary" in compressed_data:
-                    b64_string = compressed_data["$binary"].get("base64", "")
-                    compressed_bytes = base64.b64decode(b64_string)
-                    
-                elif isinstance(compressed_data, (bytes, bytearray)):
-                    compressed_bytes = compressed_data
-                    
-                elif isinstance(compressed_data, str):
-                    compressed_bytes = base64.b64decode(compressed_data)
-                    
-                else:
-                    raise ValueError("Unknown format for compressedPayload")
-
-                decompressed_bytes = gzip.decompress(compressed_bytes)
-                
-                decompressed_string = decompressed_bytes.decode('utf-8')
-                return json.loads(decompressed_string)
-                
+                return decompress_mongo_payload(document, "compressedPayload")
             except Exception as e:
-                print(f"Error decompressing payload for component {component_id}: {e}")
-                return {}
-        
+                print(f"Error parsing components: {e}")
+
         return {}
     
     def add_auth_vectors(self, collection: str, data: dict) -> str:
+        if "vectors" in data and isinstance(data["vectors"], dict):
+            try:
+                vectors_json = json.dumps(data["vectors"]).encode('utf-8')
+                compressed_vectors = gzip.compress(vectors_json)
+                data["vectors"] = compressed_vectors
+                
+            except Exception as e:
+                print(f"Error compressing auth vectors: {e}")
+
         return self.mongo_service.insert(collection=collection, data=data)
     
     def fetch_vector_data (self, request: GeneratedOutputData):

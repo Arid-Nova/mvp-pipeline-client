@@ -1,3 +1,4 @@
+import base64
 from contextlib import asynccontextmanager
 import traceback
 
@@ -43,6 +44,7 @@ router = APIRouter(prefix="/vectors")
 
 @router.post("/generate-all", 
              responses={
+                 400: {"description": "Wrong or Missing Index ID!"},
                  500: {"description": "Generation failed"}
                  })
 async def generate_all(request: GenerateAllRequest):
@@ -52,6 +54,8 @@ async def generate_all(request: GenerateAllRequest):
         # First check of the payload comprise of the Index ID and lean flag.
         if request.indexId:
             df_service.fetch_index_data(request)
+        else:
+            raise HTTPException(status_code=400, detail="Wrong or Missing Index ID!")
 
         endpoints_map = request.endpoints.get("endpoints", {})
 
@@ -76,6 +80,8 @@ async def generate_all(request: GenerateAllRequest):
         }
 
         response_data['_id'] = df_service.add_auth_vectors(collection="auth_vectors", data=response_data)
+        if isinstance(response_data["vectors"], bytes):
+            response_data["vectors"] = base64.b64encode(response_data["vectors"]).decode('utf-8')
         
         return response_data
 
