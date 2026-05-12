@@ -12,9 +12,9 @@ public class EndpointEntity {
     private String id;
 
     @Getter
-    private EndpointIndex payload;
+    private byte[] payload;
 
-    public EndpointEntity(EndpointIndex payload){
+    public EndpointEntity(byte[] payload){
         this.payload = payload;
     }
 

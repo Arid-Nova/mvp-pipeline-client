@@ -17,6 +17,7 @@
     "file-saver": "^2.0.5",
     "js-logger": "^1.6.1",
     "jszip": "^3.10.1",
+    "pako": "^2.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-dropzone": "^14.3.8",
@@ -56,6 +57,7 @@
     ]
   },
   "devDependencies": {
+    "@types/pako": "^2.0.4",
     "@types/react-dropzone": "^4.2.2",
     "@types/three": "^0.149.0",
     "tailwindcss": "^3.2.4"

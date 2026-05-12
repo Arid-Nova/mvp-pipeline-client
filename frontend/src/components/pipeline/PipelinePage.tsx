@@ -45,6 +45,7 @@ import { SecurityRegressionCard } from './cards/SecurityRegressionCard';
 import { Notification as ToastNotification } from '../../utils/notifications';
 import NotificationToast from '../generic/NotificationToast';
 
+import { decompressPayload } from '../../utils/decompress';
 
 // In-browser cache to avoid data resetting
 let inMemoryPipelineCache: { 
@@ -617,7 +618,13 @@ const PipelinePage: React.FC = () => {
                     updateStatus(targetNode.id, 'running', 'Calling Component API...');
                     
                     // Retrieves the components and endpoints
-                    const generatedComponents = await createComponent(reqBody);
+                    const rawResponse = await createComponent(reqBody);
+                    const generatedComponents = {
+                        id: rawResponse.id,
+                        componentIndex: decompressPayload(rawResponse.componentIndex),
+                        endpointIndex: decompressPayload(rawResponse.endpointIndex)
+                    };
+
                     // Retrieves the authorization vectors
                     const authVectors = await generateAuthVectors(generatedComponents.id)
 
