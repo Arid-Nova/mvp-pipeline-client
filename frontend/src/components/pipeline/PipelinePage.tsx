@@ -1254,7 +1254,7 @@ const PipelinePage: React.FC = () => {
     }
 
     return (
-        <div className="min-h-screen bg-slate-900 text-white flex flex-col font-sans overflow-hidden">
+        <div className="h-screen bg-slate-900 text-white flex flex-col font-sans overflow-hidden">
             <NotificationToast 
                 notification={notification} 
                 onClose={() => setNotification(null)} 

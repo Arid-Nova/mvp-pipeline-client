@@ -19,7 +19,7 @@ export const ToolboxSidebar: React.FC<ToolboxSidebarProps> = ({
     const navigate = useNavigate();
 
     return (
-        <div className="w-72 border-r border-white/10 bg-slate-900/50 flex flex-col overflow-hidden">
+        <div className="w-72 h-full border-r border-white/10 bg-slate-900/50 flex flex-col overflow-hidden">
             <div className="p-4 border-b border-white/10 flex justify-between items-center bg-slate-900/80">
                 <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Toolbox</h2>
                 <div className="relative group flex items-center">
