@@ -77,6 +77,7 @@ export const setupAxios = () => {
 };
 
 export const setupLogger = () => {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     Logger.useDefaults({
         defaultLevel: Logger.DEBUG,
         formatter: function (messages: any, context: any) {
