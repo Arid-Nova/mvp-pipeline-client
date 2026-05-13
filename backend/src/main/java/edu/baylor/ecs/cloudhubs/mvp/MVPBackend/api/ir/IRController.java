@@ -89,7 +89,7 @@ public class IRController {
     @PostMapping("/delta")
     @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
     public ResponseEntity<?> retreiveDelta(@RequestBody DeltaRequestModel requestModel) {
-        SystemChange responseModel;
+        byte[] responseModel;
         try {
             responseModel = deltaService.retrieveDelta(requestModel);
         } catch (ForbiddenException e) {
@@ -102,6 +102,8 @@ public class IRController {
             e.printStackTrace();
             return Errors.Response500InternalServerError(e.getCause(), e.getMessage());
         }
-        return ResponseEntity.ok(responseModel);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_TYPE, "application/gzip")
+                .body(responseModel);
     }
 }

@@ -78,8 +78,17 @@ export const fetchChangeImpact = async (deltaInput: any) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(deltaInput)
     });
-    if (!response.ok) throw new Error(`Delta API error: ${response.status}`);
-    return await response.json();
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.detail || `Delta API error: ${response.status}`);
+    };
+
+    const ds = new DecompressionStream("gzip");
+    const decompressedStream = response.body!.pipeThrough(ds);
+    const responseText = await new Response(decompressedStream).text();
+
+    return JSON.parse(responseText);
 };
 
 // Session management functions
