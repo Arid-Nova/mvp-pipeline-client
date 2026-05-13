@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { showError } from '../utils/notifications';
-import { RepositoryInput, VerificationInput, VerificationResponse, OrgImportResponse, SessionPageResponse } from './types';
+import { RepositoryInput, VerificationInput, VerificationResponse, OrgImportResponse, SessionPageResponse, ChangeImpactInsight } from './types';
 import { PromptItem } from '../components/pipeline/models';
 import { decompressPayload } from '../utils/decompress';
 
@@ -282,4 +282,19 @@ export const checkGitHubTokenStatus = async () => {
         console.error("Failed to check token status", error);
         return false; 
     }
+};
+
+// Change Impact Analysis
+export const generateChangeImpactInsights = async (payload: ChangeImpactInsight) => {
+    const response = await fetch('http://localhost:8040/analysis/impact-insights', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.detail || `API error ${response.status}`);
+    }
+    return await response.json();
 };

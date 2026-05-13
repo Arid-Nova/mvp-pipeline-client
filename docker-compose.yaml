@@ -111,6 +111,10 @@ services:
       - MONGO_DB=aegis
       - MONGO_USER=root
       - MONGO_PASSWORD=aeGis2026Rocks
+      - OPENAI_API_KEY=22hsgSpZGYB83odKbOaAtrZd82MWLOo6MSzIKypkd12Xx0yZQyMAJQQJ99BLACMsfrFXJ3w3AAAAACOGD7qp
+      - OPENAI_BASE_URL=https://posturaneuroengine.cognitiveservices.azure.com/openai/v1/
+      - LLM_TEMPERATURE=0.1
+      - OPENAI_API_MODEL=gpt-4o-mini
     networks:
       - app_network
     restart: always

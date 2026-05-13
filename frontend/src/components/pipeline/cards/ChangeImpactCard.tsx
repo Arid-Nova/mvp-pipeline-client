@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { saveAs } from 'file-saver';
 import { NodeData } from '../models';
+import { generateChangeImpactInsights } from '../../../services/api';
 
 interface ChangeImpactCardProps {
     node: NodeData;
@@ -12,7 +13,7 @@ type TabType = 'overview' | 'topology' | 'heatmap' | 'ai';
 export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, updateNodeData }) => {
     const [activeTab, setActiveTab] = useState<TabType>('overview');
     
-    // AI States
+    // AI Insights States
     const [isGeneratingAI, setIsGeneratingAI] = useState(false);
     const [aiInsight, setAiInsight] = useState<string | null>(null);
 
@@ -22,11 +23,11 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
     const targetedServices = node.data.targetedServices || [];
     const isExpanded = node.data.isExpanded || false;
 
-    // --- Sophisticated Semantic Volatility Engine ---
+    // Calculating the change risks matrix
     const matrixData = useMemo(() => {
         if (!payload) return { services: [], links: {}, impacts: {}, riskFactors: {}, centralities: {} };
 
-        // 1. Extract REAL services
+        // 1. Extracting the microservices heuristically
         const impactServices = new Set<string>();
         payload.changes?.forEach((change: any) => {
              const m = change.path?.match(/^\/?([^\/]+)\//);
@@ -39,7 +40,7 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
         const links: Record<string, Record<string, string>> = {};
         const impacts: Record<string, Record<string, number>> = {};
 
-        // 2. Build baseline topology graph
+        // 2. Building baseline topology 
         services.forEach((source, i) => {
             links[source] = {};
             impacts[source] = {};
@@ -58,21 +59,21 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
             });
         });
 
-        // 3. Extract Centrality / Complexity from IR
+        // 3. Extracting the centrality / complexity paramters from IR
         const centralities: Record<string, number> = {};
-        services.forEach(s => centralities[s] = 1.0); // Baseline multiplier
+        services.forEach(s => centralities[s] = 1.0); 
         
         if (irPayload?.microservices) {
             irPayload.microservices.forEach((ms: any) => {
                 if (services.includes(ms.name)) {
-                    // Centrality scales slightly with the number of API controllers it exposes
+                    // Heuristic: Centrality scales with the number of API controllers it exposes
                     const ctrlCount = ms.controllers?.length || 0;
                     centralities[ms.name] = 1.0 + (ctrlCount * 0.1);
                 }
             });
         }
 
-        // 4. Semantic Change Extraction & Risk Factor Categorization
+        // 4. Categorizing semantic change & risk factors 
         const serviceChanges: Record<string, Set<string>> = {};
         const serviceVolatility: Record<string, number> = {};
         const riskFactors: Record<string, Set<string>> = {};
@@ -91,18 +92,26 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
             const pathLower = (change.path || '').toLowerCase();
             let semanticWeight = 1;
 
-            // --- SEMANTIC ANALYSIS ---
+            // Following are heuristics risk values.
+            // These are not absolute but meant to provide relative risk scoring for the heatmap.
+            // 1. Configuraiton change risks
             if (pathLower.includes('pom.xml') || pathLower.includes('.yml') || pathLower.includes('.properties')) {
-                semanticWeight = 5.0; // Global/Infra Configuration Risk
+                semanticWeight = 5.0; 
                 riskFactors[source].add('Config/Infra Changes');
-            } else if (pathLower.includes('controller') || pathLower.includes('endpoint')) {
-                semanticWeight = 4.0; // API Contract Risk
+            } 
+            // 2. API contract change risks
+            else if (pathLower.includes('controller') || pathLower.includes('endpoint')) {
+                semanticWeight = 4.0; 
                 riskFactors[source].add('API/Contract Changes');
-            } else if (pathLower.includes('service') || pathLower.includes('impl')) {
-                semanticWeight = 3.0; // Core Logic Risk
+            } 
+            // 3. Core service logic change risks
+            else if (pathLower.includes('service') || pathLower.includes('impl')) {
+                semanticWeight = 3.0; 
                 riskFactors[source].add('Core Logic Overhaul');
-            } else if (pathLower.includes('entity') || pathLower.includes('repository')) {
-                semanticWeight = 2.0; // Data Model Risk
+            } 
+            // 4. Data model change risks
+            else if (pathLower.includes('entity') || pathLower.includes('repository')) {
+                semanticWeight = 2.0; 
                 riskFactors[source].add('Data Model Shifts');
             }
 
@@ -115,7 +124,7 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
 
             serviceVolatility[source] += semanticWeight;
 
-            // Granular sub-components
+            // Granular sub-components 
             if (change.componentDeltas) {
                 change.componentDeltas.forEach((cd: any) => {
                     const cdMult = cd.changeType === 'DELETE' ? 1.5 : (cd.changeType === 'MODIFY' ? 1.0 : 0.5);
@@ -131,7 +140,7 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
             normalizedVolatility[svc] = Math.min(1.0, raw / 20.0);
         });
 
-        // 5. Apply the REAL Delta to the matrix connections
+        // 5. Applying delta to the matrix connections
         services.forEach(source => {
             if (serviceChanges[source]) {
                 const changes = serviceChanges[source];
@@ -153,7 +162,7 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
             }
         });
 
-        // 6. Calculate Sophisticated Heatmap Impacts
+        // 6. Calculating the final heatmap impact scores
         services.forEach(source => {
             services.forEach(target => {
                 if (source === target) return;
@@ -164,21 +173,23 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
                 const targetCent = centralities[target] || 1.0;
 
                 let score = 0;
-
+                
+                // Each of the following logic is also heuritic and not meant to be final 
+                // This is why the card data is only a summary to guide pipeline construction.
                 if (linkStatus === 'removed') {
-                    // Severed connection is inherently critical, scales with source stability
+                    // Heuristic: Severed dependencies are critical, scales with source stability
                     score = 0.75 + (sourceVol * 0.25); 
                 } 
                 else if (linkStatus === 'changed') {
-                    // Modified links are amplified by the target's internal chaos & centrality
+                    // Heuristic: Modified dependencies are amplified by the target's internal chaos & centrality
                     score = 0.4 + (targetVol * 0.4 * targetCent); 
                 } 
                 else if (linkStatus === 'added') {
-                    // New integrations carry moderate adoption risk
+                    // Heuristic: New integrations carry moderate adoption risk
                     score = 0.3 + (targetVol * 0.3); 
                 } 
                 else if (linkStatus === 'maintained') {
-                    // A visually "untouched" link becomes highly risky if the target is chaotic internally
+                    // Heuristic: A visually "untouched" link becomes highly risky if the target is chaotic internally
                     if (targetVol > 0) {
                         score = 0.15 + (targetVol * 0.7 * targetCent);
                     }
@@ -191,7 +202,6 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
         return { services, links, impacts, riskFactors, centralities };
     }, [payload, irPayload, targetedServices]);
 
-    // EARLY RETURN
     if (!payload) {
         return (
             <div className="mt-2 text-center p-3 border border-dashed border-slate-700 bg-slate-800/50 rounded-lg">
@@ -200,7 +210,6 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
         );
     }
 
-    // REGULAR COMPONENT LOGIC
     const changes = payload.changes || [];
     let addedCount = 0; let deletedCount = 0; let modifiedCount = 0;
     changes.forEach((c: any) => {
@@ -222,7 +231,7 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
         saveAs(blob, "change_impact_delta.json");
     };
 
-    // --- UI Helpers ---
+    // UI Helpers
     const formatSvcName = (name: string) => {
         if (!name) return '';
         return name.replace(/^(ts-|ms-|app-)/i, '').replace(/(-service|-api)$/i, '');
@@ -258,23 +267,50 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
 
     const handleGenerateAI = async () => {
         setIsGeneratingAI(true);
-        // Find the most volatile service dynamically
-        let mostVolatile = matrixData.services[0] || 'core services';
-        let maxFactors = 0;
-        matrixData.services.forEach(s => {
-            const factors = matrixData.riskFactors[s]?.size || 0;
-            if (factors > maxFactors) {
-                maxFactors = factors;
-                mostVolatile = s;
-            }
-        });
+        setAiInsight(null); 
 
-        setTimeout(() => {
-            setAiInsight(
-                `AI Analysis: The current delta introduces ${addedCount} new components and modifies ${modifiedCount} existing ones. The deletion of ${deletedCount} components in highly volatile services like '${formatSvcName(mostVolatile)}' significantly increases downstream blast radius. Recommendation: Prioritize regression testing on services calling into the high-risk (red) zones before deployment.`
-            );
+        try {
+            const serializableRiskFactors: Record<string, string[]> = {};
+            Object.keys(matrixData.riskFactors).forEach(svc => {
+                serializableRiskFactors[svc] = Array.from(matrixData.riskFactors[svc]);
+            });
+
+            // Identify critical downstream impacts (score > 0.7)
+            const criticalImpacts: Array<{source: string, target: string, status: string, riskScore: number}> = [];
+            matrixData.services.forEach(source => {
+                matrixData.services.forEach(target => {
+                    const score = matrixData.impacts[source][target] || 0;
+                    if (score > 0.7) { 
+                        criticalImpacts.push({
+                            source,
+                            target,
+                            status: matrixData.links[source][target],
+                            riskScore: Number(score.toFixed(2))
+                        });
+                    }
+                });
+            });
+
+            const payload = {
+                metrics: {
+                    added: addedCount,
+                    modified: modifiedCount,
+                    deleted: deletedCount
+                },
+                affectedServices: matrixData.services,
+                riskFactors: serializableRiskFactors,
+                criticalImpacts: criticalImpacts.sort((a, b) => b.riskScore - a.riskScore) 
+            };
+
+            // Calling the backend proxy for LLM calls
+            const responseData = await generateChangeImpactInsights(payload);
+            setAiInsight(responseData.insight || responseData.message || "Analysis complete.");
+
+        } catch {
+            setAiInsight("Unfortunately, the AI Insight generation failed.");
+        } finally {
             setIsGeneratingAI(false);
-        }, 2000);
+        }
     };
 
     return (
@@ -311,7 +347,7 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
                 </button>
             </div>
 
-            {/* MINIMIZED VIEW */}
+            {/* Minmized card only shows the quick summary */}
             {!isExpanded && (
                 <div className="flex flex-col gap-2">
                     <div className="grid grid-cols-3 gap-2">
@@ -354,7 +390,7 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
                 </div>
             )}
 
-            {/* MAXIMIZED VIEW */}
+            {/* Maximized card view shows all */}
             {isExpanded && (
                 <div className="bg-slate-900/50 border border-slate-700/50 rounded-lg overflow-hidden flex flex-col mt-1 animate-in slide-in-from-top-2 duration-300">
                     <div className="flex border-b border-slate-700/50 bg-slate-900/80">
@@ -364,15 +400,14 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
                                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActiveTab(tab as TabType); }}
                                 className={`flex-1 py-2 text-[10px] font-bold tracking-widest uppercase transition-colors ${activeTab === tab ? 'text-orange-400 border-b-2 border-orange-400 bg-slate-800/50' : 'text-slate-500 hover:text-slate-300'}`}
                             >
-                                {tab === 'ai' ? 'Insights ✨' : tab}
+                                {tab === 'ai' ? 'AI Insights' : tab}
                             </button>
                         ))}
                     </div>
 
-                    {/* FIXED HEIGHT CONTAINER + MIN-H-0 */}
                     <div className="p-4 h-[420px] flex flex-col gap-4 min-h-0" onWheel={(e) => e.stopPropagation()}>
                         
-                        {/* OVERVIEW TAB */}
+                        {/* Quick Summary Tab */}
                         {activeTab === 'overview' && (
                             <div className="flex flex-col gap-4 animate-in fade-in duration-200 h-full min-h-0">
                                 <div className="grid grid-cols-3 gap-3">
@@ -407,7 +442,7 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
                             </div>
                         )}
 
-                        {/* TOPOLOGY TAB */}
+                        {/* Topological Change Tab */}
                         {activeTab === 'topology' && (
                             <div className="flex flex-col h-full animate-in fade-in duration-200 min-h-0">
                                 <div className="text-[10px] text-slate-400 text-center uppercase tracking-widest mb-2 shrink-0">Target Service Dependency Graph</div>
@@ -485,7 +520,7 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
                             </div>
                         )}
 
-                        {/* HEATMAP TAB */}
+                        {/* Change Impact Heatmap Tab */}
                         {activeTab === 'heatmap' && (
                             <div className="flex flex-col h-full animate-in fade-in duration-200 min-h-0">
                                 <div className="text-[10px] text-slate-400 text-center uppercase tracking-widest mb-2 shrink-0">Cascading Impact Matrix</div>
@@ -571,7 +606,7 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
                             </div>
                         )}
 
-                        {/* AI TAB */}
+                        {/* AI Insights Tab */}
                         {activeTab === 'ai' && (
                             <div className="flex flex-col h-full animate-in fade-in duration-200 min-h-0">
                                 {!aiInsight ? (
@@ -589,7 +624,7 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
                                             ) : (
                                                 <span className="text-base">✨</span>
                                             )}
-                                            {isGeneratingAI ? 'Running Graph Analysis...' : 'Generate AI Risk Assessment'}
+                                            {isGeneratingAI ? 'Running AI Analysis...' : 'Generate AI Risk Assessment'}
                                         </button>
                                     </div>
                                 ) : (

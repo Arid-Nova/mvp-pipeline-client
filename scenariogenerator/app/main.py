@@ -8,19 +8,24 @@ from .logic import scenario_generation_pipeline
 
 from .services.data_service import DataService
 
-from .models.generatescenarios import GenerateScenariosRequest
+from .models.analyisrequest import AnalysisRequest
 from .models.generateprompt import GeneratePromptsRequest
+from .models.generatescenarios import GenerateScenariosRequest
 
 from .prompt_generator import generate_prompts
+from .insights_generator import ImpactInsightGenerator
 
 df_service = None
+insight_gen = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global df_service
+    global insight_gen
     
     try:
         df_service = DataService()
+        insight_gen = ImpactInsightGenerator()
     except Exception as e:
         print(f"CRITICAL ERROR during startup: {e}")
 
@@ -42,6 +47,7 @@ app.add_middleware(
 )
 
 router = APIRouter(prefix="/scenarios")
+analysis_router = APIRouter(prefix="/analysis")
 
 @router.post("/generate", responses=
              {500: {"description": "Scenario generation failed"}})
@@ -90,8 +96,25 @@ async def create_prompts(request: GeneratePromptsRequest):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Prompt generation failed: {str(e)}")
 
+@analysis_router.post("/impact-insights", responses=
+             {500: {"description": "Insight generation failed"}})
+async def get_change_impact_insights(request: AnalysisRequest):
+    """
+    Analyzes calculated blast radius data and returns AI-generated 
+    architectural risk assessments.
+    """
+    try:
+        insight = await insight_gen.generate_impact_insights(request.dict())
+        return {
+            "status": "success",
+            "insight": insight
+        }
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Insight generation failed: {str(e)}")
 
 app.include_router(router)
+app.include_router(analysis_router)
 
 # if __name__ == '__main__':
 #     import uvicorn
