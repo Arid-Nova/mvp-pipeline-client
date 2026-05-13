@@ -10,7 +10,6 @@ from .logic import scenario_generation_pipeline
 
 from .services.data_service import DataService
 
-from .models.analyisrequest import AnalysisRequest
 from .models.generateprompt import GeneratePromptsRequest
 from .models.generatescenarios import GenerateScenariosRequest
 

@@ -56,6 +56,14 @@ services:
       - app_network
     environment:
       - NODE_ENV=production
+      - IR_SERVICE_URL=http://localhost:8080
+      - VERIFY_SERVICE_URL=http://localhost:9000
+      - COMPONENT_SERVICE_URL=http://localhost:8060
+      - VECTOR_SERVICE_URL=http://localhost:8050
+      - ANALYSIS_SERVICE_URL=http://localhost:8040
+      - TEST_SERVICE_URL=http://localhost:8030
+      - AEGIS_SERVICE_URL=http://localhost:8900
+      - REPO_SERVICE_URL=http://localhost:8020
 
   verifier:
     build:

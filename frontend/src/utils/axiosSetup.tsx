@@ -1,76 +1,79 @@
-/* eslint-disable react-hooks/rules-of-hooks */
-
-import axios from "axios";
+import axios, { AxiosInstance } from 'axios';
 import Logger from "js-logger";
 
-const controller = new AbortController();
+export const controller = new AbortController();
 
-axios.interceptors.response.use(
-    function (response) {
-        try {
-            Logger.info(
-                `${response?.config?.method?.toLocaleUpperCase()} from ${
-                    response.config.url
-                }`
-            );
-        } catch (e) {
-            Logger.warn(
-                "Axios response successful, but there was an issue in axios interceptor"
-            );
-        }
-        return response;
-    },
-    function (error) {
-        try {
-            Logger.error(error.message);
-        } catch (e) {
-            Logger.warn("There was an issue in the axios interceptor:", e);
-        }
+// Service configurations
+export const VERIFY_API = axios.create({ baseURL: process.env.VERIFY_SERVICE_URL || 'http://localhost:9000' });
+export const COMPONENT_API = axios.create({ baseURL: process.env.COMPONENT_SERVICE_URL || 'http://localhost:8060' });
+export const VECTOR_API = axios.create({ baseURL: process.env.VECTOR_SERVICE_URL || 'http://localhost:8050' });
+export const ANALYSIS_API = axios.create({ baseURL: process.env.ANALYSIS_SERVICE_URL || 'http://localhost:8040' });
+export const TEST_API = axios.create({ baseURL: process.env.TEST_SERVICE_URL || 'http://localhost:8030' });
+export const AEGIS_API = axios.create({ baseURL: process.env.AEGIS_SERVICE_URL || 'http://localhost:8900' });
+export const REPO_API = axios.create({ baseURL: process.env.REPO_SERVICE_URL || 'http://localhost:8020'});
 
-        return Promise.reject(error);
-    }
-);
+// Helper function for logging
+const applyInterceptors = (instance: AxiosInstance) => {
+    instance.interceptors.response.use(
+        function (response) {
+            try {
+                Logger.info(
+                    `${response?.config?.method?.toLocaleUpperCase()} from ${
+                        response.config.url
+                    }`
+                );
+            } catch {
+                Logger.warn(
+                    "Axios response successful, but there was an issue in axios interceptor"
+                );
+            }
+            return response;
+        },
+        function (error) {
+            try {
+                Logger.error(error.message);
+            } catch (e) {
+                Logger.warn("There was an issue in the axios interceptor:", e);
+            }
+            return Promise.reject(error);
+        }
+    );
 
-axios.interceptors.request.use(
-    function (request) {
-        if (!request.baseURL) {
-            throw new axios.Cancel("No baseURL Set");
+    instance.interceptors.request.use(
+        function (request) {
+            if (!request.baseURL) {
+                throw new axios.Cancel("No baseURL Set");
+            }
+            try {
+                Logger.info(
+                    `Sent ${request?.method?.toLocaleUpperCase()} to ${request.url}`
+                );
+            } catch {
+                Logger.warn(
+                    "Axios request successful, but there was an issue in axios request interceptor"
+                );
+            }
+            return request;
+        },
+        function (error) {
+            try {
+                Logger.error(error);
+            } catch (e) {
+                Logger.warn(
+                    "There was an issue in the axios request interceptor:",
+                    e
+                );
+            }
+            return Promise.reject(error);
         }
-        try {
-            Logger.info(
-                `Sent ${request?.method?.toLocaleUpperCase()} to ${request.url}`
-            );
-        } catch (e) {
-            Logger.warn(
-                "Axios request successful, but there was an issue in axios request interceptor"
-            );
-        }
-        return request;
-    },
-    function (error) {
-        try {
-            Logger.error(error);
-        } catch (e) {
-            Logger.warn(
-                "There was an issue in the axios request interceptor:",
-                e
-            );
-        }
+    );
+};
 
-        return Promise.reject(error);
-    }
-);
+[axios, VERIFY_API, COMPONENT_API, VECTOR_API, ANALYSIS_API, TEST_API, AEGIS_API, REPO_API].forEach(applyInterceptors);
 
 export const setupAxios = () => {
-    axios.defaults.baseURL = "http://localhost:8080";
+    axios.defaults.baseURL = process.env.IR_SERVICE_URL || 'http://localhost:8080';
     axios.defaults.headers.common["Content-Type"] = "application/json";
-    // There ar browser handled
-    // axios.defaults.headers.common["Access-Control-Allow-Origin"] =
-    //     "http://localhost:3000";
-    // axios.defaults.headers.common["Access-Control-Allow-Methods"] =
-    //     "GET, POST, PATCH, PUT, DELETE, OPTIONS";
-    // axios.defaults.headers.common["Access-Control-Allow-Headers"] =
-    //     "Origin, Content-Type, X-Auth-Token, Authorization, Accept,charset,boundary,Content-Length";
 };
 
 export const setupLogger = () => {
@@ -106,3 +109,5 @@ export const setupLogger = () => {
         return color;
     }
 };
+
+export default axios;
