@@ -332,36 +332,36 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
                     {isExpanded ? (
                         <>
                             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 14h6m0 0v6m0-6l-7 7m17-11h-6m0 0V4m0 6l7-7M4 10h6m0 0V4m0 6l-7-7m17 11h-6m0 0v6m0-6l7 7" />
                             </svg>
-                            Minimize View
+                            Minimize
                         </>
                     ) : (
                         <>
                             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
                             </svg>
-                            Expand View
+                            Expand
                         </>
                     )}
                 </button>
             </div>
 
-            {/* Minmized card only shows the quick summary */}
+            {/* Mimized card only shows the quick summary */}
             {!isExpanded && (
                 <div className="flex flex-col gap-2">
                     <div className="grid grid-cols-3 gap-2">
                         <div className="bg-emerald-500/10 rounded border border-emerald-500/20 p-2 text-center">
                             <div className="text-[8px] text-emerald-400/80 uppercase font-bold tracking-widest mb-0.5">Added</div>
-                            <div className="text-sm font-black text-emerald-400">+{addedCount}</div>
+                            <div className="text-sm font-black text-emerald-400">{addedCount}</div>
                         </div>
                         <div className="bg-amber-500/10 rounded border border-amber-500/20 p-2 text-center">
                             <div className="text-[8px] text-amber-400/80 uppercase font-bold tracking-widest mb-0.5">Modified</div>
-                            <div className="text-sm font-black text-amber-400">~{modifiedCount}</div>
+                            <div className="text-sm font-black text-amber-400">{modifiedCount}</div>
                         </div>
                         <div className="bg-rose-500/10 rounded border border-rose-500/20 p-2 text-center">
                             <div className="text-[8px] text-rose-400/80 uppercase font-bold tracking-widest mb-0.5">Deleted</div>
-                            <div className="text-sm font-black text-rose-500">-{deletedCount}</div>
+                            <div className="text-sm font-black text-rose-500">{deletedCount}</div>
                         </div>
                     </div>
                     <div className="bg-slate-800/50 border border-slate-700 p-2 rounded flex flex-col gap-1.5">
@@ -385,7 +385,7 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
                         onClick={downloadDelta}
                         className="w-full py-1.5 text-xs bg-orange-600 hover:bg-orange-500 text-white rounded font-medium shadow transition-colors"
                     >
-                        Download JSON Delta
+                        Download Changes JSON
                     </button>
                 </div>
             )}
@@ -412,23 +412,23 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
                             <div className="flex flex-col gap-4 animate-in fade-in duration-200 h-full min-h-0">
                                 <div className="grid grid-cols-3 gap-3">
                                     <div className="bg-emerald-500/10 rounded-lg p-3 border border-emerald-500/20 flex flex-col items-center justify-center">
-                                        <div className="text-[10px] text-emerald-400/80 uppercase font-bold tracking-widest mb-1">Added</div>
-                                        <div className="text-3xl font-black text-emerald-400">+{addedCount}</div>
+                                        <div className="text-[10px] text-emerald-400/80 uppercase font-bold tracking-widest mb-1">New Additions</div>
+                                        <div className="text-3xl font-black text-emerald-400">{addedCount}</div>
                                     </div>
                                     <div className="bg-amber-500/10 rounded-lg p-3 border border-amber-500/20 flex flex-col items-center justify-center">
-                                        <div className="text-[10px] text-amber-400/80 uppercase font-bold tracking-widest mb-1">Modified</div>
-                                        <div className="text-3xl font-black text-amber-400">~{modifiedCount}</div>
+                                        <div className="text-[10px] text-amber-400/80 uppercase font-bold tracking-widest mb-1">Modifications</div>
+                                        <div className="text-3xl font-black text-amber-400">{modifiedCount}</div>
                                     </div>
                                     <div className="bg-rose-500/10 rounded-lg p-3 border border-rose-500/20 flex flex-col items-center justify-center">
-                                        <div className="text-[10px] text-rose-400/80 uppercase font-bold tracking-widest mb-1">Deleted</div>
-                                        <div className="text-3xl font-black text-rose-500">-{deletedCount}</div>
+                                        <div className="text-[10px] text-rose-400/80 uppercase font-bold tracking-widest mb-1">Deletions</div>
+                                        <div className="text-3xl font-black text-rose-500">{deletedCount}</div>
                                     </div>
                                 </div>
                                 <div className="flex-1 bg-slate-800/40 rounded-lg p-3 border border-slate-700/50 flex flex-col min-h-[120px]">
                                     <div className="flex justify-between items-center mb-2">
                                         <div className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">Impacted Services ({matrixData.services.length})</div>
                                         <button onClick={downloadDelta} className="text-[9px] text-orange-400 hover:text-orange-300 uppercase font-bold tracking-widest">
-                                            ↓ Download JSON
+                                            Download Changes
                                         </button>
                                     </div>
                                     <div className="flex flex-wrap gap-2 overflow-y-auto custom-scrollbar pr-2 pb-2">
@@ -445,7 +445,7 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
                         {/* Topological Change Tab */}
                         {activeTab === 'topology' && (
                             <div className="flex flex-col h-full animate-in fade-in duration-200 min-h-0">
-                                <div className="text-[10px] text-slate-400 text-center uppercase tracking-widest mb-2 shrink-0">Target Service Dependency Graph</div>
+                                <div className="text-[10px] text-slate-400 text-center uppercase tracking-widest mb-2 shrink-0">Service Dependency Matrix</div>
                                 
                                 <div className="flex-1 overflow-auto custom-scrollbar bg-slate-900/30 rounded-lg border border-slate-700/50 relative">
                                     <div className="min-w-max p-4 pb-24 pr-12">
@@ -514,8 +514,8 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
                                 <div className="flex justify-center gap-4 mt-4 shrink-0 text-[9px] font-bold text-slate-500 uppercase">
                                     <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded border border-emerald-500/50 bg-emerald-500/20"></div>Added Link</div>
                                     <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded border border-rose-500/50 bg-rose-500/20"></div>Removed Link</div>
-                                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded border border-amber-500/50 bg-amber-500/20"></div>Modified Flow</div>
-                                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded border border-slate-600 bg-slate-700/50"></div>Maintained</div>
+                                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded border border-amber-500/50 bg-amber-500/20"></div>Modified Link</div>
+                                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded border border-slate-600 bg-slate-700/50"></div>No Link Change</div>
                                 </div>
                             </div>
                         )}

@@ -1,5 +1,4 @@
 import os
-import json
 import traceback
 from openai import AsyncOpenAI
 
@@ -11,24 +10,42 @@ class ImpactInsightGenerator:
             base_url=os.getenv("OPENAI_BASE_URL")
         )
         self.temperature = float(os.getenv("LLM_TEMPERATURE", 0.2))
+    
+    def _get_val(self, obj, key, default=None):
+        if obj is None:
+            return default
+        if isinstance(obj, dict):
+            return obj.get(key, default)
+        return getattr(obj, key, default)
         
     async def generate_impact_insights(self, data) -> str:
         """
-        Translates computed blast radius metrics into a
+        Translates computed blast radius metrics into an
         architectural risk narrative.
         """
         
+        metrics = self._get_val(data, 'metrics')
+        affected = self._get_val(data, 'affectedServices', [])
+        critical_impacts = self._get_val(data, 'criticalImpacts', [])
+        risk_factors = self._get_val(data, 'riskFactors', {})
+
+        # Formating Critical Impacts
         impact_narrative = ""
-        critical_impacts = getattr(data, 'criticalImpacts', [])
         for impact in critical_impacts:
+            source = self._get_val(impact, 'source', 'unknown')
+            target = self._get_val(impact, 'target', 'unknown')
+            status = str(self._get_val(impact, 'status', 'modified')).upper()
+            score = self._get_val(impact, 'riskScore', 0)
+            
             impact_narrative += (
-                f"- {impact.source} -> {impact.target}: "
-                f"Status [{impact.status.upper()}], Risk Score: {impact.riskScore}/1.0\n"
+                f"- {source} -> {target}: "
+                f"Status [{status}], Risk Score: {score}/1.0\n"
             )
 
+        # Formating Risk Factors
         risk_factor_summary = ""
-        risk_factors = getattr(data, 'riskFactors', {})
-        for svc, factors in risk_factors.items():
+        rf_items = risk_factors.items() if isinstance(risk_factors, dict) else getattr(risk_factors, 'items', lambda: [])()
+        for svc, factors in rf_items:
             if factors:
                 risk_factor_summary += f"- {svc}: {', '.join(factors)}\n"
 
@@ -39,12 +56,9 @@ class ImpactInsightGenerator:
             "Focus on cascading failures, broken contracts, and high-volatility areas."
         )
 
-        metrics = getattr(data, 'metrics', None)
-        affected = getattr(data, 'affectedServices', [])
-        
         user_content = f"""
         ANALYSIS DATA:
-        - Changes: {metrics.added if metrics else 0} added, {metrics.modified if metrics else 0} modified, {metrics.deleted if metrics else 0} deleted.
+        - Changes: {self._get_val(metrics, 'added', 0)} added, {self._get_val(metrics, 'modified', 0)} modified, {self._get_val(metrics, 'deleted', 0)} deleted.
         - Affected Services: {', '.join(affected)}
         
         CRITICAL DOWNSTREAM RISKS:

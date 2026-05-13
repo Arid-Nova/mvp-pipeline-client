@@ -104,7 +104,7 @@ async def get_change_impact_insights(request: AnalysisRequest):
     architectural risk assessments.
     """
     try:
-        insight = await insight_gen.generate_impact_insights(request.dict())
+        insight = await insight_gen.generate_impact_insights(request)
         return {
             "status": "success",
             "insight": insight
