@@ -1,8 +1,10 @@
+import gzip
+import json
 import traceback
 from contextlib import asynccontextmanager
 
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, Request, APIRouter, HTTPException
 
 from .logic import scenario_generation_pipeline
 
@@ -97,14 +99,28 @@ async def create_prompts(request: GeneratePromptsRequest):
         raise HTTPException(status_code=500, detail=f"Prompt generation failed: {str(e)}")
 
 @analysis_router.post("/impact-insights", responses=
-             {500: {"description": "Insight generation failed"}})
-async def get_change_impact_insights(request: AnalysisRequest):
+             {400: {"description": "Invalid payload or corrupted compression"},
+              500: {"description": "Insight generation failed"}})
+async def get_change_impact_insights(request: Request):
     """
     Analyzes calculated blast radius data and returns AI-generated 
     architectural risk assessments.
     """
     try:
-        insight = await insight_gen.generate_impact_insights(request)
+        body = await request.body()
+
+        if request.headers.get("Content-Encoding") == "gzip":
+            try:
+                body = gzip.decompress(body)
+            except Exception:
+                raise HTTPException(status_code=400, detail="Invalid GZIP compression")
+
+        try:
+            data = json.loads(body)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid JSON payload")
+
+        insight = await insight_gen.generate_impact_insights(data)
         return {
             "status": "success",
             "insight": insight

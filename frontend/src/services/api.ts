@@ -295,10 +295,19 @@ export const checkGitHubTokenStatus = async () => {
 
 // Change Impact Analysis
 export const generateChangeImpactInsights = async (payload: ChangeImpactInsight) => {
+    const jsonString = JSON.stringify(payload);
+    const stream = new Blob([jsonString]).stream();
+
+    const compressedStream = stream.pipeThrough(new CompressionStream("gzip"));
+    const compressedBody = await new Response(compressedStream).blob();
+
     const response = await fetch('http://localhost:8040/analysis/impact-insights', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        headers: { 
+            'Content-Type': 'application/json',
+            'Content-Encoding': 'gzip' 
+        },
+        body: compressedBody
     });
 
     if (!response.ok) {
