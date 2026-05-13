@@ -1247,7 +1247,7 @@ const PipelinePage: React.FC = () => {
                     />
                 );
             case 'VERIFICATION_COMPARISON': return <VerificationComparisonCard node={node} />;
-            case 'CHANGE_IMPACT': return <ChangeImpactCard node={node} />;
+            case 'CHANGE_IMPACT': return <ChangeImpactCard node={node} updateNodeData={updateNodeData}/>;
             case 'SECURITY_REGRESSION': return <SecurityRegressionCard node={node} />;
             default: return null;
         }
