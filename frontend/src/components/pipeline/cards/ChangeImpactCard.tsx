@@ -17,41 +17,38 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
     const [aiInsight, setAiInsight] = useState<string | null>(null);
 
     const payload = node.data.changeImpactPayload;
+    const irPayload = node.data.payload?.irJson || node.data.systemInfo?.ir 
+    
     const targetedServices = node.data.targetedServices || [];
     const isExpanded = node.data.isExpanded || false;
 
-    // --- Derived Data Preparation for Matrices (SYSTEM AGNOSTIC) ---
+    // --- Sophisticated Semantic Volatility Engine ---
     const matrixData = useMemo(() => {
-        if (!payload) return { services: [], links: {}, impacts: {} };
+        if (!payload) return { services: [], links: {}, impacts: {}, riskFactors: {}, centralities: {} };
 
-        // 1. Extract REAL services from changeImpact paths generically
+        // 1. Extract REAL services
         const impactServices = new Set<string>();
         payload.changes?.forEach((change: any) => {
              const m = change.path?.match(/^\/?([^\/]+)\//);
              if (m) impactServices.add(m[1]);
         });
 
-        // Combine targeted with impacted services
         const servicesSet = new Set<string>([...targetedServices, ...Array.from(impactServices)]);
-
-        // REMOVED: .slice(0, 8) - We now allow all services to render in the scrollable grid
         const services = Array.from(servicesSet);
 
         const links: Record<string, Record<string, string>> = {};
         const impacts: Record<string, Record<string, number>> = {};
 
-        // 2. Build a baseline topology graph (Generic Heuristic)
+        // 2. Build baseline topology graph
         services.forEach((source, i) => {
             links[source] = {};
             impacts[source] = {};
             services.forEach((target, j) => {
                 impacts[source][target] = 0; 
-                
                 if (source === target) {
                     links[source][target] = 'none';
                     return;
                 }
-                
                 const hash = (source.length + target.length + i + j) % 10;
                 if (hash < 4 || i === 0 || j === 0) {
                     links[source][target] = 'maintained';
@@ -61,22 +58,80 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
             });
         });
 
-        // 3. Extract exact file-level changes from JSON
+        // 3. Extract Centrality / Complexity from IR
+        const centralities: Record<string, number> = {};
+        services.forEach(s => centralities[s] = 1.0); // Baseline multiplier
+        
+        if (irPayload?.microservices) {
+            irPayload.microservices.forEach((ms: any) => {
+                if (services.includes(ms.name)) {
+                    // Centrality scales slightly with the number of API controllers it exposes
+                    const ctrlCount = ms.controllers?.length || 0;
+                    centralities[ms.name] = 1.0 + (ctrlCount * 0.1);
+                }
+            });
+        }
+
+        // 4. Semantic Change Extraction & Risk Factor Categorization
         const serviceChanges: Record<string, Set<string>> = {};
+        const serviceVolatility: Record<string, number> = {};
+        const riskFactors: Record<string, Set<string>> = {};
+
         payload.changes?.forEach((change: any) => {
             const m = change.path?.match(/^\/?([^\/]+)\//);
             if (!m) return;
             const source = m[1];
             
             if (!serviceChanges[source]) serviceChanges[source] = new Set();
+            if (!serviceVolatility[source]) serviceVolatility[source] = 0;
+            if (!riskFactors[source]) riskFactors[source] = new Set();
+
             serviceChanges[source].add(change.changeType);
 
+            const pathLower = (change.path || '').toLowerCase();
+            let semanticWeight = 1;
+
+            // --- SEMANTIC ANALYSIS ---
+            if (pathLower.includes('pom.xml') || pathLower.includes('.yml') || pathLower.includes('.properties')) {
+                semanticWeight = 5.0; // Global/Infra Configuration Risk
+                riskFactors[source].add('Config/Infra Changes');
+            } else if (pathLower.includes('controller') || pathLower.includes('endpoint')) {
+                semanticWeight = 4.0; // API Contract Risk
+                riskFactors[source].add('API/Contract Changes');
+            } else if (pathLower.includes('service') || pathLower.includes('impl')) {
+                semanticWeight = 3.0; // Core Logic Risk
+                riskFactors[source].add('Core Logic Overhaul');
+            } else if (pathLower.includes('entity') || pathLower.includes('repository')) {
+                semanticWeight = 2.0; // Data Model Risk
+                riskFactors[source].add('Data Model Shifts');
+            }
+
+            if (change.changeType === 'DELETE') {
+                semanticWeight *= 3.0;
+                riskFactors[source].add('Severe Deletions');
+            } else if (change.changeType === 'MODIFY') {
+                semanticWeight *= 2.0;
+            }
+
+            serviceVolatility[source] += semanticWeight;
+
+            // Granular sub-components
             if (change.componentDeltas) {
-                change.componentDeltas.forEach((cd: any) => serviceChanges[source].add(cd.changeType));
+                change.componentDeltas.forEach((cd: any) => {
+                    const cdMult = cd.changeType === 'DELETE' ? 1.5 : (cd.changeType === 'MODIFY' ? 1.0 : 0.5);
+                    serviceVolatility[source] += cdMult;
+                });
             }
         });
 
-        // 4. Apply the REAL Delta to the matrix connections
+        // Normalize volatility (Capped at 1.0, assuming a raw score of 20+ is extremely chaotic)
+        const normalizedVolatility: Record<string, number> = {};
+        services.forEach(svc => {
+            const raw = serviceVolatility[svc] || 0;
+            normalizedVolatility[svc] = Math.min(1.0, raw / 20.0);
+        });
+
+        // 5. Apply the REAL Delta to the matrix connections
         services.forEach(source => {
             if (serviceChanges[source]) {
                 const changes = serviceChanges[source];
@@ -92,30 +147,49 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
                     } else if (hasModify && links[source][target] === 'maintained') {
                         links[source][target] = 'changed';
                     } else if (hasAdd && links[source][target] === 'none') {
-                        const hash = (source.length + target.length) % 3;
-                        if (hash === 0) links[source][target] = 'added';
+                        if ((source.length + target.length) % 3 === 0) links[source][target] = 'added';
                     }
                 });
             }
         });
 
-        // 5. Calculate real Heatmap Impacts
+        // 6. Calculate Sophisticated Heatmap Impacts
         services.forEach(source => {
             services.forEach(target => {
                 if (source === target) return;
                 
                 const linkStatus = links[source][target];
-                const targetHasChanges = !!serviceChanges[target];
+                const targetVol = normalizedVolatility[target] || 0;
+                const sourceVol = normalizedVolatility[source] || 0;
+                const targetCent = centralities[target] || 1.0;
 
-                if (linkStatus === 'removed') impacts[source][target] = 0.9;      
-                else if (linkStatus === 'changed') impacts[source][target] = 0.7; 
-                else if (linkStatus === 'added') impacts[source][target] = 0.5;   
-                else if (linkStatus === 'maintained' && targetHasChanges) impacts[source][target] = 0.6; 
+                let score = 0;
+
+                if (linkStatus === 'removed') {
+                    // Severed connection is inherently critical, scales with source stability
+                    score = 0.75 + (sourceVol * 0.25); 
+                } 
+                else if (linkStatus === 'changed') {
+                    // Modified links are amplified by the target's internal chaos & centrality
+                    score = 0.4 + (targetVol * 0.4 * targetCent); 
+                } 
+                else if (linkStatus === 'added') {
+                    // New integrations carry moderate adoption risk
+                    score = 0.3 + (targetVol * 0.3); 
+                } 
+                else if (linkStatus === 'maintained') {
+                    // A visually "untouched" link becomes highly risky if the target is chaotic internally
+                    if (targetVol > 0) {
+                        score = 0.15 + (targetVol * 0.7 * targetCent);
+                    }
+                }
+
+                impacts[source][target] = Math.min(1.0, score);
             });
         });
 
-        return { services, links, impacts };
-    }, [payload, targetedServices]);
+        return { services, links, impacts, riskFactors, centralities };
+    }, [payload, irPayload, targetedServices]);
 
     // EARLY RETURN
     if (!payload) {
@@ -184,10 +258,20 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
 
     const handleGenerateAI = async () => {
         setIsGeneratingAI(true);
-        const sampleService = matrixData.services.length > 0 ? matrixData.services[0] : 'core services';
+        // Find the most volatile service dynamically
+        let mostVolatile = matrixData.services[0] || 'core services';
+        let maxFactors = 0;
+        matrixData.services.forEach(s => {
+            const factors = matrixData.riskFactors[s]?.size || 0;
+            if (factors > maxFactors) {
+                maxFactors = factors;
+                mostVolatile = s;
+            }
+        });
+
         setTimeout(() => {
             setAiInsight(
-                `AI Analysis: The current delta introduces ${addedCount} new components and modifies ${modifiedCount} existing ones. The deletion of ${deletedCount} components in services like '${sampleService}' indicates severed communication paths. Recommendation: Ensure downstream dependencies are updated or deprecated to prevent cascading 404 connection refused errors.`
+                `AI Analysis: The current delta introduces ${addedCount} new components and modifies ${modifiedCount} existing ones. The deletion of ${deletedCount} components in highly volatile services like '${formatSvcName(mostVolatile)}' significantly increases downstream blast radius. Recommendation: Prioritize regression testing on services calling into the high-risk (red) zones before deployment.`
             );
             setIsGeneratingAI(false);
         }, 2000);
@@ -285,7 +369,7 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
                         ))}
                     </div>
 
-                    {/* FIXED HEIGHT CONTAINER + MIN-H-0 to trigger inner scrolling instead of expanding card */}
+                    {/* FIXED HEIGHT CONTAINER + MIN-H-0 */}
                     <div className="p-4 h-[420px] flex flex-col gap-4 min-h-0" onWheel={(e) => e.stopPropagation()}>
                         
                         {/* OVERVIEW TAB */}
@@ -305,7 +389,7 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
                                         <div className="text-3xl font-black text-rose-500">-{deletedCount}</div>
                                     </div>
                                 </div>
-                                <div className="flex-1 bg-slate-800/40 rounded-lg p-3 border border-slate-700/50 flex flex-col min-h-0">
+                                <div className="flex-1 bg-slate-800/40 rounded-lg p-3 border border-slate-700/50 flex flex-col min-h-[120px]">
                                     <div className="flex justify-between items-center mb-2">
                                         <div className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">Impacted Services ({matrixData.services.length})</div>
                                         <button onClick={downloadDelta} className="text-[9px] text-orange-400 hover:text-orange-300 uppercase font-bold tracking-widest">
@@ -323,18 +407,15 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
                             </div>
                         )}
 
-                        {/* TOPOLOGY TAB (SCROLLABLE) */}
+                        {/* TOPOLOGY TAB */}
                         {activeTab === 'topology' && (
                             <div className="flex flex-col h-full animate-in fade-in duration-200 min-h-0">
                                 <div className="text-[10px] text-slate-400 text-center uppercase tracking-widest mb-2 shrink-0">Target Service Dependency Graph</div>
                                 
-                                {/* Scrollable Container */}
                                 <div className="flex-1 overflow-auto custom-scrollbar bg-slate-900/30 rounded-lg border border-slate-700/50 relative">
                                     <div className="min-w-max p-4 pb-24 pr-12">
                                         
-                                        {/* X-Axis Header (Targets) */}
                                         <div className="flex mb-1 sticky top-0 z-20 bg-slate-900/90 backdrop-blur-sm pt-2">
-                                            {/* Spacer for Y-axis labels */}
                                             <div className="w-24 shrink-0 sticky left-0 z-30 bg-slate-900/90 backdrop-blur-sm"></div>
                                             <div className="flex gap-1.5">
                                                 {matrixData.services.map(target => (
@@ -350,17 +431,14 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
                                             </div>
                                         </div>
 
-                                        {/* Y-Axis & Matrix Grid */}
                                         {matrixData.services.map((source, i) => (
                                             <div key={source} className="flex items-center mb-1.5">
-                                                {/* Sticky Y-Axis Label */}
                                                 <div className="w-24 shrink-0 text-right pr-3 sticky left-0 z-10 bg-slate-900/90 backdrop-blur-sm h-6 flex items-center justify-end border-r border-slate-700/50 mr-1">
                                                     <span className="text-[9px] text-slate-300 font-mono truncate block w-full select-none" title={source}>
                                                         {formatSvcName(source)}
                                                     </span>
                                                 </div>
                                                 
-                                                {/* Row of Cells */}
                                                 <div className="flex gap-1.5">
                                                     {matrixData.services.map((target, j) => {
                                                         const status = matrixData.links[source][target];
@@ -371,7 +449,6 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
                                                             >
                                                                 {status !== 'none' && <div className="w-1.5 h-1.5 rounded-full bg-current opacity-60 shadow-sm" />}
                                                                 
-                                                                {/* Custom Rich Tooltip */}
                                                                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2.5 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 flex flex-col gap-1.5">
                                                                     <div className="flex items-center justify-between border-b border-slate-700 pb-1">
                                                                         <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Dependency</span>
@@ -408,18 +485,15 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
                             </div>
                         )}
 
-                        {/* HEATMAP TAB (SCROLLABLE) */}
+                        {/* HEATMAP TAB */}
                         {activeTab === 'heatmap' && (
                             <div className="flex flex-col h-full animate-in fade-in duration-200 min-h-0">
                                 <div className="text-[10px] text-slate-400 text-center uppercase tracking-widest mb-2 shrink-0">Cascading Impact Matrix</div>
                                 
-                                {/* Scrollable Container */}
                                 <div className="flex-1 overflow-auto custom-scrollbar bg-slate-900/30 rounded-lg border border-slate-700/50 relative">
                                     <div className="min-w-max p-4 pb-24 pr-12">
                                         
-                                        {/* X-Axis Header (Receivers) */}
                                         <div className="flex mb-1 sticky top-0 z-20 bg-slate-900/90 backdrop-blur-sm pt-2">
-                                            {/* Spacer for Y-axis labels */}
                                             <div className="w-24 shrink-0 sticky left-0 z-30 bg-slate-900/90 backdrop-blur-sm"></div>
                                             <div className="flex gap-1.5">
                                                 {matrixData.services.map(target => (
@@ -435,20 +509,19 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
                                             </div>
                                         </div>
 
-                                        {/* Y-Axis & Matrix Grid */}
                                         {matrixData.services.map((source, i) => (
                                             <div key={source} className="flex items-center mb-1.5">
-                                                {/* Sticky Y-Axis Label */}
                                                 <div className="w-24 shrink-0 text-right pr-3 sticky left-0 z-10 bg-slate-900/90 backdrop-blur-sm h-6 flex items-center justify-end border-r border-slate-700/50 mr-1">
                                                     <span className="text-[9px] text-slate-300 font-mono truncate block w-full select-none" title={source}>
                                                         {formatSvcName(source)}
                                                     </span>
                                                 </div>
                                                 
-                                                {/* Row of Cells */}
                                                 <div className="flex gap-1.5">
                                                     {matrixData.services.map((target, j) => {
                                                         const score = matrixData.impacts[source][target] || 0;
+                                                        const risks = Array.from(matrixData.riskFactors[target] || []);
+                                                        
                                                         return (
                                                             <div 
                                                                 key={`${source}-${target}`}
@@ -456,17 +529,30 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
                                                             >
                                                                 {score > 0 && <span className="text-[8px] font-bold opacity-80 drop-shadow-md">{score.toFixed(1)}</span>}
                                                                 
-                                                                {/* Custom Rich Tooltip */}
-                                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 flex flex-col gap-1">
-                                                                    <div className="flex items-center justify-between border-b border-slate-700 pb-1 mb-1">
-                                                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Blast Radius</span>
+                                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 p-2 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 flex flex-col gap-1.5">
+                                                                    <div className="flex items-center justify-between border-b border-slate-700 pb-1 mb-0.5">
+                                                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Blast Radius Risk</span>
                                                                         <span className={`text-[10px] font-black ${score > 0.7 ? 'text-rose-400' : score > 0.4 ? 'text-amber-400' : 'text-blue-400'}`}>
                                                                             {score.toFixed(2)}
                                                                         </span>
                                                                     </div>
+                                                                    
                                                                     <div className="text-[9px] text-slate-300 leading-tight">
-                                                                        Changes in <span className="font-mono text-orange-300">{formatSvcName(source)}</span> directly impact <span className="font-mono text-orange-300">{formatSvcName(target)}</span>.
+                                                                        Changes in <span className="font-mono text-orange-300">{formatSvcName(target)}</span> impact caller <span className="font-mono text-orange-300">{formatSvcName(source)}</span>.
                                                                     </div>
+                                                                    
+                                                                    {risks.length > 0 && score > 0 && (
+                                                                        <div className="mt-1 p-1.5 bg-slate-900/50 rounded border border-slate-700/50 flex flex-col gap-1">
+                                                                            <span className="text-[8px] text-slate-500 uppercase tracking-widest font-bold">Target Risk Factors:</span>
+                                                                            <div className="flex flex-wrap gap-1">
+                                                                                {risks.map(r => (
+                                                                                    <span key={r} className="text-[8px] px-1 py-0.5 bg-rose-500/10 border border-rose-500/30 text-rose-300 rounded">
+                                                                                        {r}
+                                                                                    </span>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                         )
