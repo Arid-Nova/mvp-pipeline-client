@@ -80,6 +80,34 @@ class ChatbotQueryServiceTest {
             .satisfies(ex -> assertThat(((LocalLlmException) ex).getCode()).isEqualTo(LocalLlmFailureCode.model_unavailable));
     }
 
+    @Test
+    void usesProvidedRequestIdInResponse() {
+        ChatbotConfig config = chatbotConfig();
+        ChatContextService chatContextService = new ChatContextService();
+        EvidenceGuardrailService guardrailService = new EvidenceGuardrailService();
+        PromptAssemblyService promptAssemblyService = new PromptAssemblyService();
+        LocalLlmClient localLlmClient = new LocalLlmClient() {
+            @Override
+            public LocalLlmResult generate(ChatbotPrompt prompt, ChatbotConfig cfg) {
+                return new LocalLlmResult("answer", cfg.getModel(), cfg.getProvider().name(), 200, "stop");
+            }
+        };
+
+        ChatbotQueryService service = new ChatbotQueryService(
+            config, chatContextService, guardrailService, promptAssemblyService, localLlmClient
+        );
+
+        ChatbotQueryRequest request = new ChatbotQueryRequest(
+            "What changed in service order-service?",
+            new ChatbotContext("TrainTicket", "ir-1", null, null, null, "order-service", null),
+            null,
+            List.of()
+        );
+
+        ChatbotResponse response = service.query(request, "req-fixed-1");
+        assertThat(response.getRequestId()).isEqualTo("req-fixed-1");
+    }
+
     private ChatbotConfig chatbotConfig() {
         ChatbotConfig config = new ChatbotConfig();
         config.setProvider(ChatbotConfig.Provider.OLLAMA);

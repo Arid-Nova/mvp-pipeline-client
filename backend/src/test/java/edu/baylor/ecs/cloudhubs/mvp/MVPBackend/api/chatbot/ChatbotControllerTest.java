@@ -61,10 +61,10 @@ class ChatbotControllerTest {
         };
         ChatbotQueryService queryService = new ChatbotQueryService(null, null, null, null, null) {
             @Override
-            public ChatbotResponse query(ChatbotQueryRequest request) {
+            public ChatbotResponse query(ChatbotQueryRequest request, String requestId) {
                 ChatbotResponse response = new ChatbotResponse();
                 response.setAnswer("Answer: service changed.\nQualification: medium confidence.");
-                response.setRequestId("req-123");
+                response.setRequestId(requestId);
                 response.setProcessingTimeMs(12);
                 response.setModel("llama3.2");
                 response.setProvider("OLLAMA");
@@ -87,7 +87,7 @@ class ChatbotControllerTest {
                 .content("{\"question\":\"What changed?\"}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.answer").exists())
-            .andExpect(jsonPath("$.requestId").value("req-123"))
+            .andExpect(jsonPath("$.requestId").value(org.hamcrest.Matchers.startsWith("req-")))
             .andExpect(jsonPath("$.model").value("llama3.2"))
             .andExpect(jsonPath("$.provider").value("OLLAMA"));
     }
@@ -102,7 +102,7 @@ class ChatbotControllerTest {
         };
         ChatbotQueryService queryService = new ChatbotQueryService(null, null, null, null, null) {
             @Override
-            public ChatbotResponse query(ChatbotQueryRequest request) {
+            public ChatbotResponse query(ChatbotQueryRequest request, String requestId) {
                 throw new LocalLlmException(LocalLlmFailureCode.provider_error, "should not be called");
             }
         };

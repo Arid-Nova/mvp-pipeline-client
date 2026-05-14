@@ -6,8 +6,11 @@ import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.prompt.PromptAssembly
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.prompt.PromptEvidenceItem;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.runtime.LocalLlmClient;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.runtime.LocalLlmException;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.runtime.model.LocalLlmFailureCode;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.runtime.model.LocalLlmResult;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.config.ChatbotConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -15,6 +18,7 @@ import java.util.UUID;
 
 @Service
 public class ChatbotQueryService {
+    private static final Logger log = LoggerFactory.getLogger(ChatbotQueryService.class);
 
     private final ChatbotConfig chatbotConfig;
     private final ChatContextService chatContextService;
@@ -37,15 +41,46 @@ public class ChatbotQueryService {
     }
 
     public ChatbotResponse query(ChatbotQueryRequest request) {
+        return query(request, generateRequestId());
+    }
+
+    public ChatbotResponse query(ChatbotQueryRequest request, String requestId) {
         long startMs = System.currentTimeMillis();
-        ChatbotResponse response = baseResponse(generateRequestId());
+        ChatbotResponse response = baseResponse(requestId);
+        log.info(
+            "chatbot.query.received requestId={} provider={} model={}",
+            requestId,
+            chatbotConfig.getProvider().name(),
+            chatbotConfig.getModel()
+        );
 
         List<EvidenceItem> evidenceItems = chatContextService.collectEvidence(request);
+        int contextFields = countContextFields(request.getContext());
+        log.info(
+            "chatbot.query.context requestId={} contextFieldCount={} evidenceCount={}",
+            requestId,
+            contextFields,
+            evidenceItems == null ? 0 : evidenceItems.size()
+        );
         response = evidenceGuardrailService.enforce(request.getQuestion(), evidenceItems, response);
+        log.info(
+            "chatbot.query.guardrail requestId={} flags={}",
+            requestId,
+            response.getFlags()
+        );
 
         if (response.getFlags() != null && response.getFlags().contains(ChatbotFlag.insufficient_evidence)) {
             response.setConfidence(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
-            response.setProcessingTimeMs(System.currentTimeMillis() - startMs);
+            long latencyMs = System.currentTimeMillis() - startMs;
+            response.setProcessingTimeMs(latencyMs);
+            log.info(
+                "chatbot.query.completed requestId={} provider={} model={} latencyMs={} flags={}",
+                requestId,
+                response.getProvider(),
+                response.getModel(),
+                latencyMs,
+                response.getFlags()
+            );
             return response;
         }
 
@@ -56,14 +91,63 @@ public class ChatbotQueryService {
             request.getMessages()
         );
 
-        LocalLlmResult llmResult = localLlmClient.generate(assembled.toChatbotPrompt(), chatbotConfig);
-        response.setAnswer(llmResult.getText());
-        response.setModel(llmResult.getModel() == null || llmResult.getModel().isBlank() ? chatbotConfig.getModel() : llmResult.getModel());
-        response.setProvider(llmResult.getProvider() == null || llmResult.getProvider().isBlank() ? chatbotConfig.getProvider().name() : llmResult.getProvider());
-        response.setConfidence(ChatbotConfidence.MEDIUM);
-        response = evidenceGuardrailService.enforce(request.getQuestion(), evidenceItems, response);
-        response.setProcessingTimeMs(System.currentTimeMillis() - startMs);
-        return response;
+        try {
+            log.info(
+                "chatbot.query.provider_invoked requestId={} provider={} model={}",
+                requestId,
+                chatbotConfig.getProvider().name(),
+                chatbotConfig.getModel()
+            );
+            LocalLlmResult llmResult = localLlmClient.generate(assembled.toChatbotPrompt(), chatbotConfig);
+            response.setAnswer(llmResult.getText());
+            response.setModel(llmResult.getModel() == null || llmResult.getModel().isBlank() ? chatbotConfig.getModel() : llmResult.getModel());
+            response.setProvider(llmResult.getProvider() == null || llmResult.getProvider().isBlank() ? chatbotConfig.getProvider().name() : llmResult.getProvider());
+            response.setConfidence(ChatbotConfidence.MEDIUM);
+            response = evidenceGuardrailService.enforce(request.getQuestion(), evidenceItems, response);
+            long latencyMs = System.currentTimeMillis() - startMs;
+            response.setProcessingTimeMs(latencyMs);
+            log.info(
+                "chatbot.query.provider_success requestId={} provider={} model={} latencyMs={} flags={}",
+                requestId,
+                response.getProvider(),
+                response.getModel(),
+                latencyMs,
+                response.getFlags()
+            );
+            log.info(
+                "chatbot.query.completed requestId={} provider={} model={} latencyMs={} flags={}",
+                requestId,
+                response.getProvider(),
+                response.getModel(),
+                latencyMs,
+                response.getFlags()
+            );
+            return response;
+        } catch (LocalLlmException ex) {
+            long latencyMs = System.currentTimeMillis() - startMs;
+            log.warn(
+                "chatbot.query.provider_failure requestId={} provider={} model={} latencyMs={} errorClass={} failureCode={}",
+                requestId,
+                chatbotConfig.getProvider().name(),
+                chatbotConfig.getModel(),
+                latencyMs,
+                ex.getClass().getSimpleName(),
+                ex.getCode()
+            );
+            throw ex;
+        } catch (RuntimeException ex) {
+            long latencyMs = System.currentTimeMillis() - startMs;
+            log.warn(
+                "chatbot.query.provider_failure requestId={} provider={} model={} latencyMs={} errorClass={} failureCode={}",
+                requestId,
+                chatbotConfig.getProvider().name(),
+                chatbotConfig.getModel(),
+                latencyMs,
+                ex.getClass().getSimpleName(),
+                LocalLlmFailureCode.provider_error
+            );
+            throw ex;
+        }
     }
 
     public ChatbotResponse unavailableResponse(ChatbotQueryRequest request, LocalLlmException ex, String requestId) {
@@ -102,5 +186,24 @@ public class ChatbotQueryService {
                 item.getContent()
             ))
             .toList();
+    }
+
+    private int countContextFields(ChatbotContext context) {
+        if (context == null) {
+            return 0;
+        }
+        int count = 0;
+        if (hasValue(context.getSystemName())) count++;
+        if (hasValue(context.getIrId())) count++;
+        if (hasValue(context.getIndexId())) count++;
+        if (hasValue(context.getRunId())) count++;
+        if (hasValue(context.getCommitId())) count++;
+        if (hasValue(context.getSelectedService())) count++;
+        if (hasValue(context.getSelectedEndpoint())) count++;
+        return count;
+    }
+
+    private boolean hasValue(String value) {
+        return value != null && !value.isBlank();
     }
 }
