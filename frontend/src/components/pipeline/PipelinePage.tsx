@@ -1240,7 +1240,9 @@ const PipelinePage: React.FC = () => {
                             // Trigger downstream cards now that this is complete
                             await processNextNodes(targetNode.id, { ...payload, changeImpactPayload: result }, updateStatus);
                         } catch (error: any) {
-                            updateStatus(targetNode.id, 'failed', error.message);
+                            // Deliberatly ignoring this message.
+                            if(error.message !== 'Delta API error') 
+                                updateStatus(targetNode.id, 'failed', error.message);
                         }
                     }, 50);
                 }
