@@ -1094,8 +1094,15 @@ const PipelinePage: React.FC = () => {
                             return;
                         }
 
+                        // Checking if IR generation is complete
                         if (baseNode.status !== 'completed' || !baseNode.data.payload) {
                             updateStatus(targetNode.id, 'running', 'Awaiting Base IR completion...');
+                            return;
+                        }
+                        
+                        // Checking if the comparator details are available
+                        if (targetInputNode.status !== 'completed' || !targetInputNode.data.repositories || targetInputNode.data.repositories.length === 0) {
+                            updateStatus(targetNode.id, 'running', 'Retrieving comparator details...');
                             return;
                         }
 
