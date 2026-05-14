@@ -108,6 +108,41 @@ class ChatbotQueryServiceTest {
         assertThat(response.getRequestId()).isEqualTo("req-fixed-1");
     }
 
+    @Test
+    void marksInsufficientEvidenceWhenModelReturnsInsufficientEvidenceAnswer() {
+        ChatbotConfig config = chatbotConfig();
+        ChatContextService chatContextService = new ChatContextService();
+        EvidenceGuardrailService guardrailService = new EvidenceGuardrailService();
+        PromptAssemblyService promptAssemblyService = new PromptAssemblyService();
+        LocalLlmClient localLlmClient = new LocalLlmClient() {
+            @Override
+            public LocalLlmResult generate(ChatbotPrompt prompt, ChatbotConfig cfg) {
+                return new LocalLlmResult(
+                    "Answer: Insufficient evidence.\nQualification: No evidence available.",
+                    cfg.getModel(),
+                    cfg.getProvider().name(),
+                    200,
+                    "stop"
+                );
+            }
+        };
+
+        ChatbotQueryService service = new ChatbotQueryService(
+            config, chatContextService, guardrailService, promptAssemblyService, localLlmClient
+        );
+
+        ChatbotQueryRequest request = new ChatbotQueryRequest(
+            "What system context is currently selected?",
+            new ChatbotContext("TrainTicket", "ir-1", null, null, null, "order-service", null),
+            null,
+            List.of()
+        );
+
+        ChatbotResponse response = service.query(request, "req-insufficient-1");
+        assertThat(response.getFlags()).contains(ChatbotFlag.insufficient_evidence);
+        assertThat(response.getConfidence()).isEqualTo(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
+    }
+
     private ChatbotConfig chatbotConfig() {
         ChatbotConfig config = new ChatbotConfig();
         config.setProvider(ChatbotConfig.Provider.OLLAMA);

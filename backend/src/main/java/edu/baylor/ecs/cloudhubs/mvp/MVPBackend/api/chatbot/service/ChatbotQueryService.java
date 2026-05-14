@@ -104,6 +104,7 @@ public class ChatbotQueryService {
             response.setProvider(llmResult.getProvider() == null || llmResult.getProvider().isBlank() ? chatbotConfig.getProvider().name() : llmResult.getProvider());
             response.setConfidence(ChatbotConfidence.MEDIUM);
             response = evidenceGuardrailService.enforce(request.getQuestion(), evidenceItems, response);
+            normalizeEvidenceQualification(response);
             long latencyMs = System.currentTimeMillis() - startMs;
             response.setProcessingTimeMs(latencyMs);
             log.info(
@@ -205,5 +206,23 @@ public class ChatbotQueryService {
 
     private boolean hasValue(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private void normalizeEvidenceQualification(ChatbotResponse response) {
+        if (response == null) {
+            return;
+        }
+        boolean mentionsInsufficientEvidence = response.getAnswer() != null
+            && response.getAnswer().toLowerCase().contains("insufficient evidence");
+        boolean hasNoCitations = response.getCitations() == null || response.getCitations().isEmpty();
+        if (mentionsInsufficientEvidence && hasNoCitations) {
+            if (response.getFlags() == null || !response.getFlags().contains(ChatbotFlag.insufficient_evidence)) {
+                List<ChatbotFlag> updatedFlags = response.getFlags() == null ? List.of() : response.getFlags();
+                List<ChatbotFlag> merged = new java.util.ArrayList<>(updatedFlags);
+                merged.add(ChatbotFlag.insufficient_evidence);
+                response.setFlags(merged);
+            }
+            response.setConfidence(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
+        }
     }
 }
