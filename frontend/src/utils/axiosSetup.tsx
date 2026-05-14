@@ -3,8 +3,6 @@
 import axios from "axios";
 import Logger from "js-logger";
 
-const controller = new AbortController();
-
 axios.interceptors.response.use(
     function (response) {
         try {

@@ -171,13 +171,13 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({ activeContext }) => {
 
     useEffect(() => {
         refreshHealth();
-    }, []);
+    }, [refreshHealth]);
 
     useEffect(() => {
         if (isOpen) {
             refreshHealth();
         }
-    }, [isOpen]);
+    }, [isOpen, refreshHealth]);
 
     const onSubmit = async () => {
         const question = input.trim();

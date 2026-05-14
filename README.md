@@ -122,6 +122,22 @@ Optional local model runtime:
 - `ollama` service is available behind the Compose profile `local-llm`.
 - Start it only when needed: `docker compose --profile local-llm up -d ollama`.
 
+Health check:
+
+```sh
+curl http://localhost:8080/chatbot/health
+```
+
+Using the chatbot panel:
+- Open `http://localhost:3000` and navigate to the primary pipeline workflow.
+- Click the `Chatbot` floating button.
+- Ask a question (for example: `What system context is currently selected?`).
+- The UI sends requests to backend endpoints only: `GET /chatbot/health` and `POST /chatbot/query`.
+
+Known S12-M1 limitation:
+- Evidence retrieval is intentionally minimal (context placeholder evidence only).
+- Full IR/graph retrieval and ranking-based grounding are deferred to **S12-M2**.
+
 ### No-Cloud Validation (S12-M1)
 
 Run the chatbot local-only validation checks:
