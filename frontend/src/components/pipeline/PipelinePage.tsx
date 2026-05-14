@@ -69,6 +69,10 @@ const PipelinePage: React.FC = () => {
     // Notification States
     const [notification, setNotification] = useState<ToastNotification | null>(null);
 
+    // History States (Undo/Redo)
+    const [history, setHistory] = useState<{nodes: NodeData[], connections: Connection[]}[]>([{ nodes: [], connections: [] }]);
+    const [historyIndex, setHistoryIndex] = useState(0);
+
     // Named Session State
     const [sessionName, setSessionName] = useState<string>(() => {
         if (inMemoryPipelineCache) return inMemoryPipelineCache.sessionName;
@@ -179,6 +183,80 @@ const PipelinePage: React.FC = () => {
             });   
         }
     };
+
+    // History of Actions handling for Undo and Redo operations
+    const MAX_HISTORY_STATES = 10;
+
+    const saveHistory = useCallback((newNodes: NodeData[], newConnections: Connection[]) => {
+        const newState = {
+            nodes: newNodes.map(node => ({ ...node })),
+            connections: newConnections.map(conn => ({ ...conn }))
+        };
+
+        setHistory(prev => {
+            const slicedHistory = prev.slice(0, historyIndex + 1);
+            const nextHistory = [...slicedHistory, newState];
+           
+            if (nextHistory.length > MAX_HISTORY_STATES) {
+                return nextHistory.slice(nextHistory.length - MAX_HISTORY_STATES);
+            }        
+            return nextHistory;
+        });
+
+        setHistoryIndex(prev => Math.min(prev + 1, MAX_HISTORY_STATES - 1));
+    }, [historyIndex]);
+
+    const handleUndo = useCallback(() => {
+        if (historyIndex > 0) {
+            const prevIndex = historyIndex - 1;
+            setHistoryIndex(prevIndex);
+            setNodes(history[prevIndex].nodes);
+            setConnections(history[prevIndex].connections);
+        }
+    }, [history, historyIndex]);
+
+    const handleRedo = useCallback(() => {
+        if (historyIndex < history.length - 1) {
+            const nextIndex = historyIndex + 1;
+            setHistoryIndex(nextIndex);
+            setNodes(history[nextIndex].nodes);
+            setConnections(history[nextIndex].connections);
+        }
+    }, [history, historyIndex]);
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            const target = event.target as HTMLElement;
+            if (
+                target.tagName === 'INPUT' ||
+                target.tagName === 'TEXTAREA' ||
+                target.isContentEditable
+            ) {
+                return;
+            }
+
+            // Detecting Mac vs Windows for the modifier key
+            const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+            const isCtrlOrCmd = isMac ? event.metaKey : event.ctrlKey;
+
+            if (isCtrlOrCmd && event.key.toLowerCase() === 'z' && !event.shiftKey) {
+                event.preventDefault(); 
+                handleUndo();
+            }
+            
+            if (
+                (isCtrlOrCmd && event.key.toLowerCase() === 'z' && event.shiftKey) ||
+                (isCtrlOrCmd && event.key.toLowerCase() === 'y')
+            ) {
+                event.preventDefault(); 
+                handleRedo();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [handleUndo, handleRedo]);
 
     // Zoom handling
     const handleWheel = (e: React.WheelEvent) => {
@@ -328,7 +406,8 @@ const PipelinePage: React.FC = () => {
             setConnections([]);
             setSessionName(''); 
             setSessionId(null);
-
+            
+            saveHistory([], []);
             inMemoryPipelineCache = null;
             sessionStorage.removeItem('pipeline_nodes');
             sessionStorage.removeItem('pipeline_connections');
@@ -374,11 +453,17 @@ const PipelinePage: React.FC = () => {
         };
         
         setNodes(prev => [...prev, newNode]);
+        saveHistory([...nodes, newNode], connections);
     };
 
     const deleteNode = (id: string) => {
-        setNodes(nodes.filter(n => n.id !== id));
-        setConnections(connections.filter(c => c.source !== id && c.target !== id));
+        const updatedNodes = nodes.filter(n => n.id !== id);
+        const updatedConnections = connections.filter(c => c.source !== id && c.target !== id);
+
+        setNodes(updatedNodes);
+        setConnections(updatedConnections);
+
+        saveHistory(updatedNodes, updatedConnections);
     };
 
     const updateNodeData = useCallback((id: string, newData: Partial<NodeData['data']>) => {
@@ -411,8 +496,12 @@ const PipelinePage: React.FC = () => {
         const x = (e.clientX - rect.left - offset.x) / scale - 150; 
         const y = (e.clientY - rect.top - offset.y) / scale - 50;
 
-        setNodes(nodes.map(n => n.id === dragNodeId ? { ...n, x, y } : n));
+        const updatedNodes = nodes.map(n => n.id === dragNodeId ? { ...n, x, y } : n);
+
+        setNodes(updatedNodes);
         setDragNodeId(null);
+
+        saveHistory(updatedNodes, connections);
     };
 
     // --- Linking Logic ---
@@ -445,7 +534,11 @@ const PipelinePage: React.FC = () => {
     };
 
     const deleteConnection = (connId: string) => {
-        setConnections(connections.filter(c => c.id !== connId));
+        const updatedConnections = connections.filter(c => c.id !== connId);
+
+        setConnections(updatedConnections);
+
+        saveHistory(nodes, updatedConnections);
     };
 
     // --- Execution Logic ---
@@ -1278,7 +1371,11 @@ const PipelinePage: React.FC = () => {
                 onLoad={handleLoadSession}
                 clearPipeline={clearPipeline}
                 runPipeline={runPipeline}
-                onSave={handleSaveSession}       
+                onSave={handleSaveSession} 
+                onUndo={handleUndo}
+                onRedo={handleRedo}
+                canUndo={historyIndex > 0}
+                canRedo={historyIndex < history.length - 1}      
             />
             
             <div className="flex flex-1 overflow-hidden">

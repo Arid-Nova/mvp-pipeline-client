@@ -139,6 +139,10 @@ interface PipelineHeaderProps {
     sessionName?: string;
     sessionId: string | null;
     hasUnsavedChanges: boolean;
+    canUndo?: boolean;
+    canRedo?: boolean;
+    onUndo?: () => void;
+    onRedo?: () => void;
     clearPipeline: () => void;
     runPipeline: () => void;
     onLoad: (sessionId: string) => Promise<void>;
@@ -152,6 +156,10 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
     sessionName,
     sessionId,
     hasUnsavedChanges,
+    canUndo,
+    canRedo,
+    onUndo,
+    onRedo,
     onSave,
     onLoad,
     clearPipeline,
@@ -311,6 +319,31 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                         Clear All
                     </button>
                 )}
+
+                {/* --- Undo and Redo --- */}
+                <div className="flex items-center gap-2 border-l border-slate-700 pl-4 ml-2">
+                    <button
+                        onClick={onUndo}
+                        disabled={!canUndo}
+                        className="p-2 bg-slate-800 border border-slate-600 text-slate-200 hover:text-white hover:bg-slate-700 hover:border-slate-500 shadow-sm rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Undo (Ctrl+Z)"
+                    >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                        </svg>
+                    </button>
+
+                    <button
+                        onClick={onRedo}
+                        disabled={!canRedo}
+                        className="p-2 bg-slate-800 border border-slate-600 text-slate-200 hover:text-white hover:bg-slate-700 hover:border-slate-500 shadow-sm rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="Redo (Ctrl+Y)"
+                    >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" />
+                        </svg>
+                    </button>
+                </div>
 
                 {/* --- Settings Cogwheel & Dropdown --- */}
                 <div className="relative" ref={settingsRef}>
