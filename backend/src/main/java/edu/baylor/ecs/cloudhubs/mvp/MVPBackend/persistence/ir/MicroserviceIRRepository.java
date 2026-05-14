@@ -9,9 +9,9 @@ import java.util.List;
 public interface MicroserviceIRRepository
         extends MongoRepository<MicroserviceEntity, String> {
         
-    @Query("{ 'payload.name': { $regex: ?0, $options: 'i' } }")
+    @Query("{ '$or': [ { 'systemName': { $regex: ?0, $options: 'i' } }, { 'payload.name': { $regex: ?0, $options: 'i' } } ] }")
     List<MicroserviceEntity> findByPayloadNameMatching(String namePattern, Pageable pageable);
 
-    @Query(value = "{ 'payload.name': { $regex: ?0, $options: 'i' } }", exists = true)
+    @Query(value = "{ '$or': [ { 'systemName': { $regex: ?0, $options: 'i' } }, { 'payload.name': { $regex: ?0, $options: 'i' } } ] }", exists = true)
     boolean existsByPayloadName(String namePattern);
 }

@@ -34,6 +34,11 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.util.*;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 @Log4j2
 @Service
@@ -282,15 +287,34 @@ public class IRService {
 
     // Repository operations
     private String saveIR(JsonNode rootNode) {
-        Map<String, Object> jsonMap = objectMapper.convertValue(rootNode, new TypeReference<>() {});
-        jsonMap.put("metadata", Map.of(
-            "createDate", new Date(),
-            "modifyDate", new Date()
-        ));
-        MicroserviceEntity entity = new MicroserviceEntity(jsonMap);
+        try {
+            String systemName = rootNode.path("name").asText("");
+            Date now = new Date();
+            byte[] compressedPayload = compress(objectMapper.writeValueAsString(rootNode));
 
-        MicroserviceEntity savedEntity = repository.save(entity);
-        return savedEntity.getId();
+            // Keep headroom below Mongo's 16MB hard limit.
+            int maxSafeBytes = 15 * 1024 * 1024;
+            if (compressedPayload.length > maxSafeBytes) {
+                throw new IllegalArgumentException(
+                    "Generated IR is too large to store safely. Try narrowing repository scope or fewer services."
+                );
+            }
+
+            MicroserviceEntity entity = new MicroserviceEntity(
+                systemName,
+                null,
+                compressedPayload,
+                now,
+                now
+            );
+
+            MicroserviceEntity savedEntity = repository.save(entity);
+            return savedEntity.getId();
+        } catch (IllegalArgumentException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("Failed to persist generated IR payload.", ex);
+        }
     }
 
     private JsonNode getIRById(String id) {
@@ -298,7 +322,7 @@ public class IRService {
 
         if (optionalEntity.isPresent()) {
             MicroserviceEntity entity = optionalEntity.get();
-            JsonNode rootNode = objectMapper.valueToTree(entity.getPayload());
+            JsonNode rootNode = readPayload(entity);
             if (rootNode.isObject()) {
                 ((ObjectNode) rootNode).put("id", entity.getId());
             }
@@ -310,12 +334,12 @@ public class IRService {
 
     private JsonNode[] getIRsByName(String namePattern) {
         Pageable topFiveLatest = PageRequest.of(0, 5, 
-            Sort.by(Sort.Direction.DESC, "payload.metadata.createDate"));
+            Sort.by(Sort.Direction.DESC, "modifyDate"));
         List<MicroserviceEntity> entities = repository.findByPayloadNameMatching(namePattern, topFiveLatest);
     
         return entities.stream()
                 .map(entity -> {
-                    JsonNode rootNode = objectMapper.valueToTree(entity.getPayload());
+                    JsonNode rootNode = readPayload(entity);
                     if (rootNode.isObject()) {
                         ((ObjectNode) rootNode).put("id", entity.getId());
                     }
@@ -326,5 +350,37 @@ public class IRService {
 
     private boolean getIRMetaByName(String namePattern) {
         return repository.existsByPayloadName(namePattern);
+    }
+
+    private JsonNode readPayload(MicroserviceEntity entity) {
+        try {
+            if (entity.getPayloadCompressed() != null && entity.getPayloadCompressed().length > 0) {
+                String json = decompress(entity.getPayloadCompressed());
+                return objectMapper.readTree(json);
+            }
+            if (entity.getPayload() != null) {
+                return objectMapper.valueToTree(entity.getPayload());
+            }
+            throw new IllegalArgumentException("IR payload is missing for id: " + entity.getId());
+        } catch (IllegalArgumentException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("Failed to deserialize stored IR payload for id: " + entity.getId(), ex);
+        }
+    }
+
+    private byte[] compress(String input) throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (GZIPOutputStream gzip = new GZIPOutputStream(baos)) {
+            gzip.write(input.getBytes(StandardCharsets.UTF_8));
+        }
+        return baos.toByteArray();
+    }
+
+    private String decompress(byte[] input) throws Exception {
+        ByteArrayInputStream bais = new ByteArrayInputStream(input);
+        try (GZIPInputStream gzip = new GZIPInputStream(bais)) {
+            return new String(gzip.readAllBytes(), StandardCharsets.UTF_8);
+        }
     }
 }
