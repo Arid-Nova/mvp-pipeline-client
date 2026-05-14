@@ -1,8 +1,14 @@
-import axios from 'axios';
+import axios, { 
+    VERIFY_API, COMPONENT_API, VECTOR_API, 
+    ANALYSIS_API, TEST_API, AEGIS_API, REPO_API 
+} from '../utils/axiosSetup';
 import { showError } from '../utils/notifications';
-import { RepositoryInput, VerificationInput, VerificationResponse, OrgImportResponse, SessionPageResponse } from './types';
+import { 
+    RepositoryInput, VerificationInput, VerificationResponse, 
+    OrgImportResponse, SessionPageResponse, ChangeImpactInsight 
+} from './types';
 import { PromptItem } from '../components/pipeline/models';
-import { decompressPayload } from '../utils/decompress';
+import { decompressPayload, decompressGzipResponse } from '../utils/decompress';
 
 // IR generation and retrieval functions
 export const fetchIRFromRepo = async (input: RepositoryInput) => {
@@ -10,12 +16,7 @@ export const fetchIRFromRepo = async (input: RepositoryInput) => {
         const response = await axios.post('/ir/create', input, {
             responseType: 'blob' 
         });
-
-        const ds = new DecompressionStream("gzip");
-        const decompressedStream = response.data.stream().pipeThrough(ds);
-
-        const responseText = await new Response(decompressedStream).text();
-        return JSON.parse(responseText);
+        return await decompressGzipResponse(response.data);
     } catch (error: any) {
         let msg = "Failed to generate IR from repository.";
 
@@ -54,16 +55,7 @@ export const fetchHistoricalIRs = async (systemName: string): Promise<any[]> => 
             params: { systemName },
             responseType: 'blob'
         });
-
-        const ds = new DecompressionStream("gzip");
-        const decompressedStream = response.data.stream().pipeThrough(ds);
-        const responseText = await new Response(decompressedStream).text();
-
-        let irs = JSON.parse(responseText);
-
-        console.log("Fetched historical IRs:", irs);
-
-        return irs;
+        return await decompressGzipResponse(response.data);
     } catch (error: any) {
         console.error("Failed to fetch historical IRs:", error);
         showError("Failed to load historical timeline data.");
@@ -73,13 +65,16 @@ export const fetchHistoricalIRs = async (systemName: string): Promise<any[]> => 
 
 // Change impact analysis function
 export const fetchChangeImpact = async (deltaInput: any) => {
-    const response = await fetch('http://localhost:8080/ir/delta', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(deltaInput)
-    });
-    if (!response.ok) throw new Error(`Delta API error: ${response.status}`);
-    return await response.json();
+    try {
+        const response = await axios.post('/ir/delta', deltaInput, {
+            responseType: 'blob'
+        });
+
+        return await decompressGzipResponse(response.data);
+    }
+    catch (error: any) {
+        throw new Error(error.response?.data?.detail || "Delta API error");
+    }
 };
 
 // Session management functions
@@ -144,7 +139,7 @@ export const deleteSession = async (sessionId: string): Promise<void> => {
 // Formal verification function
 export const verifySystem = async (input: VerificationInput): Promise<VerificationResponse> => {
     try {
-        const response = await axios.post('http://localhost:9000/verify', input);
+        const response = await VERIFY_API.post('/verify', input);
         return response.data;
     } catch (error: any) {
         const msg = error.response?.data?.message || "Verification service unreachable.";
@@ -155,131 +150,125 @@ export const verifySystem = async (input: VerificationInput): Promise<Verificati
 
 // AI Test generation functions
 export const createComponent = async (reqBody: any) => {
-    const response = await fetch('http://localhost:8060/component/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(reqBody)
-    });
-
-    if (!response.ok) throw new Error(`API error ${response.status}`);
-    return await response.json();
+    try {
+        const response = await COMPONENT_API.post('/component/create', reqBody);
+        return response.data;
+    } catch (error: any) {
+        throw new Error(error.response?.data?.detail || "Component creation error.");
+    }
 };
 
 export const generateAuthVectors = async (indexId: string) => {
-    const authVectorsResponse = await fetch('http://localhost:8050/vectors/generate-all', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ indexId: indexId }) 
-    });
-
-    if (!authVectorsResponse.ok) throw new Error(`API error ${authVectorsResponse.status}`);
-    
-    let int_result = await authVectorsResponse.json();
-    int_result['vectors'] = decompressPayload(int_result.vectors);;
-    return int_result
+    try {
+        const response = await VECTOR_API.post('/vectors/generate-all', { indexId: indexId });
+        let int_result = response.data;
+        int_result['vectors'] = decompressPayload(int_result.vectors);
+        return int_result;
+    } catch (error: any) {
+        throw new Error(error.response?.data?.detail || "Vector generation error.");
+    }
 };
 
 export const generateScenarios = async (indexId: string|undefined, vectorsId: string|undefined) => {
-    const actualScenarios = await fetch('http://localhost:8040/scenarios/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(
-            {   
-                index_id: indexId,
-                vectors_id: vectorsId
-            }
-        ) 
-    });
-
-    if (!actualScenarios.ok) throw new Error(`API error ${actualScenarios.status}`);
-    return await actualScenarios.json();
+    try {
+        const response = await ANALYSIS_API.post('/scenarios/generate', {   
+            index_id: indexId,
+            vectors_id: vectorsId
+        });
+        return response.data;
+    } catch (error: any) {
+        throw new Error(error.response?.data?.detail || "Scenario generation error.");
+    }
 };
 
-export const generateTestSuites = async (selectedLlm: string, prompts: PromptItem[]|undefined) => {
-    const response = await fetch('http://localhost:8030/testsuites/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+export const generateTestSuites = async (selectedLlm: string, prompts: PromptItem[] | undefined) => {
+    try {
+        const response = await TEST_API.post('/testsuites/generate', { 
             llm_model: selectedLlm,
             prompts: prompts 
-        })
-    });
-
-    if (!response.ok) throw new Error(`Test Generation API error: ${response.status}`);
-    
-    return await response.json();
+        });
+        return response.data;
+    } catch (error: any) {
+        throw new Error(error.response?.data?.detail || "Test Generation error");
+    }
 };
 
 export const generatePrompts = async (selectedIds: string[], targetLanguage: string) => {
-    const response = await fetch('http://localhost:8040/scenarios/prompts/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scenario_ids: selectedIds, language: targetLanguage })
-    });
-
-    if (!response.ok) throw new Error(`Prompt API error: ${response.status}`);
-    
-    return await response.json(); 
+    try {
+        const response = await ANALYSIS_API.post('/scenarios/prompts/generate', { 
+            scenario_ids: selectedIds, 
+            language: targetLanguage 
+        });
+        return response.data;
+    } catch (error: any) {
+        throw new Error(error.response?.data?.detail || "Prompt generation error");
+    }
 };
 
 // Aegis introspection functions 
 export const analyzeAegis = async (enginePayload: any) => {
-    return fetch('http://localhost:8900/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(enginePayload)
-    })
+    try {
+        const response = await AEGIS_API.post('/analyze', enginePayload);
+        return response.data;
+    } catch (error: any) {
+        throw new Error(error.response?.data?.detail || "Aegis API error");
+    }
 };
 
 // GitHub repository management functions
 export const importOrganization = async (orgUrl: string): Promise<OrgImportResponse> => {
-    const response = await fetch('http://localhost:8020/import/organization', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ org_url: orgUrl })
-    });
-
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        const errorMessage = errorData?.detail || `API error ${response.status}: Failed to import organization`;
+    try {
+        const response = await REPO_API.post('/import/organization', { org_url: orgUrl });
+        return response.data;
+    } catch (error: any) {
+        const errorMessage = error.response?.data?.detail || "API error: Failed to import organization";
         showError(errorMessage);
         throw new Error(errorMessage);
     }
-    
-    return await response.json();
 };
 
 export const saveGitHubToken = async (token: string) => {
-    const response = await fetch('http://localhost:8020/settings/github-token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ github_token: token })
-    });
-
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.detail || `API error ${response.status}`);
+    try {
+        const response = await REPO_API.post('/settings/github-token', { github_token: token });
+        return response.data;
+    } catch (error: any) {
+        throw new Error(error.response?.data?.detail || "API error saving GitHub token");
     }
-    return await response.json();
 };
 
 export const deleteGitHubToken = async () => {
-    const response = await fetch('http://localhost:8020/settings/github-token', {
-        method: 'DELETE'
-    });
-
-    if (!response.ok) throw new Error(`API error ${response.status}`);
-    return await response.json();
+    try {
+        const response = await REPO_API.delete('/settings/github-token');
+        return response.data;
+    } catch (error: any) {
+        throw new Error(error.response?.data?.detail || "API error deleting GitHub token");
+    }
 };
 
 export const checkGitHubTokenStatus = async () => {
     try {
-        const response = await fetch('http://localhost:8020/settings/github-token/status');
-        if (!response.ok) return false;
-        const data = await response.json();
-        return data.hasToken;
+        const response = await REPO_API.get('/settings/github-token/status');
+        return response.data.hasToken;
     } catch (error) {
         console.error("Failed to check token status", error);
         return false; 
+    }
+};
+
+// Change Impact Analysis
+export const generateChangeImpactInsights = async (payload: ChangeImpactInsight) => {
+    const jsonString = JSON.stringify(payload);
+    const stream = new Blob([jsonString]).stream();
+
+    const compressedStream = stream.pipeThrough(new CompressionStream("gzip"));
+    const compressedBody = await new Response(compressedStream).blob();
+
+    try {
+        const response = await ANALYSIS_API.post('/analysis/impact-insights', compressedBody, {
+            headers: { 'Content-Encoding': 'gzip' } 
+        });
+        return response.data;
+    } catch (error: any) {
+        throw new Error(error.response?.data?.detail || "API error generating impact insights");
     }
 };

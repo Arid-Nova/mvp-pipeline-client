@@ -1,100 +1,479 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { saveAs } from 'file-saver';
 import { NodeData } from '../models';
+import { generateChangeImpactInsights } from '../../../services/api';
+import { calculateMatrixData } from '../../../utils/changeImpactUtils';
 
-interface Props {
+interface ChangeImpactCardProps {
     node: NodeData;
+    updateNodeData: (id: string, newData: Partial<NodeData['data']>) => void;
 }
 
-export const ChangeImpactCard: React.FC<Props> = ({ node }) => {
-    const payload = node.data.changeImpactPayload;
-    const targetedServices = node.data.targetedServices || [];
+type TabType = 'overview' | 'topology' | 'heatmap' | 'ai';
 
-    if (node.status === 'idle' || node.status === 'running') {
+export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, updateNodeData }) => {
+    const [activeTab, setActiveTab] = useState<TabType>('overview');
+    
+    // AI Insights States
+    const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+    const [aiInsight, setAiInsight] = useState<string | null>(null);
+
+    const payload = node.data.changeImpactPayload;
+    const irPayload = node.data.payload?.irJson || node.data.systemInfo?.ir 
+    
+    const targetedServices = node.data.targetedServices || [];
+    const isExpanded = node.data.isExpanded || false;
+
+    // Calculating the change risks matrix
+    const matrixData = useMemo(() => {
+        if (!payload) return { services: [], links: {}, impacts: {}, riskFactors: {}, centralities: {} };
+        return calculateMatrixData(payload, irPayload, targetedServices);
+    }, [payload, irPayload, targetedServices]);
+
+    if (!payload) {
         return (
-            <div className="flex flex-col items-center justify-center p-5 h-full text-slate-500">
-                {node.status === 'running' ? (
-                    <div className="relative flex items-center justify-center w-8 h-8 mb-3">
-                        <div className="absolute inset-0 border-t-2 border-orange-500 rounded-full animate-spin"></div>
-                    </div>
-                ) : (
-                    <svg className="w-6 h-6 mb-2 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
-                    </svg>
-                )}
-                <span className="text-[10px] font-bold text-center uppercase tracking-widest text-slate-400">
-                    {node.status === 'running' ? 'Calculating Delta...' : 'Link Base IR & Target Input'}
-                </span>
+            <div className="mt-2 text-center p-3 border border-dashed border-slate-700 bg-slate-800/50 rounded-lg">
+                <span className="text-xs text-slate-400 italic">Waiting for Delta Analysis...</span>
             </div>
         );
     }
 
-    if (!payload) return null;
-
     const changes = payload.changes || [];
-    const added = changes.filter((c: any) => c.changeType === 'ADD').length;
-    const deleted = changes.filter((c: any) => c.changeType === 'DELETE').length;
-    const modified = changes.filter((c: any) => c.changeType === 'MODIFY').length;
+    let addedCount = 0; let deletedCount = 0; let modifiedCount = 0;
+    changes.forEach((c: any) => {
+        if (c.changeType === 'ADD') addedCount++;
+        if (c.changeType === 'DELETE') deletedCount++;
+        if (c.changeType === 'MODIFY') modifiedCount++;
+        
+        if (c.componentDeltas) {
+            c.componentDeltas.forEach((cd: any) => {
+                if (cd.changeType === 'ADD') addedCount++;
+                if (cd.changeType === 'DELETE') deletedCount++;
+                if (cd.changeType === 'MODIFY') modifiedCount++;
+            });
+        }
+    });
 
     const downloadDelta = () => {
         const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
         saveAs(blob, "change_impact_delta.json");
     };
 
+    // UI Helpers
+    const formatSvcName = (name: string) => {
+        if (!name) return '';
+        return name.replace(/^(ts-|ms-|app-)/i, '').replace(/(-service|-api)$/i, '');
+    };
+
+    const getLinkStyle = (state: string) => {
+        switch (state) {
+            case 'added': return 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400';
+            case 'removed': return 'bg-rose-500/20 border-rose-500/50 text-rose-400 hover:shadow-[0_0_12px_rgba(244,63,94,0.5)]';
+            case 'changed': return 'bg-amber-500/20 border-amber-500/50 text-amber-400 hover:shadow-[0_0_12px_rgba(245,158,11,0.5)]';
+            case 'maintained': return 'bg-slate-700/50 border-slate-600 text-slate-400 hover:bg-slate-600/50';
+            default: return 'bg-slate-800/30 border-transparent border-dashed';
+        }
+    };
+
+    const getStatusTextColor = (state: string) => {
+        switch (state) {
+            case 'added': return 'text-emerald-400';
+            case 'removed': return 'text-rose-400';
+            case 'changed': return 'text-amber-400';
+            case 'maintained': return 'text-slate-300';
+            default: return 'text-slate-500';
+        }
+    };
+
+    const getImpactColor = (score: number) => {
+        if (score === 0) return 'bg-slate-800/30';
+        if (score < 0.3) return 'bg-blue-500/20 border border-blue-500/30 text-blue-300 hover:shadow-[0_0_10px_rgba(59,130,246,0.3)]';
+        if (score < 0.6) return 'bg-amber-500/40 border border-amber-500/50 text-amber-200 hover:shadow-[0_0_10px_rgba(245,158,11,0.4)]';
+        if (score < 0.8) return 'bg-orange-500/60 border border-orange-500/70 text-white hover:shadow-[0_0_10px_rgba(249,115,22,0.5)]';
+        return 'bg-rose-600/80 border border-rose-400 text-white shadow-[0_0_10px_rgba(225,29,72,0.5)] hover:shadow-[0_0_15px_rgba(225,29,72,0.8)]'; 
+    };
+
+    const handleGenerateAI = async () => {
+        setIsGeneratingAI(true);
+        setAiInsight(null); 
+
+        try {
+            const serializableRiskFactors: Record<string, string[]> = {};
+            Object.keys(matrixData.riskFactors).forEach(svc => {
+                serializableRiskFactors[svc] = Array.from(matrixData.riskFactors[svc]);
+            });
+
+            // Identify critical downstream impacts (score > 0.7)
+            const criticalImpacts: Array<{source: string, target: string, status: string, riskScore: number}> = [];
+            matrixData.services.forEach(source => {
+                matrixData.services.forEach(target => {
+                    const score = matrixData.impacts[source][target] || 0;
+                    if (score > 0.7) { 
+                        criticalImpacts.push({
+                            source,
+                            target,
+                            status: matrixData.links[source][target],
+                            riskScore: Number(score.toFixed(2))
+                        });
+                    }
+                });
+            });
+
+            const payload = {
+                metrics: {
+                    added: addedCount,
+                    modified: modifiedCount,
+                    deleted: deletedCount
+                },
+                affectedServices: matrixData.services,
+                riskFactors: serializableRiskFactors,
+                criticalImpacts: criticalImpacts.sort((a, b) => b.riskScore - a.riskScore) 
+            };
+
+            // Calling the backend proxy for LLM calls
+            const responseData = await generateChangeImpactInsights(payload);
+            setAiInsight(responseData.insight || responseData.message || "Analysis complete.");
+
+        } catch {
+            setAiInsight("Unfortunately, the AI Insight generation failed.");
+        } finally {
+            setIsGeneratingAI(false);
+        }
+    };
+
     return (
-        <div className="p-3 pt-2 flex flex-col gap-3 relative">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-700/50 pb-2">
-                <h4 className="text-[11px] font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
-                    Blast Radius
-                </h4>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-400 font-bold tracking-wider uppercase">
-                    Calculated
-                </span>
-            </div>
-
-            {/* Change Metrics */}
-            <div className="flex gap-2">
-                <div className="flex-1 bg-slate-900/80 p-2 rounded-lg border border-slate-700/50 text-center">
-                    <div className="text-[8px] text-slate-500 uppercase tracking-wider mb-0.5">Added</div>
-                    <div className="text-sm font-black text-emerald-400">+{added}</div>
+        <div className={`flex flex-col mt-3 transition-all duration-300 ${isExpanded ? 'w-[600px]' : 'w-full'}`}>
+            
+            {/* Header Control */}
+            <div className="flex justify-between items-center mb-2">
+                <div className="text-[10px] text-orange-400 uppercase tracking-widest font-bold">
+                    Blast Radius Analysis
                 </div>
-                <div className="flex-1 bg-slate-900/80 p-2 rounded-lg border border-slate-700/50 text-center">
-                    <div className="text-[8px] text-slate-500 uppercase tracking-wider mb-0.5">Modified</div>
-                    <div className="text-sm font-black text-amber-400">~{modified}</div>
-                </div>
-                <div className="flex-1 bg-slate-900/80 p-2 rounded-lg border border-slate-700/50 text-center">
-                    <div className="text-[8px] text-slate-500 uppercase tracking-wider mb-0.5">Deleted</div>
-                    <div className="text-sm font-black text-rose-400">-{deleted}</div>
-                </div>
-            </div>
-
-            {/* Targeted Services Snippet */}
-            <div className="bg-orange-900/10 border border-orange-500/20 p-2 rounded-lg flex flex-col gap-1.5">
-                <div className="text-[9px] text-orange-400 uppercase tracking-wider font-bold">
-                    Affected Services ({targetedServices.length})
-                </div>
-                <div className="flex flex-wrap gap-1">
-                    {targetedServices.slice(0, 4).map((svc: string) => (
-                        <span key={svc} className="text-[8px] px-1 py-0.5 bg-orange-950/50 border border-orange-500/30 rounded text-orange-200">
-                            {svc}
-                        </span>
-                    ))}
-                    {targetedServices.length > 4 && (
-                        <span className="text-[8px] px-1 py-0.5 bg-slate-800 rounded text-slate-400">
-                            +{targetedServices.length - 4} more
-                        </span>
+                <button 
+                    onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        updateNodeData(node.id, { isExpanded: !isExpanded });
+                    }}
+                    className="text-[10px] text-orange-400 hover:text-orange-300 flex items-center gap-1"
+                >
+                    {isExpanded ? (
+                        <>
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 14h6m0 0v6m0-6l-7 7m17-11h-6m0 0V4m0 6l7-7M4 10h6m0 0V4m0 6l-7-7m17 11h-6m0 0v6m0-6l7 7" />
+                            </svg>
+                            Minimize
+                        </>
+                    ) : (
+                        <>
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                            </svg>
+                            Expand
+                        </>
                     )}
-                </div>
+                </button>
             </div>
 
-            {/* Action */}
-            <button 
-                onClick={downloadDelta}
-                className="w-full py-1.5 text-[10px] bg-orange-600 hover:bg-orange-500 text-white rounded font-bold shadow transition-colors"
-            >
-                Download JSON Delta
-            </button>
+            {/* Mimized card only shows the quick summary */}
+            {!isExpanded && (
+                <div className="flex flex-col gap-2">
+                    <div className="grid grid-cols-3 gap-2">
+                        <div className="bg-emerald-500/10 rounded border border-emerald-500/20 p-2 text-center">
+                            <div className="text-[8px] text-emerald-400/80 uppercase font-bold tracking-widest mb-0.5">Added</div>
+                            <div className="text-sm font-black text-emerald-400">{addedCount}</div>
+                        </div>
+                        <div className="bg-amber-500/10 rounded border border-amber-500/20 p-2 text-center">
+                            <div className="text-[8px] text-amber-400/80 uppercase font-bold tracking-widest mb-0.5">Modified</div>
+                            <div className="text-sm font-black text-amber-400">{modifiedCount}</div>
+                        </div>
+                        <div className="bg-rose-500/10 rounded border border-rose-500/20 p-2 text-center">
+                            <div className="text-[8px] text-rose-400/80 uppercase font-bold tracking-widest mb-0.5">Deleted</div>
+                            <div className="text-sm font-black text-rose-500">{deletedCount}</div>
+                        </div>
+                    </div>
+                    <div className="bg-slate-800/50 border border-slate-700 p-2 rounded flex flex-col gap-1.5">
+                        <div className="text-[9px] text-slate-400 uppercase tracking-wider font-bold">
+                            Affected Services ({matrixData.services.length})
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                            {matrixData.services.slice(0, 4).map((svc: string) => (
+                                <span key={svc} className="text-[8px] px-1 py-0.5 bg-orange-950/50 border border-orange-500/30 rounded text-orange-200">
+                                    {formatSvcName(svc)}
+                                </span>
+                            ))}
+                            {matrixData.services.length > 4 && (
+                                <span className="text-[8px] px-1 py-0.5 bg-slate-800 rounded text-slate-400">
+                                    +{matrixData.services.length - 4} more
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                    <button 
+                        onClick={downloadDelta}
+                        className="w-full py-1.5 text-xs bg-orange-600 hover:bg-orange-500 text-white rounded font-medium shadow transition-colors"
+                    >
+                        Download Changes JSON
+                    </button>
+                </div>
+            )}
+
+            {/* Maximized card view shows all */}
+            {isExpanded && (
+                <div className="bg-slate-900/50 border border-slate-700/50 rounded-lg overflow-hidden flex flex-col mt-1 animate-in slide-in-from-top-2 duration-300">
+                    <div className="flex border-b border-slate-700/50 bg-slate-900/80">
+                        {['overview', 'topology', 'heatmap', 'ai'].map((tab) => (
+                            <button 
+                                key={tab}
+                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActiveTab(tab as TabType); }}
+                                className={`flex-1 py-2 text-[10px] font-bold tracking-widest uppercase transition-colors ${activeTab === tab ? 'text-orange-400 border-b-2 border-orange-400 bg-slate-800/50' : 'text-slate-500 hover:text-slate-300'}`}
+                            >
+                                {tab === 'ai' ? 'AI Insights' : tab}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="p-4 h-[420px] flex flex-col gap-4 min-h-0" onWheel={(e) => e.stopPropagation()}>
+                        
+                        {/* Quick Summary Tab */}
+                        {activeTab === 'overview' && (
+                            <div className="flex flex-col gap-4 animate-in fade-in duration-200 h-full min-h-0">
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div className="bg-emerald-500/10 rounded-lg p-3 border border-emerald-500/20 flex flex-col items-center justify-center">
+                                        <div className="text-[10px] text-emerald-400/80 uppercase font-bold tracking-widest mb-1">New Additions</div>
+                                        <div className="text-3xl font-black text-emerald-400">{addedCount}</div>
+                                    </div>
+                                    <div className="bg-amber-500/10 rounded-lg p-3 border border-amber-500/20 flex flex-col items-center justify-center">
+                                        <div className="text-[10px] text-amber-400/80 uppercase font-bold tracking-widest mb-1">Modifications</div>
+                                        <div className="text-3xl font-black text-amber-400">{modifiedCount}</div>
+                                    </div>
+                                    <div className="bg-rose-500/10 rounded-lg p-3 border border-rose-500/20 flex flex-col items-center justify-center">
+                                        <div className="text-[10px] text-rose-400/80 uppercase font-bold tracking-widest mb-1">Deletions</div>
+                                        <div className="text-3xl font-black text-rose-500">{deletedCount}</div>
+                                    </div>
+                                </div>
+                                <div className="flex-1 bg-slate-800/40 rounded-lg p-3 border border-slate-700/50 flex flex-col min-h-[120px]">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <div className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">Impacted Services ({matrixData.services.length})</div>
+                                        <button onClick={downloadDelta} className="text-[9px] text-orange-400 hover:text-orange-300 uppercase font-bold tracking-widest">
+                                            Download Changes
+                                        </button>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2 overflow-y-auto custom-scrollbar pr-2 pb-2">
+                                        {matrixData.services.map((svc: string) => (
+                                            <span key={svc} className="text-[10px] px-2 py-1 bg-slate-900 border border-slate-700 rounded text-slate-300 shadow-sm">
+                                                {formatSvcName(svc)}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Topological Change Tab */}
+                        {activeTab === 'topology' && (
+                            <div className="flex flex-col h-full animate-in fade-in duration-200 min-h-0">
+                                <div className="text-[10px] text-slate-400 text-center uppercase tracking-widest mb-2 shrink-0">Service Dependency Matrix</div>
+                                
+                                <div className="flex-1 overflow-auto custom-scrollbar bg-slate-900/30 rounded-lg border border-slate-700/50 relative">
+                                    <div className="min-w-max p-4 pb-24 pr-12">
+                                        
+                                        <div className="flex mb-1 sticky top-0 z-20 bg-slate-900/90 backdrop-blur-sm pt-2">
+                                            <div className="w-24 shrink-0 sticky left-0 z-30 bg-slate-900/90 backdrop-blur-sm"></div>
+                                            <div className="flex gap-1.5">
+                                                {matrixData.services.map(target => (
+                                                    <div key={target} className="w-6 relative h-20">
+                                                        <span 
+                                                            className="absolute bottom-2 left-1/2 origin-bottom-left -rotate-45 text-[9px] text-slate-400 font-mono whitespace-nowrap select-none tracking-tight" 
+                                                            title={target}
+                                                        >
+                                                            {formatSvcName(target)}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {matrixData.services.map((source, i) => (
+                                            <div key={source} className="flex items-center mb-1.5">
+                                                <div className="w-24 shrink-0 text-right pr-3 sticky left-0 z-10 bg-slate-900/90 backdrop-blur-sm h-6 flex items-center justify-end border-r border-slate-700/50 mr-1">
+                                                    <span className="text-[9px] text-slate-300 font-mono truncate block w-full select-none" title={source}>
+                                                        {formatSvcName(source)}
+                                                    </span>
+                                                </div>
+                                                
+                                                <div className="flex gap-1.5">
+                                                    {matrixData.services.map((target, j) => {
+                                                        const status = matrixData.links[source][target];
+                                                        return (
+                                                            <div 
+                                                                key={`${source}-${target}`}
+                                                                className={`relative group w-6 h-6 shrink-0 rounded border flex items-center justify-center cursor-help transition-all duration-200 hover:scale-110 hover:z-20 ${getLinkStyle(status)}`}
+                                                            >
+                                                                {status !== 'none' && <div className="w-1.5 h-1.5 rounded-full bg-current opacity-60 shadow-sm" />}
+                                                                
+                                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2.5 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 flex flex-col gap-1.5">
+                                                                    <div className="flex items-center justify-between border-b border-slate-700 pb-1">
+                                                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Dependency</span>
+                                                                        <span className={`text-[9px] font-black uppercase tracking-wider ${getStatusTextColor(status)}`}>
+                                                                            {status}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="flex flex-col bg-slate-900/50 rounded p-1.5 border border-slate-700/50">
+                                                                        <div className="flex items-center gap-1.5 text-[9px] mb-0.5">
+                                                                            <span className="text-slate-500 w-6">From:</span>
+                                                                            <span className="text-slate-200 font-mono truncate">{formatSvcName(source)}</span>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-1.5 text-[9px]">
+                                                                            <span className="text-slate-500 w-6">To:</span>
+                                                                            <span className="text-slate-200 font-mono truncate">{formatSvcName(target)}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )
+                                                    })}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                
+                                <div className="flex justify-center gap-4 mt-4 shrink-0 text-[9px] font-bold text-slate-500 uppercase">
+                                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded border border-emerald-500/50 bg-emerald-500/20"></div>Added Link</div>
+                                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded border border-rose-500/50 bg-rose-500/20"></div>Removed Link</div>
+                                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded border border-amber-500/50 bg-amber-500/20"></div>Modified Link</div>
+                                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded border border-slate-600 bg-slate-700/50"></div>No Link Change</div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Change Impact Heatmap Tab */}
+                        {activeTab === 'heatmap' && (
+                            <div className="flex flex-col h-full animate-in fade-in duration-200 min-h-0">
+                                <div className="text-[10px] text-slate-400 text-center uppercase tracking-widest mb-2 shrink-0">Cascading Impact Matrix</div>
+                                
+                                <div className="flex-1 overflow-auto custom-scrollbar bg-slate-900/30 rounded-lg border border-slate-700/50 relative">
+                                    <div className="min-w-max p-4 pb-24 pr-12">
+                                        
+                                        <div className="flex mb-1 sticky top-0 z-20 bg-slate-900/90 backdrop-blur-sm pt-2">
+                                            <div className="w-24 shrink-0 sticky left-0 z-30 bg-slate-900/90 backdrop-blur-sm"></div>
+                                            <div className="flex gap-1.5">
+                                                {matrixData.services.map(target => (
+                                                    <div key={target} className="w-6 relative h-20">
+                                                        <span 
+                                                            className="absolute bottom-2 left-1/2 origin-bottom-left -rotate-45 text-[9px] text-slate-400 font-mono whitespace-nowrap select-none tracking-tight" 
+                                                            title={target}
+                                                        >
+                                                            {formatSvcName(target)}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {matrixData.services.map((source, i) => (
+                                            <div key={source} className="flex items-center mb-1.5">
+                                                <div className="w-24 shrink-0 text-right pr-3 sticky left-0 z-10 bg-slate-900/90 backdrop-blur-sm h-6 flex items-center justify-end border-r border-slate-700/50 mr-1">
+                                                    <span className="text-[9px] text-slate-300 font-mono truncate block w-full select-none" title={source}>
+                                                        {formatSvcName(source)}
+                                                    </span>
+                                                </div>
+                                                
+                                                <div className="flex gap-1.5">
+                                                    {matrixData.services.map((target, j) => {
+                                                        const score = matrixData.impacts[source][target] || 0;
+                                                        const risks = Array.from(matrixData.riskFactors[target] || []);
+                                                        
+                                                        return (
+                                                            <div 
+                                                                key={`${source}-${target}`}
+                                                                className={`relative group w-6 h-6 shrink-0 rounded cursor-help transition-all duration-200 hover:scale-110 hover:z-20 ${getImpactColor(score)} flex items-center justify-center`}
+                                                            >
+                                                                {score > 0 && <span className="text-[8px] font-bold opacity-80 drop-shadow-md">{score.toFixed(1)}</span>}
+                                                                
+                                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 p-2 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 flex flex-col gap-1.5">
+                                                                    <div className="flex items-center justify-between border-b border-slate-700 pb-1 mb-0.5">
+                                                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Blast Radius Risk</span>
+                                                                        <span className={`text-[10px] font-black ${score > 0.7 ? 'text-rose-400' : score > 0.4 ? 'text-amber-400' : 'text-blue-400'}`}>
+                                                                            {score.toFixed(2)}
+                                                                        </span>
+                                                                    </div>
+                                                                    
+                                                                    <div className="text-[9px] text-slate-300 leading-tight">
+                                                                        Changes in <span className="font-mono text-orange-300">{formatSvcName(target)}</span> impact caller <span className="font-mono text-orange-300">{formatSvcName(source)}</span>.
+                                                                    </div>
+                                                                    
+                                                                    {risks.length > 0 && score > 0 && (
+                                                                        <div className="mt-1 p-1.5 bg-slate-900/50 rounded border border-slate-700/50 flex flex-col gap-1">
+                                                                            <span className="text-[8px] text-slate-500 uppercase tracking-widest font-bold">Target Risk Factors:</span>
+                                                                            <div className="flex flex-wrap gap-1">
+                                                                                {risks.map(r => (
+                                                                                    <span key={r} className="text-[8px] px-1 py-0.5 bg-rose-500/10 border border-rose-500/30 text-rose-300 rounded">
+                                                                                        {r}
+                                                                                    </span>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        )
+                                                    })}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                
+                                <div className="flex justify-between items-center mt-4 px-12 shrink-0">
+                                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Low Risk</span>
+                                    <div className="h-1.5 flex-1 mx-4 rounded-full bg-gradient-to-r from-slate-800 via-amber-500/50 to-rose-600 shadow-inner"></div>
+                                    <span className="text-[9px] font-bold text-rose-500 uppercase tracking-widest">Critical</span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* AI Insights Tab */}
+                        {activeTab === 'ai' && (
+                            <div className="flex flex-col h-full animate-in fade-in duration-200 min-h-0">
+                                {!aiInsight ? (
+                                    <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-slate-800/30 rounded-lg border border-dashed border-slate-600 p-4">
+                                        <div className="text-center text-xs text-slate-400 max-w-sm">
+                                            Run an AI analysis to interpret the blast radius matrices, detect hidden structural risks, and generate remediation strategies.
+                                        </div>
+                                        <button 
+                                            onClick={handleGenerateAI}
+                                            disabled={isGeneratingAI}
+                                            className="px-4 py-2 mt-2 bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold rounded shadow-lg transition-colors flex items-center gap-2 disabled:opacity-50"
+                                        >
+                                            {isGeneratingAI ? (
+                                                <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                                            ) : (
+                                                <span className="text-base">✨</span>
+                                            )}
+                                            {isGeneratingAI ? 'Running AI Analysis...' : 'Generate AI Risk Assessment'}
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex-1 bg-orange-900/10 border border-orange-500/20 rounded-lg p-4 text-xs text-orange-100/90 leading-relaxed shadow-inner overflow-y-auto custom-scrollbar">
+                                        <div className="flex items-center justify-between mb-3 border-b border-orange-500/20 pb-2">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-orange-400 text-lg">✨</span>
+                                                <span className="font-bold text-orange-300 uppercase tracking-widest text-[11px]">AI Risk Assessment</span>
+                                            </div>
+                                            <button onClick={() => setAiInsight(null)} className="text-[10px] text-orange-500 hover:text-orange-300 uppercase font-bold tracking-widest">
+                                                Reset
+                                            </button>
+                                        </div>
+                                        <p className="mb-2 text-[13px]">{aiInsight}</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -156,7 +156,9 @@ export const CARD_CONFIG: Record<CardType, { title: string; color: string; icon:
         description: "Extract the changes betwen versions",
         icon: 
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+                <circle cx="12" cy="12" r="2" fill="currentColor" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 7a5 5 0 100 10 5 5 0 000-10z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} strokeDasharray="1 3" d="M12 3a9 9 0 100 18 9 9 0 000-18z" />
             </svg>
     },
     SECURITY_REGRESSION: {

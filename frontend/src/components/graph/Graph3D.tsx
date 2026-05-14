@@ -57,6 +57,8 @@ const getRoleLabel = (mask: number) => {
     }
 };
 
+const globalNodePositionCache = new Map<string, {x: number, y: number, z: number}>();
+
 const Graph: React.FC<Props> = ({
     width,
     height,
@@ -89,6 +91,9 @@ const Graph: React.FC<Props> = ({
     const [selectedLink, setSelectedLink] = useState(null);
     const [hideNodes, setHideNodes] = useState<any>(new Set());
     const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    // Node position cache
+    const nodePositionCache = useRef(new Map());
 
     // On page load
     useEffect(() => {
@@ -240,6 +245,18 @@ const Graph: React.FC<Props> = ({
                 visibleNodeIds.has(link.target?.nodeName || link.target)
             );
 
+            // Pining the nodes if its in cache 
+            visibleNodes.forEach((node: any) => {
+                const id = node.nodeName || node.id;
+                const cachedPos = globalNodePositionCache.get(id);
+                
+                if (cachedPos) {
+                    node.fx = cachedPos.x;
+                    node.fy = cachedPos.y;
+                    node.fz = cachedPos.z;
+                }
+            });
+
             return { nodes: visibleNodes, links: visibleLinks };
         } catch (error: any) {
             showRenderingError('Graph rendering failed!');
@@ -343,6 +360,19 @@ const Graph: React.FC<Props> = ({
         }
     }, [graphRef, getSuggestionForNode, handleNodeDoubleClick]);
 
+    // Capturing the node positions 
+    const handleEngineStop = useCallback(() => {
+        if (visibleData && visibleData.nodes) {
+            visibleData.nodes.forEach((node: any) => {
+                const id = node.nodeName || node.id;
+
+                if (id && node.x !== undefined && node.y !== undefined && node.z !== undefined) {
+                    globalNodePositionCache.set(id, { x: node.x, y: node.y, z: node.z });
+                }
+            });
+        }
+    }, [visibleData]);
+
     return (
         <ForceGraph3D
             ref={graphRef}
@@ -351,6 +381,7 @@ const Graph: React.FC<Props> = ({
             width={width}
             height={height}
             onNodeClick={handleNodeClick}
+            onEngineStop={handleEngineStop}
             
             // Custom Node Logic
             nodeVisibility={(node) => getVisibility(node, hideNodes)}

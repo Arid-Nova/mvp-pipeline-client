@@ -53,7 +53,7 @@ The visualization side (`/graph-visualize` route) is a separate flow: parse an I
 
 ## Frontend specifics
 
-- All `axios` calls go through `setupAxios()` in `frontend/src/utils/axiosSetup.tsx`, which sets `axios.defaults.baseURL = "http://localhost:8080"`. Anything calling a non-backend service uses raw `fetch` with a hardcoded `http://localhost:<port>` URL — see `frontend/src/services/api.ts` for the full list. There is no centralized service-URL config.
+- All `axios` calls go through `setupAxios()` in `frontend/src/utils/axiosSetup.ts`, which sets `axios.defaults.baseURL = "http://localhost:8080"`. Anything calling a non-backend service uses raw `fetch` with a hardcoded `http://localhost:<port>` URL — see `frontend/src/services/api.ts` for the full list. There is no centralized service-URL config.
 - Routes are declared in `frontend/src/App.tsx`; the default redirect lands on `/pipeline`.
 - Build/test from `frontend/`:
   - `npm install`
