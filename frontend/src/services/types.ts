@@ -52,3 +52,61 @@ export interface OrgImportResponse {
     relevantRepos: RepoData[];
     suggestedRepos: RepoData[];
 }
+
+// Chatbot API schema
+export interface ChatbotContext {
+    systemName?: string;
+    irId?: string;
+    indexId?: string;
+    runId?: string;
+    commitId?: string;
+    selectedService?: string;
+    selectedEndpoint?: string;
+}
+
+export interface ChatbotMessage {
+    role: string;
+    content: string;
+}
+
+export interface ChatbotQueryRequest {
+    question: string;
+    context?: ChatbotContext;
+    conversationId?: string;
+    messages?: ChatbotMessage[];
+}
+
+export interface CitationItem {
+    artifactType: string;
+    artifactId: string;
+    artifactName: string;
+    locationHint: string;
+    version: string;
+    summary: string;
+}
+
+export type ChatbotConfidence = "HIGH" | "MEDIUM" | "LOW" | "INSUFFICIENT_EVIDENCE";
+export type ChatbotFlag = "partial" | "insufficient_evidence" | "stale_context" | "model_unavailable";
+
+export interface ChatbotResponse {
+    answer: string;
+    citations: CitationItem[];
+    confidence: ChatbotConfidence;
+    flags: ChatbotFlag[];
+    requestId: string;
+    processingTimeMs: number;
+    model: string;
+    provider: string;
+}
+
+export type ChatbotHealthStatus = "healthy" | "degraded" | "unavailable";
+
+export interface ChatbotHealthResponse {
+    status: ChatbotHealthStatus;
+    provider: string;
+    model: string;
+    baseUrl: string;
+    message: string;
+    checkedAt: string;
+    latencyMs: number | null;
+}

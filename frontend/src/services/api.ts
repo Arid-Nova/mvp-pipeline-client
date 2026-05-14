@@ -1,6 +1,14 @@
 import axios from 'axios';
 import { showError } from '../utils/notifications';
-import { RepositoryInput, VerificationInput, VerificationResponse, OrgImportResponse } from './types';
+import {
+    RepositoryInput,
+    VerificationInput,
+    VerificationResponse,
+    OrgImportResponse,
+    ChatbotQueryRequest,
+    ChatbotResponse,
+    ChatbotHealthResponse
+} from './types';
 import { PromptItem } from '../components/pipeline/models';
 
 
@@ -183,5 +191,40 @@ export const checkGitHubTokenStatus = async () => {
     } catch (error) {
         console.error("Failed to check token status", error);
         return false; 
+    }
+};
+
+const normalizeChatbotError = (error: any): string => {
+    if (error?.response?.status === 503) {
+        return "Chatbot runtime is currently unavailable. Please ensure the local model runtime is running.";
+    }
+    if (error?.response?.status === 400) {
+        return "Invalid chatbot request. Please check your question and context.";
+    }
+    if (!error?.response) {
+        return "Network error while contacting chatbot backend.";
+    }
+    return error?.response?.data?.message || "Chatbot request failed.";
+};
+
+export const getChatbotHealth = async (): Promise<ChatbotHealthResponse> => {
+    try {
+        const response = await axios.get('/chatbot/health');
+        return response.data;
+    } catch (error: any) {
+        const msg = normalizeChatbotError(error);
+        showError(msg);
+        throw new Error(msg);
+    }
+};
+
+export const sendChatbotQuery = async (request: ChatbotQueryRequest): Promise<ChatbotResponse> => {
+    try {
+        const response = await axios.post('/chatbot/query', request);
+        return response.data;
+    } catch (error: any) {
+        const msg = normalizeChatbotError(error);
+        showError(msg);
+        throw new Error(msg);
     }
 };
