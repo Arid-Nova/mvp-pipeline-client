@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { 
     fetchIRFromRepo, 
     verifySystem, 
@@ -39,6 +39,7 @@ import { ToolboxSidebar } from './canvas/ToolboxSideBar';
 import { PipelineHeader } from './canvas/PiplelineHeader';
 import { ChangeImpactCard } from './cards/ChangeImpactCard';
 import { SecurityRegressionCard } from './cards/SecurityRegressionCard';
+import ChatbotPanel from '../chatbot/ChatbotPanel';
 
 // In-browser cache to avoid data resetting
 let inMemoryPipelineCache: { nodes: NodeData[], connections: Connection[] } | null = null;
@@ -199,6 +200,18 @@ const PipelinePage: React.FC = () => {
     // Dragging state
     const [dragNodeId, setDragNodeId] = useState<string | null>(null);
     const canvasRef = useRef<HTMLDivElement>(null);
+
+    const chatbotContext = useMemo(() => {
+        const systemInput = nodes.find((node) => node.type === "SYSTEM_INPUT");
+        const irSource = nodes.find((node) => node.type === "UPLOAD_IR");
+        const systemName = systemInput?.data?.systemName || irSource?.data?.payload?.metadata?.[0]?.systemName;
+        const commitId = irSource?.data?.payload?.metadata?.[0]?.commitId;
+
+        return {
+            systemName,
+            commitId
+        };
+    }, [nodes]);
 
     // --- Actions ---
 
@@ -1142,6 +1155,7 @@ const PipelinePage: React.FC = () => {
                     renderCardContent={renderCardContent}
                 />
             </div>
+            <ChatbotPanel activeContext={chatbotContext} />
         </div>
     );
 };

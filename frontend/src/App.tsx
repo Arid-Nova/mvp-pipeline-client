@@ -27,7 +27,6 @@ import GraphMode from "./components/graphMode/GraphMode";
 import TimeSlider from "./components/graph/TimeSlider";
 import FilterBox from "./utils/page.js";
 import NewPage from "./utils/node.js";
-import ChatbotPanel from "./components/chatbot/ChatbotPanel";
 
 setupLogger();
 setupAxios();
@@ -420,13 +419,6 @@ function App(data: any) {
     )};
 
     // --- Main Render ---
-    const chatbotContext = {
-        systemName: graphData?.name || (typeof currentInstance === "number" ? graphTimeline?.[currentInstance]?.name : undefined),
-        commitId: typeof currentInstance === "number" ? graphTimeline?.[currentInstance]?.commitID : undefined,
-        selectedService: (focusNode as any)?.nodeName || (focusNode as any)?.name,
-        selectedEndpoint: (focusNode as any)?.endpoint || (focusNode as any)?.url
-    };
-
     return (
         <>
             <Routes>
@@ -453,7 +445,6 @@ function App(data: any) {
                 onLoad={handleLoadHistory}
             />
 
-            <ChatbotPanel activeContext={chatbotContext} />
         </>
     );
 
