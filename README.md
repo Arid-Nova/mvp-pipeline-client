@@ -122,6 +122,20 @@ Optional local model runtime:
 - `ollama` service is available behind the Compose profile `local-llm`.
 - Start it only when needed: `docker compose --profile local-llm up -d ollama`.
 
+### No-Cloud Validation (S12-M1)
+
+Run the chatbot local-only validation checks:
+
+```sh
+./scripts/validate-chatbot-local-only.sh
+```
+
+Run backend tests explicitly with cloud env vars absent:
+
+```sh
+env -u OPENAI_API_KEY -u ANTHROPIC_API_KEY -u GROQ_API_KEY mvn -q -f backend/pom.xml test
+```
+
 ## Stopping the Application
 
 To stop the running containers, press `Ctrl+C` in the terminal where `docker-compose` is running, or run the following command from the root directory of the project:
