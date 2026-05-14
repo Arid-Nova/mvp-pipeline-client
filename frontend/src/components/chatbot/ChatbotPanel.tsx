@@ -19,6 +19,26 @@ interface ChatbotPanelProps {
     activeContext?: ChatbotContext;
 }
 
+const getContextEntries = (context?: ChatbotContext): Array<{ label: string; value: string }> => {
+    if (!context) {
+        return [];
+    }
+
+    const entries: Array<{ label: string; value: string | undefined }> = [
+        { label: "System", value: context.systemName },
+        { label: "IR", value: context.irId },
+        { label: "Index", value: context.indexId },
+        { label: "Run", value: context.runId },
+        { label: "Commit", value: context.commitId },
+        { label: "Service", value: context.selectedService },
+        { label: "Endpoint", value: context.selectedEndpoint }
+    ];
+
+    return entries
+        .filter((entry): entry is { label: string; value: string } => Boolean(entry.value && entry.value.trim()))
+        .map((entry) => ({ label: entry.label, value: entry.value }));
+};
+
 export const ConfidenceBadge: React.FC<{ confidence?: ChatbotConfidence }> = ({ confidence }) => {
     const value = confidence || "LOW";
     const colorClass =
@@ -155,6 +175,11 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({ activeContext }) => {
             content: msg.content
         }));
     }, [messages]);
+    const contextEntries = useMemo(() => getContextEntries(activeContext), [activeContext]);
+    const resolvedContext = useMemo(
+        () => (contextEntries.length > 0 ? activeContext : undefined),
+        [activeContext, contextEntries.length]
+    );
 
     const refreshHealth = async () => {
         try {
@@ -194,7 +219,7 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({ activeContext }) => {
         try {
             const response = await sendChatbotQuery({
                 question,
-                context: activeContext,
+                context: resolvedContext,
                 messages: historyMessages
             });
 
@@ -246,6 +271,15 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({ activeContext }) => {
                     <div className="p-3 border-b border-slate-700 bg-slate-800/90 rounded-t-xl">
                         <div className="text-sm font-bold text-slate-100">AridNova Chatbot</div>
                         <RuntimeStatus health={health} loading={healthLoading} error={healthError} />
+                        <div data-testid="chatbot-active-context" className="mt-2 text-[11px] text-slate-300">
+                            {contextEntries.length === 0 ? (
+                                <span>No active analysis context.</span>
+                            ) : (
+                                <span>
+                                    Active scope: {contextEntries.map((entry) => `${entry.label}: ${entry.value}`).join(" | ")}
+                                </span>
+                            )}
+                        </div>
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-3 space-y-2">

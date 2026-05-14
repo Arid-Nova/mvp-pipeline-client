@@ -196,6 +196,7 @@ const PipelinePage: React.FC = () => {
 
     const [isLinking, setIsLinking] = useState<string | null>(null);
     const [isRunning, setIsRunning] = useState(false);
+    const [pipelineRunId, setPipelineRunId] = useState<string>();
     
     // Dragging state
     const [dragNodeId, setDragNodeId] = useState<string | null>(null);
@@ -204,14 +205,21 @@ const PipelinePage: React.FC = () => {
     const chatbotContext = useMemo(() => {
         const systemInput = nodes.find((node) => node.type === "SYSTEM_INPUT");
         const irSource = nodes.find((node) => node.type === "UPLOAD_IR");
+        const irHolder = nodes.find((node) => node.type === "IR_HOLDER");
+        const componentHolder = nodes.find((node) => node.type === "COMPONENT_HOLDER");
         const systemName = systemInput?.data?.systemName || irSource?.data?.payload?.systemName;
         const commitId = irSource?.data?.payload?.metadata?.[0]?.commitId;
+        const irId = irSource?.data?.payload?.irJson?.id || irHolder?.data?.payload?.irJson?.id;
+        const indexId = componentHolder?.data?.componentPayload?.id;
 
         return {
             systemName,
+            irId,
+            indexId,
+            runId: pipelineRunId,
             commitId
         };
-    }, [nodes]);
+    }, [nodes, pipelineRunId]);
 
     // --- Actions ---
 
@@ -353,6 +361,7 @@ const PipelinePage: React.FC = () => {
     };
 
     const runPipeline = async () => {
+        setPipelineRunId(`pipeline-run-${Date.now()}`);
         setIsRunning(true);
         // Reset logs but keep data
         const updatedNodes = nodes.map(n => ({ ...n, status: 'idle' as const, logs: [] }));

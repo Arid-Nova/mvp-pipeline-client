@@ -71,8 +71,11 @@ describe("ChatbotPanel", () => {
             provider: "OLLAMA"
         });
 
-        render(<ChatbotPanel activeContext={{ systemName: "TrainTicket" }} />);
+        render(<ChatbotPanel activeContext={{ systemName: "TrainTicket", irId: "ir-7", indexId: "idx-2", commitId: "abc123" }} />);
         fireEvent.click(screen.getByTestId("chatbot-toggle"));
+        expect(screen.getByTestId("chatbot-active-context")).toHaveTextContent("Active scope:");
+        expect(screen.getByTestId("chatbot-active-context")).toHaveTextContent("System: TrainTicket");
+        expect(screen.getByTestId("chatbot-active-context")).toHaveTextContent("IR: ir-7");
 
         fireEvent.change(screen.getByTestId("chatbot-input"), {
             target: { value: "What changed?" }
@@ -87,5 +90,30 @@ describe("ChatbotPanel", () => {
         expect(screen.getByText(/MEDIUM/)).toBeInTheDocument();
         expect(screen.getByText(/Citations/)).toBeInTheDocument();
         expect(screen.getByText(/OrderController:88/)).toBeInTheDocument();
+        expect(mockedSendQuery).toHaveBeenCalledWith(expect.objectContaining({
+            context: expect.objectContaining({
+                systemName: "TrainTicket",
+                irId: "ir-7",
+                indexId: "idx-2",
+                commitId: "abc123"
+            })
+        }));
+    });
+
+    it("shows explicit no-context state", async () => {
+        mockedGetHealth.mockResolvedValue({
+            status: "healthy",
+            provider: "OLLAMA",
+            model: "llama3.2",
+            baseUrl: "http://localhost:8080",
+            message: "ok",
+            checkedAt: new Date().toISOString(),
+            latencyMs: 20
+        });
+
+        render(<ChatbotPanel />);
+        fireEvent.click(screen.getByTestId("chatbot-toggle"));
+
+        expect(await screen.findByTestId("chatbot-active-context")).toHaveTextContent("No active analysis context.");
     });
 });
