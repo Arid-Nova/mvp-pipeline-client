@@ -1,12 +1,15 @@
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import ChatbotPanel from "./ChatbotPanel";
-import * as api from "../../services/api";
+import { getChatbotHealth, sendChatbotQuery } from "../../services/api";
 
-jest.mock("../../services/api");
+jest.mock("../../services/api", () => ({
+    getChatbotHealth: jest.fn(),
+    sendChatbotQuery: jest.fn()
+}));
 
-const mockedGetHealth = api.getChatbotHealth as jest.Mock;
-const mockedSendQuery = api.sendChatbotQuery as jest.Mock;
+const mockedGetHealth = getChatbotHealth as jest.Mock;
+const mockedSendQuery = sendChatbotQuery as jest.Mock;
 
 describe("ChatbotPanel", () => {
     beforeEach(() => {
