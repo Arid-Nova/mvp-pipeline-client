@@ -2,18 +2,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
     ChatbotContext,
     ChatbotHealthResponse,
-    ChatbotResponse,
     CitationItem,
-    ChatbotFlag,
     ChatbotConfidence
 } from "../../services/types";
-import { getChatbotHealth, sendChatbotQuery } from "../../services/api";
-
-type ChatMessageModel = {
-    role: "user" | "assistant";
-    content: string;
-    response?: ChatbotResponse;
-};
+import { ChatMessageModel, useChatbotState } from "./useChatbotState";
 
 interface ChatbotPanelProps {
     activeContext?: ChatbotContext;
@@ -161,38 +153,21 @@ export const ChatComposer: React.FC<{
 
 const ChatbotPanel: React.FC<ChatbotPanelProps> = ({ activeContext }) => {
     const [isOpen, setIsOpen] = useState(false);
-    const [health, setHealth] = useState<ChatbotHealthResponse | null>(null);
-    const [healthLoading, setHealthLoading] = useState(false);
-    const [healthError, setHealthError] = useState<string | null>(null);
     const [input, setInput] = useState("");
-    const [isSending, setIsSending] = useState(false);
-    const [queryError, setQueryError] = useState<string | null>(null);
-    const [messages, setMessages] = useState<ChatMessageModel[]>([]);
-
-    const historyMessages = useMemo(() => {
-        return messages.slice(-4).map((msg) => ({
-            role: msg.role,
-            content: msg.content
-        }));
-    }, [messages]);
     const contextEntries = useMemo(() => getContextEntries(activeContext), [activeContext]);
-    const resolvedContext = useMemo(
-        () => (contextEntries.length > 0 ? activeContext : undefined),
-        [activeContext, contextEntries.length]
-    );
-
-    const refreshHealth = async () => {
-        try {
-            setHealthLoading(true);
-            setHealthError(null);
-            const status = await getChatbotHealth();
-            setHealth(status);
-        } catch (error: any) {
-            setHealthError(error?.message || "Unable to load runtime status.");
-        } finally {
-            setHealthLoading(false);
-        }
-    };
+    const {
+        messages,
+        loading,
+        error,
+        health,
+        healthLoading,
+        healthError,
+        sendQuestion,
+        retryLastFailed,
+        clearConversation,
+        refreshHealth,
+        canRetry
+    } = useChatbotState(contextEntries.length > 0 ? activeContext : undefined);
 
     useEffect(() => {
         refreshHealth();
@@ -206,54 +181,11 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({ activeContext }) => {
 
     const onSubmit = async () => {
         const question = input.trim();
-        if (!question || isSending) {
+        if (!question || loading) {
             return;
         }
-
-        setQueryError(null);
-        setIsSending(true);
-        const userMessage: ChatMessageModel = { role: "user", content: question };
-        setMessages((prev) => [...prev, userMessage]);
+        await sendQuestion(question);
         setInput("");
-
-        try {
-            const response = await sendChatbotQuery({
-                question,
-                context: resolvedContext,
-                messages: historyMessages
-            });
-
-            setMessages((prev) => [
-                ...prev,
-                {
-                    role: "assistant",
-                    content: response.answer,
-                    response
-                }
-            ]);
-        } catch (error: any) {
-            const msg = error?.message || "Failed to send query.";
-            setQueryError(msg);
-            setMessages((prev) => [
-                ...prev,
-                {
-                    role: "assistant",
-                    content: `Unable to answer right now: ${msg}`,
-                    response: {
-                        answer: `Unable to answer right now: ${msg}`,
-                        citations: [],
-                        confidence: "LOW",
-                        flags: ["model_unavailable"],
-                        requestId: "n/a",
-                        processingTimeMs: 0,
-                        model: health?.model || "unknown",
-                        provider: health?.provider || "unknown"
-                    }
-                }
-            ]);
-        } finally {
-            setIsSending(false);
-        }
     };
 
     return (
@@ -293,18 +225,36 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({ activeContext }) => {
                             ))
                         )}
 
-                        {queryError && (
+                        {error && (
                             <div data-testid="chatbot-error" className="text-xs text-rose-300 border border-rose-700/40 rounded-md p-2 bg-rose-900/20">
-                                {queryError}
+                                {error}
                             </div>
                         )}
+                    </div>
+
+                    <div className="px-3 pb-2 flex justify-between items-center bg-slate-900/80">
+                        <button
+                            data-testid="chatbot-clear"
+                            onClick={clearConversation}
+                            className="text-xs text-slate-300 hover:text-white"
+                        >
+                            Clear conversation
+                        </button>
+                        <button
+                            data-testid="chatbot-retry"
+                            onClick={retryLastFailed}
+                            disabled={!canRetry}
+                            className="text-xs text-cyan-300 hover:text-cyan-200 disabled:text-slate-500"
+                        >
+                            Retry last failed
+                        </button>
                     </div>
 
                     <ChatComposer
                         value={input}
                         onChange={setInput}
                         onSubmit={onSubmit}
-                        disabled={isSending}
+                        disabled={loading}
                     />
                 </div>
             )}
