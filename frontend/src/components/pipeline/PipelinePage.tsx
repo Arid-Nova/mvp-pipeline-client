@@ -204,7 +204,7 @@ const PipelinePage: React.FC = () => {
     const chatbotContext = useMemo(() => {
         const systemInput = nodes.find((node) => node.type === "SYSTEM_INPUT");
         const irSource = nodes.find((node) => node.type === "UPLOAD_IR");
-        const systemName = systemInput?.data?.systemName || irSource?.data?.payload?.metadata?.[0]?.systemName;
+        const systemName = systemInput?.data?.systemName || irSource?.data?.payload?.systemName;
         const commitId = irSource?.data?.payload?.metadata?.[0]?.commitId;
 
         return {
