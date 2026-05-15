@@ -19,7 +19,7 @@ import java.util.List;
 @RestController
 @RequiredArgsConstructor(onConstructor = @__(@Autowired))
 @RequestMapping("/graph")
-@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
+@CrossOrigin(origins = {"http://localhost:3000", "https://aridnova-demo.eastus.cloudapp.azure.com", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
 public class GraphController {
     protected final GraphService graphService;
 
@@ -94,7 +94,7 @@ public class GraphController {
     }
 
     @PostMapping("/create")
-    @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
+    @CrossOrigin(origins = {"http://localhost:3000", "https://aridnova-demo.eastus.cloudapp.azure.com", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
     public ResponseEntity<?> createGraph(@RequestBody GraphModel graphModel) {
         System.out.println("test");
         GraphModel savedModel;

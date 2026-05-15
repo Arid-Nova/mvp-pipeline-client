@@ -17,7 +17,7 @@ import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.model.Errors;
 @RestController
 @RequiredArgsConstructor(onConstructor = @__(@Autowired))
 @RequestMapping("/sessions")
-@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
+@CrossOrigin(origins = {"http://localhost:3000", "https://aridnova-demo.eastus.cloudapp.azure.com", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
 public class SessionController {
 
     protected final SessionService sessionService;

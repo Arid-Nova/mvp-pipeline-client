@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Auth-Role Vector Generator API", lifespan=lifespan)
 
 origins = [
-    "http://localhost:3000",
+    "http://localhost:3000", "https://aridnova-demo.eastus.cloudapp.azure.com",
     "http://localhost:8060"
 ]
 

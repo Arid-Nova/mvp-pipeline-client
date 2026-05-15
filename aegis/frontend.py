@@ -15,7 +15,7 @@ app = Flask(__name__,
             template_folder='templates',
             static_folder='static')
 app.secret_key = os.urandom(24)
-CORS(app, origins=["http://localhost:3000","http://localhost:5600"])
+CORS(app, origins=["http://localhost:3000", "https://aridnova-demo.eastus.cloudapp.azure.com","http://localhost:5600"])
 
 # When deployed behind a reverse proxy (Caddy) that mounts this app at a
 # sub-path like /aegis-ui, set AEGIS_URL_PREFIX=/aegis-ui so url_for() generates

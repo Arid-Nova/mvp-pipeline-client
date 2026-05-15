@@ -7,7 +7,7 @@ from .services.verifier import run_verification
 app = FastAPI(title="Formal Authorization Verifier")
 
 origins = [
-    "http://localhost:3000"
+    "http://localhost:3000", "https://aridnova-demo.eastus.cloudapp.azure.com"
 ]
 
 app.add_middleware(

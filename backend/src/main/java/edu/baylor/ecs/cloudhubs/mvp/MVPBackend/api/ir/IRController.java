@@ -24,7 +24,7 @@ public class IRController {
 
     @PostMapping("/create")
     @CrossOrigin(origins = {
-        "http://localhost:3000", "http://localhost:8080",
+        "http://localhost:3000", "https://aridnova-demo.eastus.cloudapp.azure.com", "http://localhost:8080",
         "http://localhost:8900", "http://localhost:9000"
     }, maxAge = 3600, allowedHeaders = "*")
     public ResponseEntity<?> createIR(@RequestBody IRRequestModel irRequestModel) {
@@ -47,7 +47,7 @@ public class IRController {
     }
 
     @GetMapping
-    @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
+    @CrossOrigin(origins = {"http://localhost:3000", "https://aridnova-demo.eastus.cloudapp.azure.com", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
     public ResponseEntity<?> getIRs(@ModelAttribute IRByNameRequest irRequestModel) {
         byte[] responseModel;
         try {
@@ -68,7 +68,7 @@ public class IRController {
     }
 
     @GetMapping("/meta")
-    @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
+    @CrossOrigin(origins = {"http://localhost:3000", "https://aridnova-demo.eastus.cloudapp.azure.com", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
     public ResponseEntity<?> getIRsMeta(@ModelAttribute IRByNameRequest irRequestModel) {
         String responseModel;
         try {
@@ -87,7 +87,7 @@ public class IRController {
     }
 
     @PostMapping("/delta")
-    @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
+    @CrossOrigin(origins = {"http://localhost:3000", "https://aridnova-demo.eastus.cloudapp.azure.com", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
     public ResponseEntity<?> retreiveDelta(@RequestBody DeltaRequestModel requestModel) {
         byte[] responseModel;
         try {

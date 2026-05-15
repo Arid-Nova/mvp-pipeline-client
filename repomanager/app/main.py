@@ -17,7 +17,7 @@ import re
 app = FastAPI(title="Repo Resolution Proxy")
 
 origins = [
-    "http://localhost:3000"
+    "http://localhost:3000", "https://aridnova-demo.eastus.cloudapp.azure.com"
 ]
 
 app.add_middleware(

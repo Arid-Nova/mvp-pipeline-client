@@ -46,7 +46,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Aegis Security Analysis API", lifespan=lifespan)
 
 origins = [
-    "http://localhost:3000"
+    "http://localhost:3000", "https://aridnova-demo.eastus.cloudapp.azure.com"
 ]
 
 app.add_middleware(

@@ -15,14 +15,14 @@ import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.persistence.request.IRRequestM
 @RestController
 @RequiredArgsConstructor(onConstructor = @__(@Autowired))
 @RequestMapping("/component")
-@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
+@CrossOrigin(origins = {"http://localhost:3000", "https://aridnova-demo.eastus.cloudapp.azure.com", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
 public class ComponentController {
 
     protected final ComponentService componentService;
 
     @PostMapping("/create")
     @CrossOrigin(
-            origins = {"http://localhost:3000", "http://localhost:8080"},
+            origins = {"http://localhost:3000", "https://aridnova-demo.eastus.cloudapp.azure.com", "http://localhost:8080"},
             maxAge = 3600,
             allowedHeaders = "*"
     )
@@ -45,7 +45,7 @@ public class ComponentController {
 
     @GetMapping("/{id}")
     @CrossOrigin(
-            origins = {"http://localhost:3000", "http://localhost:8080"},
+            origins = {"http://localhost:3000", "https://aridnova-demo.eastus.cloudapp.azure.com", "http://localhost:8080"},
             maxAge = 3600,
             allowedHeaders = "*"
     )
@@ -65,7 +65,7 @@ public class ComponentController {
 
     @GetMapping("/endpoints/{id}")
     @CrossOrigin(
-            origins = {"http://localhost:3000", "http://localhost:8080"},
+            origins = {"http://localhost:3000", "https://aridnova-demo.eastus.cloudapp.azure.com", "http://localhost:8080"},
             maxAge = 3600,
             allowedHeaders = "*"
     )
