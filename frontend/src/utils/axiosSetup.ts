@@ -3,14 +3,31 @@ import Logger from "js-logger";
 
 export const controller = new AbortController();
 
-// Service configurations
-export const VERIFY_API = axios.create({ baseURL: process.env.VERIFY_SERVICE_URL || 'http://localhost:9000' });
-export const COMPONENT_API = axios.create({ baseURL: process.env.COMPONENT_SERVICE_URL || 'http://localhost:8060' });
-export const VECTOR_API = axios.create({ baseURL: process.env.VECTOR_SERVICE_URL || 'http://localhost:8050' });
-export const ANALYSIS_API = axios.create({ baseURL: process.env.ANALYSIS_SERVICE_URL || 'http://localhost:8040' });
-export const TEST_API = axios.create({ baseURL: process.env.TEST_SERVICE_URL || 'http://localhost:8030' });
-export const AEGIS_API = axios.create({ baseURL: process.env.AEGIS_SERVICE_URL || 'http://localhost:8900' });
-export const REPO_API = axios.create({ baseURL: process.env.REPO_SERVICE_URL || 'http://localhost:8020'});
+// When REACT_APP_USE_PROXY=true (set at build time for prod/Azure VM deploy),
+// the frontend makes same-origin /api/<service>/* requests that Caddy reverse-proxies
+// to each container. Otherwise (local dev), it talks to localhost:<port> directly.
+const useProxy = process.env.REACT_APP_USE_PROXY === 'true';
+const serviceURL = (slug: string, devPort: number) =>
+    useProxy ? `/api/${slug}` : `http://localhost:${devPort}`;
+
+export const VERIFY_API = axios.create({ baseURL: serviceURL('verifier', 9000) });
+export const COMPONENT_API = axios.create({ baseURL: serviceURL('components', 8060) });
+export const VECTOR_API = axios.create({ baseURL: serviceURL('vector', 8050) });
+export const ANALYSIS_API = axios.create({ baseURL: serviceURL('scenario', 8040) });
+export const TEST_API = axios.create({ baseURL: serviceURL('test', 8030) });
+export const EXECUTOR_API = axios.create({ baseURL: serviceURL('executor', 8010) });
+export const AEGIS_API = axios.create({ baseURL: serviceURL('aegis', 8900) });
+export const REPO_API = axios.create({ baseURL: serviceURL('repo', 8020) });
+
+// Base URL for the aegis Flask dashboard (HTML UI). Used by code that does
+// window.open / window.location for the /visualize view.
+export const aegisDashboardURL = (): string =>
+    useProxy ? '/aegis-ui' : 'http://localhost:5600';
+
+// Base URL for the Spring backend's own API. Most calls go through the default
+// axios instance whose baseURL is set in setupAxios(), but a few sites need
+// the URL string directly (e.g. for force-graph link sources).
+export const backendURL = (): string => serviceURL('backend', 8080);
 
 // Helper function for logging
 const applyInterceptors = (instance: AxiosInstance) => {
@@ -69,10 +86,10 @@ const applyInterceptors = (instance: AxiosInstance) => {
     );
 };
 
-[axios, VERIFY_API, COMPONENT_API, VECTOR_API, ANALYSIS_API, TEST_API, AEGIS_API, REPO_API].forEach(applyInterceptors);
+[axios, VERIFY_API, COMPONENT_API, VECTOR_API, ANALYSIS_API, TEST_API, EXECUTOR_API, AEGIS_API, REPO_API].forEach(applyInterceptors);
 
 export const setupAxios = () => {
-    axios.defaults.baseURL = process.env.IR_SERVICE_URL || 'http://localhost:8080';
+    axios.defaults.baseURL = serviceURL('backend', 8080);
     axios.defaults.headers.common["Content-Type"] = "application/json";
 };
 

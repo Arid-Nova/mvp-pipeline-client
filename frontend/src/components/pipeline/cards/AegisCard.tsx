@@ -1,5 +1,6 @@
 import React from 'react';
-import { NodeData } from '../models'; 
+import { NodeData } from '../models';
+import { aegisDashboardURL } from '../../../utils/axiosSetup';
 
 interface AegisCardProps {
     node: NodeData;
@@ -22,7 +23,7 @@ export const AegisCard: React.FC<AegisCardProps> = ({ node }) => {
                     id: meta
                 }).toString();
 
-                window.open(`http://localhost:5600/visualize?${params}`);
+                window.open(`${aegisDashboardURL()}/visualize?${params}`);
             }}
         >
             {node.status === 'running' ? 'Analyzing...' : 'Launch Aegis'}

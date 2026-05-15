@@ -13,6 +13,12 @@ RUN npm install
 # Copy the entire React project to the working directory
 COPY . .
 
+# When set to "true" the bundle uses same-origin /api/<service> paths
+# (for the Caddy reverse-proxy deploy). Defaults to "" so local dev hits
+# http://localhost:<port> directly.
+ARG REACT_APP_USE_PROXY=""
+ENV REACT_APP_USE_PROXY=$REACT_APP_USE_PROXY
+
 # Build the React application
 RUN npm run build
 

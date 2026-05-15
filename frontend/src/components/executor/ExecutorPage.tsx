@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ExecutionResult } from './models';
 import Editor from '@monaco-editor/react';
+import { EXECUTOR_API } from '../../utils/axiosSetup';
 
 const ExecutorPage: React.FC = () => {
     const location = useLocation();
@@ -119,21 +120,18 @@ const ExecutorPage: React.FC = () => {
                     runLogs.push(`> Executing cURL payload ${i + 1} of ${rawBlocks.length}...`);
 
                     // 3. Execute via Proxy
-                    const response = await fetch(`http://localhost:8010/api/execute/curl`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ command: cleanCmd })
-                    });
-
-                    if (!response.ok) {
+                    let data: any;
+                    try {
+                        const resp = await EXECUTOR_API.post(`/api/execute/curl`, { command: cleanCmd });
+                        data = resp.data;
+                    } catch (err: any) {
                         allProxiesPassed = false;
                         allTestsPassed = false;
-                        runLogs.push(`[ERROR] Proxy connection failed: HTTP ${response.status}`);
-                        finalAssertions.push({ description: `Proxy Engine (Cmd ${i+1})`, passed: false, actual: `HTTP ${response.status}` });
-                        break; 
+                        const status = err.response?.status ?? 'unknown';
+                        runLogs.push(`[ERROR] Proxy connection failed: HTTP ${status}`);
+                        finalAssertions.push({ description: `Proxy Engine (Cmd ${i+1})`, passed: false, actual: `HTTP ${status}` });
+                        break;
                     }
-
-                    const data = await response.json();
                     
                     // Level 1: Proxy Success (Did cURL actually run without syntax/network errors?)
                     if (data.returncode !== 0) {
@@ -174,20 +172,23 @@ const ExecutorPage: React.FC = () => {
             } else {
                 // --- PYTHON / JAVA EXECUTOR ---
                 runLogs.push(`> Executing ${targetLang.toUpperCase()} script via Proxy...`);
-                const response = await fetch(`http://localhost:8010/api/execute/${targetLang}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code: codeToExecute })
-                });
+                let data: any;
+                let proxyOk = true;
+                let proxyStatus: any = 'unknown';
+                try {
+                    const resp = await EXECUTOR_API.post(`/api/execute/${targetLang}`, { code: codeToExecute });
+                    data = resp.data;
+                } catch (err: any) {
+                    proxyOk = false;
+                    proxyStatus = err.response?.status ?? 'unknown';
+                }
 
-                if (!response.ok) {
+                if (!proxyOk) {
                     allProxiesPassed = false;
                     allTestsPassed = false;
                     runLogs.push(`[ERROR] Proxy failed to execute script.`);
-                    finalAssertions.push({ description: "Proxy Engine Execution", passed: false, actual: `HTTP ${response.status}` });
+                    finalAssertions.push({ description: "Proxy Engine Execution", passed: false, actual: `HTTP ${proxyStatus}` });
                 } else {
-                    const data = await response.json();
-                    
                     if (data.returncode !== 0) {
                         allProxiesPassed = false;
                         allTestsPassed = false;

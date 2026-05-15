@@ -108,7 +108,9 @@ const GraphButtonMenu: React.FC<Props> = ({
 
         var config = {
             method: 'post',
-            url: 'http://localhost:8080/graph/instance',
+            // Uses the default axios baseURL configured in setupAxios()
+            // (backend service, either http://localhost:8080 or /api/backend).
+            url: '/graph/instance',
             headers: {
                 'Content-Type': 'application/json'
             },

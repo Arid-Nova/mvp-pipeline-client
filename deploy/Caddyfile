@@ -1,0 +1,64 @@
+# Caddy reverse proxy for the AridNova demo VM.
+#
+# {$DEMO_DOMAIN} comes from the .env file at the repo root. Examples:
+#   DEMO_DOMAIN=aridnova-demo.eastus.cloudapp.azure.com   -> auto-HTTPS via Let's Encrypt
+#   DEMO_DOMAIN=demo.example.com                          -> auto-HTTPS (DNS must point here)
+#   DEMO_DOMAIN=:80                                       -> HTTP only (no cert, useful for IP-only)
+#
+# Path layout:
+#   /                       -> frontend (React static bundle)
+#   /api/backend/*          -> Spring backend :8080
+#   /api/components/*       -> componentanalysis :8060
+#   /api/vector/*           -> vectorgenerator :8050
+#   /api/scenario/*         -> scenariogenerator :8040
+#   /api/test/*             -> testgenerator :8030
+#   /api/executor/*         -> testexecutor :8010
+#   /api/verifier/*         -> formalmethod :9000
+#   /api/aegis/*            -> aegis_api :8900
+#   /api/repo/*             -> repohandler :8020
+#   /aegis-ui/*             -> aegis_dashboard :5600 (Flask UI, served as HTML)
+
+{$DEMO_DOMAIN} {
+	encode gzip zstd
+
+	# Large compressed payloads (canvas saves, IR blobs) — bump the proxy buffer.
+	request_body {
+		max_size 200MB
+	}
+
+	handle_path /api/backend/* {
+		reverse_proxy backend:8080
+	}
+	handle_path /api/components/* {
+		reverse_proxy components:8060
+	}
+	handle_path /api/vector/* {
+		reverse_proxy vectorgenerator:8050
+	}
+	handle_path /api/scenario/* {
+		reverse_proxy scenariogenerator:8040
+	}
+	handle_path /api/test/* {
+		reverse_proxy testgenerator:8030
+	}
+	handle_path /api/executor/* {
+		reverse_proxy testexecutor:8010
+	}
+	handle_path /api/verifier/* {
+		reverse_proxy verifier:9000
+	}
+	handle_path /api/aegis/* {
+		reverse_proxy aegis_api:8900
+	}
+	handle_path /api/repo/* {
+		reverse_proxy repohandler:8020
+	}
+	handle_path /aegis-ui/* {
+		reverse_proxy aegis_dashboard:5600
+	}
+
+	# Everything else -> frontend static bundle (http-server on :3000)
+	handle {
+		reverse_proxy frontend:3000
+	}
+}

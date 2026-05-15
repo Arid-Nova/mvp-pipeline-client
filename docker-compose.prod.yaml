@@ -1,0 +1,86 @@
+# Production override for the Azure VM deploy. Use with:
+#   docker compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d --build
+#
+# Effects:
+#   - Removes public port bindings from every internal service. The Docker network
+#     still gives containers DNS/port access to each other by service name.
+#   - Adds Caddy on :80/:443 as the only public-facing service. Caddy proxies
+#     /api/<service>/* to the right backend and serves the frontend at /.
+#   - Rebuilds the frontend bundle with REACT_APP_USE_PROXY=true so its API calls
+#     are same-origin (/api/<service>/...) instead of http://localhost:<port>.
+
+services:
+  frontend:
+    build:
+      args:
+        REACT_APP_USE_PROXY: "true"
+    ports: !reset []
+
+  backend:
+    ports: !reset []
+
+  verifier:
+    ports: !reset []
+
+  components:
+    ports: !reset []
+
+  vectorgenerator:
+    ports: !reset []
+
+  scenariogenerator:
+    ports: !reset []
+
+  testgenerator:
+    ports: !reset []
+
+  testexecutor:
+    ports: !reset []
+
+  aegis_api:
+    ports: !reset []
+
+  aegis_dashboard:
+    ports: !reset []
+    environment:
+      # Tells the Flask app it's served behind Caddy at /aegis-ui so url_for()
+      # generates correctly-prefixed URLs for /static/* and redirects.
+      AEGIS_URL_PREFIX: /aegis-ui
+
+  repohandler:
+    ports: !reset []
+
+  mariadb:
+    ports: !reset []
+
+  mongodb:
+    ports: !reset []
+
+  aegis_neo4j:
+    ports: !reset []
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: cloudhub_caddy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      # Set DEMO_DOMAIN in .env (e.g. aridnova-demo.eastus.cloudapp.azure.com).
+      # If unset, Caddy serves over HTTP on :80 only (no auto-HTTPS).
+      DEMO_DOMAIN: ${DEMO_DOMAIN:-:80}
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - app_network
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

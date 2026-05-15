@@ -14,8 +14,21 @@ from src.ahp_calculator import AHPCalculator
 app = Flask(__name__,
             template_folder='templates',
             static_folder='static')
-app.secret_key = os.urandom(24) 
+app.secret_key = os.urandom(24)
 CORS(app, origins=["http://localhost:3000","http://localhost:5600"])
+
+# When deployed behind a reverse proxy (Caddy) that mounts this app at a
+# sub-path like /aegis-ui, set AEGIS_URL_PREFIX=/aegis-ui so url_for() generates
+# correctly-prefixed URLs for static assets and redirects. The proxy strips the
+# prefix from PATH_INFO; we add it back as SCRIPT_NAME so Flask sees the routes
+# unchanged but builds URLs with the prefix.
+_url_prefix = os.environ.get("AEGIS_URL_PREFIX", "").rstrip("/")
+if _url_prefix:
+    _inner_wsgi = app.wsgi_app
+    def _prefix_middleware(environ, start_response):
+        environ["SCRIPT_NAME"] = _url_prefix
+        return _inner_wsgi(environ, start_response)
+    app.wsgi_app = _prefix_middleware
 
 CONFIG_FILE_PATH = 'configs/calibration_config.json'
 try:

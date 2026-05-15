@@ -10,8 +10,11 @@ services:
       MYSQL_DATABASE: msGraph
     ports:
       - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
     networks:
       - app_network
+    restart: unless-stopped
 
   mongodb:
     image: mongo:latest
@@ -49,6 +52,10 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        # Leave empty for local dev (bundle calls http://localhost:<port> directly).
+        # Set to "true" in the prod override so the bundle uses /api/<service> paths.
+        REACT_APP_USE_PROXY: ${REACT_APP_USE_PROXY:-}
     container_name: cloudhub_frontend
     ports:
       - "3000:3000"
@@ -56,14 +63,7 @@ services:
       - app_network
     environment:
       - NODE_ENV=production
-      - IR_SERVICE_URL=http://localhost:8080
-      - VERIFY_SERVICE_URL=http://localhost:9000
-      - COMPONENT_SERVICE_URL=http://localhost:8060
-      - VECTOR_SERVICE_URL=http://localhost:8050
-      - ANALYSIS_SERVICE_URL=http://localhost:8040
-      - TEST_SERVICE_URL=http://localhost:8030
-      - AEGIS_SERVICE_URL=http://localhost:8900
-      - REPO_SERVICE_URL=http://localhost:8020
+    restart: unless-stopped
 
   verifier:
     build:
@@ -79,6 +79,7 @@ services:
       - app_network
     volumes:
       - verifier_cache:/tmp/ms_verifier_cache
+    restart: unless-stopped
 
   components:
     build:
@@ -169,6 +170,7 @@ services:
       - app_network
     volumes:
       - neo4j_data:/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider localhost:7474 || exit 1"]
       interval: 10s
@@ -192,6 +194,7 @@ services:
         condition: service_healthy
     networks:
       - app_network
+    restart: unless-stopped
 
   aegis_dashboard:
     build:
@@ -210,7 +213,8 @@ services:
         condition: service_healthy
     networks:
       - app_network
-  
+    restart: unless-stopped
+
   repohandler :
     build:
       context: ./repomanager

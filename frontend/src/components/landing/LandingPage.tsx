@@ -4,6 +4,7 @@ import RepositoryForm from './RepositoryForm';
 import { useNavigate, useLocation } from 'react-router-dom';
 import VerificationCard from './VerificationCard'; 
 import { showError } from '../../utils/notifications';
+import { AEGIS_API, aegisDashboardURL } from '../../utils/axiosSetup';
 
 interface Props {
     onIRLoaded: (irData: any) => void;
@@ -63,16 +64,11 @@ const LandingPage: React.FC<Props> = ({ onIRLoaded }) => {
                 ir: irJson
             };
 
-            const response = await fetch('http://localhost:8900/analyze', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (response.ok) {
-                window.location.href = `http://localhost:5600/visualize?commitID=${encodeURIComponent(irJson.commitID)}`;
-            } else {
-                throw new Error(`Engine returned status ${response.status}`);
+            try {
+                await AEGIS_API.post('/analyze', payload);
+                window.location.href = `${aegisDashboardURL()}/visualize?commitID=${encodeURIComponent(irJson.commitID)}`;
+            } catch (err: any) {
+                throw new Error(`Engine returned status ${err.response?.status ?? 'unknown'}`);
             }
 
         } catch (error: any) {
