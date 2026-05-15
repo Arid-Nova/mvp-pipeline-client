@@ -22,11 +22,13 @@ ENV REACT_APP_USE_PROXY=$REACT_APP_USE_PROXY
 # Build the React application
 RUN npm run build
 
-# Install http-server to serve the static files
-RUN npm install -g http-server
+# Install `serve` to host the React build. The `-s` flag does SPA fallback —
+# any unknown path is served /index.html so React Router can take over,
+# which is what makes deep links like /pipeline work after a hard refresh.
+RUN npm install -g serve
 
 # Expose the port the app will run on
 EXPOSE 3000
 
-# Serve the build folder using http-server
-CMD ["http-server", "build", "-p", "3000"]
+# Serve the build folder with SPA fallback
+CMD ["serve", "-s", "build", "-l", "3000"]
