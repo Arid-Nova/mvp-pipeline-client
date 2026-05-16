@@ -264,6 +264,22 @@ function App(data: any) {
         }
     };
 
+    const handleResetTimeline = () => {
+        if (graphTimeline && graphTimeline.length > 0 && typeof currentInstance === 'number') {
+            const currentIR = graphTimeline[currentInstance];
+            
+            setGraphTimeline([currentIR]);
+            setCurrentInstance(0);
+            
+            const processedData = getData(currentIR, undefined);
+            if (processedData) {
+                setGraphData(processedData);
+            }
+            
+            showSuccess("Timeline reset to the current IR.");
+        }
+    };
+
     // Render Helper
     const renderLandingPage = () => (
         <div className="min-h-screen bg-gray-900 relative flex flex-col">
@@ -338,7 +354,10 @@ function App(data: any) {
                     trackChanges={trackChanges}
                 ></FilterBox>
 
-                <IRFileUpload onFileSelect={onFileUpload} />
+                <IRFileUpload 
+                    onFileSelect={onFileUpload} 
+                    onReset={handleResetTimeline}
+                />
 
                 <Instructions />
 

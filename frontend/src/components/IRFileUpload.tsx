@@ -5,9 +5,10 @@ import { Notification } from '../utils/notifications';
 interface FileUploadProps {
   onFileSelect: (file: File) => void;
   fullscreen?: boolean;
+  onReset?: () => void;
 }
 
-const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, fullscreen }) => {
+const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, fullscreen, onReset }) => {
   const [notification, setNotification] = useState<Notification | null>(null);
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
@@ -126,7 +127,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, fullscreen }) => 
           </div>
 
           <button
-              onClick={() => window.location.reload()}
+              onClick={() => {if (onReset) onReset();}}
               className="w-full rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-wider
               bg-red-500/10 text-red-400 border border-red-500/20 
               hover:bg-red-500 hover:text-white transition-all duration-200"
