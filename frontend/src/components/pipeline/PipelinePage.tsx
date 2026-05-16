@@ -526,9 +526,10 @@ const PipelinePage: React.FC = () => {
                         target: id 
                     }]);
                 }
-            } else {
-                alert(`Invalid Connection! ${sourceNode.type} can only connect to: ${allowedTargets.join(', ')}`);
-            }
+            } 
+            // else {
+            //     alert(`Invalid Connection! ${sourceNode.type} can only connect to: ${allowedTargets.join(', ')}`);
+            // }
             setIsLinking(null);
         }
     };
