@@ -1,6 +1,6 @@
 import React from 'react';
-import { NodeData, Connection } from '../models';
-import { CARD_CONFIG } from '../pipelineConfig'; 
+import { NodeData, Connection, CardType } from '../models';
+import { CARD_CONFIG, VALID_CONNECTIONS } from '../pipelineConfig'; 
 import { CanvasFooter } from '../../generic/CanvasFooter'; 
 
 interface PipelineCanvasProps {
@@ -44,6 +44,9 @@ export const PipelineCanvas: React.FC<PipelineCanvasProps> = ({
     deleteNode,
     renderCardContent
 }) => {
+    const sourceNode = isLinking ? nodes.find(n => n.id === isLinking) : null;
+    const allowedTargets = sourceNode ? (VALID_CONNECTIONS[sourceNode.type] || []) : [];
+
     return(
         <div 
             ref={canvasRef}
@@ -109,6 +112,11 @@ export const PipelineCanvas: React.FC<PipelineCanvasProps> = ({
                     {nodes.map(node => {
                         const config = CARD_CONFIG[node.type];
                         const isSource = isLinking === node.id;
+
+                        const isValidTarget = isLinking ? allowedTargets.includes(node.type as any) : true;
+                        const linkCursorClass = (isLinking && !isValidTarget && !isSource) 
+                            ? "cursor-not-allowed opacity-50 grayscale-[50%]" 
+                            : "";
                         
                         return (
                             <div
@@ -122,11 +130,12 @@ export const PipelineCanvas: React.FC<PipelineCanvasProps> = ({
                                     ${isSource ? 'ring-2 ring-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.3)]' : 'ring-1 ring-white/10 shadow-2xl'}
                                     ${node.status === 'running' ? 'ring-2 ring-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.4)]' : ''}
                                     ${node.status === 'failed' ? 'ring-2 ring-red-500 bg-red-900/40' : ''}
+                                    ${linkCursorClass}
                                 `}
                                 style={{ left: node.x, top: node.y, zIndex: node.data?.isExpanded ? 50 : 10 }}
                             >
                                 {/* Card Header */}
-                                <div className="p-3 border-b border-white/10 flex items-center justify-between bg-slate-900/60 rounded-t-xl cursor-move handle">
+                                <div className={`p-3 border-b border-white/10 flex items-center justify-between bg-slate-900/60 rounded-t-xl handle ${isLinking && !isValidTarget && !isSource ? 'cursor-not-allowed' : 'cursor-move'}`}>
                                     <div className="flex items-center gap-2">
                                         {config.icon}
                                         <span className="font-bold text-sm text-white tracking-tight">{config.title}</span>
@@ -140,7 +149,8 @@ export const PipelineCanvas: React.FC<PipelineCanvasProps> = ({
                                                     e.stopPropagation();
                                                     runFromNode(node.id);
                                                 }}
-                                                className="p-2 rounded-full hover:bg-green-500/20 text-slate-400 hover:text-green-400 transition-all border border-transparent hover:border-green-500/30 active:scale-90 group/run flex items-center justify-center"
+                                                disabled={isLinking !== null} 
+                                                className="p-2 rounded-full hover:bg-green-500/20 text-slate-400 hover:text-green-400 transition-all border border-transparent hover:border-green-500/30 active:scale-90 group/run flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                                                 title="Run this step"
                                             >
                                                 {/* Large, Rounded-Corner Play Icon */}
@@ -166,7 +176,7 @@ export const PipelineCanvas: React.FC<PipelineCanvasProps> = ({
                                                 e.stopPropagation();
                                                 handleLinkClick(node.id, node.type);
                                             }}
-                                            className={`p-1.5 rounded-lg transition-colors ${isLinking === node.id ? 'bg-yellow-500/20 text-yellow-400' : 'hover:bg-white/10 text-slate-400 hover:text-white'}`}
+                                            className={`p-1.5 rounded-lg transition-colors ${isLinking === node.id ? 'bg-yellow-500/20 text-yellow-400' : 'hover:bg-white/10 text-slate-400 hover:text-white'} ${(isLinking && !isValidTarget && !isSource) ? 'pointer-events-none' : ''}`}
                                         >
                                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
@@ -179,7 +189,8 @@ export const PipelineCanvas: React.FC<PipelineCanvasProps> = ({
                                                 e.stopPropagation();
                                                 deleteNode(node.id);
                                             }}
-                                            className="p-1.5 rounded-lg hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors"
+                                            disabled={isLinking !== null} 
+                                            className="p-1.5 rounded-lg hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -189,7 +200,7 @@ export const PipelineCanvas: React.FC<PipelineCanvasProps> = ({
                                 </div>
 
                                 {/* Card Body */}
-                                <div className="p-4 bg-slate-900/90 rounded-b-xl min-h-[100px]">
+                                <div className={`p-4 bg-slate-900/90 rounded-b-xl min-h-[100px] ${(isLinking && !isValidTarget && !isSource) ? 'pointer-events-none' : ''}`}>
                                     <p className="text-[10px] text-slate-400 mb-2 uppercase tracking-wider font-bold">{config.description}</p>
                                     
                                     {renderCardContent(node)}
