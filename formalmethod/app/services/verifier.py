@@ -1,3 +1,4 @@
+import os
 import time
 from typing import Any, Dict
 from z3 import sat, unsat
@@ -6,6 +7,8 @@ import gzip
 import json
 from ..core.solver.auth_solver import AuthorizationConsistencySolver
 from ..services.parser import getModelFromIRAndCode
+
+BACKEND_BASE_URL = os.getenv("BACKEND_BASE_URL", "http://backend:8080")
 
 def run_verification(ir_id: str, repo_mappings: list):
     logs = []
@@ -99,7 +102,7 @@ def roleMap(role_mask):
     return role_mask
 
 def _getIRData(ir_id: str) -> Dict[str, Any]:
-    url = "http://host.docker.internal:8080/ir/create"
+    url = f"{BACKEND_BASE_URL}/ir/create"
 
     payload = {
         "id": ir_id,

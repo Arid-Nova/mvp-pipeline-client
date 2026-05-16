@@ -44,7 +44,10 @@ class AnalysisFacade:
             db_name=config['MONGO']['db_name']
         )
 
-        self.ir_endpoint = config['IR']['url']
+        self.ir_endpoint = os.getenv(
+            "BACKEND_IR_URL",
+            "http://backend:8080/ir/create",
+        )
         
         # 2. Initialize graph loader
         self.graph_loader = GraphLoader(self.neo4j_service)

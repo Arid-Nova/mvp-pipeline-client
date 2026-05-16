@@ -75,6 +75,7 @@ services:
     environment:
       PYTHONUNBUFFERED: 1
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
+      BACKEND_BASE_URL: ${BACKEND_BASE_URL:-http://backend:8080}
     networks:
       - app_network
     volumes:
@@ -189,6 +190,7 @@ services:
     environment:
       PYTHONUNBUFFERED: 1
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
+      BACKEND_IR_URL: ${BACKEND_IR_URL:-http://backend:8080/ir/create}
     depends_on:
       aegis_neo4j:
         condition: service_healthy
@@ -206,6 +208,7 @@ services:
       - FLASK_APP=frontend.py
       - FLASK_DEBUG=1
       - PYTHONUNBUFFERED=1
+      - BACKEND_IR_URL=${BACKEND_IR_URL:-http://backend:8080/ir/create}
     ports:
       - "5600:5600"
     depends_on:
