@@ -13,13 +13,14 @@ import LandingPage from "./components/landing/LandingPage";
 import IRFileUpload from "./components/IRFileUpload";
 import Footer from "./components/generic/Footer";
 
+import HistoryNotification from './components/graph/HistoricNotification';
+import { MobileWarning } from "./components/generic/MobileWarning";
 import PipelinePage from "./components/pipeline/PipelinePage";
 import ExecutorPage from "./components/executor/ExecutorPage";
 import GraphMenu from "./components/graphControlMenu/GraphMenu";
 import TrackNodeMenu from "./components/generic/TrackNodeMenu";
 import Instructions from "./components/generic/Instructions";
 import ErrorBoundary from "./components/graph/ErrorBoundary";
-import HistoryNotification from './components/graph/HistoricNotification';
 import GraphWrapper from "./components/graph/GraphWrapper";
 import Menu from "./components/graph/RightClickNodeMenu";
 import { InfoBox } from "./components/graph/NodeInfoBox";
@@ -54,9 +55,10 @@ function App(data: any) {
     // Visual Settings
     const [is3d, setIs3d] = useState(true);
     const [isDark, setIsDark] = useState(true);
+    const [isMobile, setIsMobile] = useState(false);
     const [color, setColor] = useState("dark-default");
     const [defNodeColor, setDefNodeColor] = useState(false);
-
+    
     // Anti-Pattern State
     const [antiPattern, setAntiPattern] = useState(false);
     const [selectedAntiPattern, setSelectedAntiPattern] = useState("none");
@@ -89,6 +91,18 @@ function App(data: any) {
             window.removeEventListener('error', handleError);
         };
     }, []); 
+
+    // Small Screen handling
+    useEffect(() => {
+        const checkScreenSize = () => {
+            // Checks if smaller than tablet/iPad size
+            setIsMobile(window.innerWidth < 1024);
+        };
+
+        checkScreenSize();
+        window.addEventListener('resize', checkScreenSize);
+        return () => window.removeEventListener('resize', checkScreenSize);
+    }, []);
 
     // Set up notification callback when component mounts
     useEffect(() => {
@@ -417,6 +431,11 @@ function App(data: any) {
             </ErrorBoundary>
         </div>
     )};
+
+    // --- Warning to Recommend using in larger screens ---
+    if (isMobile) {
+        return <MobileWarning />;
+    }
 
     // --- Main Render ---
     return (
