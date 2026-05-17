@@ -58,6 +58,10 @@ export const PipelineCanvas: React.FC<PipelineCanvasProps> = ({
             onMouseMove={handleCanvasMouseMove}
             onMouseUp={() => setIsPanning(false)}
             onMouseLeave={() => setIsPanning(false)}
+            onPointerDown={handleCanvasMouseDown as any}
+            onPointerMove={handleCanvasMouseMove as any}
+            onPointerUp={() => setIsPanning(false)}
+            onPointerLeave={() => setIsPanning(false)}
         >
             <div 
                 id="canvas-grid"
@@ -127,6 +131,7 @@ export const PipelineCanvas: React.FC<PipelineCanvasProps> = ({
                                     absolute rounded-xl border backdrop-blur-md transition-all duration-300 ease-in-out
                                     ${node.data?.isExpanded ? 'w-[650px]' : 'w-80'}
                                     ${config.color} 
+                                    touch-none
                                     ${isSource ? 'ring-2 ring-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.3)]' : 'ring-1 ring-white/10 shadow-2xl'}
                                     ${node.status === 'running' ? 'ring-2 ring-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.4)]' : ''}
                                     ${node.status === 'failed' ? 'ring-2 ring-red-500 bg-red-900/40' : ''}
@@ -148,6 +153,11 @@ export const PipelineCanvas: React.FC<PipelineCanvasProps> = ({
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     runFromNode(node.id);
+                                                }}
+                                                onTouchEnd={(e) => { 
+                                                    e.preventDefault(); 
+                                                    e.stopPropagation(); 
+                                                    runFromNode(node.id); 
                                                 }}
                                                 disabled={isLinking !== null} 
                                                 className="p-2 rounded-full hover:bg-green-500/20 text-slate-400 hover:text-green-400 transition-all border border-transparent hover:border-green-500/30 active:scale-90 group/run flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
@@ -176,6 +186,11 @@ export const PipelineCanvas: React.FC<PipelineCanvasProps> = ({
                                                 e.stopPropagation();
                                                 handleLinkClick(node.id, node.type);
                                             }}
+                                            onTouchEnd={(e) => { 
+                                                e.preventDefault(); 
+                                                e.stopPropagation(); 
+                                                handleLinkClick(node.id, node.type); 
+                                            }}
                                             className={`p-1.5 rounded-lg transition-colors ${isLinking === node.id ? 'bg-yellow-500/20 text-yellow-400' : 'hover:bg-white/10 text-slate-400 hover:text-white'} ${(isLinking && !isValidTarget && !isSource) ? 'pointer-events-none' : ''}`}
                                         >
                                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -188,6 +203,11 @@ export const PipelineCanvas: React.FC<PipelineCanvasProps> = ({
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 deleteNode(node.id);
+                                            }}
+                                            onTouchEnd={(e) => { 
+                                                e.preventDefault(); 
+                                                e.stopPropagation(); 
+                                                deleteNode(node.id); 
                                             }}
                                             disabled={isLinking !== null} 
                                             className="p-1.5 rounded-lg hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
