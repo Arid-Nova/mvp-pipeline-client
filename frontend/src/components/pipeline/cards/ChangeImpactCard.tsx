@@ -154,6 +154,11 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
                         e.preventDefault();
                         e.stopPropagation();
                         updateNodeData(node.id, { isExpanded: !isExpanded });
+                    }} 
+                    onTouchEnd={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        updateNodeData(node.id, { isExpanded: !isExpanded });
                     }}
                     className="text-[10px] text-orange-400 hover:text-orange-300 flex items-center gap-1"
                 >
@@ -210,7 +215,15 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
                         </div>
                     </div>
                     <button 
-                        onClick={downloadDelta}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            downloadDelta();
+                        }}
+                        onTouchEnd={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            downloadDelta();
+                        }}
                         className="w-full py-1.5 text-xs bg-orange-600 hover:bg-orange-500 text-white rounded font-medium shadow transition-colors"
                     >
                         Download Changes JSON
@@ -225,7 +238,16 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
                         {['overview', 'topology', 'heatmap', 'ai'].map((tab) => (
                             <button 
                                 key={tab}
-                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActiveTab(tab as TabType); }}
+                                onClick={(e) => { 
+                                    e.preventDefault(); 
+                                    e.stopPropagation(); 
+                                    setActiveTab(tab as TabType); 
+                                }}
+                                onTouchEnd={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setActiveTab(tab as TabType);
+                                }}
                                 className={`flex-1 py-2 text-[10px] font-bold tracking-widest uppercase transition-colors ${activeTab === tab ? 'text-orange-400 border-b-2 border-orange-400 bg-slate-800/50' : 'text-slate-500 hover:text-slate-300'}`}
                             >
                                 {tab === 'ai' ? 'AI Insights' : tab}
@@ -255,7 +277,18 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
                                 <div className="flex-1 bg-slate-800/40 rounded-lg p-3 border border-slate-700/50 flex flex-col min-h-[120px]">
                                     <div className="flex justify-between items-center mb-2">
                                         <div className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">Impacted Services ({matrixData.services.length})</div>
-                                        <button onClick={downloadDelta} className="text-[9px] text-orange-400 hover:text-orange-300 uppercase font-bold tracking-widest">
+                                        <button 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                downloadDelta();
+                                            }} 
+                                            onTouchEnd={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                downloadDelta();
+                                            }}
+                                            className="text-[9px] text-orange-400 hover:text-orange-300 uppercase font-bold tracking-widest"
+                                        >
                                             Download Changes
                                         </button>
                                     </div>
@@ -443,7 +476,16 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
                                             Run an AI analysis to interpret the blast radius matrices, detect hidden structural risks, and generate remediation strategies.
                                         </div>
                                         <button 
-                                            onClick={handleGenerateAI}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleGenerateAI();
+                                            }}
+                                            onTouchEnd={(e) => {
+                                                if (isGeneratingAI) return;
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                handleGenerateAI();
+                                            }}
                                             disabled={isGeneratingAI}
                                             className="px-4 py-2 mt-2 bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold rounded shadow-lg transition-colors flex items-center gap-2 disabled:opacity-50"
                                         >
@@ -462,7 +504,17 @@ export const ChangeImpactCard: React.FC<ChangeImpactCardProps> = ({ node, update
                                                 <span className="text-orange-400 text-lg">✨</span>
                                                 <span className="font-bold text-orange-300 uppercase tracking-widest text-[11px]">AI Risk Assessment</span>
                                             </div>
-                                            <button onClick={() => setAiInsight(null)} className="text-[10px] text-orange-500 hover:text-orange-300 uppercase font-bold tracking-widest">
+                                            <button 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setAiInsight(null);
+                                                }} 
+                                                onTouchEnd={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    setAiInsight(null);
+                                                }}
+                                                className="text-[10px] text-orange-500 hover:text-orange-300 uppercase font-bold tracking-widest">
                                                 Reset
                                             </button>
                                         </div>

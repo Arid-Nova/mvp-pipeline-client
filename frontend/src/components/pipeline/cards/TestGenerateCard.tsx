@@ -43,6 +43,8 @@ export const TestGenerateCard: React.FC<TestGenerateCardProps> = ({ node, nodes,
                     <select 
                         value={selectedLlm}
                         onChange={handleLlmChange}
+                        onClick={(e) => e.stopPropagation()}
+                        onTouchEnd={(e) => { e.stopPropagation(); }}
                         disabled={node.status === 'running'}
                         className="w-full appearance-none bg-slate-900/80 border border-slate-700 hover:border-slate-500 rounded-lg py-2 pl-3 pr-8 text-xs font-medium text-slate-200 outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all cursor-pointer shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -73,7 +75,16 @@ export const TestGenerateCard: React.FC<TestGenerateCardProps> = ({ node, nodes,
                     </div>
                     <button 
                         disabled={availablePrompts === 0 || node.status === 'running'}
-                        onClick={() => runFromNode(node.id)}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            runFromNode(node.id);
+                        }}
+                        onTouchEnd={(e) => {
+                            if (node.status === 'running') return; 
+                            e.preventDefault();
+                            e.stopPropagation();
+                            runFromNode(node.id);
+                        }}
                         className={`
                             w-full py-2 text-xs rounded font-bold transition-all flex items-center justify-center gap-2
                             ${availablePrompts > 0 
@@ -101,7 +112,45 @@ export const TestGenerateCard: React.FC<TestGenerateCardProps> = ({ node, nodes,
                     </div>
                     <div className="flex flex-col gap-2">
                         <button 
-                            onClick={async () => {
+                            onClick={async (e) => {
+                                e.stopPropagation();
+
+                                const tests = node.data.testSuitePayload?.tests || [];
+                                if (tests.length === 0) return;
+
+                                // 1. Create a new zip instance
+                                const zip = new JSZip();
+                                const folder = zip.folder(`test_suite_${selectedLlm}`);
+                                
+                                let ext = 'java';
+                                let prefix = 'SecurityTest_';
+                                if (targetLanguage === 'python') {
+                                    ext = 'py';
+                                    prefix = 'test_';
+                                } else if (targetLanguage === 'curl') {
+                                    ext = 'sh';
+                                    prefix = 'test_';
+                                }
+
+                                // 2. Add each test to the zip as a .java file
+                                tests.forEach((test, index) => {
+                                    const safeName = (test.scenario_id || `scenario_${index}`).replace(/[^a-zA-Z0-9]/g, '_');
+                                    const filename = `${prefix}${safeName}.${ext}`;
+                                    folder?.file(filename, test.test_code);
+                                });
+
+                                // 3. Generate the zip blob and trigger download
+                                try {
+                                    const blob = await zip.generateAsync({ type: "blob" });
+                                    saveAs(blob, `test_suite_${selectedLlm}_${Date.now()}.zip`);
+                                } catch (error) {
+                                    console.error("Failed to generate zip file", error);
+                                }
+                            }}
+                            onTouchEnd={async (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                
                                 const tests = node.data.testSuitePayload?.tests || [];
                                 if (tests.length === 0) return;
 
@@ -140,7 +189,16 @@ export const TestGenerateCard: React.FC<TestGenerateCardProps> = ({ node, nodes,
                         </button>
                         <button 
                             disabled={node.status === 'running'}
-                            onClick={() => runFromNode(node.id)}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                runFromNode(node.id);
+                            }}
+                            onTouchEnd={(e) => {
+                                if (node.status === 'running') return; 
+                                e.preventDefault();
+                                e.stopPropagation();
+                                runFromNode(node.id);
+                            }}
                             className="w-full py-1.5 text-[10px] border border-purple-800 text-purple-500 hover:bg-purple-900/20 rounded font-bold transition-all"
                         >
                             {node.status === 'running' ? 'Executing...' : 'Regenerate Tests'}

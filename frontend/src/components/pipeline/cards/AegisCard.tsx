@@ -16,7 +16,21 @@ export const AegisCard: React.FC<AegisCardProps> = ({ node }) => {
                     ? 'bg-red-600 hover:bg-red-500' 
                     : 'bg-slate-700 opacity-50 cursor-not-allowed'}
             `}
-            onClick={() => {
+            onClick={(e) => {
+                e.stopPropagation();
+                const meta = node.data.payload?.irJson.id;
+                if (!meta) return;
+                const params = new URLSearchParams({
+                    id: meta
+                }).toString();
+
+                window.open(`http://localhost:5600/visualize?${params}`);
+            }}
+            onTouchEnd={(e) => {
+                if (!node.data.payload?.irJson || node.status !== 'completed') return;
+                e.preventDefault(); 
+                e.stopPropagation();
+                
                 const meta = node.data.payload?.irJson.id;
                 if (!meta) return;
                 const params = new URLSearchParams({

@@ -22,7 +22,15 @@ const GraphButton: React.FC<ButtonProps> = ({ onClick, ...props }) => {
             bg-slate-800/70 border border-slate-700
             text-white hover:bg-slate-700 hover:border-slate-600
             focus:outline-none focus:ring-2 focus:ring-indigo-500`}
-            onClick={onClick}
+            onClick={(e) => {
+                e.stopPropagation();
+                onClick(e);
+            }}
+            onTouchEnd={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onClick(e);
+            }}
         >
             {props.children}
         </button>

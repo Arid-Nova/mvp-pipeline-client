@@ -8,18 +8,31 @@ interface FormalVizCardProps {
 
 export const FormalVizCard: React.FC<FormalVizCardProps> = ({ node }) => {
     const navigate = useNavigate();
+
+    const handleNavigation = () => {
+        navigate('/verification-results', { 
+            state: { 
+                result: node.data.verificationResult,
+                systemInfo: node.data.systemInfo,
+                regressionPayload: node.data.regressionPayload,
+                fromPipeline: true 
+            } 
+        });
+    };
     
     return (
             <button 
             disabled={!node.data.verificationResult}
-            onClick={() => navigate('/verification-results', { 
-                state: { 
-                    result: node.data.verificationResult,
-                    systemInfo: node.data.systemInfo,
-                    regressionPayload: node.data.regressionPayload,
-                    fromPipeline: true 
-                } 
-            })}
+            onClick={(e) => {
+                e.stopPropagation(); 
+                handleNavigation();
+            }}
+            onTouchEnd={(e) => {
+                if (!node.data.verificationResult) return; 
+                e.preventDefault();
+                e.stopPropagation();
+                handleNavigation();
+            }}
             className="mt-2 w-full py-1.5 text-xs bg-pink-600 hover:bg-pink-500 disabled:opacity-50 text-white rounded font-medium shadow transition-colors"
         >
             View Results

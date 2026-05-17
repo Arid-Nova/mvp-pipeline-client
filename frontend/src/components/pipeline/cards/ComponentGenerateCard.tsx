@@ -77,7 +77,15 @@ export const ComponentGenerateCard: React.FC<ComponentGenerateCardProps> = ({ no
                 <div className="flex items-center gap-2">
                     <span className="text-[8px] text-slate-500 uppercase tracking-wider" title="Top = Highest Priority">Top=High</span>
                     <button 
-                        onClick={reverseRoles}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            reverseRoles();
+                        }}
+                        onTouchEnd={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            reverseRoles();
+                        }}
                         className="text-[9px] flex items-center gap-1 text-slate-400 hover:text-teal-400 bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-teal-700/50 px-1.5 py-0.5 rounded transition-all"
                         title="Flip Order"
                     >
@@ -123,7 +131,15 @@ export const ComponentGenerateCard: React.FC<ComponentGenerateCardProps> = ({ no
 
                         {/* Remove Role Button */}
                         <button 
-                            onClick={() => removeRole(index)} 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                removeRole(index);
+                            }} 
+                            onTouchEnd={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                removeRole(index);
+                            }}
                             className={`text-slate-600 hover:text-red-400 text-xs font-bold px-2 transition-opacity ${rolePriorities.length > 1 ? 'opacity-0 group-hover:opacity-100' : 'opacity-0 pointer-events-none'}`}
                             title="Remove Role"
                         >
@@ -135,7 +151,15 @@ export const ComponentGenerateCard: React.FC<ComponentGenerateCardProps> = ({ no
             
             {/* Add Role Button */}
             <button 
-                onClick={addRole} 
+                onClick={(e) => {
+                    e.stopPropagation();
+                    addRole();
+                }} 
+                onTouchEnd={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    addRole();
+                }} 
                 className="w-full py-1 text-[10px] text-teal-400 border border-dashed border-teal-800 rounded hover:bg-teal-900/30 transition-colors"
             >
                 + Add Role

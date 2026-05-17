@@ -31,7 +31,13 @@
                 <div class="slider-label">
                     Base Rate (a) <span id="base-rate-val">0.5</span>
                 </div>
-                <input type="range" id="base-rate" min="0" max="1" step="0.1" value="0.5" oninput="updateBaseRate(this.value)">
+                <input type="range" id="base-rate" min="0" max="1" step="0.1" value="0.5" 
+                    oninput="updateBaseRate(this.value)"
+                    onmousedown="event.stopPropagation();"
+                    ontouchstart="event.stopPropagation();"
+                    ontouchmove="event.stopPropagation();"
+                    ontouchend="event.stopPropagation();"
+                >
             </div>
         </div>
 
@@ -56,9 +62,22 @@
 
         <div class="toolbar-wrapper" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
             <div class="tabs" style="margin-bottom: 0;">
-                <button class="tab-btn active" onclick="switchTab('risk-cloud')">Risk Cloud 2D</button>
-                <button class="tab-btn" onclick="switchTab('arch-map')">Risk Space 3D</button>
-                <button class="tab-btn hidden" id="call-graph-tab" onclick="switchTab('call-graph')">Inspection Details</button>
+                <button 
+                    class="tab-btn active" 
+                    onclick="switchTab('risk-cloud')"
+                    ontouchend="event.preventDefault(); event.stopPropagation(); switchTab('risk-cloud')"
+                >Risk Cloud 2D</button>
+                <button 
+                    class="tab-btn" 
+                    onclick="switchTab('arch-map')"
+                    ontouchend="event.preventDefault(); event.stopPropagation(); switchTab('arch-map')"
+                >Risk Space 3D</button>
+                <button 
+                    class="tab-btn hidden" 
+                    id="call-graph-tab" 
+                    onclick="switchTab('call-graph')"
+                    ontouchend="event.preventDefault(); event.stopPropagation(); switchTab('call-graph')"
+                >Inspection Details</button>
             </div>
             
             <div class="search-box">
@@ -79,7 +98,10 @@
             
             <div id="call-graph-container" class="hidden">
                 <div class="graph-area-wrapper">
-                    <button class="close-graph-btn" onclick="closeCallGraph()">
+                    <button class="close-graph-btn" 
+                            onclick="closeCallGraph()"
+                            ontouchend="event.preventDefault(); event.stopPropagation(); closeCallGraph()"
+                    >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
                         Return to Map
                     </button>
