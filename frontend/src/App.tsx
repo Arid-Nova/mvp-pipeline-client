@@ -29,8 +29,18 @@ import TimeSlider from "./components/graph/TimeSlider";
 import FilterBox from "./utils/page.js";
 import NewPage from "./utils/node.js";
 
+// Mobile compatibility setting
+import { polyfill } from "mobile-drag-drop";
+
 setupLogger();
 setupAxios();
+
+polyfill({
+    dragImageCenterOnTouch: true 
+});
+
+window.addEventListener('touchmove', function() {}, {passive: false});
+
 
 function App(data: any) {
     const graphRef = useRef();
