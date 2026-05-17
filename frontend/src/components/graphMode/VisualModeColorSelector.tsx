@@ -56,7 +56,15 @@ const ColorSelector: React.FC<Props> = ({
                     id="menu-button"
                     aria-expanded="true"
                     aria-haspopup="true"
-                    onClick={handleClick}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        handleClick(e);
+                    }}
+                    onTouchEnd={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleClick(e);
+                    }}
                 >
                     {buttonText}
                     <svg
@@ -86,7 +94,15 @@ const ColorSelector: React.FC<Props> = ({
                         <li>
                             <button
                                 type="button"
-                                onClick={handleSelectMode}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSelectMode(e);
+                                }}
+                                onTouchEnd={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleSelectMode(e);
+                                }}
                                 value={"neighbor"}
                                 className="inline-flex w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 "
                             >
@@ -98,7 +114,15 @@ const ColorSelector: React.FC<Props> = ({
                         <li>
                             <button
                                 type="button"
-                                onClick={handleSelectMode}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSelectMode(e);
+                                }}
+                                onTouchEnd={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleSelectMode(e);
+                                }}
                                 value={
                                     isDarkMode
                                         ? "dark-default"

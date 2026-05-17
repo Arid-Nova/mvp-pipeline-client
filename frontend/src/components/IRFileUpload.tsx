@@ -127,7 +127,15 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, fullscreen, onRes
           </div>
 
           <button
-              onClick={() => {if (onReset) onReset();}}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onReset) onReset();
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault(); 
+                e.stopPropagation();
+                if (onReset) onReset();
+            }}
               className="w-full rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-wider
               bg-red-500/10 text-red-400 border border-red-500/20 
               hover:bg-red-500 hover:text-white transition-all duration-200"

@@ -11,7 +11,14 @@ export const IRHolderCard: React.FC<IRHolderCardProps> = ({ node }) => {
         <div className="mt-2">
                 {node.data.payload?.irJson ? (
                 <button 
-                    onClick={() => {
+                    onClick={(e) => {
+                        e.stopPropagation(); 
+                        const blob = new Blob([JSON.stringify(node.data.payload?.irJson, null, 2)], {type: "application/json"});
+                        saveAs(blob, "pipeline_ir.json");
+                    }}
+                    onTouchEnd={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
                         const blob = new Blob([JSON.stringify(node.data.payload?.irJson, null, 2)], {type: "application/json"});
                         saveAs(blob, "pipeline_ir.json");
                     }}
