@@ -28,6 +28,8 @@ async def execute_command(req: CurlExecuteRequest):
         raise HTTPException(status_code=400, detail="Only cURL commands are allowed.")
     try:
         return execute_curl_commands(req.command)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -37,6 +39,8 @@ async def execute_java(req: JavaExecuteRequest):
     code = req.code
     try:
         return execute_java_tests(code)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -46,6 +50,8 @@ async def execute_python(req: PythonExecuteRequest):
     code = req.code
     try:
         return execute_python_tests(code)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
