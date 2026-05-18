@@ -59,8 +59,8 @@ const BrandSection = ({ sessionName, hasUnsavedChanges }: { sessionName?: string
                 </div>
                 
                 {/* Brand Name */}
-                <h1 className="font-black text-2xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-cyan-400 to-teal-400">
-                    AridNova
+                <h1 className="font-bold text-2xl tracking-[0.2em] uppercase bg-clip-text text-transparent bg-gradient-to-br from-white via-slate-400 to-teal-500">
+                    SENTINEL
                 </h1>
                 
                 {/* Divider */}
@@ -70,9 +70,14 @@ const BrandSection = ({ sessionName, hasUnsavedChanges }: { sessionName?: string
                 <div className="flex flex-col mt-1">
                     {sessionName ? (
                         <div className="flex items-center gap-2">
-                            <span className="text-[13px] font-semibold text-slate-400 tracking-wider uppercase">
-                                Microservice Analysis Pipeline Creator
-                            </span>
+                            <div className="flex flex-col gap-0.5">
+                                <span className="text-[13px] font-semibold text-slate-400 tracking-wider uppercase leading-none">
+                                    Microservice Analysis Toolkit
+                                </span>
+                                <span className="text-[9px] font-medium text-slate-500 tracking-widest uppercase leading-none">
+                                    By AridNova
+                                </span>
+                            </div>
 
                             <span className="text-slate-600 font-light text-2xl mx-1 mb-1">|</span>
                             
@@ -91,7 +96,7 @@ const BrandSection = ({ sessionName, hasUnsavedChanges }: { sessionName?: string
                         </div>
                     ) : (
                         <span className="text-[13px] font-semibold text-slate-400 tracking-wider uppercase">
-                            Microservice Analysis Pipeline Creator
+                            Microservice Analysis Toolkit
                         </span>
                     )}
                 </div>
