@@ -60,7 +60,7 @@ const BrandSection = ({ sessionName, hasUnsavedChanges }: { sessionName?: string
                 
                 {/* Brand Name */}
                 <h1 className="font-bold text-2xl tracking-[0.2em] uppercase bg-clip-text text-transparent bg-gradient-to-br from-white via-slate-400 to-teal-500">
-                    SENTINEL
+                    CONDUIT
                 </h1>
                 
                 {/* Divider */}
