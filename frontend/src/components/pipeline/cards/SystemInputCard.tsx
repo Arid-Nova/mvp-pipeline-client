@@ -154,7 +154,15 @@ export const SystemInputCard: React.FC<SystemInputCardProps> = ({ node, updateNo
         return (
             <div 
                 key={repo.url} 
-                onClick={() => toggleRepoSelection(repo.url)}
+                onClick={(e) => {
+                    e.stopPropagation(); 
+                    toggleRepoSelection(repo.url);
+                }}
+                onTouchEnd={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleRepoSelection(repo.url);
+                }}
                 className={`flex items-center gap-2 p-2 border rounded mb-1.5 cursor-pointer transition-all duration-200 ${
                     isSelected 
                         ? 'border-purple-500/50 bg-purple-900/20 shadow-[0_0_10px_rgba(168,85,247,0.1)]' 
@@ -205,13 +213,29 @@ export const SystemInputCard: React.FC<SystemInputCardProps> = ({ node, updateNo
         <div className="space-y-3 mt-2">
             <div className="flex bg-slate-900/80 rounded p-1 border border-slate-700/50">
                 <button 
-                    onClick={() => setMode('manual')}
+                    onClick={(e) => {
+                        e.stopPropagation(); 
+                        setMode('manual');
+                    }}
+                    onTouchEnd={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setMode('manual');
+                    }}
                     className={`flex-1 text-[9px] font-bold tracking-wider uppercase py-1.5 rounded transition-colors ${mode === 'manual' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
                 >
                     Manual Entry
                 </button>
                 <button 
-                    onClick={() => setMode('org')}
+                    onClick={(e) => {
+                        e.stopPropagation(); 
+                        setMode('org');
+                    }}
+                    onTouchEnd={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setMode('org');
+                    }}
                     className={`flex-1 text-[9px] font-bold tracking-wider uppercase py-1.5 rounded transition-colors ${mode === 'org' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
                 >
                     Import Org
@@ -237,7 +261,15 @@ export const SystemInputCard: React.FC<SystemInputCardProps> = ({ node, updateNo
 
                                     {repositories.length > 1 && (
                                         <button 
-                                            onClick={() => updateNodeData(node.id, { repositories: repositories.filter((_, i) => i !== index) })} 
+                                            onClick={(e) => {
+                                                e.stopPropagation(); 
+                                                updateNodeData(node.id, { repositories: repositories.filter((_, i) => i !== index) })
+                                            }}
+                                            onTouchEnd={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                updateNodeData(node.id, { repositories: repositories.filter((_, i) => i !== index) })
+                                            }}
                                             className="w-5 h-5 flex items-center justify-center text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors text-xs font-bold -mt-1 -mr-1"
                                             title="Remove Repository"
                                         >✕</button>
@@ -260,7 +292,19 @@ export const SystemInputCard: React.FC<SystemInputCardProps> = ({ node, updateNo
                     {/* ACTION BUTTONS */}
                     <div className="flex items-center gap-2 mt-3">
                         <button 
-                            onClick={() => updateNodeData(node.id, { repositories: [...repositories, { repoUrl: '', branch: 'master', commitId: '' }] })} 
+                            onClick={(e) => {
+                                e.stopPropagation(); 
+                                updateNodeData(node.id, {
+                                    repositories: [...repositories, { repoUrl: '', branch: 'master', commitId: '' }]
+                                });
+                            }}
+                            onTouchEnd={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                updateNodeData(node.id, {
+                                    repositories: [...repositories, { repoUrl: '', branch: 'master', commitId: '' }]
+                                });
+                            }}
                             className="group relative flex-1 py-1.5 text-[10px] font-bold tracking-wider uppercase text-blue-400 border border-dashed border-blue-800 rounded hover:bg-blue-900/30 transition-colors"
                         >
                             + Add Repo
@@ -358,14 +402,31 @@ export const SystemInputCard: React.FC<SystemInputCardProps> = ({ node, updateNo
                             {/* Action Buttons */}
                             <div className="flex gap-2 pt-3 border-t border-slate-700/50">
                                 <button 
-                                    onClick={() => updateNodeData(node.id, { orgImportData: undefined })} 
+                                    onClick={(e) => {
+                                        e.stopPropagation(); 
+                                        updateNodeData(node.id, { orgImportData: undefined });
+                                    }} 
+                                    onTouchEnd={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        updateNodeData(node.id, { orgImportData: undefined });
+                                    }}
                                     className="flex-1 py-2 text-[9px] font-bold tracking-wider uppercase text-slate-400 bg-slate-800/50 hover:bg-slate-700 hover:text-slate-200 border border-slate-700 rounded-md transition-colors"
                                 >
                                     Cancel
                                 </button>
                                 <button 
-                                    onClick={handleConfirmSelection}
                                     disabled={selectedUrls.size === 0}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleConfirmSelection();
+                                    }}
+                                    onTouchEnd={(e) => {
+                                        if (selectedUrls.size === 0) return; 
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleConfirmSelection();
+                                    }}
                                     className="flex-[2] py-2 text-[9px] font-bold tracking-wider uppercase text-white bg-purple-600 hover:bg-purple-500 disabled:bg-slate-800 disabled:text-slate-500 disabled:border disabled:border-slate-700 disabled:cursor-not-allowed rounded-md transition-all shadow-md shadow-purple-900/20 flex items-center justify-center gap-1.5"
                                 >
                                     <span>Confirm Selection</span>
@@ -401,7 +462,16 @@ export const SystemInputCard: React.FC<SystemInputCardProps> = ({ node, updateNo
                             )}
                             
                             <button 
-                                onClick={handleAnalyzeOrg}
+                                onClick={(e) => {
+                                    e.stopPropagation(); 
+                                    handleAnalyzeOrg();
+                                }}
+                                onTouchEnd={(e) => {
+                                    if (isAnalyzing || !orgUrl.trim()) return; 
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleAnalyzeOrg();
+                                }}
                                 disabled={isAnalyzing || !orgUrl.trim()}
                                 className="w-full py-2.5 bg-purple-600 hover:bg-purple-500 disabled:bg-slate-800 disabled:border disabled:border-slate-700 disabled:text-slate-500 text-white text-[10px] font-bold tracking-wider uppercase rounded-md transition-all shadow-md shadow-purple-900/20 flex items-center justify-center gap-2"
                             >

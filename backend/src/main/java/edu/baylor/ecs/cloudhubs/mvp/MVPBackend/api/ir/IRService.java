@@ -297,11 +297,12 @@ public class IRService {
         Pageable topFiveLatest = PageRequest.of(0, 5,
                 Sort.by(Sort.Direction.DESC, "modifyDate"));
         List<MicroserviceEntity> entities = repository.findByPayloadNameMatching(namePattern, topFiveLatest);
-
         if (entities.isEmpty()) {
             throw new IllegalArgumentException("No systems found with name!");
         }
 
+        // Reverse to return oldest -> newest for timeline rendering.
+        Collections.reverse(entities);
         ArrayNode resultArray = objectMapper.createArrayNode();
         for (MicroserviceEntity entity : entities) {
             JsonNode rootNode = readPayload(entity);

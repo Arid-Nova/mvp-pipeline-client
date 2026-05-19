@@ -23,12 +23,12 @@ export const BranchDropdown = ({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const toggleOpen = (e: React.MouseEvent) => {
-        e.stopPropagation();
+    const toggleOpen = (e: React.MouseEvent | React.TouchEvent) => {
+        e.stopPropagation(); 
         setIsOpen(!isOpen);
     };
 
-    const handleSelect = (e: React.MouseEvent, branch: string) => {
+    const handleSelect = (e: React.MouseEvent | React.TouchEvent, branch: string) => {
         e.stopPropagation();
         onSelect(branch);
         setIsOpen(false);
@@ -38,7 +38,11 @@ export const BranchDropdown = ({
         <div ref={dropdownRef} className="relative">
             {/* The Trigger Button */}
             <div 
-                onClick={toggleOpen}
+                onClick={(e) => toggleOpen(e)}
+                onTouchEnd={(e) => {
+                    e.preventDefault(); 
+                    toggleOpen(e);
+                }}
                 className={`flex items-center justify-between w-28 text-[10px] border rounded px-2 py-1.5 outline-none cursor-pointer transition-all duration-200 ${
                     isSelected 
                         ? 'bg-purple-900/30 border-purple-500/50 text-purple-200 shadow-sm' 
@@ -64,6 +68,11 @@ export const BranchDropdown = ({
                                 <div 
                                     key={b}
                                     onClick={(e) => handleSelect(e, b)}
+                                    onTouchEnd={(e) => {
+                                        e.preventDefault(); 
+                                        handleSelect(e, b);
+                                        e.stopPropagation();
+                                    }}
                                     className={`flex items-center justify-between px-3 py-1.5 text-[10px] cursor-pointer transition-colors ${
                                         currentBranch === b 
                                             ? 'bg-purple-500/10 text-purple-300 font-medium' 

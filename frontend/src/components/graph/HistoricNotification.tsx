@@ -34,12 +34,22 @@ const HistoryNotification: React.FC<HistoryNotificationProps> = ({
                 <div className="flex gap-2 justify-end mt-1 text-xs font-medium">
                     <button 
                         onClick={onDismiss}
+                        onTouchEnd={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onDismiss();
+                        }}
                         className="px-3 py-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded transition-colors"
                     >
                         Dismiss
                     </button>
                     <button 
                         onClick={onLoad}
+                        onTouchEnd={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onLoad();
+                        }}
                         className="px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white rounded transition-colors shadow-lg shadow-teal-900/50"
                     >
                         Load History

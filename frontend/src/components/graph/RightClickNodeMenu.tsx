@@ -62,7 +62,15 @@ export const Menu: React.FC<Props> = ({ trackNodes, setTrackNodes }) => {
                     Highlight Node
                 </button> */}
                 <button
-                    onClick={trackNode}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        trackNode();
+                    }}
+                    onTouchEnd={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        trackNode();
+                    }}
                     className="inline-flex items-center justify-center w-full text-gray-700 px-4 py-2 text-sm hover:bg-slate-200 hover:bg-opacity-60"
                 >
                     <svg

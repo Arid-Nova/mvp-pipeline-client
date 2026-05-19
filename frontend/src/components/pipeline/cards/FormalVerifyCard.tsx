@@ -11,7 +11,14 @@ export const FormalVerifyCard: React.FC<FormalVerifyCardProps> = ({ node }) => {
         <div className="mt-2">
                 {node.data.verificationResult ? (
                 <button 
-                    onClick={() => {
+                    onClick={(e) => {
+                        e.stopPropagation(); 
+                        const blob = new Blob([JSON.stringify(node.data.verificationResult, null, 2)], {type: "application/json"});
+                        saveAs(blob, "verification_result.json");
+                    }}
+                    onTouchEnd={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
                         const blob = new Blob([JSON.stringify(node.data.verificationResult, null, 2)], {type: "application/json"});
                         saveAs(blob, "verification_result.json");
                     }}

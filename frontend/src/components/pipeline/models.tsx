@@ -125,3 +125,11 @@ export interface TestSuitePayload {
     status: string;
     tests: TestSuiteItem[];
 }
+
+export interface MatrixData {
+    services: string[];
+    links: Record<string, Record<string, string>>;
+    impacts: Record<string, Record<string, number>>;
+    riskFactors: Record<string, Set<string>>;
+    centralities: Record<string, number>;
+}

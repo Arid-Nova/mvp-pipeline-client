@@ -55,9 +55,27 @@ const TrackNodeMenu: React.FC<Props> = ({
             <div className="bg-white items-center flex flex-col gap-2 rounded-lg p-4 bg-opacity-90">
                 <div className="text-medium">Tracked Nodes:</div>
                     {trackNodes.map((node: any) => (
-                        <div className="flex flex-row gap-2">
-                        <button onClick={handleClick} value={node} className="p-1 bg-gray-300 hover:bg-gray-200" key={"trackNode: " + node}>{node}</button>
-                        <button onClick={handleRemove} value={node} className="bg-red-200 p-2 hover:bg-red-100">
+                        <div className="flex flex-row gap-2" key={"trackNode: " + node}>
+                            <button 
+                                onClick={handleClick} 
+                                onTouchEnd={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleClick(e);
+                                }}
+                                value={node} 
+                                className="p-1 bg-gray-300 hover:bg-gray-200">{node}
+                            </button>
+                            <button 
+                                onClick={handleRemove} 
+                                onTouchEnd={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleRemove(e);
+                                }}
+                                value={node} 
+                                className="bg-red-200 p-2 hover:bg-red-100"
+                            >
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
                                  className="bi bi-trash" viewBox="0 0 16 16">
                                 <path

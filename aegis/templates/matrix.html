@@ -50,7 +50,11 @@
                 {% endfor %}
             {% endfor %}
             
-            <button type="submit">Calculate Weights & Next Step</button>
+            <button type="submit" 
+                    onclick="this.disabled=true; this.innerHTML='Calculating...'; this.form.submit();"
+                    ontouchend="event.preventDefault(); this.disabled=true; this.innerHTML='Calculating...'; this.form.submit();">
+                Calculate Weights & Next Step
+            </button>
         </form>
     </div>
 </body>

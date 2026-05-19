@@ -18,7 +18,15 @@ const CollapsableBox: React.FC<Props> = ({ initOpen, svg, title, body }) => {
                     font-medium uppercase"
                     type="button"
                     aria-controls="collapseOne"
-                    onClick={(e) => setOpen(!open)}
+                    onClick={(e) => {
+                        e.stopPropagation(); 
+                        setOpen(!open);
+                    }}
+                    onTouchEnd={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation(); 
+                        setOpen(!open);
+                    }}
                 >
                     {title}
                     <span

@@ -51,7 +51,15 @@ export const SecurityRegressionCard: React.FC<Props> = ({ node }) => {
             <div className="grid grid-cols-3 gap-2">
                 {/* Resolved (Fixed) */}
                 <button 
-                    onClick={() => setExpandedTab(expandedTab === 'RESOLVED' ? null : 'RESOLVED')}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedTab(expandedTab === 'RESOLVED' ? null : 'RESOLVED');
+                    }}
+                    onTouchEnd={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setExpandedTab(expandedTab === 'RESOLVED' ? null : 'RESOLVED');
+                    }}
                     className={`flex flex-col items-center justify-center p-2 rounded-lg border transition-all ${expandedTab === 'RESOLVED' ? 'bg-emerald-900/30 border-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.2)]' : 'bg-slate-900/80 border-slate-700/50 hover:border-emerald-500/50'}`}
                 >
                     <div className="text-[8px] text-slate-500 uppercase tracking-wider mb-0.5">Fixed</div>
@@ -60,7 +68,15 @@ export const SecurityRegressionCard: React.FC<Props> = ({ node }) => {
 
                 {/* Persistent (Tech Debt) */}
                 <button 
-                    onClick={() => setExpandedTab(expandedTab === 'PERSISTENT' ? null : 'PERSISTENT')}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedTab(expandedTab === 'PERSISTENT' ? null : 'PERSISTENT');
+                    }}
+                    onTouchEnd={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setExpandedTab(expandedTab === 'PERSISTENT' ? null : 'PERSISTENT');
+                    }}
                     className={`flex flex-col items-center justify-center p-2 rounded-lg border transition-all ${expandedTab === 'PERSISTENT' ? 'bg-amber-900/30 border-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.2)]' : 'bg-slate-900/80 border-slate-700/50 hover:border-amber-500/50'}`}
                 >
                     <div className="text-[8px] text-slate-500 uppercase tracking-wider mb-0.5">Unchanged</div>
@@ -69,7 +85,15 @@ export const SecurityRegressionCard: React.FC<Props> = ({ node }) => {
 
                 {/* Introduced (Regression) */}
                 <button 
-                    onClick={() => setExpandedTab(expandedTab === 'INTRODUCED' ? null : 'INTRODUCED')}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedTab(expandedTab === 'INTRODUCED' ? null : 'INTRODUCED');
+                    }}
+                    onTouchEnd={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setExpandedTab(expandedTab === 'INTRODUCED' ? null : 'INTRODUCED');
+                    }}
                     className={`flex flex-col items-center justify-center p-2 rounded-lg border transition-all ${expandedTab === 'INTRODUCED' ? 'bg-rose-900/30 border-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.2)]' : 'bg-slate-900/80 border-slate-700/50 hover:border-rose-500/50'}`}
                 >
                     <div className="text-[8px] text-slate-500 uppercase tracking-wider mb-0.5">New Vulns</div>

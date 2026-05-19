@@ -69,7 +69,12 @@
             {% endfor %}
 
             <br>
-            <button type="submit" class="success">Save ALL Configuration Files</button>
+            <button type="submit" 
+                    class="success"
+                    onclick="this.disabled=true; this.innerHTML='Saving Configurations...'; this.form.submit();"
+                    ontouchend="event.preventDefault(); this.disabled=true; this.innerHTML='Saving Configurations...'; this.form.submit();">
+                Save ALL Configuration Files
+            </button>
         </form>
     </div>
 </body>

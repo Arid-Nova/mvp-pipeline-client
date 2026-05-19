@@ -4,3 +4,4 @@ formalmethod/app/core/__pycache__
 formalmethod/app/core/solver/__pycache__
 formalmethod/app/services/__pycache__
 mock
+.env

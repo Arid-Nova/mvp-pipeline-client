@@ -177,7 +177,17 @@ export const InfoBox = (props: Props) => {
             <div className="w-full h-px bg-slate-300 my-2"></div>
             
             <button
-                onClick={() => { props.setFocusNode(null); setShow(false); }}
+                onClick={(e) => { 
+                    e.stopPropagation();
+                    props.setFocusNode(null); 
+                    setShow(false); 
+                }}
+                onTouchEnd={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    props.setFocusNode(null); 
+                    setShow(false); 
+                }}
                 className="mt-2 w-full rounded-xl px-4 py-2 text-center text-sm font-semibold transition-all duration-200 bg-slate-300 hover:bg-slate-400 text-slate-800"
             >
                 Close Box
@@ -255,7 +265,17 @@ export const InfoBox = (props: Props) => {
 
                 <div className="w-full h-px bg-slate-300 my-2"></div>
                 <button
-                    onClick={() => { props.setFocusNode(null); setShow(false); }}
+                    onClick={(e) => { 
+                        e.stopPropagation();
+                        props.setFocusNode(null); 
+                        setShow(false); 
+                    }}
+                    onTouchEnd={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        props.setFocusNode(null); 
+                        setShow(false); 
+                    }}
                     className="mt-2 w-full rounded-xl px-4 py-2 text-center text-sm font-semibold transition-all duration-200 bg-slate-300 hover:bg-slate-400 text-slate-800"
                 >
                     Close Box
@@ -405,7 +425,17 @@ export const InfoBox = (props: Props) => {
             <div className="w-full h-px bg-slate-300 my-2 shrink-0"></div>
             
             <button
-                onClick={() => { props.setFocusNode(null); setShow(false); }}
+                onClick={(e) => { 
+                    e.stopPropagation();
+                    props.setFocusNode(null); 
+                    setShow(false); 
+                }}
+                onTouchEnd={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    props.setFocusNode(null); 
+                    setShow(false); 
+                }}
                 className="w-full shrink-0 rounded-xl px-4 py-2 text-center text-sm font-semibold transition-all duration-200 bg-slate-300 hover:bg-slate-400 text-slate-800"
             >
                 Close Box
@@ -513,7 +543,17 @@ export const InfoBox = (props: Props) => {
             
             <div className="w-full h-px bg-slate-300 my-2"></div>
             <button
-                onClick={() => { props.setFocusNode(null); setShow(false); }}
+                onClick={(e) => { 
+                    e.stopPropagation();
+                    props.setFocusNode(null); 
+                    setShow(false); 
+                }}
+                onTouchEnd={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    props.setFocusNode(null); 
+                    setShow(false); 
+                }}
                 className="mt-2 w-full rounded-xl px-4 py-2 text-center text-sm font-semibold transition-all duration-200 bg-slate-300 hover:bg-slate-400 text-slate-800"
             >
                 Close Box

@@ -13,13 +13,14 @@ import LandingPage from "./components/landing/LandingPage";
 import IRFileUpload from "./components/IRFileUpload";
 import Footer from "./components/generic/Footer";
 
+import HistoryNotification from './components/graph/HistoricNotification';
+import { MobileWarning } from "./components/generic/MobileWarning";
 import PipelinePage from "./components/pipeline/PipelinePage";
 import ExecutorPage from "./components/executor/ExecutorPage";
 import GraphMenu from "./components/graphControlMenu/GraphMenu";
 import TrackNodeMenu from "./components/generic/TrackNodeMenu";
 import Instructions from "./components/generic/Instructions";
 import ErrorBoundary from "./components/graph/ErrorBoundary";
-import HistoryNotification from './components/graph/HistoricNotification';
 import GraphWrapper from "./components/graph/GraphWrapper";
 import Menu from "./components/graph/RightClickNodeMenu";
 import { InfoBox } from "./components/graph/NodeInfoBox";
@@ -28,8 +29,18 @@ import TimeSlider from "./components/graph/TimeSlider";
 import FilterBox from "./utils/page.js";
 import NewPage from "./utils/node.js";
 
+// Mobile compatibility setting
+import { polyfill } from "mobile-drag-drop";
+
 setupLogger();
 setupAxios();
+
+polyfill({
+    dragImageCenterOnTouch: true 
+});
+
+window.addEventListener('touchmove', function() {}, {passive: false});
+
 
 function App(data: any) {
     const graphRef = useRef();
@@ -54,9 +65,10 @@ function App(data: any) {
     // Visual Settings
     const [is3d, setIs3d] = useState(true);
     const [isDark, setIsDark] = useState(true);
+    const [isMobile, setIsMobile] = useState(false);
     const [color, setColor] = useState("dark-default");
     const [defNodeColor, setDefNodeColor] = useState(false);
-
+    
     // Anti-Pattern State
     const [antiPattern, setAntiPattern] = useState(false);
     const [selectedAntiPattern, setSelectedAntiPattern] = useState("none");
@@ -89,6 +101,18 @@ function App(data: any) {
             window.removeEventListener('error', handleError);
         };
     }, []); 
+
+    // Small Screen handling
+    useEffect(() => {
+        const checkScreenSize = () => {
+            // Checks if smaller than tablet/iPad size
+            setIsMobile(window.innerWidth < 1024);
+        };
+
+        checkScreenSize();
+        window.addEventListener('resize', checkScreenSize);
+        return () => window.removeEventListener('resize', checkScreenSize);
+    }, []);
 
     // Set up notification callback when component mounts
     useEffect(() => {
@@ -250,6 +274,22 @@ function App(data: any) {
         }
     };
 
+    const handleResetTimeline = () => {
+        if (graphTimeline && graphTimeline.length > 0 && typeof currentInstance === 'number') {
+            const currentIR = graphTimeline[currentInstance];
+            
+            setGraphTimeline([currentIR]);
+            setCurrentInstance(0);
+            
+            const processedData = getData(currentIR, undefined);
+            if (processedData) {
+                setGraphData(processedData);
+            }
+            
+            showSuccess("Timeline reset to the current IR.");
+        }
+    };
+
     // Render Helper
     const renderLandingPage = () => (
         <div className="min-h-screen bg-gray-900 relative flex flex-col">
@@ -324,7 +364,10 @@ function App(data: any) {
                     trackChanges={trackChanges}
                 ></FilterBox>
 
-                <IRFileUpload onFileSelect={onFileUpload} />
+                <IRFileUpload 
+                    onFileSelect={onFileUpload} 
+                    onReset={handleResetTimeline}
+                />
 
                 <Instructions />
 
@@ -417,6 +460,11 @@ function App(data: any) {
             </ErrorBoundary>
         </div>
     )};
+
+    // --- Warning to Recommend using in larger screens ---
+    if (isMobile) {
+        return <MobileWarning />;
+    }
 
     // --- Main Render ---
     return (

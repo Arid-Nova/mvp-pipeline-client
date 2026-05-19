@@ -35,6 +35,7 @@ export const PromptGenerateCard: React.FC<PromptGenerateCardProps> = ({ node, no
                     <select
                         value={node.data.language || 'java'}
                         onChange={(e) => updateNodeData(node.id, { language: e.target.value })}
+                        onClick={(e) => e.stopPropagation()}
                         className="w-full appearance-none bg-slate-900/80 border border-slate-700 hover:border-slate-500 rounded-lg py-2 pl-3 pr-8 text-xs font-medium text-slate-200 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all cursor-pointer shadow-inner"
                     >
                         <option value="java">Java (JUnit + MockMvc)</option>
@@ -61,7 +62,17 @@ export const PromptGenerateCard: React.FC<PromptGenerateCardProps> = ({ node, no
                     </div>
                     <button 
                         disabled={selectedCount === 0 || node.status === 'running'}
-                        onClick={() => runFromNode(node.id)}
+                        onClick={(e) => {
+                            e.stopPropagation(); 
+                            runFromNode(node.id);
+                        }}
+                        onTouchEnd={(e) => {
+                            // Guard clause to honor both disabled states on touch devices
+                            if (selectedCount === 0 || node.status === 'running') return; 
+                            e.preventDefault();
+                            e.stopPropagation();
+                            runFromNode(node.id);
+                        }}
                         className={`
                             w-full py-2 text-xs rounded font-bold transition-all flex items-center justify-center gap-2
                             ${selectedCount > 0 
@@ -89,8 +100,19 @@ export const PromptGenerateCard: React.FC<PromptGenerateCardProps> = ({ node, no
                     </div>
                     <div className="flex flex-col gap-2">
                         <button 
-                            onClick={() => {
+                            onClick={(e) => {
                                 // Safeguard using optional chaining and a fallback
+                                e.stopPropagation(); 
+                                const dataToSave = node.data.promptPayload ?? { prompts: [] };
+                                const blob = new Blob(
+                                    [JSON.stringify(dataToSave, null, 2)], 
+                                    { type: "application/json" }
+                                );
+                                saveAs(blob, `prompts_${Date.now()}.json`);
+                            }}
+                            onTouchEnd={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
                                 const dataToSave = node.data.promptPayload ?? { prompts: [] };
                                 const blob = new Blob(
                                     [JSON.stringify(dataToSave, null, 2)], 
@@ -104,7 +126,16 @@ export const PromptGenerateCard: React.FC<PromptGenerateCardProps> = ({ node, no
                         </button>
                         <button 
                             disabled={node.status === 'running'}
-                            onClick={() => runFromNode(node.id)}
+                            onClick={(e) => {
+                                e.stopPropagation(); 
+                                runFromNode(node.id);
+                            }}
+                            onTouchEnd={(e) => {
+                                if (node.status === 'running') return; 
+                                e.preventDefault();
+                                e.stopPropagation();
+                                runFromNode(node.id);
+                            }}
                             className="w-full py-1.5 text-[10px] border border-emerald-800 text-emerald-500 hover:bg-emerald-900/20 rounded font-bold transition-all"
                         >
                             {node.status === 'running' ? 'Updating...' : 'Regenerate'}

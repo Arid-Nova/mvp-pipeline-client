@@ -19,7 +19,14 @@ export const ComponentHolderCard: React.FC<ComponentHolderCardProps> = ({ node }
                     </div>
 
                     <button 
-                        onClick={() => {
+                        onClick={(e) => {
+                            e.stopPropagation(); 
+                            const blob = new Blob([JSON.stringify(node.data.componentPayload?.components, null, 2)], {type: "application/json"});
+                            saveAs(blob, "components.json");
+                        }}
+                        onTouchEnd={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
                             const blob = new Blob([JSON.stringify(node.data.componentPayload?.components, null, 2)], {type: "application/json"});
                             saveAs(blob, "components.json");
                         }}
@@ -30,7 +37,14 @@ export const ComponentHolderCard: React.FC<ComponentHolderCardProps> = ({ node }
                     </button>
                     
                     <button 
-                        onClick={() => {
+                        onClick={(e) => {
+                            e.stopPropagation(); 
+                            const blob = new Blob([JSON.stringify(node.data.componentPayload?.endpoints, null, 2)], {type: "application/json"});
+                            saveAs(blob, "endpoints.json");
+                        }}
+                        onTouchEnd={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
                             const blob = new Blob([JSON.stringify(node.data.componentPayload?.endpoints, null, 2)], {type: "application/json"});
                             saveAs(blob, "endpoints.json");
                         }}

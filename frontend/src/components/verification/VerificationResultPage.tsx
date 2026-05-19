@@ -77,7 +77,17 @@ const VerificationResultPage = () => {
             <div className="min-h-screen bg-slate-900 flex items-center justify-center flex-col text-white gap-4">
                 <h1 className="text-2xl font-bold">No Verification Results</h1>
                 <p className="text-slate-400">Please run verification from the dashboard first.</p>
-                <button onClick={() => navigate('/')} className="px-6 py-2 bg-blue-600 rounded-lg font-semibold hover:bg-blue-500 transition-colors">
+                <button 
+                    onClick={(e) => {
+                        e.stopPropagation(); 
+                        navigate('/');
+                    }}
+                    onTouchEnd={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        navigate('/');
+                    }}
+                    className="px-6 py-2 bg-blue-600 rounded-lg font-semibold hover:bg-blue-500 transition-colors">
                     Return Home
                 </button>
             </div>
@@ -162,7 +172,18 @@ const VerificationResultPage = () => {
             <div className="bg-slate-800/50 border-b border-slate-700 p-4 sticky top-0 z-50 backdrop-blur-md">
                 <div className="max-w-7xl mx-auto flex items-center justify-between">
                     <div className="flex items-center gap-6">
-                        <button onClick={handleBack} className="text-slate-400 hover:text-white flex items-center gap-2 text-sm font-bold transition-colors">
+                        <button 
+                            onClick={(e) => {
+                                e.stopPropagation(); 
+                                handleBack();
+                            }} 
+                            onTouchEnd={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleBack();
+                            }}
+                            className="text-slate-400 hover:text-white flex items-center gap-2 text-sm font-bold transition-colors"
+                        >
                             ← Back {fromPipeline ? 'to Pipeline' : ''}
                         </button>
                         <h1 className="text-xl font-bold flex items-center gap-2">
@@ -176,10 +197,30 @@ const VerificationResultPage = () => {
                     {/* VIEW TOGGLE - Only show if UNSAT (Graph is most useful for debugging failures) */}
                     {(!isSat || hasRegression) && (
                         <div className="bg-slate-900/80 p-1 rounded-lg border border-slate-600 flex gap-1">
-                            <button onClick={() => setViewMode('results')} className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${viewMode === 'results' ? 'bg-slate-700 text-white shadow' : 'text-slate-400 hover:text-white'}`}>
+                            <button 
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setViewMode('results');
+                                }} 
+                                onTouchEnd={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setViewMode('results');
+                                }}
+                                className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${viewMode === 'results' ? 'bg-slate-700 text-white shadow' : 'text-slate-400 hover:text-white'}`}>
                                 List View
                             </button>
-                            <button onClick={() => setViewMode('graph')} className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${viewMode === 'graph' ? 'bg-red-600 text-white shadow shadow-red-500/20' : 'text-slate-400 hover:text-white'}`}>
+                            <button 
+                                onClick={(e) => {
+                                    e.stopPropagation(); 
+                                    setViewMode('graph');
+                                }} 
+                                onTouchEnd={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setViewMode('graph');
+                                }}
+                                className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${viewMode === 'graph' ? 'bg-red-600 text-white shadow shadow-red-500/20' : 'text-slate-400 hover:text-white'}`}>
                                 3D Graph Analysis
                             </button>
                         </div>

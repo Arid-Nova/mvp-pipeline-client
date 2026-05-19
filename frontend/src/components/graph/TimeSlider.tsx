@@ -79,7 +79,11 @@ const TimeSlider: React.FC<Props> = ({
     }
 
     return (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 w-5/6 max-w-4xl">
+        <div 
+            onClick={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 w-5/6 max-w-4xl"
+        >
             <div className="bg-slate-800/70 text-white rounded-xl p-4 shadow-lg backdrop-blur-none transition-all duration-300">
                 
                 {/* Header with title and collapse/expand button */}
@@ -88,7 +92,15 @@ const TimeSlider: React.FC<Props> = ({
                         Commit Timeline
                     </label>
                     <button 
-                        onClick={() => setIsExpanded(!isExpanded)} 
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setIsExpanded(!isExpanded);
+                        }}
+                        onTouchEnd={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setIsExpanded(!isExpanded);
+                        }}
                         className="absolute right-0 top-1/2 transform -translate-y-1/2 p-1 rounded-full hover:bg-slate-700/50 transition-color"
                         aria-label={isExpanded ? "Collapse timeline details" : "Expand timeline details"}
                     >
@@ -111,6 +123,11 @@ const TimeSlider: React.FC<Props> = ({
                     max={graphTimeline.length - 1}
                     value={value}
                     onChange={handleChange}
+                    onClick={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    onTouchMove={(e) => e.stopPropagation()}
+                    onTouchEnd={(e) => e.stopPropagation()}
                     step="1"
                     className="w-full h-2 rounded-lg appearance-none cursor-pointer
                                 bg-gradient-to-r from-gray-800/30 to-white/30
