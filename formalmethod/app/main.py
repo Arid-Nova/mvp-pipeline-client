@@ -29,7 +29,7 @@ def verify(request: VerificationRequest, background_tasks: BackgroundTasks):
         repo_mappings = git_manager.clone_repos_concurrently(request.repos)
 
         # 2. Run Analysis
-        result = run_verification(request.ir, repo_mappings)
+        result = run_verification(request.ir_id, repo_mappings)
         
         return result
     except Exception as e:

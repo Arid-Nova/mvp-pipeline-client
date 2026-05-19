@@ -3,6 +3,8 @@ import json
 import numpy as np
 import configparser
 import os
+import gzip
+import json
 from flask_cors import CORS
 from src.services.mongo_service import MongoService
 from src.services.neo4j_service import Neo4jService
@@ -239,8 +241,29 @@ def get_results():
             mongo_query)
         
         if existing:
-            del existing[0]['_id']
-            return existing[0]
+            result_doc = existing[0]
+            
+            if '_id' in result_doc:
+                del result_doc['_id']
+            
+            def decompress_field(field_data):
+                if isinstance(field_data, bytes):
+                    try:
+                        decompressed = gzip.decompress(field_data)
+                        return json.loads(decompressed.decode('utf-8'))
+                    except Exception as e:
+                        print(f"Failed to decompress field: {e}")
+                        return field_data
+                return field_data
+
+            if 'results' in result_doc:
+                result_doc['results'] = decompress_field(result_doc['results'])
+            
+            if 'vulnerabilities' in result_doc:
+                result_doc['vulnerabilities'] = decompress_field(result_doc['vulnerabilities'])
+
+            return result_doc
+        
     except Exception as e:
         print(f"Error retrieving results: {e}")
 

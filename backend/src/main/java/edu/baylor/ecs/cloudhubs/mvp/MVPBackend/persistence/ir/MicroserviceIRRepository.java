@@ -8,7 +8,7 @@ import java.util.List;
 
 public interface MicroserviceIRRepository
         extends MongoRepository<MicroserviceEntity, String> {
-        
+
     @Query("{ '$or': [ { 'systemName': { $regex: ?0, $options: 'i' } }, { 'payload.name': { $regex: ?0, $options: 'i' } } ] }")
     List<MicroserviceEntity> findByPayloadNameMatching(String namePattern, Pageable pageable);
 

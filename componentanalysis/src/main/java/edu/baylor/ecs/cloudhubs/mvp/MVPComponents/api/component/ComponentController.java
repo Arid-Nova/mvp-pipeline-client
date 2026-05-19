@@ -2,6 +2,8 @@ package edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component;
 
 import lombok.RequiredArgsConstructor;
 import com.fasterxml.jackson.databind.JsonNode;
+
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,7 +26,7 @@ public class ComponentController {
             maxAge = 3600,
             allowedHeaders = "*"
     )
-    public ResponseEntity<?> createIndexedIR(@RequestBody IRRequestModel irRequestModel) {
+    public ResponseEntity<?> createIndexedComponenets(@RequestBody IRRequestModel irRequestModel) {
         JsonNode responseModel;
         try {
             responseModel = componentService.createComponentIndex(irRequestModel);
@@ -49,10 +51,13 @@ public class ComponentController {
     )
     public ResponseEntity<?> getComponent(@PathVariable String id) {
         try {
-            JsonNode response = componentService.getComponentById(id);
-            return ResponseEntity.ok(response);
+            byte[] response = componentService.getComponentById(id);
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_TYPE, "application/gzip")
+                    .header(HttpHeaders.CONTENT_ENCODING, "gzip")
+                    .body(response);
         } catch (IllegalArgumentException e) {
-            return Errors.Response400BadRequest(e.getMessage());
+            return Errors.Response404NotFound(e.getMessage());
         } catch (Exception e) {
             return Errors.Response500InternalServerError(e.getCause(), e.getMessage());
         }
@@ -66,10 +71,13 @@ public class ComponentController {
     )
     public ResponseEntity<?> getEndpoints(@PathVariable String id) {
         try {
-            JsonNode response = componentService.getEndpointsById(id);
-            return ResponseEntity.ok(response);
+            byte[] response = componentService.getEndpointsById(id);
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_TYPE, "application/gzip")
+                    .header(HttpHeaders.CONTENT_ENCODING, "gzip")
+                    .body(response);
         } catch (IllegalArgumentException e) {
-            return Errors.Response400BadRequest(e.getMessage());
+            return Errors.Response404NotFound(e.getMessage());
         } catch (Exception e) {
             return Errors.Response500InternalServerError(e.getCause(), e.getMessage());
         }

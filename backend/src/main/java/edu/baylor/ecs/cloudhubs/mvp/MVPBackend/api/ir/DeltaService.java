@@ -1,12 +1,15 @@
 package edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.ir;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.util.*;
+import java.util.zip.GZIPInputStream;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsonorg.JsonOrgModule;
 
 import edu.university.ecs.lab.common.models.ir.MicroserviceSystem;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.ir.MicroserviceEntity;
@@ -20,18 +23,27 @@ import edu.university.ecs.lab.common.config.RepositoryConfig;
 import edu.university.ecs.lab.common.config.RepositoryBranchPair;
 import edu.university.ecs.lab.delta.services.DeltaExtractionService;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 
 @Log4j2
 @Service
-@RequiredArgsConstructor(onConstructor = @__(@Autowired))
 public class DeltaService {
 
     @Autowired
     private MicroserviceIRRepository repository;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
+
+    @Autowired
+    public DeltaService(MicroserviceIRRepository repository) {
+        this.repository = repository;
+        this.objectMapper = new ObjectMapper();
+        
+        this.objectMapper.registerModule(new com.fasterxml.jackson.datatype.jsonorg.JsonOrgModule());
+        this.objectMapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule()); 
+    
+        this.objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    }
 
     public SystemChange retrieveDelta(DeltaRequestModel requestModel)
             throws Exception {
@@ -65,14 +77,14 @@ public class DeltaService {
         return DeltaExtractionService.create(config, intermediateSystem, comparingRepositories);
     }
 
-    private MicroserviceSystem getIRById(String id) {
+    private MicroserviceSystem getIRById(String id) throws IOException {
         Optional<MicroserviceEntity> optionalEntity = repository.findById(id);
 
         if (optionalEntity.isPresent()) {
             MicroserviceEntity entity = optionalEntity.get();
-            ObjectMapper mapper = new ObjectMapper();
-            mapper.registerModule(new JsonOrgModule());
-            return mapper.convertValue(entity.getPayload(), MicroserviceSystem.class);
+            try (GZIPInputStream gzis = new GZIPInputStream(new ByteArrayInputStream(entity.getPayload()))) {
+                return objectMapper.readValue(gzis, MicroserviceSystem.class);
+            }
         } else {
             throw new IllegalArgumentException("No microservice system found with ID: " + id);
         }

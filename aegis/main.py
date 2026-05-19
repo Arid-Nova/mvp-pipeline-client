@@ -1,9 +1,12 @@
+import gzip
 import os
-from pathlib import Path
 import time
 import json
 import dataclasses
+import concurrent.futures
 from typing import List, Dict, Any
+
+import requests
 
 # Import all our modules
 from src.config_loader import ConfigLoader
@@ -40,6 +43,8 @@ class AnalysisFacade:
             uri=config['MONGO']['uri'],
             db_name=config['MONGO']['db_name']
         )
+
+        self.ir_endpoint = config['IR']['url']
         
         # 2. Initialize graph loader
         self.graph_loader = GraphLoader(self.neo4j_service)
@@ -75,16 +80,43 @@ class AnalysisFacade:
         self.update_results_with_vulnerabilities(ir_id, results)
 
         return results
+    
+    def _get_ir_for_analysis(self, ir_id: str) -> Dict[str, Any]:
+        payload = {
+            "id": ir_id,
+            "systemName": "",
+            "systemRepositories": []
+        }
 
-    def run_analysis(self, payload: Dict[str, Any]) -> List[ExecutionPath]:
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/gzip"
+        }
+        
+        try:
+            response = requests.post(self.ir_endpoint, json=payload, headers=headers, timeout=30)
+            if response.status_code != 200:
+                response.raise_for_status()
+
+            decompressed_data = gzip.decompress(response.content)
+            ir_data = json.loads(decompressed_data)
+            
+            return ir_data
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching IR data: {e}")
+            raise
+        except Exception as e:
+            print(f"Error parsing IR data: {e}")
+            raise
+
+    def run_analysis(self, payload: Dict[str, Any], max_workers: int = 3) -> List[ExecutionPath]:
         # Executes the end-to-end analysis pipeline.
         print("\nStarting AEGIS analysis!")
         start_time = time.perf_counter()
-        ir_id = payload['ir']['id']
 
         # Checking if analysis has already been performed.
         existing = self.mongo_service.find(self.config['MONGO']['collection_name'], {
-            "irID": ir_id
+            "irID": payload['ir_id']
         })
 
         if existing:
@@ -96,7 +128,9 @@ class AnalysisFacade:
         self.code_fetcher = CodeFetcher(payload['repoUrl'], payload['branch'])
 
         # Load graph and get execution paths
-        execution_paths = self.graph_loader.load_graph_from_ir(payload['ir'], self.code_fetcher.get_temp_dir())
+        # But, first need to fetch the IR 
+        ir = self._get_ir_for_analysis(payload['ir_id'])
+        execution_paths = self.graph_loader.load_graph_from_ir(ir, self.code_fetcher.get_temp_dir())
         
         if not execution_paths:
             print("No execution paths found. Exiting.")
@@ -106,10 +140,11 @@ class AnalysisFacade:
         
         analyzed_paths = []
         self.neuro_analyzer = NeuroAnalyzer(self.code_fetcher, self.traversal_service, self.llm_config)
-        
-        for i, path in enumerate(execution_paths):
-            # print(f"\nAnalyzing Path {i+1}/{len(execution_paths)}: {path.id}.")
+        # total_paths = len(execution_paths)
 
+        # 1. Worker function for a single path
+        def process_single_path(path_info):
+            _, path = path_info
             try:
                 # Step 1: Symbolic Analysis
                 # print(f"[Step 1] Running symbolic analysis for {path.id}.")
@@ -127,20 +162,32 @@ class AnalysisFacade:
                 # print(f"[Step 4] Fusing {len(path.initial_opinions)} opinions for {path.id}.")
                 path.fused_opinion = fuse_opinions_list(path.initial_opinions)
                 
-                print(f"({i+1}/{len(execution_paths)}) ANALYSIS COMPLETE for {path.id}.")
+                # print(f"({i+1}/{len(execution_paths)}) ANALYSIS COMPLETE for {path.id}.")
                 # print(f"ANALYSIS COMPLETE for {path.id}. Final Opinion: {path.fused_opinion}")
-                analyzed_paths.append(path)
-                
+                # analyzed_paths.append(path)
+                return path
+            
             except Exception as e:
                 print(f"CRITICAL ERROR analyzing path {path.id}: {e} !!!")
-                continue
+                return None
 
+        # 2. Concurrent processing of paths
+        path_tuples = [(i, path) for i, path in enumerate(execution_paths)]
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [executor.submit(process_single_path, pt) for pt in path_tuples]
+            
+            for future in concurrent.futures.as_completed(futures):
+                result = future.result()
+                if result:
+                    analyzed_paths.append(result)
+        
         end_time = time.perf_counter()
         elapsed_time = end_time - start_time
 
         print(f"\nAEGIS full analysis completed! Execution time: {elapsed_time:.6f} seconds")
-    
-        # Format the output
+
+        # 3. Format the output
         results = []
         if analyzed_paths:
             for path in analyzed_paths:
@@ -149,11 +196,15 @@ class AnalysisFacade:
                 path_dict.pop("method_flow", None)             
                 results.append(path_dict)
 
+        # Compresing results befpre saving to DB
+        json_str = json.dumps(results)
+        compressed_results = gzip.compress(json_str.encode('utf-8'))
+
         self.save_results_to_db({
             "system_name": payload['ir']['name'],
-            "irID": ir_id,
+            "irID": payload['ir_id'],
             "timestamp": time.time(),
-            "results": results
+            "results": compressed_results
         })
 
         return results
@@ -170,8 +221,15 @@ class AnalysisFacade:
                 return False
             
             existing_result = existing[0]
-            existing_result['vulnerabilities'] = vulnerabilities
-            self.mongo_service.update(self.config['MONGO']['collection_name'], {"_id": existing_result['_id']}, existing_result)
+
+            # Compressing before updating to DB
+            vuln_json = json.dumps(vulnerabilities)
+            compressed_vulns = gzip.compress(vuln_json.encode('utf-8'))
+            existing_result['vulnerabilities'] = compressed_vulns
+
+            self.mongo_service.update(
+                self.config['MONGO']['collection_name'], 
+                {"_id": existing_result['_id']}, existing_result)
             print(f"Successfully updated vulnerabilities for IR ID '{ir_id}'.")
             return True
 

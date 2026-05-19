@@ -11,7 +11,6 @@ axios.interceptors.response.use(
                     response.config.url
                 }`
             );
-            Logger.debug(response.data);
         } catch (e) {
             Logger.warn(
                 "Axios response successful, but there was an issue in axios interceptor"
@@ -63,12 +62,13 @@ axios.interceptors.request.use(
 export const setupAxios = () => {
     axios.defaults.baseURL = "http://localhost:8080";
     axios.defaults.headers.common["Content-Type"] = "application/json";
-    axios.defaults.headers.common["Access-Control-Allow-Origin"] =
-        "http://localhost:3000";
-    axios.defaults.headers.common["Access-Control-Allow-Methods"] =
-        "GET, POST, PATCH, PUT, DELETE, OPTIONS";
-    axios.defaults.headers.common["Access-Control-Allow-Headers"] =
-        "Origin, Content-Type, X-Auth-Token, Authorization, Accept,charset,boundary,Content-Length";
+    // There ar browser handled
+    // axios.defaults.headers.common["Access-Control-Allow-Origin"] =
+    //     "http://localhost:3000";
+    // axios.defaults.headers.common["Access-Control-Allow-Methods"] =
+    //     "GET, POST, PATCH, PUT, DELETE, OPTIONS";
+    // axios.defaults.headers.common["Access-Control-Allow-Headers"] =
+    //     "Origin, Content-Type, X-Auth-Token, Authorization, Accept,charset,boundary,Content-Length";
 };
 
 export const setupLogger = () => {

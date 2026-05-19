@@ -574,7 +574,8 @@ def enrich_from_endpoints(scenario: Dict[str, Any], endpoints: Any):
         if isinstance(raw_data, dict):
             endpoint_list = raw_data.values()
         else:
-            endpoint_list = endpoints
+            actual_endpoints_dict = next((item for item in endpoints if item is not None), {})
+            endpoint_list = actual_endpoints_dict.values()
     except StopIteration:
         return scenario
 

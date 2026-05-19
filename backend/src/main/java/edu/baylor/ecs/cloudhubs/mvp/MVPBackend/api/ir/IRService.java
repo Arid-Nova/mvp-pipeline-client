@@ -30,13 +30,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import java.util.*;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.*;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
@@ -50,56 +49,36 @@ public class IRService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public JsonNode createAndWrite(IRRequestModel irRequestModel)
+    public byte[] createAndWrite(IRRequestModel irRequestModel)
             throws Exception {
-        // Pre-checking if the IR already exists
-        if(irRequestModel.getId() != null)
+        if (irRequestModel.getId() != null) {
             return getIRById(irRequestModel.getId());
+        }
 
-        // 1. Library generates the base IR
         MicroserviceSystem microserviceSystem = basicCreate(irRequestModel);
-
-        // 2. Convert to a mutable JSON Tree so we can inject custom fields
         JsonNode rootNode = objectMapper.valueToTree(microserviceSystem);
-
-        // 3. Run generic Anti-Pattern Analysis
         enrichWithAntiPatterns(rootNode);
 
-        // 4. Save the IR in DB and return the ID
-        ((ObjectNode) rootNode).put("id", saveIR(rootNode));
-
-        return rootNode;
+        String id = saveIR(rootNode);
+        return getIRById(id);
     }
 
-    public String getIRMetaByName(IRByNameRequest irRequestModel) 
+    public String getIRMetaByName(IRByNameRequest irRequestModel)
             throws IllegalArgumentException {
 
         String rawSystemName = irRequestModel.getSystemName();
-
-        // 1. Transforming the string into a flexible regex pattern
         String flexiblePattern = buildFlexibleRegex(rawSystemName);
 
-        // 2. Searching based on generic pattern
-        if (getIRMetaByName(flexiblePattern)) 
+        if (getIRMetaByName(flexiblePattern)) {
             return "We found IRs for this system!";
+        }
         throw new IllegalArgumentException("No microservice system found with name pattern: " + irRequestModel.getSystemName());
     }
 
-    public JsonNode[] getIRsByName(IRByNameRequest irRequestModel) 
-            throws IllegalArgumentException {
-
-        String rawSystemName = irRequestModel.getSystemName();
-
-        // 1. Transforming the string into a flexible regex pattern
-        String flexiblePattern = buildFlexibleRegex(rawSystemName);
-
-        // 2. Searching based on generic pattern
-        JsonNode[] response = getIRsByName(flexiblePattern);
-        if (response.length == 0) {
-            throw new IllegalArgumentException("No microservice system found with name pattern: " + irRequestModel.getSystemName());
-        }
-
-        return response;
+    public byte[] getIRsByName(IRByNameRequest irRequestModel)
+            throws IllegalArgumentException, Exception {
+        String flexiblePattern = buildFlexibleRegex(irRequestModel.getSystemName());
+        return getIRsByName(flexiblePattern);
     }
 
     private String buildFlexibleRegex(String input) {
@@ -111,18 +90,9 @@ public class IRService {
 
     private MicroserviceSystem basicCreate(IRRequestModel irRequestModel)
             throws Exception {
-        // Configure JavaParser for Java 21 syntax before CIMET extraction runs.
-        // Without this, files using records, sealed classes, pattern matching, etc.
-        // cause StaticJavaParser.parse() to throw, leaving SourceToObjectUtils.cu=null,
-        // which then NPEs on cu.findAll() — a bug in cimet-extract-lib that silently
-        // swallows parse exceptions without resetting the static cu field.
         StaticJavaParser.setConfiguration(
                 new ParserConfiguration().setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21));
 
-        // Pre-initialize SourceToObjectUtils.cu to an empty CompilationUnit so that
-        // any remaining parse failures (non-Java-version issues) skip the file gracefully
-        // instead of NPE-ing. When cu is empty, findAll() returns an empty list, the
-        // class role resolves to UNKNOWN, and parseClass() returns null (skipped).
         try {
             java.lang.reflect.Field cuField = Class
                     .forName("edu.university.ecs.lab.common.utils.SourceToObjectUtils")
@@ -130,7 +100,7 @@ public class IRService {
             cuField.setAccessible(true);
             cuField.set(null, new CompilationUnit());
         } catch (Exception e) {
-            log.warn("Could not pre-initialize SourceToObjectUtils.cu — parse failures may still cause errors: {}", e.getMessage());
+            log.warn("Could not pre-initialize SourceToObjectUtils.cu - parse failures may still cause errors: {}", e.getMessage());
         }
 
         IRExtractionService extractionService = getIrExtractionService(irRequestModel);
@@ -145,7 +115,6 @@ public class IRService {
         if (!rootNode.has("microservices") || !rootNode.get("microservices").isArray()) return;
         ArrayNode microservices = (ArrayNode) rootNode.get("microservices");
 
-        // 1. GOD SERVICE anti-pattern
         for (JsonNode msNode : microservices) {
             ObjectNode ms = (ObjectNode) msNode;
             int controllerCount = ms.has("controllers") ? ms.get("controllers").size() : 0;
@@ -156,8 +125,6 @@ public class IRService {
             }
         }
 
-        // 2. SHARED DB anti-pattern
-        // Map: EntityName -> Set of Microservice Names using it
         Map<String, Set<String>> entityUsage = new HashMap<>();
 
         for (JsonNode msNode : microservices) {
@@ -179,7 +146,6 @@ public class IRService {
             }
         }
 
-        // Apply SHARED_DB tag
         for (JsonNode msNode : microservices) {
             List<JsonNode> components = new ArrayList<>();
             if (msNode.has("controllers")) msNode.get("controllers").forEach(components::add);
@@ -192,7 +158,6 @@ public class IRService {
                         String importName = imp.path("name").asText("");
                         String importObj = imp.path("importObject").asText("");
                         if (importName.contains(".entity.") && entityUsage.containsKey(importObj)) {
-                            // If used by multiple-services
                             if (entityUsage.get(importObj).size() > 1) {
                                 imp.put("antiPattern", "SHARED_DB");
                             }
@@ -202,8 +167,6 @@ public class IRService {
             }
         }
 
-        // 3. CHATTY SERVICE & CYCLIC DEPENDENCY
-        // First, map URLs to their home Microservice
         Map<String, String> urlToMs = new HashMap<>();
         for (JsonNode msNode : microservices) {
             String msName = msNode.path("name").asText();
@@ -217,7 +180,6 @@ public class IRService {
                         String url = method.path("url").asText(null);
                         if (url != null && !url.isEmpty()) urlToMs.put(url, msName);
 
-                        // Check default annotations
                         if (method.has("annotations") && method.get("annotations").isArray()) {
                             for (JsonNode ann : method.get("annotations")) {
                                 JsonNode attrs = ann.get("attributes");
@@ -231,7 +193,6 @@ public class IRService {
             }
         }
 
-        // Detect Cross-MS calls
         Map<String, Set<String>> msCallGraph = new HashMap<>();
 
         for (JsonNode msNode : microservices) {
@@ -262,7 +223,7 @@ public class IRService {
 
                                 if (isCyclic) {
                                     call.put("antiPattern", "CYCLIC_DEPENDENCY");
-                                } else if (externalCallCount > 1) { // More than 1 external call in a single method
+                                } else if (externalCallCount > 1) {
                                     call.put("antiPattern", "CHATTY_SERVICE");
                                 }
                             }
@@ -275,7 +236,7 @@ public class IRService {
 
     private @NotNull IRExtractionService getIrExtractionService(IRRequestModel irRequestModel) throws Exception {
         List<RepositoryConfig> systemRepositories = new ArrayList<>();
-        for (SystemRepository repo: irRequestModel.systemRepositories){
+        for (SystemRepository repo : irRequestModel.systemRepositories) {
             systemRepositories.add(new RepositoryConfig(
                     new RepositoryBranchPair(repo.repoBranchPair.repositoryURL, repo.repoBranchPair.branchName),
                     repo.commitID
@@ -285,27 +246,24 @@ public class IRService {
         return new IRExtractionService(config);
     }
 
-    // Repository operations
     private String saveIR(JsonNode rootNode) {
         try {
             String systemName = rootNode.path("name").asText("");
             Date now = new Date();
             byte[] compressedPayload = compress(objectMapper.writeValueAsString(rootNode));
 
-            // Keep headroom below Mongo's 16MB hard limit.
             int maxSafeBytes = 15 * 1024 * 1024;
             if (compressedPayload.length > maxSafeBytes) {
                 throw new IllegalArgumentException(
-                    "Generated IR is too large to store safely. Try narrowing repository scope or fewer services."
-                );
+                        "Generated IR is too large to store safely. Try narrowing repository scope or fewer services.");
             }
 
             MicroserviceEntity entity = new MicroserviceEntity(
-                systemName,
-                null,
-                compressedPayload,
-                now,
-                now
+                    systemName,
+                    null,
+                    compressedPayload,
+                    now,
+                    now
             );
 
             MicroserviceEntity savedEntity = repository.save(entity);
@@ -317,7 +275,7 @@ public class IRService {
         }
     }
 
-    private JsonNode getIRById(String id) {
+    private byte[] getIRById(String id) {
         Optional<MicroserviceEntity> optionalEntity = repository.findById(id);
 
         if (optionalEntity.isPresent()) {
@@ -326,26 +284,34 @@ public class IRService {
             if (rootNode.isObject()) {
                 ((ObjectNode) rootNode).put("id", entity.getId());
             }
-            return rootNode;
-        } else {
-            throw new IllegalArgumentException("No microservice system found with ID: " + id);
+            try {
+                return compress(objectMapper.writeValueAsString(rootNode));
+            } catch (Exception ex) {
+                throw new IllegalArgumentException("Failed to serialize IR payload for id: " + id, ex);
+            }
         }
+        throw new IllegalArgumentException("No microservice system found with ID: " + id);
     }
 
-    private JsonNode[] getIRsByName(String namePattern) {
-        Pageable topFiveLatest = PageRequest.of(0, 5, 
-            Sort.by(Sort.Direction.DESC, "modifyDate"));
+    private byte[] getIRsByName(String namePattern) throws Exception {
+        Pageable topFiveLatest = PageRequest.of(0, 5,
+                Sort.by(Sort.Direction.DESC, "modifyDate"));
         List<MicroserviceEntity> entities = repository.findByPayloadNameMatching(namePattern, topFiveLatest);
-    
-        return entities.stream()
-                .map(entity -> {
-                    JsonNode rootNode = readPayload(entity);
-                    if (rootNode.isObject()) {
-                        ((ObjectNode) rootNode).put("id", entity.getId());
-                    }
-                    return rootNode;
-                })
-                .toArray(JsonNode[]::new);
+
+        if (entities.isEmpty()) {
+            throw new IllegalArgumentException("No systems found with name!");
+        }
+
+        ArrayNode resultArray = objectMapper.createArrayNode();
+        for (MicroserviceEntity entity : entities) {
+            JsonNode rootNode = readPayload(entity);
+            if (rootNode.isObject()) {
+                ((ObjectNode) rootNode).put("id", entity.getId());
+            }
+            resultArray.add(rootNode);
+        }
+
+        return compress(objectMapper.writeValueAsString(resultArray));
     }
 
     private boolean getIRMetaByName(String namePattern) {

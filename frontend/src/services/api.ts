@@ -5,30 +5,41 @@ import {
     VerificationInput,
     VerificationResponse,
     OrgImportResponse,
+    SessionPageResponse,
     ChatbotQueryRequest,
     ChatbotResponse,
     ChatbotHealthResponse
 } from './types';
 import { PromptItem } from '../components/pipeline/models';
+import { decompressPayload } from '../utils/decompress';
 
-
+// IR generation and retrieval functions
 export const fetchIRFromRepo = async (input: RepositoryInput) => {
     try {
-        const response = await axios.post('/ir/create', input);
-        return response.data; 
-    } catch (error: any) {
-        const msg = error.response?.data?.message || "Failed to generate IR from repository.";
-        showError(msg);
-        throw error;
-    }
-};
+        const response = await axios.post('/ir/create', input, {
+            responseType: 'blob' 
+        });
 
-export const verifySystem = async (input: VerificationInput): Promise<VerificationResponse> => {
-    try {
-        const response = await axios.post('http://localhost:9000/verify', input);
-        return response.data;
+        const ds = new DecompressionStream("gzip");
+        const decompressedStream = response.data.stream().pipeThrough(ds);
+
+        const responseText = await new Response(decompressedStream).text();
+        return JSON.parse(responseText);
     } catch (error: any) {
-        const msg = error.response?.data?.message || "Verification service unreachable.";
+        let msg = "Failed to generate IR from repository.";
+
+        if (error.response?.data instanceof Blob) {
+            const errorText = await error.response.data.text();
+            try {
+                const errorJson = JSON.parse(errorText);
+                msg = errorJson.message || msg;
+            } catch {
+                console.log("Failed to parse error response:");
+            }
+        } else if (error.response?.data?.message) {
+            msg = error.response.data.message;
+        }
+
         showError(msg);
         throw error;
     }
@@ -49,9 +60,19 @@ export const checkHistoricalIRs = async (systemName: string): Promise<boolean> =
 export const fetchHistoricalIRs = async (systemName: string): Promise<any[]> => {
     try {
         const response = await axios.get('/ir', { 
-            params: { systemName }
+            params: { systemName },
+            responseType: 'blob'
         });
-        return response.data;
+
+        const ds = new DecompressionStream("gzip");
+        const decompressedStream = response.data.stream().pipeThrough(ds);
+        const responseText = await new Response(decompressedStream).text();
+
+        let irs = JSON.parse(responseText);
+
+        console.log("Fetched historical IRs:", irs);
+
+        return irs;
     } catch (error: any) {
         console.error("Failed to fetch historical IRs:", error);
         showError("Failed to load historical timeline data.");
@@ -59,6 +80,89 @@ export const fetchHistoricalIRs = async (systemName: string): Promise<any[]> => 
     }
 };
 
+// Change impact analysis function
+export const fetchChangeImpact = async (deltaInput: any) => {
+    const response = await fetch('http://localhost:8080/ir/delta', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(deltaInput)
+    });
+    if (!response.ok) throw new Error(`Delta API error: ${response.status}`);
+    return await response.json();
+};
+
+// Session management functions
+export const saveSession = async (name: string, canvasData: any, sessionId?: string): Promise<string> => {
+    // Compresing the session data
+    const jsonString = JSON.stringify(canvasData);
+    const stream = new Blob([jsonString]).stream().pipeThrough(new CompressionStream('gzip'));
+    const compressedBlob = await new Response(stream).blob();
+
+    const formData = new FormData();
+    formData.append('name', name);
+    if (sessionId) {
+        formData.append('session_id', sessionId);
+    }
+
+    formData.append('canvas_data_file', compressedBlob, 'canvas.json.gz');
+
+    const response = await axios.post('/sessions', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data'
+        }
+    });
+
+    return response.data.session_id; 
+};
+
+export const getAvailableSessions = async (page: number = 0, size: number = 10): Promise<SessionPageResponse> => {
+    const response = await axios.get('/sessions', {
+        params: { page, size }
+    });
+    return response.data;
+};
+
+export const loadSession = async (sessionId: string): Promise<any> => {
+    // Metadata about the session
+    const metaResponse = await axios.get(`/sessions/${sessionId}`);
+    const sessionName = metaResponse.data.name;
+
+    // Retreiving the compressed binary blob
+    const fileResponse = await axios.get(`/sessions/${sessionId}/canvas`, {
+        responseType: 'blob'
+    });
+
+    // Decompressing
+    const compressedStream = fileResponse.data.stream();
+    const decompressionStream = new DecompressionStream('gzip');
+    const decompressedStream = compressedStream.pipeThrough(decompressionStream);
+    
+    const decompressedText = await new Response(decompressedStream).text();
+    const canvasData = JSON.parse(decompressedText);
+
+    return {
+        name: sessionName,
+        canvas_data: canvasData
+    };
+};
+
+export const deleteSession = async (sessionId: string): Promise<void> => {
+    await axios.delete(`/sessions/${sessionId}`);
+};
+
+// Formal verification function
+export const verifySystem = async (input: VerificationInput): Promise<VerificationResponse> => {
+    try {
+        const response = await axios.post('http://localhost:9000/verify', input);
+        return response.data;
+    } catch (error: any) {
+        const msg = error.response?.data?.message || "Verification service unreachable.";
+        showError(msg);
+        throw error;
+    }
+};
+
+// AI Test generation functions
 export const createComponent = async (reqBody: any) => {
     const response = await fetch('http://localhost:8060/component/create', {
         method: 'POST',
@@ -78,7 +182,10 @@ export const generateAuthVectors = async (indexId: string) => {
     });
 
     if (!authVectorsResponse.ok) throw new Error(`API error ${authVectorsResponse.status}`);
-    return await authVectorsResponse.json();
+    
+    let int_result = await authVectorsResponse.json();
+    int_result['vectors'] = decompressPayload(int_result.vectors);;
+    return int_result
 };
 
 export const generateScenarios = async (indexId: string|undefined, vectorsId: string|undefined) => {
@@ -124,6 +231,7 @@ export const generatePrompts = async (selectedIds: string[], targetLanguage: str
     return await response.json(); 
 };
 
+// Aegis introspection functions 
 export const analyzeAegis = async (enginePayload: any) => {
     return fetch('http://localhost:8900/analyze', {
         method: 'POST',
@@ -132,16 +240,7 @@ export const analyzeAegis = async (enginePayload: any) => {
     })
 };
 
-export const fetchChangeImpact = async (deltaInput: any) => {
-    const response = await fetch('http://localhost:8080/ir/delta', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(deltaInput)
-    });
-    if (!response.ok) throw new Error(`Delta API error: ${response.status}`);
-    return await response.json();
-};
-
+// GitHub repository management functions
 export const importOrganization = async (orgUrl: string): Promise<OrgImportResponse> => {
     const response = await fetch('http://localhost:8020/import/organization', {
         method: 'POST',

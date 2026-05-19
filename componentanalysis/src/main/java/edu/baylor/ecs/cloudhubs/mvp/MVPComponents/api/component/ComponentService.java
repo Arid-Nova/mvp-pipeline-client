@@ -2,6 +2,7 @@ package edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.ComponentIndex;
@@ -65,7 +66,7 @@ public class ComponentService {
 
         // Pre-evaluation of existing results
         if(irRequestModel.getId() != null) {
-            return getData(irRequestModel.getId() );
+            return getData(irRequestModel.getId());
         }
 
         // Unfortunately, the current version is mono-repo for this analysis.
@@ -87,19 +88,23 @@ public class ComponentService {
         // Phase 1: Index all REST API endpoints
         EndpointIndexer endpointIndexer = new EndpointIndexer();
         EndpointIndex result_1 = endpointIndexer.indexEndpoints(microserviceSystem, repoList[0].getCommitID());
-        result_1.id = saveEndpoints(result_1);
-        response.endpointIndex = result_1;
+        String endpointId = saveEndpoints(result_1);
 
         // Phase 2: Index all components with endpoint resolution and CFG generation
         ComponentIndexer componentIndexer = new ComponentIndexer(config, response.endpointIndex);
         ComponentIndex result_2 = componentIndexer.generateIndex(microserviceSystem, repoList[0].getCommitID());
-        result_2.id = saveComponents(result_2);
-        response.componentIndex = result_2;
+        String componentId = saveComponents(result_2);
 
         // Phase 3: Indexing the 2 response pair
-        response.id = saveIndex(result_2.id, result_1.id);
+        String masterId = saveIndex(componentId, endpointId);
 
-        return objectMapper.valueToTree(response);
+        // Phase 4: Constructing the response
+        ObjectNode finalResponse = objectMapper.createObjectNode();
+        finalResponse.put("id", masterId);
+        finalResponse.put("endpointIndex", getEndpointsById(endpointId)); 
+        finalResponse.put("componentIndex", getComponentById(componentId)); 
+
+        return finalResponse;
     }
 
     // Repository Methods
@@ -115,81 +120,56 @@ public class ComponentService {
         if (optionalEntity.isPresent()) {
             IndexEntity entity = optionalEntity.get();
 
-            JsonNode componentNode = getComponentById(entity.getComponentId());
-            JsonNode endpointNode = getEndpointsById(entity.getEndpointId());
+            byte[] componentNode = getComponentById(entity.getComponentId());
+            byte[] endpointNode = getEndpointsById(entity.getEndpointId());
 
             ObjectNode result = objectMapper.createObjectNode();
-            result.set("componentIndex", componentNode);
-            result.set("endpointIndex", endpointNode);
+
+            result.put("componentIndex", componentNode);
+            result.put("endpointIndex", endpointNode);
+            result.put("id", id);
 
             return result;
-
         } else {
             throw new IllegalArgumentException("Invalid ID: " + id);
         }
     }
-
-    private String saveComponents(ComponentIndex components) throws Exception {
-        String jsonString = objectMapper.writeValueAsString(components);
-
+    
+    // Handling components
+    private String saveComponents(ComponentIndex components) throws IOException  {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
         try (GZIPOutputStream gzipOut = new GZIPOutputStream(baos)) {
-            gzipOut.write(jsonString.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            objectMapper.writeValue(gzipOut, components);
         }
+        
         byte[] compressedData = baos.toByteArray();
-
         ComponentEntity entity = new ComponentEntity(compressedData);
-        ComponentEntity savedEntity = componentRepository.save(entity);
-
-        return savedEntity.getId();
+        return componentRepository.save(entity).getId();
     }
 
-    public JsonNode getComponentById(String id) throws Exception {
-        Optional<ComponentEntity> optionalEntity = componentRepository.findById(id);
-
-        if (optionalEntity.isEmpty()) {
-            throw new IllegalArgumentException("No components found for ID: " + id);
-        }
-
-        ComponentEntity entity = optionalEntity.get();
-        byte[] compressedData = entity.getCompressedPayload();
-
-        StringBuilder jsonBuilder = new StringBuilder();
-        try (ByteArrayInputStream bais = new ByteArrayInputStream(compressedData);
-             GZIPInputStream gzipIn = new GZIPInputStream(bais)) {
-
-            byte[] buffer = new byte[8192]; // Slightly larger buffer for efficiency
-            int len;
-            while ((len = gzipIn.read(buffer)) != -1) {
-                jsonBuilder.append(new String(buffer, 0, len, StandardCharsets.UTF_8));
-            }
-        }
-
-        String jsonString = jsonBuilder.toString();
-        JsonNode response = objectMapper.readTree(jsonString);
-        ((ObjectNode) response).put("id", id);
-
-        return response;
+    public byte[] getComponentById(String id) {
+        return componentRepository.findById(id)
+            .map(ComponentEntity::getCompressedPayload)
+            .orElseThrow(() -> new IllegalArgumentException("No components found for ID: " + id));
     }
 
-    private String saveEndpoints(EndpointIndex endpoints) {
-        EndpointEntity entity = new EndpointEntity(endpoints);
-        EndpointEntity savedEntity = endpointRepository.save(entity);
-        return savedEntity.getId();
+    // Handling endpoints
+    private String saveEndpoints(EndpointIndex endpoints) throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+        try (GZIPOutputStream gzipOut = new GZIPOutputStream(baos)) {
+            objectMapper.writeValue(gzipOut, endpoints);
+        }
+        
+        byte[] compressedData = baos.toByteArray();
+        EndpointEntity entity = new EndpointEntity(compressedData);
+        return endpointRepository.save(entity).getId();
     }
 
-    public JsonNode getEndpointsById(String id) {
-        Optional<EndpointEntity> optionalEntity = endpointRepository.findById(id);
-
-        if (optionalEntity.isPresent()) {
-            EndpointEntity entity = optionalEntity.get();
-            JsonNode rootNode = objectMapper.valueToTree(entity.getPayload());
-            if (rootNode.isObject()) {
-                ((ObjectNode) rootNode).put("id", entity.getId());
-            }
-            return rootNode;
-        } else {
-            throw new IllegalArgumentException("No endpoints by ID: " + id);
-        }
+    public byte[] getEndpointsById(String id) {
+        return endpointRepository.findById(id)
+            .map(EndpointEntity::getPayload)
+            .orElseThrow(() -> new IllegalArgumentException("No endpoints by ID: " + id));
     }
 }

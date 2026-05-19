@@ -9,6 +9,11 @@ spring:
     password: csi3335rocks
     driver-class-name: org.mariadb.jdbc.Driver
 
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+
 chatbot:
   provider: ${CHATBOT_PROVIDER:OLLAMA}
   model: ${CHATBOT_MODEL:llama3.2}

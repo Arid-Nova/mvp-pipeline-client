@@ -1,10 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { saveGitHubToken, deleteGitHubToken, checkGitHubTokenStatus } from '../../../services/api';
+import { 
+    saveGitHubToken, 
+    deleteGitHubToken, 
+    checkGitHubTokenStatus, 
+    getAvailableSessions, 
+    deleteSession
+} from '../../../services/api';
 
 import { useNavigate } from 'react-router-dom';
 
-const BrandSection = () => {
+const BrandSection = ({ sessionName, hasUnsavedChanges }: { sessionName?: string; hasUnsavedChanges: boolean }) => {
     const navigate = useNavigate();
+
+    const displayTitle = sessionName ? sessionName.split('-').slice(0, 2).join(' ') : '';
 
     return (
         <div className="flex items-center gap-6">
@@ -58,10 +66,35 @@ const BrandSection = () => {
                 {/* Divider */}
                 <span className="text-slate-600 font-light text-2xl mx-1 mb-1">|</span>
                 
-                {/* Subtitle */}
-                <span className="text-[13px] font-semibold text-slate-400 tracking-wider uppercase mt-1">
-                    Microservice Analysis Pipeline Creator
-                </span>
+                {/* Subtitle or Session Name */}
+                <div className="flex flex-col mt-1">
+                    {sessionName ? (
+                        <div className="flex items-center gap-2">
+                            <span className="text-[13px] font-semibold text-slate-400 tracking-wider uppercase">
+                                Microservice Analysis Pipeline Creator
+                            </span>
+
+                            <span className="text-slate-600 font-light text-2xl mx-1 mb-1">|</span>
+                            
+                            <span className="text-[13px] font-bold text-slate-200 tracking-wider uppercase" title={sessionName}>
+                                {displayTitle}
+                            </span>
+                            {hasUnsavedChanges ? (
+                                <span className="bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[9px] px-1.5 py-0.5 rounded-sm uppercase tracking-widest font-semibold transition-colors duration-300">
+                                    Unsaved
+                                </span>
+                            ) : (
+                                <span className="bg-teal-500/10 text-teal-400 border border-teal-500/20 text-[9px] px-1.5 py-0.5 rounded-sm uppercase tracking-widest font-semibold transition-colors duration-300">
+                                    Saved
+                                </span>
+                            )}
+                        </div>
+                    ) : (
+                        <span className="text-[13px] font-semibold text-slate-400 tracking-wider uppercase">
+                            Microservice Analysis Pipeline Creator
+                        </span>
+                    )}
+                </div>
             </div>
         </div>
     );
@@ -103,14 +136,24 @@ interface PipelineHeaderProps {
     isLinking: boolean | string | null;
     nodesCount: number; 
     isRunning: boolean;
+    sessionName?: string;
+    sessionId: string | null;
+    hasUnsavedChanges: boolean;
     clearPipeline: () => void;
     runPipeline: () => void;
+    onLoad: (sessionId: string) => Promise<void>;
+    onSave: (name: string, isSaveAs: boolean) => Promise<void>;
 }
 
 export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
     isLinking,
     nodesCount,
     isRunning,
+    sessionName,
+    sessionId,
+    hasUnsavedChanges,
+    onSave,
+    onLoad,
     clearPipeline,
     runPipeline
 }) => {
@@ -118,6 +161,79 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
     const [tokenInput, setTokenInput] = useState('');
     const [showWarning, setShowWarning] = useState(false);
     const settingsRef = useRef<HTMLDivElement>(null);
+
+    // Session Saving States
+    const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+    const [editSessionName, setEditSessionName] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+
+    // Session Loading States
+    const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
+    const [sessionsList, setSessionsList] = useState<any[]>([]);
+    const [isLoadingSessions, setIsLoadingSessions] = useState(false);
+    const [currentPage, setCurrentPage] = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
+
+    // Session Hadlers
+    const handleQuickSave = async () => {
+        setIsSaving(true);
+        await onSave(sessionName || 'Untitled Session', !sessionId);
+        setIsSaving(false);
+    };
+
+    const handleSaveAsSubmit = async () => {
+        if (!editSessionName.trim()) return;
+        setIsSaving(true);
+        await onSave(editSessionName.trim(), true);
+        setIsSaving(false);
+        setIsSaveModalOpen(false);
+    };
+
+    const openSaveAsModal = () => {
+        setEditSessionName(sessionName || '');
+        setIsSaveModalOpen(true);
+    };
+
+    const fetchSessionsPage = async (page: number) => {
+        setIsLoadingSessions(true);
+        try {
+            const data = await getAvailableSessions(page, 10); 
+            setSessionsList(data.sessions);
+            setCurrentPage(data.currentPage);
+            setTotalPages(data.totalPages);
+        } catch (error) {
+            console.error("Failed to fetch sessions", error);
+        } finally {
+            setIsLoadingSessions(false);
+        }
+    };
+
+    const openLoadModal = async () => {
+        setIsLoadModalOpen(true);
+        setIsSettingsOpen(false);
+        fetchSessionsPage(0);
+    };
+
+    const handleSessionSelect = async (id: string) => {
+        setIsLoadModalOpen(false);
+        await onLoad(id);
+    };
+
+    const handleDeleteSession = async (e: React.MouseEvent, id: string, name: string) => {
+        e.stopPropagation(); 
+        
+        if (window.confirm(`Are you sure you want to delete the session "${name}"? This cannot be undone.`)) {
+            setIsLoadingSessions(true);
+            try {
+                await deleteSession(id);
+                await fetchSessionsPage(currentPage); 
+            } catch (error) {
+                console.error("Failed to delete session", error);
+            } finally {
+                setIsLoadingSessions(false);
+            }
+        }
+    };
 
     // Checking token availability
     useEffect(() => {
@@ -180,11 +296,12 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
     return (
         <div className="h-16 border-b border-slate-700 bg-slate-800 flex items-center justify-between px-6 z-20 shadow-md">
             {/* Left Side: Brand and Navigation */}
-            <BrandSection />
+            <BrandSection sessionName={sessionName} hasUnsavedChanges={hasUnsavedChanges}/>
 
             {/* Right Side: Status and Controls */}
             <div className="flex items-center gap-4">
                 <StatusIndicators isLinking={isLinking} />
+
                 {nodesCount > 0 && (
                     <button 
                         onClick={clearPipeline}
@@ -219,7 +336,44 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                     {isSettingsOpen && (
                         <div className="absolute right-0 top-full mt-2 w-72 bg-slate-800/95 backdrop-blur-md border border-slate-600 rounded-xl shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200 origin-top-right">
                             <div className="p-4 space-y-4">
+
+                                {/* Session Saving Settings */}
+                                <div className="flex items-center gap-2 border-b border-slate-700 pb-2">
+                                   <svg className="w-4 h-4 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 21v-8H7v8" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 3v5h8V3" />
+                                    </svg>
+                                    <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Session</h3>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-2 pb-2">
+                                    <button 
+                                        onClick={handleQuickSave}
+                                        disabled={isSaving}
+                                        className="col-span-1 py-2 bg-slate-900 border border-slate-700 hover:bg-slate-700 text-slate-300 hover:text-white rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed gap-1.5"
+                                    >
+                                        Save
+                                    </button>
+                                    
+                                    <button 
+                                        onClick={openSaveAsModal}
+                                        disabled={isSaving}
+                                        className="col-span-1 py-2 bg-slate-900 border border-slate-700 hover:bg-slate-700 text-slate-300 hover:text-white rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Save As
+                                    </button>
+                                    
+                                    <button 
+                                        onClick={openLoadModal}
+                                        disabled={isSaving}
+                                        className="col-span-1 py-2 bg-slate-900 border border-slate-700 hover:bg-slate-700 text-slate-300 hover:text-white rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Load
+                                    </button>
+                                </div>
                                 
+                                {/* GitHub Token Settings */}
                                 <div className="flex items-center gap-2 border-b border-slate-700 pb-2">
                                     <svg className="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
@@ -317,6 +471,138 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                     </div>
                 </div>
             </div>
+            
+            {isSaveModalOpen && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+                    <div className="bg-slate-800 border border-slate-600 rounded-xl p-6 w-96 shadow-2xl animate-in zoom-in-95 duration-200">
+                        <h2 className="text-lg font-bold text-white mb-1">Save Session As</h2>
+                        <p className="text-xs text-slate-400 mb-4">Save your current workspace for later use.</p>
+                        
+                        <input 
+                            type="text" 
+                            value={editSessionName}
+                            onChange={(e) => setEditSessionName(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-md p-2.5 text-sm text-white focus:border-teal-500 focus:ring-1 focus:ring-teal-500/50 outline-none mb-5 transition-all"
+                            placeholder="Session Name"
+                            autoFocus
+                        />
+                        
+                        <div className="flex gap-3 justify-end">
+                            <button 
+                                onClick={() => setIsSaveModalOpen(false)}
+                                className="px-4 py-2 text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-700 rounded-md transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={handleSaveAsSubmit}
+                                disabled={!editSessionName.trim() || isSaving}
+                                className="px-4 py-2 text-xs font-bold text-white bg-teal-600 hover:bg-teal-500 disabled:bg-slate-700 disabled:text-slate-500 rounded-md transition-colors shadow-md flex items-center gap-2"
+                            >
+                                {isSaving ? "Saving..." : "Save Session"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {isLoadModalOpen && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+                    <div className="bg-slate-800 border border-slate-600 rounded-xl p-6 w-[450px] shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[80vh]">
+                        
+                        <div className="flex justify-between items-start mb-4">
+                            <div>
+                                <h2 className="text-lg font-bold text-white mb-1">Load Session</h2>
+                                <p className="text-xs text-slate-400">Select a saved workspace to restore.</p>
+                            </div>
+                            <button onClick={() => setIsLoadModalOpen(false)} className="text-slate-400 hover:text-white p-1 transition-colors">
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        
+                        {/* Session List */}
+                        <div className="flex-1 overflow-y-auto pr-2 space-y-2 min-h-[200px]">
+                            {isLoadingSessions ? (
+                                <div className="flex flex-col items-center justify-center h-full text-slate-400 space-y-3">
+                                    <svg className="animate-spin h-6 w-6 text-teal-500" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                    </svg>
+                                    <span className="text-xs font-medium uppercase tracking-wider">Loading sessions...</span>
+                                </div>
+                            ) : sessionsList.length === 0 ? (
+                                <div className="flex items-center justify-center h-full text-xs text-slate-500">
+                                    No saved sessions found.
+                                </div>
+                            ) : (
+                                sessionsList.map((session) => (
+                                    <button
+                                        key={session.id}
+                                        onClick={() => handleSessionSelect(session.id)}
+                                        className="w-full text-left p-3 rounded-lg bg-slate-900 border border-slate-700 hover:border-teal-500/50 hover:bg-slate-800 transition-all group flex justify-between items-center"
+                                    >
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-bold text-slate-200 group-hover:text-teal-400 transition-colors">
+                                                {session.name}
+                                            </span>
+                                            <span className="text-[10px] text-slate-500 mt-0.5 font-mono">
+                                                {new Date(session.updated_at).toLocaleString()}
+                                            </span>
+                                        </div>
+                                        
+                                        {/* Actions Container */}
+                                        <div className="flex items-center space-x-3">
+                                            {/* Delete Button */}
+                                            <div 
+                                                onClick={(e) => handleDeleteSession(e, session.id, session.name)}
+                                                className="p-1.5 text-slate-600 hover:text-red-400 hover:bg-slate-800 rounded transition-colors opacity-0 group-hover:opacity-100"
+                                                title="Delete Session"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                            </div>
+                                            
+                                            {/* Load Arrow */}
+                                            <svg className="w-4 h-4 text-slate-600 group-hover:text-teal-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                            </svg>
+                                        </div>
+                                    </button>
+                                ))
+                            )}
+                        </div>
+
+                        {/* Pagination Footer */}
+                        {totalPages > 1 && (
+                            <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-700">
+                                <button
+                                    onClick={() => fetchSessionsPage(currentPage - 1)}
+                                    disabled={currentPage === 0 || isLoadingSessions}
+                                    className="px-3 py-1.5 bg-slate-900 border border-slate-700 hover:bg-slate-700 text-slate-300 hover:text-white rounded text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Previous
+                                </button>
+                                
+                                <span className="text-xs text-slate-500 font-mono">
+                                    Page {currentPage + 1} of {totalPages}
+                                </span>
+                                
+                                <button
+                                    onClick={() => fetchSessionsPage(currentPage + 1)}
+                                    disabled={currentPage >= totalPages - 1 || isLoadingSessions}
+                                    className="px-3 py-1.5 bg-slate-900 border border-slate-700 hover:bg-slate-700 text-slate-300 hover:text-white rounded text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        )}
+                        
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

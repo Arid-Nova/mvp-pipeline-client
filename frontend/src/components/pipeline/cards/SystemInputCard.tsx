@@ -161,13 +161,35 @@ export const SystemInputCard: React.FC<SystemInputCardProps> = ({ node, updateNo
                         : 'border-slate-800 bg-slate-900/50 hover:bg-slate-800/80'
                 }`}
             >
+                <div className={`flex-shrink-0 w-3.5 h-3.5 rounded-[3px] border flex items-center justify-center transition-colors ${
+                    isSelected 
+                        ? 'bg-purple-500 border-purple-500 text-white' 
+                        : 'border-slate-600 bg-slate-800/50'
+                }`}>
+                    {isSelected && (
+                        <svg 
+                            className="w-2.5 h-2.5" 
+                            fill="none" 
+                            stroke="currentColor" 
+                            viewBox="0 0 24 24" 
+                            aria-hidden="true"
+                        >
+                            <path 
+                                strokeLinecap="round" 
+                                strokeLinejoin="round" 
+                                strokeWidth={3.5} 
+                                d="M5 13l4 4L19 7" 
+                            />
+                        </svg>
+                    )}
+                </div>
+                
                 <div className="flex-1 min-w-0">
                     <p className={`text-[10px] truncate transition-colors ${isSelected ? 'text-purple-300 font-bold' : 'text-slate-300'}`} title={repo.url}>
                         {repo.url.split('/').slice(-1)[0].replace('.git', '')}
                     </p>
                 </div>
                 
-                {/* 🚨 Use our new Custom Dropdown here! */}
                 <BranchDropdown 
                     repoUrl={repo.url}
                     currentBranch={branchSelections[repo.url] || repo.branch}

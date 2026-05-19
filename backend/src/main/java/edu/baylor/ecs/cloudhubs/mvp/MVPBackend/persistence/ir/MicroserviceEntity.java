@@ -3,6 +3,7 @@ package edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.ir;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
@@ -18,25 +19,19 @@ public class MicroserviceEntity {
     @Id
     private String id;
 
-    /**
-     * Indexed-friendly system name for queries.
-     */
     private String systemName;
 
-    /**
-     * Legacy uncompressed payload. Kept for backward compatibility reads.
-     */
+    // Legacy uncompressed payload for backward compatibility.
     private Map<String, Object> payload;
 
-    /**
-     * Compressed JSON payload for large IRs that would exceed Mongo's 16MB doc size limit.
-     */
+    // Primary compressed payload to avoid Mongo document size issues.
     private byte[] payloadCompressed;
 
     private Date createDate;
     private Date modifyDate;
 
-    public MicroserviceEntity(String systemName, Map<String, Object> payload, byte[] payloadCompressed, Date createDate, Date modifyDate) {
+    public MicroserviceEntity(String systemName, Map<String, Object> payload, byte[] payloadCompressed,
+                              Date createDate, Date modifyDate) {
         this.systemName = systemName;
         this.payload = payload;
         this.payloadCompressed = payloadCompressed;
