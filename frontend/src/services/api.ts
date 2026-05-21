@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { showError } from '../utils/notifications';
-import { RepositoryInput, VerificationInput, VerificationResponse, OrgImportResponse, SessionPageResponse, RepoMetadata } from './types';
+import { RepositoryInput, VerificationInput, VerificationResponse, OrgImportResponse, SessionPageResponse, RepoMetadata, CommitPageResponse } from './types';
 import { PromptItem } from '../components/pipeline/models';
 import { decompressPayload } from '../utils/decompress';
 
@@ -249,11 +249,35 @@ export const importOrganization = async (orgUrl: string): Promise<OrgImportRespo
     return await response.json();
 };
 
-export const fetchRepoMetadata = async (repoUrl: string): Promise<RepoMetadata> => {
+export const fetchBranchCommits = async (
+    repoUrl: string,
+    branch: string,
+    page: number = 1,
+    perPage: number = 10,
+    signal?: AbortSignal,
+): Promise<CommitPageResponse> => {
+    const response = await fetch('http://localhost:8020/import/repository/commits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repo_url: repoUrl, branch, page, per_page: perPage }),
+        signal,
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        const errorMessage = errorData?.detail || `API error ${response.status}: Failed to fetch commits`;
+        throw new Error(errorMessage);
+    }
+
+    return await response.json();
+};
+
+export const fetchRepoMetadata = async (repoUrl: string, signal?: AbortSignal): Promise<RepoMetadata> => {
     const response = await fetch('http://localhost:8020/import/repository', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ repo_url: repoUrl })
+        body: JSON.stringify({ repo_url: repoUrl }),
+        signal
     });
 
     if (!response.ok) {

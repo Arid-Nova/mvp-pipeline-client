@@ -5,13 +5,15 @@ from .utils.verifier import verify_internal_service
 
 from .services.configdb import config_db_service
 
-from .services.repoextractor import fetchorganizationrepos, fetchrepositorymetadata
+from .services.repoextractor import fetchorganizationrepos, fetchrepositorymetadata, fetchbranchcommits
 from .services.llmanalyzer import LLMAnalyzer
 
 from .models.orgimportrequest import OrgImportRequest
 from .models.orgimportresponse import OrgImportResponse
 from .models.repoimportrequest import RepoImportRequest
 from .models.repoimportresponse import RepoImportResponse
+from .models.commitlistrequest import CommitListRequest
+from .models.commitlistresponse import CommitListResponse
 from .models.tokenrequest import TokenRequest
 
 import re
@@ -61,6 +63,20 @@ async def import_repository(req: RepoImportRequest):
     owner, repo = match.group(1), match.group(2)
     metadata = await fetchrepositorymetadata(owner, repo)
     return metadata
+
+@app.post("/import/repository/commits", response_model=CommitListResponse,
+          responses={400: {"description": "Invalid GitHub Repository URL"}})
+async def list_repository_commits(req: CommitListRequest):
+    match = re.match(r"^https?://github\.com/([^/]+)/([^/]+?)(?:\.git)?/?$", req.repo_url.strip())
+    if not match:
+        raise HTTPException(status_code=400, detail="Invalid GitHub Repository URL")
+
+    owner, repo = match.group(1), match.group(2)
+    branch = req.branch.strip()
+    if not branch:
+        raise HTTPException(status_code=400, detail="Branch is required")
+
+    return await fetchbranchcommits(owner, repo, branch, page=req.page, per_page=req.per_page)
 
 @app.post("/settings/github-token", responses={400: {"description": "Invalid GitHub Token format."}})
 async def save_github_token(req: TokenRequest):

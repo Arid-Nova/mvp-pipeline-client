@@ -73,4 +73,21 @@ export interface RepoMetadata {
     repoUrl: string;
     defaultBranch: string;
     latestCommit: string;
+    branches: string[];
+    commitMap: Record<string, string>;
+}
+
+// Paginated commit history for a branch
+export interface CommitInfo {
+    sha: string;
+    message: string;
+    author: string;
+    date: string;
+}
+
+export interface CommitPageResponse {
+    commits: CommitInfo[];
+    page: number;
+    perPage: number;
+    hasMore: boolean;
 }
