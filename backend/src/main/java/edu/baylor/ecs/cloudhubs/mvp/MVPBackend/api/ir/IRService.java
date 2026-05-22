@@ -26,7 +26,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.ByteArrayInputStream;
@@ -286,13 +285,17 @@ public class IRService {
     }
 
     private byte[] getIRsByName(String namePattern) throws IOException {
-        Pageable topFiveLatest = PageRequest.of(0, 4, 
+        Pageable topFourLatest = PageRequest.of(0, 4, 
             Sort.by(Sort.Direction.DESC, "createdAt"));
-        List<MicroserviceEntity> entities = repository.findByPayloadNameMatching(namePattern, topFiveLatest);
+        List<MicroserviceEntity> entities = repository.findByPayloadNameMatching(namePattern, topFourLatest);
     
         if (entities.isEmpty()) {
             throw new IllegalArgumentException("No systems found with name!");
         }
+
+        // Reversing the order so that when we visualize in the timeline,
+        // it will be from latest to oldest.
+        Collections.reverse(entities);
         
         ArrayNode resultArray = objectMapper.createArrayNode();
         

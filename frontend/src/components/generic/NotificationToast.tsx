@@ -121,6 +121,14 @@ const NotificationToast = ({ notification, onClose }: NotificationToastProps) =>
                             onClose();
                         }, 300);
                     }}
+                    onTouchEnd={(e) => {
+                        e.preventDefault(); 
+                        setIsExiting(true);
+                        setTimeout(() => {
+                            setIsVisible(false);
+                            onClose();
+                        }, 300);
+                    }}
                     className="ml-2 text-slate-300 hover:text-white transition-colors p-1"
                     aria-label="Close notification"
                 >

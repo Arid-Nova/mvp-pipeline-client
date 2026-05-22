@@ -91,3 +91,20 @@ export interface CommitPageResponse {
     perPage: number;
     hasMore: boolean;
 }
+
+// Change Impact
+export interface ChangeImpactInsight {
+    metrics: {
+        added: number;
+        modified: number;
+        deleted: number;
+    };
+    affectedServices: string[];
+    riskFactors: Record<string, string[]>;
+    criticalImpacts: Array<{
+        source: string;
+        target: string;
+        status: string;
+        riskScore: number;
+    }>;
+}

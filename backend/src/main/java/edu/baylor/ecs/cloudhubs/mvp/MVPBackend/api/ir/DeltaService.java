@@ -1,20 +1,26 @@
 package edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.ir;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.*;
 import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import edu.university.ecs.lab.common.models.ir.MicroserviceSystem;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.ir.DeltaEntity;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.ir.DeltaRepository;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.ir.MicroserviceEntity;
-import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.request.DeltaRequestModel;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.request.SystemRepository;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.request.DeltaRequestModel;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.ir.MicroserviceIRRepository;
 
 import edu.university.ecs.lab.common.config.Config;
@@ -32,6 +38,9 @@ public class DeltaService {
     @Autowired
     private MicroserviceIRRepository repository;
 
+    @Autowired
+    private DeltaRepository deltaRepository;
+
     private final ObjectMapper objectMapper;
 
     @Autowired
@@ -45,7 +54,7 @@ public class DeltaService {
         this.objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     }
 
-    public SystemChange retrieveDelta(DeltaRequestModel requestModel)
+    public byte[] retrieveDelta(DeltaRequestModel requestModel)
             throws Exception {
 
         // 1. Retrieves the base IR using the IR to compare with.
@@ -74,7 +83,10 @@ public class DeltaService {
         }
 
         // 3. Extract the delta between the base IR and the new IR.
-        return DeltaExtractionService.create(config, intermediateSystem, comparingRepositories);
+        SystemChange result = DeltaExtractionService.create(config, intermediateSystem, comparingRepositories);
+
+        // 4. Saving the delta extraction result in database and returning the byte stream
+        return saveDelta(objectMapper.valueToTree(result), requestModel);
     }
 
     private MicroserviceSystem getIRById(String id) throws IOException {
@@ -88,5 +100,31 @@ public class DeltaService {
         } else {
             throw new IllegalArgumentException("No microservice system found with ID: " + id);
         }
+    }
+
+    private  byte[] saveDelta(JsonNode rootNode, DeltaRequestModel requestModel) throws IOException {
+        ObjectNode objectNode = (ObjectNode) rootNode;
+        String id = new org.bson.types.ObjectId().toString();
+        objectNode.put("id", id);
+
+        ObjectNode metadata = objectNode.putObject("metadata");
+        metadata.put("createDate", new Date().toString());
+        metadata.put("modifyDate", new Date().toString());
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (GZIPOutputStream gzos = new GZIPOutputStream(baos)) {
+            objectMapper.writeValue(gzos, objectNode);
+        }
+        byte[] compressedData = baos.toByteArray();
+
+        DeltaEntity entity = new DeltaEntity(
+            requestModel.getSystemName(), compressedData,
+            Arrays.asList(requestModel.getSystemRepositories()),
+            Arrays.asList(requestModel.getComparingRepositories())
+        );
+        entity.setId(id);
+        deltaRepository.save(entity);
+
+        return compressedData;
     }
 }

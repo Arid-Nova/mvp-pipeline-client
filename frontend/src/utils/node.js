@@ -104,7 +104,16 @@ function Legend(microservices) {
       width: '300px'
 
     }}>
-      <button onClick={toggleVisibility}
+      <button 
+        onClick={(e) => {
+          e.stopPropagation(); 
+          toggleVisibility();
+        }}
+        onTouchEnd={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          toggleVisibility();
+        }}
         style={{
           backgroundColor: "lightblue",
           color: 'black',

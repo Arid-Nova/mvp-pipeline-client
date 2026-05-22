@@ -105,7 +105,15 @@ export const ScenarioGenerateCard: React.FC<ScenarioGenerateCardProps> = ({ node
                             {/* Toggle Button */}
                             {!showAllServices && hiddenCount > 0 && (
                                 <button 
-                                    onClick={() => setShowAllServices(true)}
+                                    onClick={(e) => {
+                                        e.stopPropagation(); 
+                                        setShowAllServices(true);
+                                    }}
+                                    onTouchEnd={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setShowAllServices(true);
+                                    }}
                                     className="text-[8px] px-1.5 py-0.5 text-amber-500/70 hover:text-amber-400 font-bold transition-colors"
                                 >
                                     +{hiddenCount} more
@@ -113,7 +121,15 @@ export const ScenarioGenerateCard: React.FC<ScenarioGenerateCardProps> = ({ node
                             )}
                             {showAllServices && hiddenCount > 0 && (
                                 <button 
-                                    onClick={() => setShowAllServices(false)}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowAllServices(false);
+                                    }}
+                                    onTouchEnd={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setShowAllServices(false);
+                                    }}
                                     className="text-[8px] px-1.5 py-0.5 text-amber-500/70 hover:text-amber-400 font-bold transition-colors"
                                 >
                                     Show less
@@ -137,7 +153,15 @@ export const ScenarioGenerateCard: React.FC<ScenarioGenerateCardProps> = ({ node
                             )}
                         </span>
                         <button 
-                            onClick={toggleExpand}
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                toggleExpand(e);
+                            }}
+                            onTouchEnd={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                updateNodeData(node.id, { isExpanded: !isExpanded });
+                            }}
                             className="px-1.5 py-0.5 text-[9px] bg-slate-700 hover:bg-slate-600 text-white rounded transition-colors font-bold shadow flex items-center gap-1"
                         >
                             {isExpanded ? (
@@ -176,13 +200,29 @@ export const ScenarioGenerateCard: React.FC<ScenarioGenerateCardProps> = ({ node
                 {/* Select All / Deselect All Controls */}
                 <div className="flex gap-3 mt-1">
                     <button 
-                        onClick={() => setAllScenarios(true)}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setAllScenarios(true);
+                        }}
+                        onTouchEnd={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setAllScenarios(true);
+                        }}
                         className="text-[9px] text-indigo-400 hover:text-indigo-300 transition-colors uppercase font-bold tracking-tighter underline decoration-indigo-800 underline-offset-2"
                     >
                         Select All {isExpanded && "Visible"}
                     </button>
                     <button 
-                        onClick={() => setAllScenarios(false)}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setAllScenarios(false);
+                        }}
+                        onTouchEnd={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setAllScenarios(false);
+                        }}
                         className="text-[9px] text-slate-500 hover:text-rose-400 transition-colors uppercase font-bold tracking-tighter underline decoration-slate-800 underline-offset-2"
                     >
                         Deselect All {isExpanded && "Visible"}
@@ -199,6 +239,15 @@ export const ScenarioGenerateCard: React.FC<ScenarioGenerateCardProps> = ({ node
                 ) : displayedScenarios.map((s: any) => (
                     <label 
                         key={s.scenario_id} 
+                        onClick={(e) => {
+                            e.stopPropagation(); 
+                            toggleScenario(s.scenario_id);
+                        }}
+                        onTouchEnd={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            toggleScenario(s.scenario_id);
+                        }}
                         className={`
                             flex items-start gap-3 p-3 bg-slate-950 border rounded cursor-pointer transition-all
                             ${selectedScenarios.includes(s.scenario_id) ? 'border-indigo-500/50 bg-indigo-900/10' : 'border-slate-800 hover:border-slate-700'}

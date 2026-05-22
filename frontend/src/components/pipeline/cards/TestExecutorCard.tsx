@@ -82,6 +82,11 @@ export const TestExecutorCard: React.FC<TestExecutorCardProps> = ({ node, nodes,
                     </div>
                     <button 
                         disabled
+                        onClick={(e) => e.stopPropagation()}
+                        onTouchEnd={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                        }}
                         className="w-full py-2 text-xs rounded font-bold transition-all flex items-center justify-center gap-2 bg-slate-800 text-slate-500 cursor-not-allowed"
                     >
                         Launch Executor
@@ -102,7 +107,20 @@ export const TestExecutorCard: React.FC<TestExecutorCardProps> = ({ node, nodes,
 
                     {/* Launch Button */}
                     <button 
-                        onClick={() => {
+                        onClick={(e) => {
+                            e.stopPropagation(); 
+                            navigate('/executor', { 
+                                state: { 
+                                    tests: tests, 
+                                    language: targetLanguage,
+                                    targetUrl: targetUrl,
+                                    roles: systemRoles 
+                                } 
+                            });
+                        }}
+                        onTouchEnd={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
                             navigate('/executor', { 
                                 state: { 
                                     tests: tests, 

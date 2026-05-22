@@ -15,7 +15,15 @@ export const UploadIRCard: React.FC<UploadIRCardProps> = ({ node, updateNodeData
                     <div className="text-emerald-400 font-bold text-sm mb-1">✓ JSON Ready</div>
                     <div className="text-emerald-600 text-xs font-mono break-all text-center max-h-8 overflow-hidden">{node.data.payload?.systemName || node.data?.systemName}</div>
                     <button 
-                        onClick={() => updateNodeData(node.id, { payload: undefined })}
+                        onClick={(e) => {
+                            e.stopPropagation(); 
+                            updateNodeData(node.id, { payload: undefined });
+                        }}
+                        onTouchEnd={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            updateNodeData(node.id, { payload: undefined });
+                        }}
                         className="mt-2 text-[10px] underline text-slate-500 hover:text-slate-300 transition-colors"
                     >
                         Replace File

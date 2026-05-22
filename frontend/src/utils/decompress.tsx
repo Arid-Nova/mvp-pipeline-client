@@ -21,3 +21,10 @@ export const decompressPayload = (base64Data: string): any => {
         return null;
     }
 };
+
+export const decompressGzipResponse = async (blob: Blob) => {
+    const ds = new DecompressionStream("gzip");
+    const decompressedStream = blob.stream().pipeThrough(ds);
+    const responseText = await new Response(decompressedStream).text();
+    return JSON.parse(responseText);
+};
