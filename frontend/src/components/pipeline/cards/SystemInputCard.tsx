@@ -1,20 +1,14 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { format } from 'date-fns/format';
+import { formatDistanceToNow } from 'date-fns/formatDistanceToNow';
+import { isValid as isValidDate } from 'date-fns/isValid';
 import { NodeData, RepositoryMeta } from '../models';
 import { importOrganization, fetchRepoMetadata, fetchBranchCommits } from '../../../services/api';
-import { RepoData, CommitInfo } from '../../../services/types';
+import { RepoData } from '../../../services/types';
 import { BranchDropdown } from './BranchDropdown';
 import { parseGithubRepoUrl, canonicalizeGithubUrl } from '../../../utils/githubUrl';
-
-type FetchStatus = 'idle' | 'loading' | 'ok' | 'error';
-
-interface RepoMetaState {
-    branches: string[];
-    commitMap: Record<string, string>;
-    defaultBranch?: string;
-    status: FetchStatus;
-    error?: string;
-}
 
 interface SystemInputCardProps {
     node: NodeData;
@@ -23,9 +17,11 @@ interface SystemInputCardProps {
 
 const DEFAULT_REPO: RepositoryMeta = { repoUrl: '', branch: '', commitId: '' };
 const FETCH_DEBOUNCE_MS = 500;
+const COMMITS_PAGE_SIZE = 10;
+const REPO_METADATA_KEY = 'repoMetadata' as const;
+const BRANCH_COMMITS_KEY = 'branchCommits' as const;
 
-// Convert a repo slug like "train-ticket" or "my_cool.repo" / "myCoolRepo"
-// into a human-friendly Title Case label ("Train Ticket", "My Cool Repo").
+// Convert a repo slug like "train-ticket" or "myCoolRepo" into Title Case.
 // Used as a soft default for System Name on first metadata fetch.
 const prettifyRepoName = (name: string): string => {
     if (!name) return '';
@@ -36,6 +32,29 @@ const prettifyRepoName = (name: string): string => {
         .split(/\s+/)
         .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
         .join(' ');
+};
+
+// Debounce any value (typically a controlled input string).
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+    const [debounced, setDebounced] = useState(value);
+    useEffect(() => {
+        const t = window.setTimeout(() => setDebounced(value), delayMs);
+        return () => window.clearTimeout(t);
+    }, [value, delayMs]);
+    return debounced;
+}
+
+const formatRelative = (iso: string): string => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (!isValidDate(d)) return '';
+    return formatDistanceToNow(d, { addSuffix: true });
+};
+const formatAbsolute = (iso: string): string => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (!isValidDate(d)) return iso;
+    return format(d, 'PPpp');
 };
 
 // Modal branch picker. Lives in a body-level portal so it escapes the
@@ -53,7 +72,6 @@ const BranchPickerModal: React.FC<{
     const [query, setQuery] = useState('');
     const inputRef = useRef<HTMLInputElement>(null);
 
-    // Reset query + autofocus only when the modal transitions open.
     useEffect(() => {
         if (!open) {
             setQuery('');
@@ -63,14 +81,11 @@ const BranchPickerModal: React.FC<{
         return () => window.clearTimeout(t);
     }, [open]);
 
-    // Body scroll lock + Escape handler. Re-runs harmlessly if onClose changes.
     useEffect(() => {
         if (!open) return;
         const prevOverflow = document.body.style.overflow;
         document.body.style.overflow = 'hidden';
-        const handleKey = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose();
-        };
+        const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
         document.addEventListener('keydown', handleKey);
         return () => {
             document.body.style.overflow = prevOverflow;
@@ -150,9 +165,7 @@ const BranchPickerModal: React.FC<{
                                             type="button"
                                             onClick={() => { onSelect(branch); onClose(); }}
                                             className={`group w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors ${
-                                                isSelected
-                                                    ? 'bg-blue-500/15 hover:bg-blue-500/20'
-                                                    : 'hover:bg-slate-800/70'
+                                                isSelected ? 'bg-blue-500/15 hover:bg-blue-500/20' : 'hover:bg-slate-800/70'
                                             }`}
                                         >
                                             <div className={`flex-shrink-0 w-4 h-4 rounded-full border flex items-center justify-center ${
@@ -192,9 +205,6 @@ const BranchPickerModal: React.FC<{
     );
 };
 
-// Branch field: a free-text input plus a "{N} branches" button that opens
-// the modal picker. The text input lets users paste / type directly; the
-// button is the discoverable affordance for browsing the full list.
 const BranchField: React.FC<{
     value: string;
     branches: string[];
@@ -255,38 +265,8 @@ const BranchField: React.FC<{
     );
 };
 
-const RELATIVE_TIME_UNITS: { unit: Intl.RelativeTimeFormatUnit; seconds: number }[] = [
-    { unit: 'year',   seconds: 31_536_000 },
-    { unit: 'month',  seconds: 2_592_000 },
-    { unit: 'week',   seconds: 604_800 },
-    { unit: 'day',    seconds: 86_400 },
-    { unit: 'hour',   seconds: 3_600 },
-    { unit: 'minute', seconds: 60 },
-    { unit: 'second', seconds: 1 },
-];
-const RELATIVE_FORMATTER = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
-const formatRelativeTime = (iso: string): string => {
-    if (!iso) return '';
-    const then = new Date(iso).getTime();
-    if (Number.isNaN(then)) return '';
-    const diffSeconds = (then - Date.now()) / 1000;
-    const abs = Math.abs(diffSeconds);
-    for (const { unit, seconds } of RELATIVE_TIME_UNITS) {
-        if (abs >= seconds || unit === 'second') {
-            return RELATIVE_FORMATTER.format(Math.round(diffSeconds / seconds), unit);
-        }
-    }
-    return '';
-};
-const formatAbsoluteTime = (iso: string): string => {
-    if (!iso) return '';
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return iso;
-    return d.toLocaleString();
-};
-
-// Paginated commit picker. Fetches the first page on open and lets the user
-// click "Load more" to append further pages. Selecting a commit fills the SHA.
+// Paginated commit picker. Powered by useInfiniteQuery — pages persist in
+// the cache, "Load more" appends the next page, no manual state juggling.
 const CommitPickerModal: React.FC<{
     open: boolean;
     onClose: () => void;
@@ -295,58 +275,30 @@ const CommitPickerModal: React.FC<{
     selectedSha: string;
     onSelect: (sha: string) => void;
 }> = ({ open, onClose, repoUrl, branch, selectedSha, onSelect }) => {
-    const [commits, setCommits] = useState<CommitInfo[]>([]);
-    const [page, setPage] = useState(1);
-    const [hasMore, setHasMore] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [loadingMore, setLoadingMore] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const abortRef = useRef<AbortController | null>(null);
-    const PER_PAGE = 10;
+    const {
+        data,
+        fetchNextPage,
+        hasNextPage,
+        isFetching,
+        isFetchingNextPage,
+        isError,
+        error,
+        refetch,
+    } = useInfiniteQuery({
+        queryKey: [BRANCH_COMMITS_KEY, repoUrl, branch],
+        queryFn: ({ pageParam, signal }) =>
+            fetchBranchCommits(repoUrl, branch, pageParam, COMMITS_PAGE_SIZE, signal),
+        initialPageParam: 1,
+        getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.page + 1 : undefined),
+        enabled: open && !!repoUrl && !!branch,
+        staleTime: 60_000,
+    });
 
-    const loadPage = useCallback(async (targetPage: number, append: boolean) => {
-        abortRef.current?.abort();
-        const controller = new AbortController();
-        abortRef.current = controller;
+    const commits = useMemo(
+        () => (data?.pages ?? []).flatMap(p => p.commits),
+        [data],
+    );
 
-        if (append) setLoadingMore(true);
-        else setLoading(true);
-        setError(null);
-
-        try {
-            const res = await fetchBranchCommits(repoUrl, branch, targetPage, PER_PAGE, controller.signal);
-            if (controller.signal.aborted) return;
-            setCommits(prev => append ? [...prev, ...res.commits] : res.commits);
-            setPage(res.page);
-            setHasMore(res.hasMore);
-        } catch (err: any) {
-            if (controller.signal.aborted || err?.name === 'AbortError') return;
-            setError(err?.message || 'Failed to load commits.');
-        } finally {
-            if (!controller.signal.aborted) {
-                setLoading(false);
-                setLoadingMore(false);
-            }
-        }
-    }, [repoUrl, branch]);
-
-    // Reset state + load page 1 only when the modal opens (or branch/repo
-    // change while it's open). Not coupled to onClose so canvas re-renders
-    // (e.g., wheel-scroll panning) don't wipe the loaded pages.
-    useEffect(() => {
-        if (!open) {
-            abortRef.current?.abort();
-            return;
-        }
-        setCommits([]);
-        setPage(1);
-        setHasMore(false);
-        setError(null);
-        loadPage(1, false);
-        return () => abortRef.current?.abort();
-    }, [open, loadPage]);
-
-    // Body scroll lock + Escape handler, independent of the load lifecycle.
     useEffect(() => {
         if (!open) return;
         const prevOverflow = document.body.style.overflow;
@@ -360,6 +312,10 @@ const CommitPickerModal: React.FC<{
     }, [open, onClose]);
 
     if (!open) return null;
+
+    const initialLoading = isFetching && commits.length === 0;
+    const showError = isError && commits.length === 0;
+    const errorMessage = (error as Error | null)?.message || 'Failed to load commits.';
 
     return createPortal(
         <div
@@ -393,17 +349,17 @@ const CommitPickerModal: React.FC<{
                 </div>
 
                 <div className="flex-1 overflow-y-auto overscroll-contain custom-scrollbar">
-                    {loading && commits.length === 0 ? (
+                    {initialLoading ? (
                         <div className="p-8 flex items-center justify-center gap-2 text-xs text-slate-400">
                             <div className="w-3 h-3 border-2 border-blue-500/40 border-t-blue-400 rounded-full animate-spin" />
                             Loading commits…
                         </div>
-                    ) : error && commits.length === 0 ? (
+                    ) : showError ? (
                         <div className="p-6 text-center space-y-3">
-                            <p className="text-xs text-red-400">{error}</p>
+                            <p className="text-xs text-red-400">{errorMessage}</p>
                             <button
                                 type="button"
-                                onClick={() => loadPage(1, false)}
+                                onClick={() => refetch()}
                                 className="text-[10px] uppercase tracking-wider font-bold text-blue-400 hover:text-blue-300"
                             >
                                 Retry
@@ -418,8 +374,8 @@ const CommitPickerModal: React.FC<{
                             <ul className="divide-y divide-slate-800/70">
                                 {commits.map(c => {
                                     const isSelected = c.sha === selectedSha;
-                                    const relTime = formatRelativeTime(c.date);
-                                    const absTime = formatAbsoluteTime(c.date);
+                                    const relTime = formatRelative(c.date);
+                                    const absTime = formatAbsolute(c.date);
                                     return (
                                         <li key={c.sha}>
                                             <button
@@ -457,16 +413,16 @@ const CommitPickerModal: React.FC<{
                             </ul>
                             <div className="px-4 py-3 flex items-center justify-between border-t border-slate-800">
                                 <span className="text-[10px] text-slate-500">
-                                    {commits.length} commit{commits.length === 1 ? '' : 's'}{hasMore ? '' : ' · end of history'}
+                                    {commits.length} commit{commits.length === 1 ? '' : 's'}{hasNextPage ? '' : ' · end of history'}
                                 </span>
-                                {hasMore && (
+                                {hasNextPage && (
                                     <button
                                         type="button"
-                                        onClick={() => loadPage(page + 1, true)}
-                                        disabled={loadingMore}
+                                        onClick={() => fetchNextPage()}
+                                        disabled={isFetchingNextPage}
                                         className="px-3 py-1.5 text-[10px] font-bold tracking-wider uppercase rounded border border-blue-700/60 bg-blue-900/20 text-blue-300 hover:bg-blue-800/30 disabled:opacity-50 disabled:cursor-wait flex items-center gap-2"
                                     >
-                                        {loadingMore ? (
+                                        {isFetchingNextPage ? (
                                             <>
                                                 <div className="w-3 h-3 border-2 border-blue-500/40 border-t-blue-400 rounded-full animate-spin" />
                                                 Loading…
@@ -475,8 +431,8 @@ const CommitPickerModal: React.FC<{
                                     </button>
                                 )}
                             </div>
-                            {error && commits.length > 0 && (
-                                <p className="px-4 pb-3 text-[10px] text-red-400">{error}</p>
+                            {isError && commits.length > 0 && (
+                                <p className="px-4 pb-3 text-[10px] text-red-400">{errorMessage}</p>
                             )}
                         </>
                     )}
@@ -539,11 +495,179 @@ const CommitField: React.FC<{
     );
 };
 
+// Soft-fill patch produced from a successful metadata fetch.
+interface SoftFillPatch {
+    repo?: Partial<RepositoryMeta>;
+    systemName?: string;
+}
+
+const RepoRow: React.FC<{
+    repo: RepositoryMeta;
+    index: number;
+    isMultiRepo: boolean;
+    systemName: string;
+    onUpdateField: (field: keyof RepositoryMeta, value: string) => void;
+    onSelectBranch: (branch: string) => void;
+    onSoftFill: (patch: SoftFillPatch) => void;
+    onRemove: () => void;
+}> = ({ repo, index, isMultiRepo, systemName, onUpdateField, onSelectBranch, onSoftFill, onRemove }) => {
+    const trimmedUrl = (repo.repoUrl || '').trim();
+    const urlParsed = trimmedUrl ? parseGithubRepoUrl(trimmedUrl) : null;
+    const urlInvalid = !!trimmedUrl && !urlParsed;
+
+    // Debounce the URL going into the queryKey so keystrokes don't spam the API.
+    const debouncedUrl = useDebouncedValue(trimmedUrl, FETCH_DEBOUNCE_MS);
+    const debouncedCanonical = useMemo(
+        () => (parseGithubRepoUrl(debouncedUrl) ? canonicalizeGithubUrl(debouncedUrl) : ''),
+        [debouncedUrl],
+    );
+
+    const { data, isFetching, isError, error } = useQuery({
+        queryKey: [REPO_METADATA_KEY, debouncedCanonical],
+        queryFn: ({ signal }) => fetchRepoMetadata(debouncedUrl, signal),
+        enabled: !!debouncedCanonical,
+    });
+
+    // Soft-fill branch + commit + (for row 0) System Name once per canonical URL.
+    // Only depends on `data` — we deliberately read the latest repo/systemName
+    // from closure rather than re-running on every keystroke.
+    const lastAppliedRef = useRef<string>('');
+    useEffect(() => {
+        if (!data?.repoUrl) return;
+        if (lastAppliedRef.current === data.repoUrl) return;
+        lastAppliedRef.current = data.repoUrl;
+
+        const canonical = data.repoUrl;
+        const branchEmpty = !repo.branch;
+        const nextBranch = branchEmpty ? data.defaultBranch : repo.branch;
+        const commitEmpty = !repo.commitId;
+        const nextCommit = commitEmpty
+            ? (data.commitMap?.[nextBranch] || data.latestCommit)
+            : repo.commitId;
+
+        const repoPatch: Partial<RepositoryMeta> = {};
+        if (repo.repoUrl !== canonical) repoPatch.repoUrl = canonical;
+        if (repo.branch !== nextBranch) repoPatch.branch = nextBranch;
+        if (repo.commitId !== nextCommit) repoPatch.commitId = nextCommit;
+
+        const patch: SoftFillPatch = {};
+        if (Object.keys(repoPatch).length > 0) patch.repo = repoPatch;
+        if (index === 0 && !systemName && data.name) {
+            patch.systemName = prettifyRepoName(data.name);
+        }
+        if (patch.repo || patch.systemName !== undefined) {
+            onSoftFill(patch);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [data]);
+
+    const branches = data?.branches ?? [];
+    const commitMap = data?.commitMap ?? {};
+    const defaultBranch = data?.defaultBranch;
+    const branchInvalid = !!data && !!repo.branch && branches.length > 0 && !branches.includes(repo.branch);
+    const knownLatestForBranch = commitMap[repo.branch];
+    const commitMismatch = !!data && !!repo.commitId && !!knownLatestForBranch && knownLatestForBranch !== repo.commitId;
+
+    const urlBorder = urlInvalid
+        ? 'border-red-500/60 focus:border-red-500'
+        : isError
+            ? 'border-red-500/60 focus:border-red-500'
+            : data
+                ? 'border-emerald-600/50 focus:border-emerald-500'
+                : 'border-slate-700 focus:border-blue-500';
+
+    return (
+        <div className={isMultiRepo ? 'p-2 border border-slate-800 bg-slate-900 rounded' : ''}>
+            {isMultiRepo && (
+                <div className="flex items-center justify-between mb-2">
+                    <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">
+                        Repository {index + 1}
+                    </span>
+                    <button
+                        onClick={onRemove}
+                        className="w-5 h-5 flex items-center justify-center text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors text-xs font-bold -mt-1 -mr-1"
+                        title="Remove Repository"
+                    >✕</button>
+                </div>
+            )}
+
+            {!isMultiRepo && (
+                <label className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 ml-0.5">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.21 11.39.6.11.82-.26.82-.58v-2.17c-3.34.72-4.04-1.41-4.04-1.41-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.21.09 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.5.99.11-.78.42-1.3.76-1.6-2.67-.31-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.17 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 016 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.65.24 2.87.12 3.17.77.84 1.24 1.91 1.24 3.22 0 4.61-2.8 5.62-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.69.83.58A12.01 12.01 0 0024 12c0-6.63-5.37-12-12-12z" />
+                    </svg>
+                    Repository URL
+                </label>
+            )}
+
+            <div className="space-y-2">
+                <div className="relative">
+                    <input
+                        type="text"
+                        placeholder="e.g., https://github.com/..."
+                        value={repo.repoUrl || ''}
+                        onChange={(e) => onUpdateField('repoUrl', e.target.value)}
+                        className={`w-full text-xs bg-slate-950 border rounded p-1.5 pr-7 outline-none transition-colors ${urlBorder}`}
+                    />
+                    {isFetching && (
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 border-2 border-blue-500/40 border-t-blue-400 rounded-full animate-spin" />
+                    )}
+                    {!isFetching && !!data && !urlInvalid && (
+                        <svg className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                    )}
+                </div>
+
+                {urlInvalid && (
+                    <p className="text-[9px] text-red-400 leading-snug">Enter a valid GitHub repository URL.</p>
+                )}
+                {!urlInvalid && isError && (
+                    <p className="text-[9px] text-red-400 leading-snug">{(error as Error)?.message || 'Failed to fetch repository metadata.'}</p>
+                )}
+
+                <div className="flex gap-1">
+                    <BranchField
+                        value={repo.branch || ''}
+                        branches={branches}
+                        commitMap={commitMap}
+                        defaultBranch={defaultBranch}
+                        placeholder="Branch"
+                        loading={isFetching && branches.length === 0}
+                        invalid={branchInvalid}
+                        repoLabel={repo.repoUrl || undefined}
+                        onChange={(v) => onUpdateField('branch', v)}
+                        onSelect={onSelectBranch}
+                    />
+                    <CommitField
+                        value={repo.commitId || ''}
+                        repoUrl={repo.repoUrl || ''}
+                        branch={repo.branch || ''}
+                        canBrowse={!!urlParsed && !!repo.branch}
+                        invalidWarning={commitMismatch}
+                        onChange={(v) => onUpdateField('commitId', v)}
+                        onSelect={(v) => onUpdateField('commitId', v)}
+                    />
+                </div>
+
+                {branchInvalid && (
+                    <p className="text-[9px] text-red-400 leading-snug">Branch not found on this repository.</p>
+                )}
+                {commitMismatch && !branchInvalid && (
+                    <p className="text-[9px] text-yellow-400 leading-snug">
+                        Commit differs from the latest on <span className="font-bold">{repo.branch}</span>.
+                    </p>
+                )}
+            </div>
+        </div>
+    );
+};
+
 export const SystemInputCard: React.FC<SystemInputCardProps> = ({ node, updateNodeData }) => {
     const [mode, setMode] = useState<'manual' | 'org'>('manual');
     const [orgUrl, setOrgUrl] = useState('');
     const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [orgError, setOrgError] = useState<string | null>(null);
 
     // --- State for the Org Review Screen ---
     const [reviewedSystemName, setReviewedSystemName] = useState('');
@@ -555,17 +679,8 @@ export const SystemInputCard: React.FC<SystemInputCardProps> = ({ node, updateNo
         : [DEFAULT_REPO];
     const orgData = node.data.orgImportData;
 
-    // Per-row fetched metadata. Local-only; not persisted to node.data.
-    const [repoMeta, setRepoMeta] = useState<Record<number, RepoMetaState>>({});
-    const abortersRef = useRef<Record<number, AbortController>>({});
-    const debounceTimersRef = useRef<Record<number, number>>({});
-    const lastFetchedRef = useRef<Record<number, string>>({});
-
-    // --- Org Review setup ---
     useEffect(() => {
         if (orgData) {
-            // Prefer an existing System Name the user already typed; otherwise
-            // fall back to the LLM-proposed name from the org scan.
             setReviewedSystemName(node.data.systemName || orgData.proposedSystemName);
             const initialSelected = new Set<string>();
             const initialBranches: Record<string, string> = {};
@@ -583,190 +698,44 @@ export const SystemInputCard: React.FC<SystemInputCardProps> = ({ node, updateNo
         }
     }, [orgData, node.data.systemName]);
 
-    // Clean up timers and aborters on unmount.
-    useEffect(() => {
-        const aborters = abortersRef.current;
-        const timers = debounceTimersRef.current;
-        return () => {
-            Object.values(aborters).forEach(c => c?.abort());
-            Object.values(timers).forEach(t => window.clearTimeout(t));
-        };
-    }, []);
-
-    const runFetch = useCallback(async (index: number, rawUrl: string) => {
-        const url = rawUrl.trim();
-        const parsed = parseGithubRepoUrl(url);
-        if (!parsed) return;
-
-        const canonical = canonicalizeGithubUrl(url);
-        if (lastFetchedRef.current[index] === canonical) return;
-
-        // Abort any previous in-flight fetch for this row.
-        abortersRef.current[index]?.abort();
-        const controller = new AbortController();
-        abortersRef.current[index] = controller;
-
-        setRepoMeta(prev => ({
-            ...prev,
-            [index]: {
-                branches: prev[index]?.branches || [],
-                commitMap: prev[index]?.commitMap || {},
-                status: 'loading',
-            },
-        }));
-
-        try {
-            const metadata = await fetchRepoMetadata(url, controller.signal);
-            if (controller.signal.aborted) return;
-
-            lastFetchedRef.current[index] = canonical;
-            setRepoMeta(prev => ({
-                ...prev,
-                [index]: {
-                    branches: metadata.branches || [],
-                    commitMap: metadata.commitMap || {},
-                    defaultBranch: metadata.defaultBranch,
-                    status: 'ok',
-                },
-            }));
-
-            // Soft-fill branch + commit only when the user hasn't set them.
-            const currentRepos = node.data.repositories && node.data.repositories.length > 0
-                ? node.data.repositories
-                : [DEFAULT_REPO];
-            const current = currentRepos[index];
-            if (!current) return;
-
-            const canonicalUrl = metadata.repoUrl || canonical;
-            const branchEmpty = !current.branch;
-            const commitEmpty = !current.commitId;
-
-            const nextBranch = branchEmpty ? metadata.defaultBranch : current.branch;
-            const nextCommit = commitEmpty
-                ? (metadata.commitMap?.[nextBranch] || metadata.latestCommit)
-                : current.commitId;
-
-            const repoChanged =
-                current.repoUrl !== canonicalUrl ||
-                current.branch !== nextBranch ||
-                current.commitId !== nextCommit;
-
-            // Soft-fill System Name from the repo name only when the user
-            // hasn't set one yet. Editing it later wins permanently.
-            const fillSystemName = index === 0
-                && !node.data.systemName
-                && !!metadata.name;
-
-            if (repoChanged || fillSystemName) {
-                const patch: Partial<NodeData['data']> = {};
-                if (repoChanged) {
-                    const newRepos = [...currentRepos];
-                    newRepos[index] = {
-                        ...current,
-                        repoUrl: canonicalUrl,
-                        branch: nextBranch,
-                        commitId: nextCommit,
-                    };
-                    patch.repositories = newRepos;
-                }
-                if (fillSystemName) {
-                    patch.systemName = prettifyRepoName(metadata.name);
-                }
-                updateNodeData(node.id, patch);
-            }
-        } catch (err: any) {
-            if (controller.signal.aborted || err?.name === 'AbortError') return;
-            setRepoMeta(prev => ({
-                ...prev,
-                [index]: {
-                    branches: prev[index]?.branches || [],
-                    commitMap: prev[index]?.commitMap || {},
-                    status: 'error',
-                    error: err?.message || 'Failed to fetch repository metadata.',
-                },
-            }));
-        }
-    }, [node.data.repositories, node.id, updateNodeData]);
-
-    const scheduleFetch = useCallback((index: number, url: string) => {
-        if (debounceTimersRef.current[index]) {
-            window.clearTimeout(debounceTimersRef.current[index]);
-        }
-        debounceTimersRef.current[index] = window.setTimeout(() => {
-            runFetch(index, url);
-        }, FETCH_DEBOUNCE_MS);
-    }, [runFetch]);
-
-    // Rehydrate metadata on mount / when repository rows arrive from a CSV
-    // upload, Org Import confirm, or a restored session. Skips rows that
-    // are already fetched and rows with an empty/invalid URL.
-    useEffect(() => {
-        repositories.forEach((repo, i) => {
-            const url = repo.repoUrl?.trim();
-            if (!url) return;
-            if (repoMeta[i]?.status === 'ok' || repoMeta[i]?.status === 'loading') return;
-            if (!parseGithubRepoUrl(url)) return;
-            if (lastFetchedRef.current[i] === canonicalizeGithubUrl(url)) return;
-            runFetch(i, url);
-        });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [repositories.length, repositories.map(r => r.repoUrl).join('|')]);
-
     const updateRepo = (index: number, field: keyof RepositoryMeta, value: string) => {
         const newRepos = [...repositories];
         newRepos[index] = { ...newRepos[index], [field]: value };
         updateNodeData(node.id, { repositories: newRepos });
-
-        if (field === 'repoUrl') {
-            // URL changed: reset cached meta for this row and reschedule a fetch.
-            abortersRef.current[index]?.abort();
-            lastFetchedRef.current[index] = '';
-            setRepoMeta(prev => ({
-                ...prev,
-                [index]: { branches: [], commitMap: {}, status: 'idle' },
-            }));
-            if (parseGithubRepoUrl(value.trim())) {
-                scheduleFetch(index, value);
-            }
-        }
     };
 
     const handleSelectBranch = (index: number, branch: string) => {
-        const meta = repoMeta[index];
         const current = repositories[index];
         if (!current) return;
-        const nextCommit = !current.commitId && meta?.commitMap?.[branch]
-            ? meta.commitMap[branch]
-            : current.commitId;
         const newRepos = [...repositories];
-        newRepos[index] = { ...current, branch, commitId: nextCommit };
+        // If commit is empty, BranchField caller (BranchPickerModal) has access
+        // to commitMap and would normally pass the matching SHA — but our public
+        // API is one-arg. Keep the current commitId; commit auto-fill happens via
+        // the soft-fill effect when the branch picker is the source.
+        newRepos[index] = { ...current, branch };
         updateNodeData(node.id, { repositories: newRepos });
     };
 
-    const removeRepo = (index: number) => {
-        abortersRef.current[index]?.abort();
-        if (debounceTimersRef.current[index]) {
-            window.clearTimeout(debounceTimersRef.current[index]);
+    const handleSoftFill = (index: number) => (patch: SoftFillPatch) => {
+        const newData: Partial<NodeData['data']> = {};
+        if (patch.repo) {
+            const newRepos = [...repositories];
+            newRepos[index] = { ...newRepos[index], ...patch.repo };
+            newData.repositories = newRepos;
         }
-        const newRepos = repositories.filter((_, i) => i !== index);
-        updateNodeData(node.id, { repositories: newRepos.length > 0 ? newRepos : [DEFAULT_REPO] });
-        // Re-key the metadata maps so they stay aligned with the new indices.
-        const reindex = <T,>(map: Record<number, T>): Record<number, T> => {
-            const out: Record<number, T> = {};
-            Object.entries(map).forEach(([k, v]) => {
-                const i = Number(k);
-                if (i < index) out[i] = v;
-                else if (i > index) out[i - 1] = v;
-            });
-            return out;
-        };
-        setRepoMeta(prev => reindex(prev));
-        abortersRef.current = reindex(abortersRef.current);
-        debounceTimersRef.current = reindex(debounceTimersRef.current);
-        lastFetchedRef.current = reindex(lastFetchedRef.current);
+        if (patch.systemName !== undefined) {
+            newData.systemName = patch.systemName;
+        }
+        if (Object.keys(newData).length > 0) {
+            updateNodeData(node.id, newData);
+        }
     };
 
-    // --- CSV Parser ---
+    const removeRepo = (index: number) => {
+        const newRepos = repositories.filter((_, i) => i !== index);
+        updateNodeData(node.id, { repositories: newRepos.length > 0 ? newRepos : [DEFAULT_REPO] });
+    };
+
     const handleCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
@@ -777,17 +746,13 @@ export const SystemInputCard: React.FC<SystemInputCardProps> = ({ node, updateNo
             if (!text) return;
 
             const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-
             const parsedRepos: RepositoryMeta[] = [];
 
             lines.forEach((line, i) => {
                 const parts = line.split(',');
-
-                // Skip the first row if it looks like a header.
                 if (i === 0 && !line.includes('/') && !line.includes('http') && line.toLowerCase().includes('url')) {
                     return;
                 }
-
                 if (parts.length >= 1 && parts[0].trim()) {
                     parsedRepos.push({
                         repoUrl: parts[0].trim(),
@@ -806,19 +771,18 @@ export const SystemInputCard: React.FC<SystemInputCardProps> = ({ node, updateNo
         event.target.value = '';
     };
 
-    // --- Organization Analyzer ---
     const handleAnalyzeOrg = async () => {
         if (!orgUrl.trim()) {
-            setError('Please enter a valid GitHub Organization URL.');
+            setOrgError('Please enter a valid GitHub Organization URL.');
             return;
         }
         setIsAnalyzing(true);
-        setError(null);
+        setOrgError(null);
         try {
             const response = await importOrganization(orgUrl);
             updateNodeData(node.id, { orgImportData: response });
         } catch (err: any) {
-            setError(err.message || 'Failed to analyze organization. Ensure your settings token is valid.');
+            setOrgError(err.message || 'Failed to analyze organization. Ensure your settings token is valid.');
         } finally {
             setIsAnalyzing(false);
         }
@@ -833,7 +797,6 @@ export const SystemInputCard: React.FC<SystemInputCardProps> = ({ node, updateNo
 
     const handleConfirmSelection = () => {
         if (!orgData) return;
-
         const allRepos = [...orgData.relevantRepos, ...orgData.suggestedRepos];
         const finalRepos: RepositoryMeta[] = allRepos
             .filter(r => selectedUrls.has(r.url))
@@ -858,7 +821,6 @@ export const SystemInputCard: React.FC<SystemInputCardProps> = ({ node, updateNo
 
     const renderOrgRepoRow = (repo: RepoData) => {
         const isSelected = selectedUrls.has(repo.url);
-
         return (
             <div
                 key={repo.url}
@@ -870,9 +832,7 @@ export const SystemInputCard: React.FC<SystemInputCardProps> = ({ node, updateNo
                 }`}
             >
                 <div className={`flex-shrink-0 w-3.5 h-3.5 rounded-[3px] border flex items-center justify-center transition-colors ${
-                    isSelected
-                        ? 'bg-purple-500 border-purple-500 text-white'
-                        : 'border-slate-600 bg-slate-800/50'
+                    isSelected ? 'bg-purple-500 border-purple-500 text-white' : 'border-slate-600 bg-slate-800/50'
                 }`}>
                     {isSelected && (
                         <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -880,13 +840,11 @@ export const SystemInputCard: React.FC<SystemInputCardProps> = ({ node, updateNo
                         </svg>
                     )}
                 </div>
-
                 <div className="flex-1 min-w-0">
                     <p className={`text-[10px] truncate transition-colors ${isSelected ? 'text-purple-300 font-bold' : 'text-slate-300'}`} title={repo.url}>
                         {repo.url.split('/').slice(-1)[0].replace('.git', '')}
                     </p>
                 </div>
-
                 <BranchDropdown
                     repoUrl={repo.url}
                     currentBranch={branchSelections[repo.url] || repo.branch}
@@ -918,120 +876,21 @@ export const SystemInputCard: React.FC<SystemInputCardProps> = ({ node, updateNo
             {mode === 'manual' ? (
                 <>
                     <div className="space-y-3 max-h-[260px] overflow-y-auto pr-1 custom-scrollbar">
-                        {repositories.map((repo, index) => {
-                            const meta = repoMeta[index] || { branches: [], commitMap: {}, status: 'idle' as FetchStatus };
-                            const isMultiRepo = repositories.length > 1;
-                            const trimmedUrl = (repo.repoUrl || '').trim();
-                            const urlInvalid = !!trimmedUrl && !parseGithubRepoUrl(trimmedUrl);
-                            const branchInvalid = meta.status === 'ok' && !!repo.branch && meta.branches.length > 0 && !meta.branches.includes(repo.branch);
-                            const knownLatestForBranch = meta.commitMap[repo.branch];
-                            const commitMismatch = meta.status === 'ok'
-                                && !!repo.commitId
-                                && !!knownLatestForBranch
-                                && knownLatestForBranch !== repo.commitId;
-
-                            const urlBorder = urlInvalid
-                                ? 'border-red-500/60 focus:border-red-500'
-                                : meta.status === 'error'
-                                    ? 'border-red-500/60 focus:border-red-500'
-                                    : meta.status === 'ok'
-                                        ? 'border-emerald-600/50 focus:border-emerald-500'
-                                        : 'border-slate-700 focus:border-blue-500';
-
-                            const commitBorder = commitMismatch
-                                ? 'border-yellow-500/60 focus:border-yellow-500'
-                                : 'border-slate-700 focus:border-blue-500';
-
-                            return (
-                                <div key={`repo-${index}`} className={isMultiRepo ? 'p-2 border border-slate-800 bg-slate-900 rounded' : ''}>
-                                    {isMultiRepo && (
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">
-                                                Repository {index + 1}
-                                            </span>
-                                            <button
-                                                onClick={() => removeRepo(index)}
-                                                className="w-5 h-5 flex items-center justify-center text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors text-xs font-bold -mt-1 -mr-1"
-                                                title="Remove Repository"
-                                            >✕</button>
-                                        </div>
-                                    )}
-
-                                    {!isMultiRepo && (
-                                        <label className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 ml-0.5">
-                                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.21 11.39.6.11.82-.26.82-.58v-2.17c-3.34.72-4.04-1.41-4.04-1.41-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.21.09 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.5.99.11-.78.42-1.3.76-1.6-2.67-.31-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.17 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 016 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.65.24 2.87.12 3.17.77.84 1.24 1.91 1.24 3.22 0 4.61-2.8 5.62-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.69.83.58A12.01 12.01 0 0024 12c0-6.63-5.37-12-12-12z" />
-                                            </svg>
-                                            Repository URL
-                                        </label>
-                                    )}
-
-                                    <div className="space-y-2">
-                                        <div className="relative">
-                                            <input
-                                                type="text"
-                                                placeholder="e.g., https://github.com/..."
-                                                value={repo.repoUrl || ''}
-                                                onChange={(e) => updateRepo(index, 'repoUrl', e.target.value)}
-                                                className={`w-full text-xs bg-slate-950 border rounded p-1.5 pr-7 outline-none transition-colors ${urlBorder}`}
-                                            />
-                                            {meta.status === 'loading' && (
-                                                <div className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 border-2 border-blue-500/40 border-t-blue-400 rounded-full animate-spin" />
-                                            )}
-                                            {meta.status === 'ok' && !urlInvalid && (
-                                                <svg className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                                </svg>
-                                            )}
-                                        </div>
-
-                                        {urlInvalid && (
-                                            <p className="text-[9px] text-red-400 leading-snug">Enter a valid GitHub repository URL.</p>
-                                        )}
-                                        {!urlInvalid && meta.status === 'error' && meta.error && (
-                                            <p className="text-[9px] text-red-400 leading-snug">{meta.error}</p>
-                                        )}
-
-                                        <div className="flex gap-1">
-                                            <BranchField
-                                                value={repo.branch || ''}
-                                                branches={meta.branches}
-                                                commitMap={meta.commitMap}
-                                                defaultBranch={meta.defaultBranch}
-                                                placeholder="Branch"
-                                                loading={meta.status === 'loading'}
-                                                invalid={branchInvalid}
-                                                repoLabel={repo.repoUrl || undefined}
-                                                onChange={(v) => updateRepo(index, 'branch', v)}
-                                                onSelect={(v) => handleSelectBranch(index, v)}
-                                            />
-                                            <CommitField
-                                                value={repo.commitId || ''}
-                                                repoUrl={repo.repoUrl || ''}
-                                                branch={repo.branch || ''}
-                                                canBrowse={!!parseGithubRepoUrl(trimmedUrl) && !!repo.branch}
-                                                invalidWarning={commitMismatch}
-                                                onChange={(v) => updateRepo(index, 'commitId', v)}
-                                                onSelect={(v) => updateRepo(index, 'commitId', v)}
-                                            />
-                                        </div>
-
-                                        {branchInvalid && (
-                                            <p className="text-[9px] text-red-400 leading-snug">Branch not found on this repository.</p>
-                                        )}
-                                        {commitMismatch && !branchInvalid && (
-                                            <p className="text-[9px] text-yellow-400 leading-snug">
-                                                Commit differs from the latest on <span className="font-bold">{repo.branch}</span>.
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })}
+                        {repositories.map((repo, index) => (
+                            <RepoRow
+                                key={`repo-${index}`}
+                                repo={repo}
+                                index={index}
+                                isMultiRepo={repositories.length > 1}
+                                systemName={node.data.systemName || ''}
+                                onUpdateField={(field, value) => updateRepo(index, field, value)}
+                                onSelectBranch={(branch) => handleSelectBranch(index, branch)}
+                                onSoftFill={handleSoftFill(index)}
+                                onRemove={() => removeRepo(index)}
+                            />
+                        ))}
                     </div>
 
-                    {/* System Name lives below the repo rows so it appears after
-                        the URL flow that auto-fills it. Edits always win. */}
                     <div className="space-y-1 pt-1">
                         <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider ml-0.5">
                             System Name
@@ -1081,10 +940,8 @@ export const SystemInputCard: React.FC<SystemInputCardProps> = ({ node, updateNo
                     </div>
                 </>
             ) : (
-                /* ORGANIZATION IMPORT UI */
                 <div className="space-y-4 pt-1">
                     {orgData ? (
-                        /* --- REVIEW SCREEN --- */
                         <div className="space-y-4 animate-in fade-in zoom-in duration-300">
                             <div className="space-y-1.5">
                                 <label className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider ml-0.5">
@@ -1149,7 +1006,6 @@ export const SystemInputCard: React.FC<SystemInputCardProps> = ({ node, updateNo
                             </div>
                         </div>
                     ) : (
-                        /* --- ORG INPUT SCREEN --- */
                         <div className="space-y-4 animate-in fade-in duration-300">
                             <div className="space-y-1.5">
                                 <label className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider ml-0.5">
@@ -1168,10 +1024,10 @@ export const SystemInputCard: React.FC<SystemInputCardProps> = ({ node, updateNo
                                 />
                             </div>
 
-                            {error && (
+                            {orgError && (
                                 <div className="flex items-start gap-2 bg-rose-500/10 border border-rose-500/20 p-2.5 rounded-md">
                                     <svg className="w-3.5 h-3.5 text-rose-400 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                    <p className="text-[10px] text-rose-300/90 leading-tight">{error}</p>
+                                    <p className="text-[10px] text-rose-300/90 leading-tight">{orgError}</p>
                                 </div>
                             )}
 

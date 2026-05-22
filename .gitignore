@@ -1,6 +1,11 @@
 frontend-ejected/
 mock
 
+# Local secrets — never commit. Use .env.example as the committed template.
+.env
+.env.local
+.env.*.local
+
 # Python bytecode
 __pycache__/
 *.py[cod]

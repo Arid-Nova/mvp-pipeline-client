@@ -2,10 +2,17 @@ import os
 import re
 import httpx
 import asyncio
+from urllib.parse import quote
 from .configdb import config_db_service
 from fastapi import HTTPException
 
-@staticmethod
+# Pinned GitHub REST API version. Override via env if a newer one is needed.
+DEFAULT_GITHUB_API_VERSION = "2022-11-28"
+
+
+def _github_api_version() -> str:
+    return os.getenv("GITHUB_API_VERSION") or DEFAULT_GITHUB_API_VERSION
+
 async def __fetch_branches(client: httpx.AsyncClient, branches_url: str, headers: dict) -> list[dict]:
     base_url = branches_url.split("{")[0]
     # Fetch first page to see if more exist
@@ -33,7 +40,6 @@ async def __fetch_branches(client: httpx.AsyncClient, branches_url: str, headers
                     
     return all_branches
 
-@staticmethod
 def __prepareforllm(raw_repos):
     condensed_repos = []
     for repo in raw_repos:
@@ -48,12 +54,11 @@ def __prepareforllm(raw_repos):
     return condensed_repos
 
 # Fetching repositories from GitHub API
-@staticmethod
 async def fetchorganizationrepos(org_name): 
     github_api_url = f"https://api.github.com/orgs/{org_name}/repos?per_page=100"
     headers = {
             "Accept": "application/vnd.github.v3+json",
-            "X-GitHub-Api-Version": os.getenv("GITHUB_API_VERSION")
+            "X-GitHub-Api-Version": _github_api_version()
         }
     
     system_token = await config_db_service.get_token()
@@ -88,11 +93,10 @@ async def fetchorganizationrepos(org_name):
 
 
 # Fetching single repository metadata from GitHub API
-@staticmethod
 async def fetchrepositorymetadata(owner: str, repo: str) -> dict:
     headers = {
         "Accept": "application/vnd.github.v3+json",
-        "X-GitHub-Api-Version": os.getenv("GITHUB_API_VERSION")
+        "X-GitHub-Api-Version": _github_api_version()
     }
 
     system_token = await config_db_service.get_token()
@@ -126,7 +130,8 @@ async def fetchrepositorymetadata(owner: str, repo: str) -> dict:
         if not default_branch or not clone_url or not repo_name:
             raise HTTPException(status_code=502, detail="Incomplete repository metadata from GitHub.")
 
-        commit_api_url = f"https://api.github.com/repos/{owner}/{repo}/commits/{default_branch}"
+        # URL-encode the branch so refs containing '/' (e.g. release/v1) don't get parsed as path segments.
+        commit_api_url = f"https://api.github.com/repos/{owner}/{repo}/commits/{quote(default_branch, safe='')}"
         commit_task = client.get(commit_api_url, headers=headers)
         branches_task = (
             __fetch_branches(client, branches_url, headers)
@@ -175,11 +180,10 @@ async def fetchrepositorymetadata(owner: str, repo: str) -> dict:
 
 
 # Paginated commit list for a given branch (or any git ref).
-@staticmethod
 async def fetchbranchcommits(owner: str, repo: str, branch: str, page: int = 1, per_page: int = 10) -> dict:
     headers = {
         "Accept": "application/vnd.github.v3+json",
-        "X-GitHub-Api-Version": os.getenv("GITHUB_API_VERSION")
+        "X-GitHub-Api-Version": _github_api_version()
     }
 
     system_token = await config_db_service.get_token()
