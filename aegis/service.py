@@ -26,7 +26,16 @@ async def lifespan(app: FastAPI):
     global facade
     print("Initializing Aegis Analysis Engine...")
     
-    config_dict = {s: dict(config.items(s)) for s in config.sections()}
+    config_dict = {}
+    for section in config.sections():
+        normalized = section.strip().strip("[]'\"")
+        config_dict[normalized] = dict(config.items(section))
+
+    # Allow explicit env override for runtime flexibility in containers.
+    ir_url = os.getenv("IR_SERVICE_URL")
+    if ir_url:
+        config_dict.setdefault("IR", {})
+        config_dict["IR"]["url"] = ir_url
     
     try:
         facade = AnalysisFacade(config_dict)

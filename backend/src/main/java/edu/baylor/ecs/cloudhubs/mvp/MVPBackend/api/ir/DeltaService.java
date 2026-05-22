@@ -94,9 +94,15 @@ public class DeltaService {
 
         if (optionalEntity.isPresent()) {
             MicroserviceEntity entity = optionalEntity.get();
-            try (GZIPInputStream gzis = new GZIPInputStream(new ByteArrayInputStream(entity.getPayload()))) {
-                return objectMapper.readValue(gzis, MicroserviceSystem.class);
+            if (entity.getPayloadCompressed() != null && entity.getPayloadCompressed().length > 0) {
+                try (GZIPInputStream gzis = new GZIPInputStream(new ByteArrayInputStream(entity.getPayloadCompressed()))) {
+                    return objectMapper.readValue(gzis, MicroserviceSystem.class);
+                }
             }
+            if (entity.getPayload() != null) {
+                return objectMapper.convertValue(entity.getPayload(), MicroserviceSystem.class);
+            }
+            throw new IllegalArgumentException("IR payload is missing for id: " + id);
         } else {
             throw new IllegalArgumentException("No microservice system found with ID: " + id);
         }

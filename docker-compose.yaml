@@ -1,15 +1,22 @@
 name: aridnova-toolkit
-version: '1.1.0'
 
 services:
   mariadb:
     image: mariadb:latest
     container_name: cache_db
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-csi3335rocks}
       MYSQL_DATABASE: msGraph
     ports:
       - "3306:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 20s
+    volumes:
+      - mariadb_data:/var/lib/mysql
     networks:
       - app_network
 
@@ -21,7 +28,7 @@ services:
       - "27017:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-root}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-local_mongo_root_password}
     networks:
       - app_network
     volumes:
@@ -37,8 +44,8 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:mariadb://cache_db:3306/msGraph
       SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-csi3335rocks}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-local_internal_service_key}
       CHATBOT_PROVIDER: OLLAMA
       CHATBOT_MODEL: llama3.2
       CHATBOT_BASE_URL: http://ollama:11434
@@ -46,7 +53,8 @@ services:
       CHATBOT_MAX_TOKENS: ${CHATBOT_MAX_TOKENS:-1024}
       CHATBOT_TEMPERATURE: ${CHATBOT_TEMPERATURE:-0.2}
     depends_on:
-      - mariadb
+      mariadb:
+        condition: service_healthy
     networks:
       - app_network
     restart: always
@@ -80,7 +88,7 @@ services:
       - "9000:9000"
     environment:
       PYTHONUNBUFFERED: 1
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-local_internal_service_key}
     networks:
       - app_network
     volumes:
@@ -108,7 +116,7 @@ services:
       - MONGO_URI=mongodb://cloudhub_mongo:27017
       - MONGO_DB=aegis
       - MONGO_USER=${MONGO_ROOT_USERNAME:-root}
-      - MONGO_PASSWORD=${MONGO_ROOT_PASSWORD}
+      - MONGO_PASSWORD=${MONGO_ROOT_PASSWORD:-local_mongo_root_password}
     networks:
       - app_network
     restart: always
@@ -124,9 +132,9 @@ services:
       - MONGO_URI=mongodb://cloudhub_mongo:27017
       - MONGO_DB=aegis
       - MONGO_USER=${MONGO_ROOT_USERNAME:-root}
-      - MONGO_PASSWORD=${MONGO_ROOT_PASSWORD}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - OPENAI_BASE_URL=${OPENAI_BASE_URL}
+      - MONGO_PASSWORD=${MONGO_ROOT_PASSWORD:-local_mongo_root_password}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
       - LLM_TEMPERATURE=0.1
       - OPENAI_API_MODEL=gpt-4o-mini
     networks:
@@ -141,10 +149,10 @@ services:
     ports:
       - "8030:8030" 
     environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - OPENAI_BASE_URL=${OPENAI_BASE_URL}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - GROQ_API_KEY=${GROQ_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
       - LLM_TEMPERATURE=0.3
       - MAX_TOKENS=10000
     networks:
@@ -169,7 +177,7 @@ services:
       - "7474:7474" 
       - "7687:7687" 
     environment:
-      - NEO4J_AUTH=${NEO4J_USERNAME:-neo4j}/${NEO4J_PASSWORD}
+      - NEO4J_AUTH=${NEO4J_USERNAME:-neo4j}/${NEO4J_PASSWORD:-local_neo4j_password}
       - NEO4J_dbms_memory_pagecache_size=512M
     networks:
       - app_network
@@ -192,7 +200,8 @@ services:
       - "8900:8900"
     environment:
       PYTHONUNBUFFERED: 1
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-local_internal_service_key}
+      IR_SERVICE_URL: http://cloudhub_backend:8080/ir/create
     depends_on:
       aegis_neo4j:
         condition: service_healthy
@@ -225,18 +234,18 @@ services:
     ports:
       - "8020:8020" 
     environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - OPENAI_BASE_URL=${OPENAI_BASE_URL}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
       - LLM_TEMPERATURE=0.1
       - MAX_TOKENS=10000
       - OPENAI_API_MODEL=gpt-4o-mini
       - MONGO_URI=mongodb://cloudhub_mongo:27017
       - MONGO_DB=aridnova_system
       - MONGO_USER=${MONGO_ROOT_USERNAME:-root}
-      - MONGO_PASSWORD=${MONGO_ROOT_PASSWORD}
+      - MONGO_PASSWORD=${MONGO_ROOT_PASSWORD:-local_mongo_root_password}
       - GITHUB_API_VERSION=2026-03-10
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
-      - INTERNAL_SERVICE_KEY=${INTERNAL_SERVICE_KEY}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-local_encryption_key_32_chars_min}
+      - INTERNAL_SERVICE_KEY=${INTERNAL_SERVICE_KEY:-local_internal_service_key}
     networks:
       - app_network
     restart: always
