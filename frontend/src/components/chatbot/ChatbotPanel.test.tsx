@@ -184,6 +184,75 @@ describe("ChatbotPanel", () => {
         expect(screen.getByTestId("qualification-notice")).toHaveTextContent("truncated due to budget limits");
     });
 
+    it("renders confidence badge variants HIGH, MEDIUM, LOW, and INSUFFICIENT_EVIDENCE", async () => {
+        mockedGetHealth.mockResolvedValue({
+            status: "healthy",
+            provider: "OLLAMA",
+            model: "llama3.2",
+            baseUrl: "http://localhost:8080",
+            message: "ok",
+            checkedAt: new Date().toISOString(),
+            latencyMs: 20
+        });
+
+        const responses = [
+            { confidence: "HIGH", answer: "Answer: high confidence [E1].", requestId: "req-high" },
+            { confidence: "MEDIUM", answer: "Answer: medium confidence [E2].", requestId: "req-medium" },
+            { confidence: "LOW", answer: "Answer: low confidence [E3].", requestId: "req-low2" },
+            { confidence: "INSUFFICIENT_EVIDENCE", answer: "Insufficient evidence.", requestId: "req-insufficient-2" }
+        ];
+
+        mockedSendQuery
+            .mockResolvedValueOnce({
+                ...responses[0],
+                citations: [{ artifactType: "IR", artifactId: "E1", artifactName: "order-service", locationHint: "microservices[0]", version: "v1", summary: "e1" }],
+                flags: [],
+                processingTimeMs: 10,
+                model: "llama3.2",
+                provider: "OLLAMA"
+            })
+            .mockResolvedValueOnce({
+                ...responses[1],
+                citations: [{ artifactType: "GRAPH", artifactId: "E2", artifactName: "dep", locationHint: "links[0]", version: "v1", summary: "e2" }],
+                flags: ["partial"],
+                processingTimeMs: 10,
+                model: "llama3.2",
+                provider: "OLLAMA"
+            })
+            .mockResolvedValueOnce({
+                ...responses[2],
+                citations: [{ artifactType: "ENDPOINT", artifactId: "E3", artifactName: "POST /orders", locationHint: "controllers[0].methods[0]", version: "v1", summary: "e3" }],
+                flags: ["truncated_context"],
+                processingTimeMs: 10,
+                model: "llama3.2",
+                provider: "OLLAMA"
+            })
+            .mockResolvedValueOnce({
+                ...responses[3],
+                citations: [],
+                flags: ["insufficient_evidence"],
+                processingTimeMs: 10,
+                model: "llama3.2",
+                provider: "OLLAMA"
+            });
+
+        render(<ChatbotPanel activeContext={{ systemName: "TrainTicket", irId: "ir-9" }} />);
+        fireEvent.click(screen.getByTestId("chatbot-toggle"));
+
+        const prompts = ["Q high", "Q medium", "Q low", "Q insufficient"];
+        for (let i = 0; i < prompts.length; i += 1) {
+            fireEvent.change(screen.getByTestId("chatbot-input"), { target: { value: prompts[i] } });
+            fireEvent.click(screen.getByTestId("chatbot-submit"));
+            // eslint-disable-next-line no-await-in-loop
+            await waitFor(() => expect(screen.getByText(responses[i].answer)).toBeInTheDocument());
+        }
+
+        expect(screen.getByText("HIGH")).toBeInTheDocument();
+        expect(screen.getByText("MEDIUM")).toBeInTheDocument();
+        expect(screen.getAllByText("LOW").length).toBeGreaterThan(0);
+        expect(screen.getByText("INSUFFICIENT_EVIDENCE")).toBeInTheDocument();
+    });
+
     it("runtime unavailable response still renders without crash", async () => {
         mockedGetHealth.mockResolvedValue({
             status: "healthy",
@@ -327,6 +396,26 @@ describe("ChatbotPanel", () => {
         });
         await waitFor(() => expect(screen.getByTestId("chatbot-refresh-result")).toHaveTextContent("SERVICE:2"));
         expect(screen.getByText(/still here/i)).toBeInTheDocument();
+    });
+
+    it("refresh failure renders error and stale-context notice", async () => {
+        mockedGetHealth.mockResolvedValue({
+            status: "healthy",
+            provider: "OLLAMA",
+            model: "llama3.2",
+            baseUrl: "http://localhost:8080",
+            message: "ok",
+            checkedAt: new Date().toISOString(),
+            latencyMs: 20
+        });
+        mockedRefreshContext.mockRejectedValueOnce(new Error("refresh failed"));
+
+        render(<ChatbotPanel activeContext={{ systemName: "TrainTicket", irId: "ir-9" }} />);
+        fireEvent.click(screen.getByTestId("chatbot-toggle"));
+        fireEvent.click(screen.getByTestId("chatbot-refresh-context"));
+
+        await waitFor(() => expect(screen.getByTestId("chatbot-refresh-error")).toHaveTextContent("refresh failed"));
+        expect(screen.getByTestId("chatbot-local-stale")).toBeInTheDocument();
     });
 
     it("no active context shows actionable scope message and hides refresh control", async () => {

@@ -111,6 +111,7 @@ Frontend (CRA / React module):
 - `cd frontend && npm test -- --watchAll=false`
 - `cd frontend && npm test -- --watchAll=false --runInBand --testPathPattern=chatbot`
 - `cd frontend && npm test -- --watchAll=false --runInBand --testPathPattern=ChatbotPanel.test.tsx`
+- `cd frontend && npm test -- --watchAll=false --runInBand --testPathPattern=ChatbotPanel.test.tsx` (S12-M2 user-visible architecture Q&A behavior)
 
 ## 5) Baseline test failures observed before S12-M2 implementation
 
