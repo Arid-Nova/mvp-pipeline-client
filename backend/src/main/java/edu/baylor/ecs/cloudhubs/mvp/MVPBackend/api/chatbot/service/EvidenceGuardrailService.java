@@ -1,10 +1,13 @@
 package edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.service;
 
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.ChatbotConfidence;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.ChatbotFlag;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.ChatbotResponse;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.CitationItem;
-import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.EvidenceCitationMapper;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.EvidenceArtifactType;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.EvidenceItem;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.MissingEvidence;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.retrieval.QuestionIntent;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -12,31 +15,206 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class EvidenceGuardrailService {
 
-    public ChatbotResponse enforce(String question, List<EvidenceItem> evidenceItems, ChatbotResponse response) {
-        List<EvidenceItem> safeEvidence = evidenceItems == null ? List.of() : evidenceItems;
+    private static final Pattern CITATION_PATTERN = Pattern.compile("\\[(E[^\\]]+)\\]");
+
+    public ChatbotResponse enforcePreGeneration(
+        String question,
+        QuestionIntent intent,
+        List<EvidenceItem> evidenceItems,
+        List<MissingEvidence> retrievalMissing,
+        ChatbotResponse response
+    ) {
         ChatbotResponse safeResponse = response == null ? new ChatbotResponse() : response;
+        List<EvidenceItem> safeEvidence = evidenceItems == null ? List.of() : evidenceItems;
+        List<MissingEvidence> safeMissing = retrievalMissing == null ? List.of() : retrievalMissing;
 
         ensureFlagListExists(safeResponse);
 
-        boolean factualQuestion = asksForFactualArchitectureClaim(question);
-        boolean noEvidence = safeEvidence.isEmpty();
-
-        if (factualQuestion && noEvidence) {
-            addFlagIfMissing(safeResponse, ChatbotFlag.insufficient_evidence);
-            if (safeResponse.getAnswer() == null || safeResponse.getAnswer().isBlank()) {
-                safeResponse.setAnswer("Insufficient evidence: no AridNova evidence is available for this request.");
-            }
+        if (!isSupportedEvidenceRequiredIntent(intent) && !asksForFactualArchitectureClaim(question)) {
             return safeResponse;
         }
 
-        if (factualQuestion && safeResponse.getCitations().isEmpty() && !hasFlag(safeResponse, ChatbotFlag.insufficient_evidence)) {
-            safeResponse.setCitations(List.of(toCitation(safeEvidence.get(0))));
+        List<String> missingSources = computeMissingSources(intent, safeEvidence, safeMissing);
+        if (safeEvidence.isEmpty() || allSourcesMissingForSupportedIntent(intent, safeEvidence)) {
+            addFlagIfMissing(safeResponse, ChatbotFlag.insufficient_evidence);
+            safeResponse.setConfidence(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
+            safeResponse.setAnswer("Insufficient evidence: required architecture evidence is missing. Missing sources: "
+                + String.join(", ", missingSources));
+            return safeResponse;
         }
+
+        if (!missingSources.isEmpty()) {
+            addFlagIfMissing(safeResponse, ChatbotFlag.partial);
+            if (safeResponse.getAnswer() == null || safeResponse.getAnswer().isBlank()) {
+                safeResponse.setAnswer("Partial evidence available. Missing sources: " + String.join(", ", missingSources));
+            }
+        }
+
         return safeResponse;
+    }
+
+    public ChatbotResponse enforcePostGeneration(
+        String question,
+        QuestionIntent intent,
+        List<EvidenceItem> evidenceItems,
+        ChatbotResponse response
+    ) {
+        ChatbotResponse safeResponse = response == null ? new ChatbotResponse() : response;
+        List<EvidenceItem> safeEvidence = evidenceItems == null ? List.of() : evidenceItems;
+        ensureFlagListExists(safeResponse);
+
+        if (!isSupportedEvidenceRequiredIntent(intent) && !asksForFactualArchitectureClaim(question)) {
+            return safeResponse;
+        }
+
+        Set<String> validCitationIds = new LinkedHashSet<>();
+        for (EvidenceItem item : safeEvidence) {
+            if (hasValue(item.getArtifactId())) {
+                validCitationIds.add(item.getArtifactId());
+            }
+        }
+
+        boolean invalidCitationFound = sanitizeUnknownCitationIds(safeResponse, validCitationIds);
+        if (invalidCitationFound) {
+            addFlagIfMissing(safeResponse, ChatbotFlag.citation_validation_failed);
+            safeResponse.setConfidence(ChatbotConfidence.LOW);
+        }
+
+        if (hasAnswerText(safeResponse) && (safeResponse.getCitations() == null || safeResponse.getCitations().isEmpty())) {
+            addFlagIfMissing(safeResponse, ChatbotFlag.citation_validation_failed);
+            addFlagIfMissing(safeResponse, ChatbotFlag.insufficient_evidence);
+            safeResponse.setConfidence(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
+            safeResponse.setAnswer("Insufficient citation support: generated answer did not include valid evidence citations.");
+            return safeResponse;
+        }
+
+        List<CitationItem> filtered = filterToValidCitations(safeResponse.getCitations(), validCitationIds);
+        if (filtered.size() != safeResponse.getCitations().size()) {
+            safeResponse.setCitations(filtered);
+            addFlagIfMissing(safeResponse, ChatbotFlag.citation_validation_failed);
+            safeResponse.setConfidence(ChatbotConfidence.LOW);
+        }
+
+        if (hasAnswerText(safeResponse) && safeResponse.getCitations().isEmpty()) {
+            addFlagIfMissing(safeResponse, ChatbotFlag.insufficient_evidence);
+            safeResponse.setConfidence(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
+            safeResponse.setAnswer("Insufficient citation support: no valid citations remain after validation.");
+        }
+
+        return safeResponse;
+    }
+
+    private boolean sanitizeUnknownCitationIds(ChatbotResponse response, Set<String> validCitationIds) {
+        if (!hasAnswerText(response)) {
+            return false;
+        }
+        Matcher matcher = CITATION_PATTERN.matcher(response.getAnswer());
+        StringBuilder rebuilt = new StringBuilder();
+        int cursor = 0;
+        boolean invalidFound = false;
+        while (matcher.find()) {
+            rebuilt.append(response.getAnswer(), cursor, matcher.start());
+            String cid = matcher.group(1);
+            if (validCitationIds.contains(cid)) {
+                rebuilt.append("[").append(cid).append("]");
+            } else {
+                invalidFound = true;
+                rebuilt.append("[citation_removed]");
+            }
+            cursor = matcher.end();
+        }
+        rebuilt.append(response.getAnswer().substring(cursor));
+        if (invalidFound) {
+            response.setAnswer(rebuilt.toString());
+        }
+        return invalidFound;
+    }
+
+    private List<CitationItem> filterToValidCitations(List<CitationItem> citations, Set<String> validCitationIds) {
+        if (citations == null || citations.isEmpty()) {
+            return List.of();
+        }
+        List<CitationItem> filtered = new ArrayList<>();
+        for (CitationItem citation : citations) {
+            if (citation == null) {
+                continue;
+            }
+            if (hasValue(citation.getArtifactId()) && validCitationIds.contains(citation.getArtifactId())) {
+                filtered.add(citation);
+            }
+        }
+        return filtered;
+    }
+
+    private List<String> computeMissingSources(QuestionIntent intent, List<EvidenceItem> evidenceItems, List<MissingEvidence> retrievalMissing) {
+        Set<String> missing = new LinkedHashSet<>();
+        Set<EvidenceArtifactType> present = new LinkedHashSet<>();
+
+        for (EvidenceItem item : evidenceItems) {
+            if (item.getArtifactType() != null) {
+                present.add(item.getArtifactType());
+            }
+        }
+        for (MissingEvidence m : retrievalMissing) {
+            if (m != null && m.getArtifactType() != null) {
+                missing.add(normalizeSourceLabel(m.getArtifactType()));
+            }
+            if (m != null && hasValue(m.getExpectedIdentifier()) && m.getExpectedIdentifier().toLowerCase(Locale.ROOT).contains("systemname|irid")) {
+                missing.add("active context");
+            }
+        }
+
+        for (EvidenceArtifactType required : requiredTypes(intent)) {
+            if (!present.contains(required)) {
+                missing.add(normalizeSourceLabel(required));
+            }
+        }
+
+        return new ArrayList<>(missing);
+    }
+
+    private boolean allSourcesMissingForSupportedIntent(QuestionIntent intent, List<EvidenceItem> evidenceItems) {
+        if (!isSupportedEvidenceRequiredIntent(intent)) {
+            return false;
+        }
+        Set<EvidenceArtifactType> present = new LinkedHashSet<>();
+        for (EvidenceItem item : evidenceItems) {
+            if (item.getArtifactType() != null) {
+                present.add(item.getArtifactType());
+            }
+        }
+        for (EvidenceArtifactType type : requiredTypes(intent)) {
+            if (present.contains(type)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private List<EvidenceArtifactType> requiredTypes(QuestionIntent intent) {
+        return switch (intent) {
+            case ARCHITECTURE_TOPOLOGY -> List.of(EvidenceArtifactType.IR, EvidenceArtifactType.ARCHITECTURE, EvidenceArtifactType.GRAPH);
+            case DEPENDENCY -> List.of(EvidenceArtifactType.GRAPH, EvidenceArtifactType.DEPENDENCY);
+            case ENDPOINT_LOOKUP -> List.of(EvidenceArtifactType.IR, EvidenceArtifactType.ENDPOINT);
+            default -> List.of();
+        };
+    }
+
+    private String normalizeSourceLabel(EvidenceArtifactType type) {
+        return switch (type) {
+            case IR -> "IR";
+            case GRAPH -> "graph";
+            case ARCHITECTURE -> "component index";
+            case ENDPOINT -> "endpoint data";
+            case CONTEXT_METADATA -> "active context";
+            default -> type.name().toLowerCase(Locale.ROOT);
+        };
     }
 
     private boolean asksForFactualArchitectureClaim(String question) {
@@ -56,8 +234,18 @@ public class EvidenceGuardrailService {
         return false;
     }
 
-    private CitationItem toCitation(EvidenceItem evidence) {
-        return EvidenceCitationMapper.toCitation(evidence);
+    private boolean isSupportedEvidenceRequiredIntent(QuestionIntent intent) {
+        return intent == QuestionIntent.ARCHITECTURE_TOPOLOGY
+            || intent == QuestionIntent.DEPENDENCY
+            || intent == QuestionIntent.ENDPOINT_LOOKUP;
+    }
+
+    private boolean hasAnswerText(ChatbotResponse response) {
+        return response != null && response.getAnswer() != null && !response.getAnswer().isBlank();
+    }
+
+    private boolean hasValue(String value) {
+        return value != null && !value.isBlank();
     }
 
     private void ensureFlagListExists(ChatbotResponse response) {

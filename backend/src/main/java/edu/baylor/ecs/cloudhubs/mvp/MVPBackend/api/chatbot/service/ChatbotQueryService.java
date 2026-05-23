@@ -89,12 +89,7 @@ public class ChatbotQueryService {
         response.setTraceMetadata(buildTraceMetadata(requestId, retrieval, budgetResult, response.getCitations().size()));
         if (budgetResult.isTruncated()) {
             addFlagIfMissing(response, ChatbotFlag.partial);
-        }
-
-        if (requiresEvidence(retrieval.getIntent()) && evidenceItems.isEmpty()) {
-            addFlagIfMissing(response, ChatbotFlag.insufficient_evidence);
-            response.setConfidence(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
-            response.setAnswer(buildInsufficientEvidenceAnswer(retrieval));
+            addFlagIfMissing(response, ChatbotFlag.truncated_context);
         }
 
         int contextFields = countContextFields(request.getContext());
@@ -104,7 +99,13 @@ public class ChatbotQueryService {
             contextFields,
             evidenceItems == null ? 0 : evidenceItems.size()
         );
-        response = evidenceGuardrailService.enforce(request.getQuestion(), evidenceItems, response);
+        response = evidenceGuardrailService.enforcePreGeneration(
+            request.getQuestion(),
+            retrieval.getIntent(),
+            evidenceItems,
+            retrieval.getMissingEvidence(),
+            response
+        );
         log.info(
             "chatbot.query.guardrail requestId={} flags={}",
             requestId,
@@ -149,7 +150,12 @@ public class ChatbotQueryService {
             response.setModel(llmResult.getModel() == null || llmResult.getModel().isBlank() ? chatbotConfig.getModel() : llmResult.getModel());
             response.setProvider(llmResult.getProvider() == null || llmResult.getProvider().isBlank() ? chatbotConfig.getProvider().name() : llmResult.getProvider());
             response.setConfidence(ChatbotConfidence.MEDIUM);
-            response = evidenceGuardrailService.enforce(request.getQuestion(), evidenceItems, response);
+            response = evidenceGuardrailService.enforcePostGeneration(
+                request.getQuestion(),
+                retrieval.getIntent(),
+                evidenceItems,
+                response
+            );
             normalizeEvidenceQualification(response);
             long latencyMs = System.currentTimeMillis() - startMs;
             response.setProcessingTimeMs(latencyMs);
@@ -304,32 +310,6 @@ public class ChatbotQueryService {
                 "maxEvidenceChars", budgetResult.getMaxEvidenceChars()
             )
         );
-    }
-
-    private boolean requiresEvidence(QuestionIntent intent) {
-        return intent == QuestionIntent.ARCHITECTURE_TOPOLOGY
-            || intent == QuestionIntent.DEPENDENCY
-            || intent == QuestionIntent.ENDPOINT_LOOKUP;
-    }
-
-    private String buildInsufficientEvidenceAnswer(HybridRetrievalResult retrieval) {
-        String suffix = "";
-        if (retrieval != null && retrieval.getMissingEvidence() != null && !retrieval.getMissingEvidence().isEmpty()) {
-            List<String> reasons = new ArrayList<>();
-            for (MissingEvidence missing : retrieval.getMissingEvidence()) {
-                if (missing == null || missing.getReason() == null || missing.getReason().isBlank()) {
-                    continue;
-                }
-                reasons.add(missing.getReason());
-                if (reasons.size() >= 3) {
-                    break;
-                }
-            }
-            if (!reasons.isEmpty()) {
-                suffix = " Details: " + String.join(" | ", reasons);
-            }
-        }
-        return "Insufficient evidence: no relevant scoped architecture evidence was found for this request." + suffix;
     }
 
 }

@@ -2,11 +2,15 @@ package edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.ChatbotConfidence;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.ChatbotContext;
-import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.EvidenceArtifactType;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.ChatbotFlag;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.ChatbotResponse;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.CitationItem;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.EvidenceArtifactType;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.EvidenceItem;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.MissingEvidence;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.retrieval.QuestionIntent;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -42,41 +46,88 @@ class ChatEvidenceServicesTest {
     }
 
     @Test
-    void noContextNoEvidenceYieldsInsufficientEvidenceFlag() {
-        List<EvidenceItem> evidence = chatContextService.collectEvidence((ChatbotContext) null);
-        assertThat(evidence).isEmpty();
-
+    void noEvidenceCausesRefusalWithMissingSourcesListed() {
         ChatbotResponse response = new ChatbotResponse();
-        response.setAnswer("");
-        ChatbotResponse guarded = evidenceGuardrailService.enforce(
+
+        ChatbotResponse guarded = evidenceGuardrailService.enforcePreGeneration(
             "What architecture risks exist?",
-            evidence,
+            QuestionIntent.ARCHITECTURE_TOPOLOGY,
+            List.of(),
+            List.of(new MissingEvidence(EvidenceArtifactType.CONTEXT_METADATA, "Insufficient active context", "systemName|irId")),
             response
         );
 
         assertThat(guarded.getFlags()).contains(ChatbotFlag.insufficient_evidence);
-        assertThat(guarded.getAnswer().toLowerCase()).contains("insufficient evidence");
-        assertThat(guarded.getCitations()).isEmpty();
+        assertThat(guarded.getAnswer()).contains("Missing sources").contains("IR").contains("graph").contains("active context");
+        assertThat(guarded.getConfidence()).isEqualTo(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
     }
 
     @Test
-    void factualAnswerWithEvidenceGetsCitationIfMissing() {
-        ChatbotContext context = new ChatbotContext("TrainTicket", "ir-1", "idx-2", "run-3", "commit-4", "order-service", "POST /orders", null);
-        List<EvidenceItem> evidence = chatContextService.collectEvidence(context);
-        assertThat(evidence).hasSize(1);
+    void partialEvidenceCausesQualifiedResponse() {
+        EvidenceItem evidence = new EvidenceItem();
+        evidence.setArtifactType(EvidenceArtifactType.DEPENDENCY);
+        evidence.setArtifactId("E1");
+
+        ChatbotResponse guarded = evidenceGuardrailService.enforcePreGeneration(
+            "What depends on order-service?",
+            QuestionIntent.DEPENDENCY,
+            List.of(evidence),
+            List.of(new MissingEvidence(EvidenceArtifactType.GRAPH, "Graph unavailable", "graph")),
+            new ChatbotResponse()
+        );
+
+        assertThat(guarded.getFlags()).contains(ChatbotFlag.partial);
+        assertThat(guarded.getAnswer()).contains("Partial evidence available").contains("graph");
+    }
+
+    @Test
+    void uncitedGeneratedAnswerIsBlocked() {
+        EvidenceItem evidence = new EvidenceItem();
+        evidence.setArtifactType(EvidenceArtifactType.ENDPOINT);
+        evidence.setArtifactId("E2");
 
         ChatbotResponse response = new ChatbotResponse();
-        response.setAnswer("The selected service is order-service.");
+        response.setAnswer("Answer: endpoint is stable.");
+        response.setCitations(List.of());
 
-        ChatbotResponse guarded = evidenceGuardrailService.enforce(
-            "What service changed in this commit?",
-            evidence,
+        ChatbotResponse guarded = evidenceGuardrailService.enforcePostGeneration(
+            "What endpoint changed?",
+            QuestionIntent.ENDPOINT_LOOKUP,
+            List.of(evidence),
             response
         );
 
-        assertThat(guarded.getFlags()).doesNotContain(ChatbotFlag.insufficient_evidence);
-        assertThat(guarded.getCitations()).hasSize(1);
-        assertThat(guarded.getCitations().get(0).getArtifactId()).isEqualTo(evidence.get(0).getArtifactId());
-        assertThat(guarded.getCitations().get(0).getLocationHint()).isEqualTo("active-context");
+        assertThat(guarded.getFlags()).contains(ChatbotFlag.citation_validation_failed, ChatbotFlag.insufficient_evidence);
+        assertThat(guarded.getConfidence()).isEqualTo(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
+        assertThat(guarded.getAnswer()).contains("Insufficient citation support");
+    }
+
+    @Test
+    void invalidCitationIdsAreDetected() {
+        EvidenceItem evidence = new EvidenceItem();
+        evidence.setArtifactType(EvidenceArtifactType.DEPENDENCY);
+        evidence.setArtifactId("E3");
+
+        ChatbotResponse response = new ChatbotResponse();
+        response.setAnswer("Answer: A depends on B [E999].");
+        response.setCitations(List.of(new CitationItem("DEPENDENCY", "E3", "dep", "links[2]", "v1", "A->B")));
+
+        ChatbotResponse guarded = evidenceGuardrailService.enforcePostGeneration(
+            "What depends on A?",
+            QuestionIntent.DEPENDENCY,
+            List.of(evidence),
+            response
+        );
+
+        assertThat(guarded.getFlags()).contains(ChatbotFlag.citation_validation_failed);
+        assertThat(guarded.getConfidence()).isEqualTo(ChatbotConfidence.LOW);
+        assertThat(guarded.getAnswer()).contains("[citation_removed]");
+    }
+
+    @Test
+    void contextProviderStillProducesScopedEvidence() {
+        ChatbotContext context = new ChatbotContext("TrainTicket", "ir-1", "idx-2", "run-3", "commit-4", "order-service", "POST /orders", null);
+        List<EvidenceItem> evidence = chatContextService.collectEvidence(context);
+        assertThat(evidence).hasSize(1);
     }
 }
