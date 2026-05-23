@@ -6,6 +6,8 @@ import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.prompt.PromptAssembly
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.prompt.PromptEvidenceItem;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.retrieval.ContextBudgetResult;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.retrieval.ContextBudgeter;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.retrieval.HybridRetrievalResult;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.retrieval.HybridRetriever;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.retrieval.QuestionIntent;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.runtime.LocalLlmClient;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.runtime.LocalLlmException;
@@ -16,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -28,6 +31,7 @@ public class ChatbotQueryService {
     private final ChatContextService chatContextService;
     private final EvidenceGuardrailService evidenceGuardrailService;
     private final PromptAssemblyService promptAssemblyService;
+    private final HybridRetriever hybridRetriever;
     private final ContextBudgeter contextBudgeter;
     private final LocalLlmClient localLlmClient;
 
@@ -36,6 +40,7 @@ public class ChatbotQueryService {
         ChatContextService chatContextService,
         EvidenceGuardrailService evidenceGuardrailService,
         PromptAssemblyService promptAssemblyService,
+        HybridRetriever hybridRetriever,
         ContextBudgeter contextBudgeter,
         LocalLlmClient localLlmClient
     ) {
@@ -43,6 +48,7 @@ public class ChatbotQueryService {
         this.chatContextService = chatContextService;
         this.evidenceGuardrailService = evidenceGuardrailService;
         this.promptAssemblyService = promptAssemblyService;
+        this.hybridRetriever = hybridRetriever;
         this.contextBudgeter = contextBudgeter;
         this.localLlmClient = localLlmClient;
     }
@@ -61,28 +67,35 @@ public class ChatbotQueryService {
             chatbotConfig.getModel()
         );
 
-        List<EvidenceItem> rawEvidenceItems = chatContextService.collectEvidence(request);
+        var retrievalSeed = chatContextService.retrieveEvidence(request);
+        var queryContext = chatContextService.toQueryContext(request);
+        HybridRetrievalResult retrieval = hybridRetriever.retrieve(
+            request == null ? null : request.getQuestion(),
+            queryContext,
+            retrievalSeed.getEvidenceItems(),
+            retrievalSeed.getMissingEvidence()
+        );
+
         ContextBudgetResult budgetResult = contextBudgeter.budget(
-            rawEvidenceItems,
-            extractMatchedEntities(request),
-            intentFromQuestion(request == null ? null : request.getQuestion()),
+            retrieval.getRankedEvidence(),
+            retrieval.getMatchedEntities(),
+            retrieval.getIntent(),
             chatbotConfig.getContextBudgetMaxEvidenceItems(),
             chatbotConfig.getContextBudgetMaxEvidenceChars()
         );
         List<EvidenceItem> evidenceItems = budgetResult.getRetainedEvidence();
-        response.setTraceMetadata(Map.of(
-            "contextBudget", Map.of(
-                "originalEvidenceCount", budgetResult.getOriginalEvidenceCount(),
-                "retainedEvidenceCount", budgetResult.getRetainedEvidenceCount(),
-                "truncated", budgetResult.isTruncated(),
-                "omittedArtifactTypeCounts", budgetResult.getOmittedArtifactTypeCounts(),
-                "maxEvidenceItems", budgetResult.getMaxEvidenceItems(),
-                "maxEvidenceChars", budgetResult.getMaxEvidenceChars()
-            )
-        ));
+        response.setCitations(EvidenceCitationMapper.toCitations(evidenceItems));
+        response.setTraceMetadata(buildTraceMetadata(requestId, retrieval, budgetResult, response.getCitations().size()));
         if (budgetResult.isTruncated()) {
             addFlagIfMissing(response, ChatbotFlag.partial);
         }
+
+        if (requiresEvidence(retrieval.getIntent()) && evidenceItems.isEmpty()) {
+            addFlagIfMissing(response, ChatbotFlag.insufficient_evidence);
+            response.setConfidence(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
+            response.setAnswer(buildInsufficientEvidenceAnswer(retrieval));
+        }
+
         int contextFields = countContextFields(request.getContext());
         log.info(
             "chatbot.query.context requestId={} contextFieldCount={} evidenceCount={}",
@@ -262,34 +275,52 @@ public class ChatbotQueryService {
         }
     }
 
-    private List<String> extractMatchedEntities(ChatbotQueryRequest request) {
-        if (request == null || request.getContext() == null) {
-            return List.of();
-        }
-        List<String> entities = new java.util.ArrayList<>();
-        if (hasValue(request.getContext().getSelectedService())) {
-            entities.add(request.getContext().getSelectedService().trim());
-        }
-        if (hasValue(request.getContext().getSelectedEndpoint())) {
-            entities.add(request.getContext().getSelectedEndpoint().trim());
-        }
-        return entities;
+    private Map<String, Object> buildTraceMetadata(String requestId, HybridRetrievalResult retrieval, ContextBudgetResult budgetResult, int citationsCount) {
+        return Map.of(
+            "requestId", requestId,
+            "retrieval", Map.of(
+                "strategy", retrieval.getStrategy().name(),
+                "intent", retrieval.getIntent().name(),
+                "evidenceCount", retrieval.getEvidenceCount(),
+                "matchedEntities", retrieval.getMatchedEntities(),
+                "missingEvidence", retrieval.getMissingEvidence()
+            ),
+            "citationsCount", citationsCount,
+            "contextBudget", Map.of(
+                "originalEvidenceCount", budgetResult.getOriginalEvidenceCount(),
+                "retainedEvidenceCount", budgetResult.getRetainedEvidenceCount(),
+                "truncated", budgetResult.isTruncated(),
+                "omittedArtifactTypeCounts", budgetResult.getOmittedArtifactTypeCounts(),
+                "maxEvidenceItems", budgetResult.getMaxEvidenceItems(),
+                "maxEvidenceChars", budgetResult.getMaxEvidenceChars()
+            )
+        );
     }
 
-    private QuestionIntent intentFromQuestion(String question) {
-        String q = question == null ? "" : question.toLowerCase();
-        if (q.contains("depends on") || q.contains("what depends") || q.contains("transitive") || q.contains("call")) {
-            return QuestionIntent.DEPENDENCY;
-        }
-        if (q.contains("endpoint") || q.contains("url") || q.contains("route")) {
-            return QuestionIntent.ENDPOINT_LOOKUP;
-        }
-        if (q.contains("service")) {
-            return QuestionIntent.SERVICE_LOOKUP;
-        }
-        if (q.contains("architecture") || q.contains("topology") || q.contains("system") || q.contains("component")) {
-            return QuestionIntent.ARCHITECTURE_TOPOLOGY;
-        }
-        return QuestionIntent.UNSUPPORTED_SPECULATIVE;
+    private boolean requiresEvidence(QuestionIntent intent) {
+        return intent == QuestionIntent.ARCHITECTURE_TOPOLOGY
+            || intent == QuestionIntent.DEPENDENCY
+            || intent == QuestionIntent.ENDPOINT_LOOKUP;
     }
+
+    private String buildInsufficientEvidenceAnswer(HybridRetrievalResult retrieval) {
+        String suffix = "";
+        if (retrieval != null && retrieval.getMissingEvidence() != null && !retrieval.getMissingEvidence().isEmpty()) {
+            List<String> reasons = new ArrayList<>();
+            for (MissingEvidence missing : retrieval.getMissingEvidence()) {
+                if (missing == null || missing.getReason() == null || missing.getReason().isBlank()) {
+                    continue;
+                }
+                reasons.add(missing.getReason());
+                if (reasons.size() >= 3) {
+                    break;
+                }
+            }
+            if (!reasons.isEmpty()) {
+                suffix = " Details: " + String.join(" | ", reasons);
+            }
+        }
+        return "Insufficient evidence: no relevant scoped architecture evidence was found for this request." + suffix;
+    }
+
 }

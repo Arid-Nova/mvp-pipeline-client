@@ -39,7 +39,7 @@ class ChatbotControllerTest {
                 );
             }
         };
-        ChatbotQueryService stubQueryService = new ChatbotQueryService(null, null, null, null, null, null) {};
+        ChatbotQueryService stubQueryService = new ChatbotQueryService(null, null, null, null, null, null, null) {};
         MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new ChatbotController(stubHealthService, stubQueryService)).build();
 
         mockMvc.perform(get("/chatbot/health").accept(MediaType.APPLICATION_JSON))
@@ -59,7 +59,7 @@ class ChatbotControllerTest {
                 return null;
             }
         };
-        ChatbotQueryService queryService = new ChatbotQueryService(null, null, null, null, null, null) {
+        ChatbotQueryService queryService = new ChatbotQueryService(null, null, null, null, null, null, null) {
             @Override
             public ChatbotResponse query(ChatbotQueryRequest request, String requestId) {
                 ChatbotResponse response = new ChatbotResponse();
@@ -100,7 +100,7 @@ class ChatbotControllerTest {
                 return null;
             }
         };
-        ChatbotQueryService queryService = new ChatbotQueryService(null, null, null, null, null, null) {
+        ChatbotQueryService queryService = new ChatbotQueryService(null, null, null, null, null, null, null) {
             @Override
             public ChatbotResponse query(ChatbotQueryRequest request, String requestId) {
                 throw new LocalLlmException(LocalLlmFailureCode.provider_error, "should not be called");

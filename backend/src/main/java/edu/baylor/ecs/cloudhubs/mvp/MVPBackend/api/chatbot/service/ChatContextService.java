@@ -52,7 +52,7 @@ public class ChatContextService {
             return empty;
         }
 
-        EvidenceQueryContext queryContext = buildQueryContext(request);
+        EvidenceQueryContext queryContext = toQueryContext(request);
         if (!queryContext.isExpandedScopeAllowed() && !hasAnyContextIdentifier(queryContext.getScope())) {
             EvidenceRetrievalResult blocked = new EvidenceRetrievalResult();
             blocked.setMissingEvidence(List.of(new MissingEvidence(
@@ -97,7 +97,7 @@ public class ChatContextService {
         return result;
     }
 
-    private EvidenceQueryContext buildQueryContext(ChatbotQueryRequest request) {
+    public EvidenceQueryContext toQueryContext(ChatbotQueryRequest request) {
         ChatbotContext context = request.getContext();
         EvidenceScope scope = new EvidenceScope();
         if (context != null) {
