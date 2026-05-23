@@ -81,6 +81,41 @@ public class IRService {
         return getIRsByName(flexiblePattern);
     }
 
+    public Optional<StoredIrPayload> getStoredIrById(String id) {
+        if (id == null || id.isBlank()) {
+            return Optional.empty();
+        }
+        return repository.findById(id.trim())
+            .map(entity -> new StoredIrPayload(
+                entity.getId(),
+                entity.getSystemName(),
+                entity.getCreateDate(),
+                entity.getModifyDate(),
+                readPayload(entity)
+            ));
+    }
+
+    public Optional<StoredIrPayload> getLatestStoredIrBySystemName(String systemName) {
+        if (systemName == null || systemName.isBlank()) {
+            return Optional.empty();
+        }
+
+        Pageable latestOnly = PageRequest.of(0, 1, Sort.by(Sort.Direction.DESC, "modifyDate"));
+        List<MicroserviceEntity> entities = repository.findByPayloadNameMatching(buildFlexibleRegex(systemName), latestOnly);
+        if (entities.isEmpty()) {
+            return Optional.empty();
+        }
+
+        MicroserviceEntity entity = entities.get(0);
+        return Optional.of(new StoredIrPayload(
+            entity.getId(),
+            entity.getSystemName(),
+            entity.getCreateDate(),
+            entity.getModifyDate(),
+            readPayload(entity)
+        ));
+    }
+
     private String buildFlexibleRegex(String input) {
         if (input == null || input.trim().isEmpty()) {
             return "";
