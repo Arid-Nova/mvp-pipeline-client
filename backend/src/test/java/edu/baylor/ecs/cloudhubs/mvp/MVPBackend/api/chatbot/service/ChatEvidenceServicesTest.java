@@ -3,6 +3,7 @@ package edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.ChatbotContext;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.EvidenceArtifactType;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.ChatbotFlag;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.ChatbotResponse;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.EvidenceItem;
@@ -34,7 +35,7 @@ class ChatEvidenceServicesTest {
         String json = objectMapper.writeValueAsString(item);
         EvidenceItem restored = objectMapper.readValue(json, EvidenceItem.class);
 
-        assertThat(restored.getArtifactType()).isEqualTo("SERVICE");
+        assertThat(restored.getArtifactType()).isEqualTo(EvidenceArtifactType.SERVICE);
         assertThat(restored.getArtifactId()).isEqualTo("svc-12");
         assertThat(restored.getLocationHint()).isEqualTo("OrderController:88");
         assertThat(restored.getTimestamp()).isEqualTo(Instant.parse("2026-05-14T10:15:30Z"));

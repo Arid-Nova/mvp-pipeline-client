@@ -3,6 +3,7 @@ package edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.service;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.ChatbotFlag;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.ChatbotResponse;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.CitationItem;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.EvidenceCitationMapper;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.EvidenceItem;
 import org.springframework.stereotype.Service;
 
@@ -56,14 +57,7 @@ public class EvidenceGuardrailService {
     }
 
     private CitationItem toCitation(EvidenceItem evidence) {
-        return new CitationItem(
-            evidence.getArtifactType(),
-            evidence.getArtifactId(),
-            evidence.getArtifactName(),
-            evidence.getLocationHint(),
-            evidence.getVersion(),
-            evidence.getContent()
-        );
+        return EvidenceCitationMapper.toCitation(evidence);
     }
 
     private void ensureFlagListExists(ChatbotResponse response) {

@@ -181,7 +181,7 @@ public class ChatbotQueryService {
         return evidenceItems.stream()
             .map(item -> new PromptEvidenceItem(
                 item.getArtifactId(),
-                item.getArtifactType(),
+                item.getArtifactTypeValue(),
                 item.getArtifactName(),
                 item.getLocationHint(),
                 item.getContent()
