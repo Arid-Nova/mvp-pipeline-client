@@ -83,6 +83,13 @@ export interface CitationItem {
     locationHint: string;
     version: string;
     summary: string;
+    sourcePath?: string;
+    sourceEndpoint?: string;
+    serviceName?: string;
+    entityName?: string;
+    endpointPath?: string;
+    commitId?: string;
+    timestamp?: string;
 }
 
 export type ChatbotConfidence = "HIGH" | "MEDIUM" | "LOW" | "INSUFFICIENT_EVIDENCE";

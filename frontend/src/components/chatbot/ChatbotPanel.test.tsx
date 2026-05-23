@@ -1,6 +1,6 @@
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import ChatbotPanel from "./ChatbotPanel";
+import ChatbotPanel, { CitationList } from "./ChatbotPanel";
 import { getChatbotHealth, sendChatbotQuery } from "../../services/api";
 
 jest.mock("../../services/api", () => ({
@@ -91,7 +91,8 @@ describe("ChatbotPanel", () => {
         expect(screen.getByTestId("answer-section")).toBeInTheDocument();
         expect(screen.getByTestId("citation-list")).toBeInTheDocument();
         expect(screen.getByTestId("confidence-panel")).toBeInTheDocument();
-        expect(screen.getByText(/OrderController:88/)).toBeInTheDocument();
+        expect(screen.getByText(/SERVICE · svc-1/)).toBeInTheDocument();
+        expect(screen.getByText(/Subject: order-service/)).toBeInTheDocument();
         expect(screen.getByText(/Relevant evidence exists/i)).toBeInTheDocument();
     });
 
@@ -198,5 +199,89 @@ describe("ChatbotPanel", () => {
 
         expect(screen.getByTestId("qualification-notice")).toHaveTextContent("runtime is unavailable");
         expect(screen.getByText("LOW")).toBeInTheDocument();
+    });
+});
+
+describe("CitationList", () => {
+    it("shows expandable citation metadata", () => {
+        render(
+            <CitationList
+                citations={[
+                    {
+                        artifactType: "IR",
+                        artifactId: "E1",
+                        artifactName: "order-service",
+                        serviceName: "order-service",
+                        entityName: "OrderController",
+                        endpointPath: "/orders",
+                        locationHint: "controllers[0].methods[0]",
+                        version: "commit-1",
+                        commitId: "commit-1",
+                        sourcePath: "src/OrderController.java",
+                        sourceEndpoint: "GET /orders",
+                        timestamp: "2026-05-23T12:00:00Z",
+                        summary: "Evidence snippet"
+                    }
+                ]}
+            />
+        );
+
+        const toggle = screen.getByTestId("citation-toggle-0");
+        expect(toggle).toHaveAttribute("aria-expanded", "false");
+        fireEvent.click(toggle);
+        expect(toggle).toHaveAttribute("aria-expanded", "true");
+        expect(screen.getByTestId("citation-details-0")).toBeInTheDocument();
+        expect(screen.getByText(/sourcePath:/i)).toBeInTheDocument();
+        expect(screen.getByText(/locationHint:/i)).toBeInTheDocument();
+    });
+
+    it("handles missing optional citation fields", () => {
+        render(
+            <CitationList
+                citations={[
+                    {
+                        artifactType: "GRAPH",
+                        artifactId: "E2",
+                        artifactName: "",
+                        locationHint: "",
+                        version: "",
+                        summary: ""
+                    }
+                ]}
+            />
+        );
+
+        fireEvent.click(screen.getByTestId("citation-toggle-0"));
+        expect(screen.getByTestId("citation-details-0")).toHaveTextContent("n/a");
+    });
+
+    it("renders multiple citations", () => {
+        render(
+            <CitationList
+                citations={[
+                    { artifactType: "IR", artifactId: "E1", artifactName: "a", locationHint: "l1", version: "v1", summary: "s1" },
+                    { artifactType: "GRAPH", artifactId: "E2", artifactName: "b", locationHint: "l2", version: "v2", summary: "s2" }
+                ]}
+            />
+        );
+
+        expect(screen.getByTestId("citation-toggle-0")).toBeInTheDocument();
+        expect(screen.getByTestId("citation-toggle-1")).toBeInTheDocument();
+    });
+
+    it("truncates long citation snippet", () => {
+        const longText = "x".repeat(500);
+        render(
+            <CitationList
+                citations={[
+                    { artifactType: "IR", artifactId: "E9", artifactName: "a", locationHint: "l", version: "v", summary: longText }
+                ]}
+            />
+        );
+
+        fireEvent.click(screen.getByTestId("citation-toggle-0"));
+        const snippet = screen.getByTestId("citation-snippet-0").textContent || "";
+        expect(snippet.length).toBeLessThan(longText.length);
+        expect(snippet.endsWith("...")).toBe(true);
     });
 });

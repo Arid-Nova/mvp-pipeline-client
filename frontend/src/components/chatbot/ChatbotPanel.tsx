@@ -79,6 +79,50 @@ export const RuntimeStatus: React.FC<{
 };
 
 export const CitationList: React.FC<{ citations: CitationItem[] }> = ({ citations }) => {
+    const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+
+    const toggle = (idx: number) => {
+        setExpanded((prev) => ({ ...prev, [idx]: !prev[idx] }));
+    };
+
+    const truncateSnippet = (text?: string, max = 220): string => {
+        if (!text) {
+            return "No evidence snippet available.";
+        }
+        if (text.length <= max) {
+            return text;
+        }
+        return `${text.slice(0, max)}...`;
+    };
+
+    const subjectLabel = (citation: CitationItem): string => {
+        const values = [citation.serviceName, citation.entityName, citation.endpointPath, citation.artifactName]
+            .filter((v) => Boolean(v && v.trim()));
+        return values.length > 0 ? values[0] as string : "n/a";
+    };
+
+    const detailsText = (citation: CitationItem): string => {
+        return [
+            `artifactType: ${citation.artifactType || "n/a"}`,
+            `artifactId: ${citation.artifactId || "n/a"}`,
+            `subject: ${subjectLabel(citation)}`,
+            `sourcePath: ${citation.sourcePath || "n/a"}`,
+            `sourceEndpoint: ${citation.sourceEndpoint || "n/a"}`,
+            `version: ${citation.version || "n/a"}`,
+            `commitId: ${citation.commitId || "n/a"}`,
+            `timestamp: ${citation.timestamp || "n/a"}`,
+            `locationHint: ${citation.locationHint || "n/a"}`,
+            `snippet: ${truncateSnippet(citation.summary)}`
+        ].join("\n");
+    };
+
+    const copyDetails = async (citation: CitationItem) => {
+        const text = detailsText(citation);
+        if (navigator?.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+        }
+    };
+
     return (
         <div className="mt-2" data-testid="citation-list">
             <div className="text-[11px] font-semibold text-slate-300 uppercase tracking-wide">Evidence citations</div>
@@ -89,10 +133,43 @@ export const CitationList: React.FC<{ citations: CitationItem[] }> = ({ citation
                     {citations.map((citation, idx) => (
                         <li key={`${citation.artifactId}-${idx}`} className="text-xs text-slate-300 border border-slate-700 rounded-md p-2 bg-slate-900/70">
                             <div className="font-semibold text-slate-200">
-                                {citation.artifactType} · {citation.artifactName || citation.artifactId}
+                                {citation.artifactType || "UNKNOWN"} · {citation.artifactId || "n/a"}
                             </div>
-                            <div className="text-slate-400">{citation.locationHint || "n/a"} · {citation.version || "n/a"}</div>
-                            <div className="mt-1 text-slate-300">{citation.summary || "No summary provided."}</div>
+                            <div className="text-slate-400 mt-0.5">Subject: {subjectLabel(citation)}</div>
+                            <div className="mt-2 flex items-center gap-3">
+                                <button
+                                    type="button"
+                                    data-testid={`citation-toggle-${idx}`}
+                                    aria-expanded={Boolean(expanded[idx])}
+                                    aria-controls={`citation-details-${idx}`}
+                                    onClick={() => toggle(idx)}
+                                    className="text-[11px] text-cyan-300 hover:text-cyan-200"
+                                >
+                                    {expanded[idx] ? "Hide details" : "Show details"}
+                                </button>
+                                <button
+                                    type="button"
+                                    data-testid={`citation-copy-${idx}`}
+                                    onClick={() => copyDetails(citation)}
+                                    className="text-[11px] text-slate-300 hover:text-white"
+                                >
+                                    Copy details
+                                </button>
+                            </div>
+                            {expanded[idx] && (
+                                <div id={`citation-details-${idx}`} data-testid={`citation-details-${idx}`} className="mt-2 rounded-md border border-slate-700 bg-slate-950/70 p-2 space-y-1">
+                                    <div><span className="text-slate-400">sourcePath:</span> {citation.sourcePath || "n/a"}</div>
+                                    <div><span className="text-slate-400">sourceEndpoint:</span> {citation.sourceEndpoint || "n/a"}</div>
+                                    <div><span className="text-slate-400">version:</span> {citation.version || "n/a"}</div>
+                                    <div><span className="text-slate-400">commitId:</span> {citation.commitId || "n/a"}</div>
+                                    <div><span className="text-slate-400">timestamp:</span> {citation.timestamp || "n/a"}</div>
+                                    <div><span className="text-slate-400">locationHint:</span> {citation.locationHint || "n/a"}</div>
+                                    <div>
+                                        <div className="text-slate-400">Evidence snippet:</div>
+                                        <pre data-testid={`citation-snippet-${idx}`} className="mt-1 whitespace-pre-wrap break-words text-slate-300">{truncateSnippet(citation.summary)}</pre>
+                                    </div>
+                                </div>
+                            )}
                         </li>
                     ))}
                 </ul>
