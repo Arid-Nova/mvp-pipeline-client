@@ -3,7 +3,9 @@ import {
     ChatbotContext,
     ChatbotHealthResponse,
     CitationItem,
-    ChatbotConfidence
+    ChatbotConfidence,
+    ChatbotFlag,
+    ChatbotResponse
 } from "../../services/types";
 import { ChatMessageModel, useChatbotState } from "./useChatbotState";
 
@@ -78,8 +80,8 @@ export const RuntimeStatus: React.FC<{
 
 export const CitationList: React.FC<{ citations: CitationItem[] }> = ({ citations }) => {
     return (
-        <div className="mt-2">
-            <div className="text-[11px] font-semibold text-slate-300 uppercase tracking-wide">Citations</div>
+        <div className="mt-2" data-testid="citation-list">
+            <div className="text-[11px] font-semibold text-slate-300 uppercase tracking-wide">Evidence citations</div>
             {citations.length === 0 ? (
                 <div className="text-xs text-slate-400 mt-1">No citations available.</div>
             ) : (
@@ -99,23 +101,96 @@ export const CitationList: React.FC<{ citations: CitationItem[] }> = ({ citation
     );
 };
 
+export const QualificationNotice: React.FC<{ response: ChatbotResponse }> = ({ response }) => {
+    const flags = response.flags || [];
+    const notices: Array<{ tone: "rose" | "amber" | "slate"; text: string }> = [];
+
+    if (flags.includes("model_unavailable")) {
+        notices.push({ tone: "rose", text: "Chatbot runtime is unavailable. Responses may be incomplete until runtime recovers." });
+    }
+    if (flags.includes("insufficient_evidence")) {
+        notices.push({ tone: "rose", text: "Insufficient evidence for this claim in the active scope." });
+    }
+    if (flags.includes("citation_validation_failed")) {
+        notices.push({ tone: "rose", text: "Citation validation failed. Some claims were downgraded or filtered." });
+    }
+    if (flags.includes("partial")) {
+        notices.push({ tone: "amber", text: "Only partial evidence sources are available." });
+    }
+    if (flags.includes("truncated_context")) {
+        notices.push({ tone: "amber", text: "Evidence context was truncated due to budget limits." });
+    }
+    if (flags.includes("stale_context")) {
+        notices.push({ tone: "amber", text: "Active context may be stale relative to latest analysis artifacts." });
+    }
+
+    if (notices.length === 0) {
+        return null;
+    }
+
+    return (
+        <div className="mt-2 space-y-1" data-testid="qualification-notice">
+            <div className="text-[11px] font-semibold text-slate-300 uppercase tracking-wide">Qualification</div>
+            {notices.map((notice, idx) => (
+                <div
+                    key={`${notice.text}-${idx}`}
+                    className={`text-xs rounded-md px-2 py-1 border ${notice.tone === "rose"
+                        ? "bg-rose-900/25 border-rose-700/40 text-rose-300"
+                        : notice.tone === "amber"
+                            ? "bg-amber-900/25 border-amber-700/40 text-amber-300"
+                            : "bg-slate-900/60 border-slate-700 text-slate-300"
+                    }`}
+                >
+                    {notice.text}
+                </div>
+            ))}
+        </div>
+    );
+};
+
+const ConfidencePanel: React.FC<{ response: ChatbotResponse }> = ({ response }) => {
+    return (
+        <div className="mt-2" data-testid="confidence-panel">
+            <div className="text-[11px] font-semibold text-slate-300 uppercase tracking-wide">Confidence</div>
+            <div className="mt-1 flex items-center gap-2">
+                <ConfidenceBadge confidence={response.confidence} />
+                <div className="text-xs text-slate-400">{response.confidenceRationale || "No rationale provided."}</div>
+            </div>
+            {response.confidenceReasons && response.confidenceReasons.length > 0 && (
+                <div className="mt-1 text-xs text-slate-400">
+                    Reasons: {response.confidenceReasons.join(", ")}
+                </div>
+            )}
+        </div>
+    );
+};
+
 export const ChatMessage: React.FC<{ message: ChatMessageModel }> = ({ message }) => {
     const isUser = message.role === "user";
-    return (
-        <div className={`rounded-lg p-3 ${isUser ? "bg-cyan-900/40 border border-cyan-700/50" : "bg-slate-800/70 border border-slate-700"}`}>
-            <div className="text-[11px] uppercase tracking-wide text-slate-400 mb-1">{isUser ? "You" : "AridNova Assistant"}</div>
-            <div className="text-sm text-slate-100 whitespace-pre-wrap">{message.content}</div>
+    const flags: ChatbotFlag[] = message.response?.flags || [];
+    const isUnavailable = flags.includes("model_unavailable");
 
-            {!isUser && message.response && (
-                <div className="mt-2 border-t border-slate-700 pt-2">
-                    <div className="flex items-center gap-2">
-                        <ConfidenceBadge confidence={message.response.confidence} />
-                        <div className="text-xs text-slate-400">
-                            Flags: {message.response.flags?.length ? message.response.flags.join(", ") : "none"}
-                        </div>
+    return (
+        <div className={`rounded-lg p-3 ${isUser ? "bg-cyan-900/40 border border-cyan-700/50" : isUnavailable ? "bg-rose-950/30 border border-rose-700/40" : "bg-slate-800/70 border border-slate-700"}`}>
+            <div className="text-[11px] uppercase tracking-wide text-slate-400 mb-1">{isUser ? "You" : "AridNova Assistant"}</div>
+
+            {isUser ? (
+                <div className="text-sm text-slate-100 whitespace-pre-wrap">{message.content}</div>
+            ) : (
+                <>
+                    <div data-testid="answer-section">
+                        <div className="text-[11px] font-semibold text-slate-300 uppercase tracking-wide">Direct answer</div>
+                        <div className="text-sm text-slate-100 whitespace-pre-wrap mt-1">{message.content}</div>
                     </div>
-                    <CitationList citations={message.response.citations || []} />
-                </div>
+
+                    {message.response && (
+                        <div className="mt-2 border-t border-slate-700 pt-2">
+                            <ConfidencePanel response={message.response} />
+                            <QualificationNotice response={message.response} />
+                            <CitationList citations={message.response.citations || []} />
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );

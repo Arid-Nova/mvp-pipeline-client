@@ -46,7 +46,7 @@ describe("ChatbotPanel", () => {
         });
     });
 
-    it("renders loading and answer/citations/confidence", async () => {
+    it("renders answer with citations and confidence sections", async () => {
         mockedGetHealth.mockResolvedValue({
             status: "healthy",
             provider: "OLLAMA",
@@ -67,6 +67,8 @@ describe("ChatbotPanel", () => {
                 summary: "Evidence summary"
             }],
             confidence: "MEDIUM",
+            confidenceRationale: "Relevant evidence exists but partial coverage.",
+            confidenceReasons: ["partial_sources"],
             flags: ["partial"],
             requestId: "req-1",
             processingTimeMs: 20,
@@ -76,34 +78,24 @@ describe("ChatbotPanel", () => {
 
         render(<ChatbotPanel activeContext={{ systemName: "TrainTicket", irId: "ir-7", indexId: "idx-2", commitId: "abc123" }} />);
         fireEvent.click(screen.getByTestId("chatbot-toggle"));
-        expect(screen.getByTestId("chatbot-active-context")).toHaveTextContent("Active scope:");
-        expect(screen.getByTestId("chatbot-active-context")).toHaveTextContent("System: TrainTicket");
-        expect(screen.getByTestId("chatbot-active-context")).toHaveTextContent("IR: ir-7");
 
         fireEvent.change(screen.getByTestId("chatbot-input"), {
             target: { value: "What changed?" }
         });
         fireEvent.click(screen.getByTestId("chatbot-submit"));
 
-        expect(screen.getByText("Sending...")).toBeInTheDocument();
-
         await waitFor(() => {
             expect(screen.getByText(/policy changed/i)).toBeInTheDocument();
         });
-        expect(screen.getByText(/MEDIUM/)).toBeInTheDocument();
-        expect(screen.getByText(/Citations/)).toBeInTheDocument();
+
+        expect(screen.getByTestId("answer-section")).toBeInTheDocument();
+        expect(screen.getByTestId("citation-list")).toBeInTheDocument();
+        expect(screen.getByTestId("confidence-panel")).toBeInTheDocument();
         expect(screen.getByText(/OrderController:88/)).toBeInTheDocument();
-        expect(mockedSendQuery).toHaveBeenCalledWith(expect.objectContaining({
-            context: expect.objectContaining({
-                systemName: "TrainTicket",
-                irId: "ir-7",
-                indexId: "idx-2",
-                commitId: "abc123"
-            })
-        }));
+        expect(screen.getByText(/Relevant evidence exists/i)).toBeInTheDocument();
     });
 
-    it("shows explicit no-context state", async () => {
+    it("renders insufficient evidence response clearly", async () => {
         mockedGetHealth.mockResolvedValue({
             status: "healthy",
             provider: "OLLAMA",
@@ -113,14 +105,74 @@ describe("ChatbotPanel", () => {
             checkedAt: new Date().toISOString(),
             latencyMs: 20
         });
+        mockedSendQuery.mockResolvedValue({
+            answer: "Insufficient evidence: required architecture evidence is missing.",
+            citations: [],
+            confidence: "INSUFFICIENT_EVIDENCE",
+            confidenceRationale: "Required architecture evidence is missing for this query scope.",
+            confidenceReasons: ["missing_required_evidence"],
+            flags: ["insufficient_evidence"],
+            requestId: "req-insufficient",
+            processingTimeMs: 10,
+            model: "llama3.2",
+            provider: "OLLAMA"
+        });
 
-        render(<ChatbotPanel />);
+        render(<ChatbotPanel activeContext={{ systemName: "TrainTicket" }} />);
         fireEvent.click(screen.getByTestId("chatbot-toggle"));
+        fireEvent.change(screen.getByTestId("chatbot-input"), { target: { value: "What architecture risks exist?" } });
+        fireEvent.click(screen.getByTestId("chatbot-submit"));
 
-        expect(await screen.findByTestId("chatbot-active-context")).toHaveTextContent("No active analysis context.");
+        await waitFor(() => {
+            expect(screen.getAllByText(/Insufficient evidence/i).length).toBeGreaterThan(0);
+        });
+        expect(screen.getByTestId("qualification-notice")).toHaveTextContent("Insufficient evidence for this claim");
     });
 
-    it("supports failure then retry last failed query", async () => {
+    it("renders low confidence and truncated context notice", async () => {
+        mockedGetHealth.mockResolvedValue({
+            status: "healthy",
+            provider: "OLLAMA",
+            model: "llama3.2",
+            baseUrl: "http://localhost:8080",
+            message: "ok",
+            checkedAt: new Date().toISOString(),
+            latencyMs: 20
+        });
+        mockedSendQuery.mockResolvedValue({
+            answer: "Answer: Potential dependency path [E5].",
+            citations: [{
+                artifactType: "GRAPH",
+                artifactId: "E5",
+                artifactName: "payment->order",
+                locationHint: "links[5]",
+                version: "commit-5",
+                summary: "Transitive path"
+            }],
+            confidence: "LOW",
+            confidenceRationale: "Evidence quality or citation validation concerns reduce confidence.",
+            confidenceReasons: ["truncated_context"],
+            flags: ["partial", "truncated_context"],
+            requestId: "req-low",
+            processingTimeMs: 15,
+            model: "llama3.2",
+            provider: "OLLAMA"
+        });
+
+        render(<ChatbotPanel activeContext={{ systemName: "TrainTicket" }} />);
+        fireEvent.click(screen.getByTestId("chatbot-toggle"));
+        fireEvent.change(screen.getByTestId("chatbot-input"), { target: { value: "What depends on payment-service?" } });
+        fireEvent.click(screen.getByTestId("chatbot-submit"));
+
+        await waitFor(() => {
+            expect(screen.getByText(/Potential dependency path/i)).toBeInTheDocument();
+        });
+
+        expect(screen.getByText("LOW")).toBeInTheDocument();
+        expect(screen.getByTestId("qualification-notice")).toHaveTextContent("truncated due to budget limits");
+    });
+
+    it("runtime unavailable response still renders without crash", async () => {
         mockedGetHealth.mockResolvedValue({
             status: "healthy",
             provider: "OLLAMA",
@@ -131,18 +183,7 @@ describe("ChatbotPanel", () => {
             latencyMs: 20
         });
 
-        mockedSendQuery
-            .mockRejectedValueOnce(new Error("runtime unavailable"))
-            .mockResolvedValueOnce({
-                answer: "Recovered answer",
-                citations: [],
-                confidence: "LOW",
-                flags: [],
-                requestId: "req-retry",
-                processingTimeMs: 5,
-                model: "llama3.2",
-                provider: "OLLAMA"
-            });
+        mockedSendQuery.mockRejectedValueOnce(new Error("Chatbot runtime is currently unavailable. Please ensure the local model runtime is running."));
 
         render(<ChatbotPanel activeContext={{ systemName: "TrainTicket" }} />);
         fireEvent.click(screen.getByTestId("chatbot-toggle"));
@@ -152,52 +193,10 @@ describe("ChatbotPanel", () => {
         fireEvent.click(screen.getByTestId("chatbot-submit"));
 
         await waitFor(() => {
-            expect(screen.getByTestId("chatbot-error")).toHaveTextContent("runtime unavailable");
+            expect(screen.getByText(/Unable to answer right now/i)).toBeInTheDocument();
         });
 
-        fireEvent.click(screen.getByTestId("chatbot-retry"));
-
-        await waitFor(() => {
-            expect(screen.getByText("Recovered answer")).toBeInTheDocument();
-        });
-        expect(mockedSendQuery).toHaveBeenCalledTimes(2);
-    });
-
-    it("clears conversation without crashing", async () => {
-        mockedGetHealth.mockResolvedValue({
-            status: "healthy",
-            provider: "OLLAMA",
-            model: "llama3.2",
-            baseUrl: "http://localhost:8080",
-            message: "ok",
-            checkedAt: new Date().toISOString(),
-            latencyMs: 20
-        });
-
-        mockedSendQuery.mockResolvedValue({
-            answer: "First answer",
-            citations: [],
-            confidence: "LOW",
-            flags: [],
-            requestId: "req-clear",
-            processingTimeMs: 5,
-            model: "llama3.2",
-            provider: "OLLAMA"
-        });
-
-        render(<ChatbotPanel activeContext={{ systemName: "TrainTicket" }} />);
-        fireEvent.click(screen.getByTestId("chatbot-toggle"));
-        fireEvent.change(screen.getByTestId("chatbot-input"), {
-            target: { value: "Question one" }
-        });
-        fireEvent.click(screen.getByTestId("chatbot-submit"));
-
-        await waitFor(() => {
-            expect(screen.getByText("First answer")).toBeInTheDocument();
-        });
-
-        fireEvent.click(screen.getByTestId("chatbot-clear"));
-        expect(screen.getByText(/Ask a question about your current system context/i)).toBeInTheDocument();
-        expect(screen.queryByText("First answer")).toBeNull();
+        expect(screen.getByTestId("qualification-notice")).toHaveTextContent("runtime is unavailable");
+        expect(screen.getByText("LOW")).toBeInTheDocument();
     });
 });

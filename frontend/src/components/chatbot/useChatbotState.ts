@@ -102,7 +102,9 @@ export const useChatbotState = (activeContext?: ChatbotContext) => {
                             requestId: "n/a",
                             processingTimeMs: 0,
                             model: health?.model || "unknown",
-                            provider: health?.provider || "unknown"
+                            provider: health?.provider || "unknown",
+                            confidenceRationale: "Chatbot runtime is currently unavailable.",
+                            confidenceReasons: ["provider_unavailable"]
                         }
                     }
                 ])

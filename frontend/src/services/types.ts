@@ -86,7 +86,13 @@ export interface CitationItem {
 }
 
 export type ChatbotConfidence = "HIGH" | "MEDIUM" | "LOW" | "INSUFFICIENT_EVIDENCE";
-export type ChatbotFlag = "partial" | "insufficient_evidence" | "stale_context" | "model_unavailable";
+export type ChatbotFlag =
+    | "partial"
+    | "insufficient_evidence"
+    | "stale_context"
+    | "truncated_context"
+    | "citation_validation_failed"
+    | "model_unavailable";
 
 export interface ChatbotResponse {
     answer: string;
@@ -97,6 +103,9 @@ export interface ChatbotResponse {
     processingTimeMs: number;
     model: string;
     provider: string;
+    confidenceRationale?: string;
+    confidenceReasons?: string[];
+    traceMetadata?: Record<string, unknown>;
 }
 
 export type ChatbotHealthStatus = "healthy" | "degraded" | "unavailable";
