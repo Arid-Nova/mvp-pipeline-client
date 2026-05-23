@@ -112,6 +112,7 @@ Frontend (CRA / React module):
 - `cd frontend && npm test -- --watchAll=false --runInBand --testPathPattern=chatbot`
 - `cd frontend && npm test -- --watchAll=false --runInBand --testPathPattern=ChatbotPanel.test.tsx`
 - `cd frontend && npm test -- --watchAll=false --runInBand --testPathPattern=ChatbotPanel.test.tsx` (S12-M2 user-visible architecture Q&A behavior)
+- `scripts/s12-m2-smoke.sh --mocked-only` (S12-M2 deterministic smoke; no live model required)
 
 ## 5) Baseline test failures observed before S12-M2 implementation
 
@@ -160,3 +161,11 @@ Behavior:
   - `ChatbotPanel` shows `Refresh context` when active context exists.
   - Refresh result and provider failures are visible in-panel.
   - Local stale-context indicator is set on refresh failures and cleared on successful non-stale refresh.
+
+## 8) Demo and Smoke Path (S12-M2)
+
+- Demo document: `docs/s12/s12-m2-demo-script.md`
+- Smoke script: `scripts/s12-m2-smoke.sh`
+- Recommended commands:
+  - `scripts/s12-m2-smoke.sh --mocked-only`
+  - `scripts/s12-m2-smoke.sh --live-http` (requires backend running on `localhost:8080`)
