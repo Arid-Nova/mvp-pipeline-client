@@ -17,7 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ChatEvidenceServicesTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
-    private final ChatContextService chatContextService = new ChatContextService(List.of(new ContextMetadataEvidenceContextProvider()));
+    private final ChatContextService chatContextService = ChatContextService.forProviders(List.of(new ContextMetadataEvidenceContextProvider()));
     private final EvidenceGuardrailService evidenceGuardrailService = new EvidenceGuardrailService();
 
     @Test

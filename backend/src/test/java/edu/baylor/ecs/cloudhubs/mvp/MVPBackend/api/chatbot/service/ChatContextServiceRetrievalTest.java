@@ -45,7 +45,7 @@ class ChatContextServiceRetrievalTest {
             }
         };
 
-        ChatContextService service = new ChatContextService(List.of(provider));
+        ChatContextService service = ChatContextService.forProviders(List.of(provider));
         ChatbotQueryRequest request = new ChatbotQueryRequest(
             "What changed in order-service?",
             new ChatbotContext("TrainTicket", "ir-1", "idx-1", "run-1", "commit-1", "order-service", "POST /orders", null),
@@ -84,7 +84,7 @@ class ChatContextServiceRetrievalTest {
             }
         };
 
-        ChatContextService service = new ChatContextService(List.of(provider));
+        ChatContextService service = ChatContextService.forProviders(List.of(provider));
         EvidenceRetrievalResult result = service.retrieveEvidence(new ChatbotQueryRequest("Any risk?", null, null, null));
 
         assertThat(called.get()).isFalse();
@@ -98,7 +98,7 @@ class ChatContextServiceRetrievalTest {
         EvidenceContextProvider beta = providerWithId("beta", "e2");
         EvidenceContextProvider alpha = providerWithId("alpha", "e1");
 
-        ChatContextService service = new ChatContextService(List.of(beta, alpha));
+        ChatContextService service = ChatContextService.forProviders(List.of(beta, alpha));
         ChatbotQueryRequest request = new ChatbotQueryRequest(
             "What changed?",
             new ChatbotContext("TrainTicket", "ir-1", null, null, null, null, null, null),
@@ -131,7 +131,7 @@ class ChatContextServiceRetrievalTest {
         };
         EvidenceContextProvider healthy = providerWithId("healthy-provider", "e-ok");
 
-        ChatContextService service = new ChatContextService(List.of(failing, healthy));
+        ChatContextService service = ChatContextService.forProviders(List.of(failing, healthy));
         ChatbotQueryRequest request = new ChatbotQueryRequest(
             "What changed?",
             new ChatbotContext("TrainTicket", "ir-1", null, null, null, null, null, null),

@@ -9,6 +9,7 @@ import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.EvidenceQueryCo
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.EvidenceRetrievalResult;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.EvidenceScope;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.MissingEvidence;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -19,13 +20,14 @@ public class ChatContextService {
 
     private final EvidenceProviderRegistry providerRegistry;
 
+    @Autowired
     public ChatContextService(EvidenceProviderRegistry providerRegistry) {
         this.providerRegistry = providerRegistry;
     }
 
-    // Test-friendly constructor for direct instantiation without Spring wiring.
-    ChatContextService(List<EvidenceContextProvider> providers) {
-        this.providerRegistry = new EvidenceProviderRegistry(providers);
+    // Test-friendly factory for direct instantiation without Spring wiring.
+    static ChatContextService forProviders(List<EvidenceContextProvider> providers) {
+        return new ChatContextService(new EvidenceProviderRegistry(providers));
     }
 
     public List<EvidenceItem> collectEvidence(ChatbotQueryRequest request) {
