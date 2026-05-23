@@ -54,7 +54,8 @@ class ChatEvidenceServicesTest {
             QuestionIntent.ARCHITECTURE_TOPOLOGY,
             List.of(),
             List.of(new MissingEvidence(EvidenceArtifactType.CONTEXT_METADATA, "Insufficient active context", "systemName|irId")),
-            response
+            response,
+            true
         );
 
         assertThat(guarded.getFlags()).contains(ChatbotFlag.insufficient_evidence);
@@ -73,7 +74,8 @@ class ChatEvidenceServicesTest {
             QuestionIntent.DEPENDENCY,
             List.of(evidence),
             List.of(new MissingEvidence(EvidenceArtifactType.GRAPH, "Graph unavailable", "graph")),
-            new ChatbotResponse()
+            new ChatbotResponse(),
+            true
         );
 
         assertThat(guarded.getFlags()).contains(ChatbotFlag.partial);
@@ -94,7 +96,8 @@ class ChatEvidenceServicesTest {
             "What endpoint changed?",
             QuestionIntent.ENDPOINT_LOOKUP,
             List.of(evidence),
-            response
+            response,
+            true
         );
 
         assertThat(guarded.getFlags()).contains(ChatbotFlag.citation_validation_failed, ChatbotFlag.insufficient_evidence);
@@ -116,7 +119,8 @@ class ChatEvidenceServicesTest {
             "What depends on A?",
             QuestionIntent.DEPENDENCY,
             List.of(evidence),
-            response
+            response,
+            true
         );
 
         assertThat(guarded.getFlags()).contains(ChatbotFlag.citation_validation_failed);
@@ -129,5 +133,56 @@ class ChatEvidenceServicesTest {
         ChatbotContext context = new ChatbotContext("TrainTicket", "ir-1", "idx-2", "run-3", "commit-4", "order-service", "POST /orders", null);
         List<EvidenceItem> evidence = chatContextService.collectEvidence(context);
         assertThat(evidence).hasSize(1);
+    }
+
+    @Test
+    void strictModeBlocksWeakEvidenceOnlyAnswers() {
+        EvidenceItem weak = new EvidenceItem();
+        weak.setArtifactType(EvidenceArtifactType.CONTEXT_METADATA);
+        weak.setArtifactId("E5");
+        weak.setConfidenceSource("inferred");
+
+        ChatbotResponse guarded = evidenceGuardrailService.enforcePreGeneration(
+            "What endpoint changed?",
+            QuestionIntent.ENDPOINT_LOOKUP,
+            List.of(weak),
+            List.of(),
+            new ChatbotResponse(),
+            true
+        );
+
+        assertThat(guarded.getFlags()).contains(ChatbotFlag.insufficient_evidence);
+        assertThat(guarded.getAnswer()).contains("Insufficient evidence").contains("Missing sources");
+    }
+
+    @Test
+    void nonStrictModeAllowsQualifiedRecommendationWithCitations() {
+        EvidenceItem evidence = new EvidenceItem();
+        evidence.setArtifactType(EvidenceArtifactType.DEPENDENCY);
+        evidence.setArtifactId("E6");
+        evidence.setConfidenceSource("inferred");
+
+        ChatbotResponse pre = evidenceGuardrailService.enforcePreGeneration(
+            "What depends on billing-service?",
+            QuestionIntent.DEPENDENCY,
+            List.of(evidence),
+            List.of(new MissingEvidence(EvidenceArtifactType.GRAPH, "graph source missing", "graph")),
+            new ChatbotResponse(),
+            false
+        );
+        pre.setAnswer("Recommendation: prioritize observing billing-service dependencies [E6].");
+        pre.setCitations(List.of(new CitationItem("DEPENDENCY", "E6", "billing-service", "links[1]", "c1", "edge")));
+
+        ChatbotResponse post = evidenceGuardrailService.enforcePostGeneration(
+            "What depends on billing-service?",
+            QuestionIntent.DEPENDENCY,
+            List.of(evidence),
+            pre,
+            false
+        );
+
+        assertThat(post.getFlags()).doesNotContain(ChatbotFlag.insufficient_evidence);
+        assertThat(post.getCitations()).hasSize(1);
+        assertThat(post.getAnswer()).contains("Recommendation");
     }
 }

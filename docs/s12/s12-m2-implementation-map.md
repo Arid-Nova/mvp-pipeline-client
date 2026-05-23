@@ -122,3 +122,18 @@ Baseline validation run for this prompt (documentation-only change):
   - Command: `cd frontend && npm test -- --watchAll=false --runInBand --testPathPattern=ChatbotPanel.test.tsx`
   - Result: `PASS src/components/chatbot/ChatbotPanel.test.tsx` (6/6 tests passed, 1/1 suite passed).
   - Notes: console warnings about React `act(...)` and deprecated `ReactDOMTestUtils.act`, but no failing assertions.
+
+## 6) Chatbot strict evidence mode (S12-033)
+
+- Config key: `chatbot.strict-evidence-only`
+- Environment variable: `CHATBOT_STRICT_EVIDENCE_ONLY`
+- Current default: `true` (safe-by-default in `backend/src/main/resources/application.yml`)
+
+Behavior:
+- Strict mode (`true`):
+  - Architecture/dependency/endpoint answers must have strong retrieved evidence.
+  - Weak/inferred-only support is refused with `insufficient_evidence`.
+  - Missing/invalid citations trigger `citation_validation_failed` and insufficient-evidence handling.
+- Non-strict mode (`false`):
+  - Qualified recommendations are allowed when grounded in retrieved evidence and valid citations.
+  - Unsupported architecture facts are still refused.

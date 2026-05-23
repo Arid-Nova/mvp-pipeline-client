@@ -29,7 +29,10 @@ class ChatbotConfigBindingTest {
                 "chatbot.base-url=http://ollama:11434",
                 "chatbot.timeout-ms=30000",
                 "chatbot.max-tokens=1024",
-                "chatbot.temperature=0.2"
+                "chatbot.temperature=0.2",
+                "chatbot.context-budget-max-evidence-items=20",
+                "chatbot.context-budget-max-evidence-chars=12000",
+                "chatbot.strict-evidence-only=true"
             )
             .run(context -> {
                 assertThat(context).hasNotFailed();
@@ -40,6 +43,28 @@ class ChatbotConfigBindingTest {
                 assertThat(chatbotConfig.getTimeoutMs()).isEqualTo(30000);
                 assertThat(chatbotConfig.getMaxTokens()).isEqualTo(1024);
                 assertThat(chatbotConfig.getTemperature()).isEqualTo(0.2);
+                assertThat(chatbotConfig.isStrictEvidenceOnly()).isTrue();
+            });
+    }
+
+    @Test
+    void bindsStrictEvidenceOnlyFalseWhenConfigured() {
+        contextRunner
+            .withPropertyValues(
+                "chatbot.provider=OLLAMA",
+                "chatbot.model=llama3.2",
+                "chatbot.base-url=http://ollama:11434",
+                "chatbot.timeout-ms=30000",
+                "chatbot.max-tokens=1024",
+                "chatbot.temperature=0.2",
+                "chatbot.context-budget-max-evidence-items=20",
+                "chatbot.context-budget-max-evidence-chars=12000",
+                "chatbot.strict-evidence-only=false"
+            )
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                ChatbotConfig chatbotConfig = context.getBean(ChatbotConfig.class);
+                assertThat(chatbotConfig.isStrictEvidenceOnly()).isFalse();
             });
     }
 
@@ -51,7 +76,9 @@ class ChatbotConfigBindingTest {
                 "chatbot.base-url=http://ollama:11434",
                 "chatbot.timeout-ms=30000",
                 "chatbot.max-tokens=1024",
-                "chatbot.temperature=0.2"
+                "chatbot.temperature=0.2",
+                "chatbot.context-budget-max-evidence-items=20",
+                "chatbot.context-budget-max-evidence-chars=12000"
             )
             .run(context -> {
                 assertThat(context).hasFailed();
@@ -69,6 +96,8 @@ class ChatbotConfigBindingTest {
                 "chatbot.base-url=http://localhost:8000/v1",
                 "chatbot.timeout-ms=0",
                 "chatbot.max-tokens=-1",
+                "chatbot.context-budget-max-evidence-items=20",
+                "chatbot.context-budget-max-evidence-chars=12000",
                 "chatbot.temperature=2.5"
             )
             .run(context -> {

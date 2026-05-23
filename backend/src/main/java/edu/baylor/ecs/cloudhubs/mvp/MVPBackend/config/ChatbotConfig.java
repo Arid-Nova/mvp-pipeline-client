@@ -39,6 +39,8 @@ public class ChatbotConfig {
     @Positive(message = "chatbot.context-budget.max-evidence-chars must be positive.")
     private int contextBudgetMaxEvidenceChars;
 
+    private boolean strictEvidenceOnly;
+
     public enum Provider {
         OLLAMA,
         LLAMA_CPP,
@@ -107,5 +109,13 @@ public class ChatbotConfig {
 
     public void setContextBudgetMaxEvidenceChars(int contextBudgetMaxEvidenceChars) {
         this.contextBudgetMaxEvidenceChars = contextBudgetMaxEvidenceChars;
+    }
+
+    public boolean isStrictEvidenceOnly() {
+        return strictEvidenceOnly;
+    }
+
+    public void setStrictEvidenceOnly(boolean strictEvidenceOnly) {
+        this.strictEvidenceOnly = strictEvidenceOnly;
     }
 }

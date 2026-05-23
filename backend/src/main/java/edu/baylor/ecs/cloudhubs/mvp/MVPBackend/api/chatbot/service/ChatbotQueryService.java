@@ -109,7 +109,8 @@ public class ChatbotQueryService {
             retrieval.getIntent(),
             evidenceItems,
             retrieval.getMissingEvidence(),
-            response
+            response,
+            chatbotConfig.isStrictEvidenceOnly()
         );
         log.info(
             "chatbot.query.guardrail requestId={} flags={}",
@@ -158,7 +159,8 @@ public class ChatbotQueryService {
                 request.getQuestion(),
                 retrieval.getIntent(),
                 evidenceItems,
-                response
+                response,
+                chatbotConfig.isStrictEvidenceOnly()
             );
             applyEvidenceDerivedConfidence(response, retrieval, evidenceItems);
             long latencyMs = System.currentTimeMillis() - startMs;

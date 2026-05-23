@@ -23,3 +23,4 @@ chatbot:
   temperature: ${CHATBOT_TEMPERATURE:0.2}
   context-budget-max-evidence-items: ${CHATBOT_CONTEXT_BUDGET_MAX_EVIDENCE_ITEMS:20}
   context-budget-max-evidence-chars: ${CHATBOT_CONTEXT_BUDGET_MAX_EVIDENCE_CHARS:12000}
+  strict-evidence-only: ${CHATBOT_STRICT_EVIDENCE_ONLY:true}

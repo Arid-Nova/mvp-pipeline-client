@@ -28,7 +28,8 @@ public class EvidenceGuardrailService {
         QuestionIntent intent,
         List<EvidenceItem> evidenceItems,
         List<MissingEvidence> retrievalMissing,
-        ChatbotResponse response
+        ChatbotResponse response,
+        boolean strictEvidenceOnly
     ) {
         ChatbotResponse safeResponse = response == null ? new ChatbotResponse() : response;
         List<EvidenceItem> safeEvidence = evidenceItems == null ? List.of() : evidenceItems;
@@ -36,7 +37,8 @@ public class EvidenceGuardrailService {
 
         ensureFlagListExists(safeResponse);
 
-        if (!isSupportedEvidenceRequiredIntent(intent) && !asksForFactualArchitectureClaim(question)) {
+        boolean supportedEvidenceIntent = isSupportedEvidenceRequiredIntent(intent) || asksForFactualArchitectureClaim(question);
+        if (!supportedEvidenceIntent) {
             return safeResponse;
         }
 
@@ -49,11 +51,20 @@ public class EvidenceGuardrailService {
             return safeResponse;
         }
 
+        if (strictEvidenceOnly && hasWeakOnlyEvidence(safeEvidence)) {
+            addFlagIfMissing(safeResponse, ChatbotFlag.insufficient_evidence);
+            safeResponse.setConfidence(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
+            safeResponse.setAnswer("Insufficient evidence: strict evidence-only mode blocks weak or inferred-only support.");
+            return safeResponse;
+        }
+
         if (!missingSources.isEmpty()) {
             addFlagIfMissing(safeResponse, ChatbotFlag.partial);
             if (safeResponse.getAnswer() == null || safeResponse.getAnswer().isBlank()) {
                 safeResponse.setAnswer("Partial evidence available. Missing sources: " + String.join(", ", missingSources));
             }
+        } else if (!strictEvidenceOnly && allowsRecommendation(intent) && (safeResponse.getAnswer() == null || safeResponse.getAnswer().isBlank())) {
+            safeResponse.setAnswer("Evidence-backed recommendation: based on retrieved architecture evidence, this should be treated as a qualified recommendation rather than a guaranteed fact.");
         }
 
         return safeResponse;
@@ -63,13 +74,15 @@ public class EvidenceGuardrailService {
         String question,
         QuestionIntent intent,
         List<EvidenceItem> evidenceItems,
-        ChatbotResponse response
+        ChatbotResponse response,
+        boolean strictEvidenceOnly
     ) {
         ChatbotResponse safeResponse = response == null ? new ChatbotResponse() : response;
         List<EvidenceItem> safeEvidence = evidenceItems == null ? List.of() : evidenceItems;
         ensureFlagListExists(safeResponse);
 
-        if (!isSupportedEvidenceRequiredIntent(intent) && !asksForFactualArchitectureClaim(question)) {
+        boolean supportedEvidenceIntent = isSupportedEvidenceRequiredIntent(intent) || asksForFactualArchitectureClaim(question);
+        if (!supportedEvidenceIntent) {
             return safeResponse;
         }
 
@@ -105,6 +118,13 @@ public class EvidenceGuardrailService {
             addFlagIfMissing(safeResponse, ChatbotFlag.insufficient_evidence);
             safeResponse.setConfidence(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
             safeResponse.setAnswer("Insufficient citation support: no valid citations remain after validation.");
+            return safeResponse;
+        }
+
+        if (strictEvidenceOnly && hasWeakOnlyEvidence(safeEvidence)) {
+            addFlagIfMissing(safeResponse, ChatbotFlag.insufficient_evidence);
+            safeResponse.setConfidence(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
+            safeResponse.setAnswer("Insufficient evidence: strict evidence-only mode requires stronger direct support.");
         }
 
         return safeResponse;
@@ -242,6 +262,30 @@ public class EvidenceGuardrailService {
 
     private boolean hasAnswerText(ChatbotResponse response) {
         return response != null && response.getAnswer() != null && !response.getAnswer().isBlank();
+    }
+
+    private boolean hasWeakOnlyEvidence(List<EvidenceItem> evidenceItems) {
+        if (evidenceItems == null || evidenceItems.isEmpty()) {
+            return true;
+        }
+        boolean hasStrongType = evidenceItems.stream().anyMatch(item -> item.getArtifactType() == EvidenceArtifactType.IR
+            || item.getArtifactType() == EvidenceArtifactType.GRAPH
+            || item.getArtifactType() == EvidenceArtifactType.ENDPOINT
+            || item.getArtifactType() == EvidenceArtifactType.DEPENDENCY
+            || item.getArtifactType() == EvidenceArtifactType.ARCHITECTURE);
+        if (!hasStrongType) {
+            return true;
+        }
+        return evidenceItems.stream().allMatch(item -> {
+            String confidence = item.getConfidenceSource();
+            return confidence != null && confidence.toLowerCase(Locale.ROOT).contains("inferred");
+        });
+    }
+
+    private boolean allowsRecommendation(QuestionIntent intent) {
+        return intent == QuestionIntent.ARCHITECTURE_TOPOLOGY
+            || intent == QuestionIntent.DEPENDENCY
+            || intent == QuestionIntent.ENDPOINT_LOOKUP;
     }
 
     private boolean hasValue(String value) {

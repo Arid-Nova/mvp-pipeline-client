@@ -119,6 +119,7 @@ class ChatbotQueryServiceTest {
     @Test
     void modelUnavailableFlowRaisesTypedException() {
         ChatbotConfig config = chatbotConfig();
+        config.setStrictEvidenceOnly(false);
         ChatContextService chatContextService = ChatContextService.forProviders(List.of(new ContextMetadataEvidenceContextProvider()));
         EvidenceGuardrailService guardrailService = new EvidenceGuardrailService();
         PromptAssemblyService promptAssemblyService = new PromptAssemblyService();
@@ -240,6 +241,7 @@ class ChatbotQueryServiceTest {
         config.setTemperature(0.2);
         config.setContextBudgetMaxEvidenceItems(20);
         config.setContextBudgetMaxEvidenceChars(12000);
+        config.setStrictEvidenceOnly(true);
         return config;
     }
 
