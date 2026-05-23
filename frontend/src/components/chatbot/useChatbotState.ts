@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getChatbotHealth, sendChatbotQuery } from "../../services/api";
-import { ChatbotContext, ChatbotHealthResponse, ChatbotResponse } from "../../services/types";
+import { getChatbotHealth, refreshChatbotContext, sendChatbotQuery } from "../../services/api";
+import { ChatbotContext, ChatbotContextRefreshResponse, ChatbotHealthResponse, ChatbotResponse } from "../../services/types";
 
 export type ChatMessageModel = {
     role: "user" | "assistant";
@@ -91,6 +91,10 @@ export const useChatbotState = (activeContext?: ChatbotContext) => {
     const [healthLoading, setHealthLoading] = useState(false);
     const [healthError, setHealthError] = useState<string | null>(null);
     const [lastFailedQuestion, setLastFailedQuestion] = useState<string | null>(null);
+    const [refreshLoading, setRefreshLoading] = useState(false);
+    const [refreshResult, setRefreshResult] = useState<ChatbotContextRefreshResponse | null>(null);
+    const [refreshError, setRefreshError] = useState<string | null>(null);
+    const [localStaleContext, setLocalStaleContext] = useState(false);
 
     const context = useMemo(() => toRequestContext(activeContext), [activeContext]);
     const contextId = useMemo(() => toContextId(context), [context]);
@@ -105,6 +109,9 @@ export const useChatbotState = (activeContext?: ChatbotContext) => {
             setMessages([]);
             setError(null);
             setLastFailedQuestion(null);
+            setRefreshResult(null);
+            setRefreshError(null);
+            setLocalStaleContext(false);
             lastContextIdRef.current = contextId;
         }
     }, [contextId]);
@@ -194,6 +201,29 @@ export const useChatbotState = (activeContext?: ChatbotContext) => {
         setLastFailedQuestion(null);
     }, []);
 
+    const refreshContext = useCallback(async () => {
+        if (!context) {
+            setRefreshResult(null);
+            setRefreshError("No active context selected. Choose a system/IR/session before refresh.");
+            setLocalStaleContext(true);
+            return;
+        }
+
+        try {
+            setRefreshLoading(true);
+            setRefreshError(null);
+            const result = await refreshChatbotContext({ context });
+            setRefreshResult(result);
+            setLocalStaleContext(Boolean(result.staleContext));
+        } catch (requestError: any) {
+            setRefreshResult(null);
+            setRefreshError(requestError?.message || "Failed to refresh context.");
+            setLocalStaleContext(true);
+        } finally {
+            setRefreshLoading(false);
+        }
+    }, [context]);
+
     return {
         messages,
         loading,
@@ -201,11 +231,16 @@ export const useChatbotState = (activeContext?: ChatbotContext) => {
         health,
         healthLoading,
         healthError,
+        refreshLoading,
+        refreshResult,
+        refreshError,
+        localStaleContext,
         context,
         sendQuestion,
         retryLastFailed,
         clearConversation,
         refreshHealth,
+        refreshContext,
         canRetry: Boolean(lastFailedQuestion) && !loading
     };
 };

@@ -1,6 +1,7 @@
 package edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.service;
 
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.ChatbotContext;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.ChatbotContextRefreshResponse;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.ChatbotMessage;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.ChatbotQueryRequest;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.EvidenceArtifactType;
@@ -169,5 +170,71 @@ class ChatContextServiceRetrievalTest {
                 return result;
             }
         };
+    }
+
+    @Test
+    void refreshReturnsArtifactCountsByType() {
+        EvidenceContextProvider provider = new EvidenceContextProvider() {
+            @Override
+            public String providerId() {
+                return "refresh-provider";
+            }
+
+            @Override
+            public boolean supports(EvidenceQueryContext context, String question) {
+                return true;
+            }
+
+            @Override
+            public EvidenceRetrievalResult collectEvidence(EvidenceQueryContext context, String question) {
+                EvidenceItem service = new EvidenceItem();
+                service.setArtifactType(EvidenceArtifactType.SERVICE);
+                service.setArtifactId("svc-1");
+                EvidenceItem endpoint = new EvidenceItem();
+                endpoint.setArtifactType(EvidenceArtifactType.ENDPOINT);
+                endpoint.setArtifactId("ep-1");
+                EvidenceRetrievalResult result = new EvidenceRetrievalResult();
+                result.setEvidenceItems(List.of(service, endpoint));
+                return result;
+            }
+        };
+
+        ChatContextService service = ChatContextService.forProviders(List.of(provider));
+        ChatbotContext context = new ChatbotContext("TrainTicket", "ir-1", null, null, null, null, null, null);
+
+        ChatbotContextRefreshResponse response = service.refreshContext(context);
+
+        assertThat(response.isSuccess()).isTrue();
+        assertThat(response.isStaleContext()).isFalse();
+        assertThat(response.getRefreshedArtifactCountsByType()).containsEntry("SERVICE", 1L);
+        assertThat(response.getRefreshedArtifactCountsByType()).containsEntry("ENDPOINT", 1L);
+    }
+
+    @Test
+    void refreshProviderFailuresAreReported() {
+        EvidenceContextProvider failing = new EvidenceContextProvider() {
+            @Override
+            public String providerId() {
+                return "failing-provider";
+            }
+
+            @Override
+            public boolean supports(EvidenceQueryContext context, String question) {
+                return true;
+            }
+
+            @Override
+            public EvidenceRetrievalResult collectEvidence(EvidenceQueryContext context, String question) {
+                throw new IllegalStateException("unavailable");
+            }
+        };
+
+        ChatContextService service = ChatContextService.forProviders(List.of(failing));
+        ChatbotContext context = new ChatbotContext("TrainTicket", "ir-1", null, null, null, null, null, null);
+        ChatbotContextRefreshResponse response = service.refreshContext(context);
+
+        assertThat(response.isSuccess()).isFalse();
+        assertThat(response.isStaleContext()).isTrue();
+        assertThat(response.getUnavailableProviders()).anyMatch(p -> p.contains("failing-provider"));
     }
 }

@@ -137,3 +137,24 @@ Behavior:
 - Non-strict mode (`false`):
   - Qualified recommendations are allowed when grounded in retrieved evidence and valid citations.
   - Unsupported architecture facts are still refused.
+
+## 7) Retrieval context refresh flow (S12-013)
+
+- Backend endpoint: `POST /chatbot/context/refresh`
+  - Request: `{"context": {systemName, irId, indexId, runId, commitId, selectedService, selectedEndpoint}}`
+  - Response fields:
+    - `success`
+    - `refreshedArtifactCountsByType`
+    - `unavailableProviders`
+    - `refreshedAt`
+    - `refreshVersion`
+    - `message`
+    - `staleContext`
+- Current implementation behavior:
+  - There is no persisted chatbot retrieval index yet.
+  - Refresh validates/rebuilds provider-backed evidence in request scope and reports artifact counts and provider availability.
+  - Missing active context returns actionable failure (`No active context identifiers were supplied...`).
+- Frontend integration:
+  - `ChatbotPanel` shows `Refresh context` when active context exists.
+  - Refresh result and provider failures are visible in-panel.
+  - Local stale-context indicator is set on refresh failures and cleared on successful non-stale refresh.

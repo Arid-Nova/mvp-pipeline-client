@@ -1,19 +1,30 @@
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import ChatbotPanel, { CitationList } from "./ChatbotPanel";
-import { getChatbotHealth, sendChatbotQuery } from "../../services/api";
+import { getChatbotHealth, refreshChatbotContext, sendChatbotQuery } from "../../services/api";
 
 jest.mock("../../services/api", () => ({
     getChatbotHealth: jest.fn(),
-    sendChatbotQuery: jest.fn()
+    sendChatbotQuery: jest.fn(),
+    refreshChatbotContext: jest.fn()
 }));
 
 const mockedGetHealth = getChatbotHealth as jest.Mock;
 const mockedSendQuery = sendChatbotQuery as jest.Mock;
+const mockedRefreshContext = refreshChatbotContext as jest.Mock;
 
 describe("ChatbotPanel", () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        mockedRefreshContext.mockResolvedValue({
+            success: true,
+            refreshedArtifactCountsByType: { IR: 1, GRAPH: 2 },
+            unavailableProviders: [],
+            refreshedAt: "2026-05-23T12:00:00Z",
+            refreshVersion: "TrainTicket|ir-1",
+            message: "ok",
+            staleContext: false
+        });
     });
 
     it("renders closed by default and opens panel", async () => {
@@ -271,6 +282,67 @@ describe("ChatbotPanel", () => {
         rerender(<ChatbotPanel activeContext={{ systemName: "SystemB", irId: "ir-b" }} />);
         expect(screen.queryByText(/first context/i)).toBeNull();
         expect(screen.getByText(/Ask a question about your current system context/i)).toBeInTheDocument();
+    });
+
+    it("refresh button calls API and renders result without clearing conversation", async () => {
+        mockedGetHealth.mockResolvedValue({
+            status: "healthy",
+            provider: "OLLAMA",
+            model: "llama3.2",
+            baseUrl: "http://localhost:8080",
+            message: "ok",
+            checkedAt: new Date().toISOString(),
+            latencyMs: 20
+        });
+        mockedSendQuery.mockResolvedValue({
+            answer: "Answer: still here",
+            citations: [],
+            confidence: "LOW",
+            flags: [],
+            requestId: "req-msg",
+            processingTimeMs: 5,
+            model: "llama3.2",
+            provider: "OLLAMA"
+        });
+        mockedRefreshContext.mockResolvedValue({
+            success: true,
+            refreshedArtifactCountsByType: { SERVICE: 2, ENDPOINT: 4 },
+            unavailableProviders: [],
+            refreshedAt: "2026-05-23T12:00:00Z",
+            refreshVersion: "TrainTicket|ir-9",
+            message: "ok",
+            staleContext: false
+        });
+
+        render(<ChatbotPanel activeContext={{ systemName: "TrainTicket", irId: "ir-9" }} />);
+        fireEvent.click(screen.getByTestId("chatbot-toggle"));
+        fireEvent.change(screen.getByTestId("chatbot-input"), { target: { value: "Question 1" } });
+        fireEvent.click(screen.getByTestId("chatbot-submit"));
+        await waitFor(() => expect(screen.getByText(/still here/i)).toBeInTheDocument());
+
+        fireEvent.click(screen.getByTestId("chatbot-refresh-context"));
+        await waitFor(() => expect(mockedRefreshContext).toHaveBeenCalledTimes(1));
+        expect(mockedRefreshContext).toHaveBeenCalledWith({
+            context: { systemName: "TrainTicket", irId: "ir-9" }
+        });
+        await waitFor(() => expect(screen.getByTestId("chatbot-refresh-result")).toHaveTextContent("SERVICE:2"));
+        expect(screen.getByText(/still here/i)).toBeInTheDocument();
+    });
+
+    it("no active context shows actionable scope message and hides refresh control", async () => {
+        mockedGetHealth.mockResolvedValue({
+            status: "healthy",
+            provider: "OLLAMA",
+            model: "llama3.2",
+            baseUrl: "http://localhost:8080",
+            message: "ok",
+            checkedAt: new Date().toISOString(),
+            latencyMs: 20
+        });
+        render(<ChatbotPanel />);
+        fireEvent.click(screen.getByTestId("chatbot-toggle"));
+        expect(screen.getByText(/No active analysis context/i)).toBeInTheDocument();
+        expect(screen.queryByTestId("chatbot-refresh-context")).toBeNull();
     });
 });
 

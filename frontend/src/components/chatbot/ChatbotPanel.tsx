@@ -314,10 +314,15 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({ activeContext }) => {
         health,
         healthLoading,
         healthError,
+        refreshLoading,
+        refreshResult,
+        refreshError,
+        localStaleContext,
         sendQuestion,
         retryLastFailed,
         clearConversation,
         refreshHealth,
+        refreshContext,
         canRetry
     } = useChatbotState(contextEntries.length > 0 ? activeContext : undefined);
 
@@ -364,6 +369,27 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({ activeContext }) => {
                                 </span>
                             )}
                         </div>
+                        {localStaleContext && (
+                            <div data-testid="chatbot-local-stale" className="mt-2 text-[11px] text-amber-300">
+                                Context may be stale. Refresh retrieval context before asking architecture/dependency questions.
+                            </div>
+                        )}
+                        {refreshError && (
+                            <div data-testid="chatbot-refresh-error" className="mt-2 text-[11px] text-rose-300">
+                                {refreshError}
+                            </div>
+                        )}
+                        {refreshResult && (
+                            <div data-testid="chatbot-refresh-result" className="mt-2 text-[11px] text-slate-300">
+                                Refresh {refreshResult.success ? "succeeded" : "completed with issues"}.
+                                {" "}Counts: {Object.entries(refreshResult.refreshedArtifactCountsByType || {})
+                                    .map(([type, count]) => `${type}:${count}`)
+                                    .join(", ") || "none"}.
+                                {refreshResult.unavailableProviders?.length > 0 && (
+                                    <> Unavailable providers: {refreshResult.unavailableProviders.join("; ")}.</>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-3 space-y-2">
@@ -385,13 +411,25 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({ activeContext }) => {
                     </div>
 
                     <div className="px-3 pb-2 flex justify-between items-center bg-slate-900/80">
-                        <button
-                            data-testid="chatbot-clear"
-                            onClick={clearConversation}
-                            className="text-xs text-slate-300 hover:text-white"
-                        >
-                            Clear conversation
-                        </button>
+                        <div className="flex items-center gap-3">
+                            <button
+                                data-testid="chatbot-clear"
+                                onClick={clearConversation}
+                                className="text-xs text-slate-300 hover:text-white"
+                            >
+                                Clear conversation
+                            </button>
+                            {contextEntries.length > 0 && (
+                                <button
+                                    data-testid="chatbot-refresh-context"
+                                    onClick={refreshContext}
+                                    disabled={refreshLoading}
+                                    className="text-xs text-amber-300 hover:text-amber-200 disabled:text-slate-500"
+                                >
+                                    {refreshLoading ? "Refreshing..." : "Refresh context"}
+                                </button>
+                            )}
+                        </div>
                         <button
                             data-testid="chatbot-retry"
                             onClick={retryLastFailed}

@@ -12,7 +12,9 @@ import {
     ChangeImpactInsight,
     ChatbotQueryRequest,
     ChatbotResponse,
-    ChatbotHealthResponse
+    ChatbotHealthResponse,
+    ChatbotContextRefreshRequest,
+    ChatbotContextRefreshResponse
 } from './types';
 import { PromptItem } from '../components/pipeline/models';
 import { decompressPayload, decompressGzipResponse } from '../utils/decompress';
@@ -289,6 +291,17 @@ export const getChatbotHealth = async (): Promise<ChatbotHealthResponse> => {
 export const sendChatbotQuery = async (request: ChatbotQueryRequest): Promise<ChatbotResponse> => {
     try {
         const response = await axios.post('/chatbot/query', request);
+        return response.data;
+    } catch (error: any) {
+        const msg = normalizeChatbotError(error);
+        showError(msg);
+        throw new Error(msg);
+    }
+};
+
+export const refreshChatbotContext = async (request: ChatbotContextRefreshRequest): Promise<ChatbotContextRefreshResponse> => {
+    try {
+        const response = await axios.post('/chatbot/context/refresh', request);
         return response.data;
     } catch (error: any) {
         const msg = normalizeChatbotError(error);

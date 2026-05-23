@@ -64,6 +64,20 @@ export interface ChatbotContext {
     selectedEndpoint?: string;
 }
 
+export interface ChatbotContextRefreshRequest {
+    context?: ChatbotContext;
+}
+
+export interface ChatbotContextRefreshResponse {
+    success: boolean;
+    refreshedArtifactCountsByType: Record<string, number>;
+    unavailableProviders: string[];
+    refreshedAt: string;
+    refreshVersion: string;
+    message: string;
+    staleContext: boolean;
+}
+
 export interface ChatbotMessage {
     role: string;
     content: string;

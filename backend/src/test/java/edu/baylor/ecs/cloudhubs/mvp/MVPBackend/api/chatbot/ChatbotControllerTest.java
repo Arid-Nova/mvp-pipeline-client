@@ -5,8 +5,10 @@ import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.ChatbotQueryReq
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.ChatbotResponse;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.runtime.LocalLlmException;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.runtime.model.LocalLlmFailureCode;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.service.ChatContextService;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.service.ChatbotHealthService;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.service.ChatbotQueryService;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.service.EvidenceProviderRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -40,7 +42,8 @@ class ChatbotControllerTest {
             }
         };
         ChatbotQueryService stubQueryService = new ChatbotQueryService(null, null, null, null, null, null, null, null) {};
-        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new ChatbotController(stubHealthService, stubQueryService)).build();
+        ChatContextService chatContextService = new ChatContextService(new EvidenceProviderRegistry(List.of()));
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new ChatbotController(stubHealthService, stubQueryService, chatContextService)).build();
 
         mockMvc.perform(get("/chatbot/health").accept(MediaType.APPLICATION_JSON))
             .andExpect(status().isOk())
@@ -78,7 +81,7 @@ class ChatbotControllerTest {
         validator.afterPropertiesSet();
 
         MockMvc mockMvc = MockMvcBuilders
-            .standaloneSetup(new ChatbotController(healthService, queryService))
+            .standaloneSetup(new ChatbotController(healthService, queryService, new ChatContextService(new EvidenceProviderRegistry(List.of()))))
             .setValidator(validator)
             .build();
 
@@ -111,7 +114,7 @@ class ChatbotControllerTest {
         validator.afterPropertiesSet();
 
         MockMvc mockMvc = MockMvcBuilders
-            .standaloneSetup(new ChatbotController(healthService, queryService))
+            .standaloneSetup(new ChatbotController(healthService, queryService, new ChatContextService(new EvidenceProviderRegistry(List.of()))))
             .setValidator(validator)
             .build();
 
@@ -119,5 +122,23 @@ class ChatbotControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"question\":\"   \"}"))
             .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void refreshWithoutContextReturnsActionableMessage() throws Exception {
+        ChatbotHealthService healthService = new ChatbotHealthService(null, null);
+        ChatbotQueryService queryService = new ChatbotQueryService(null, null, null, null, null, null, null, null);
+        ChatContextService chatContextService = new ChatContextService(new EvidenceProviderRegistry(List.of()));
+
+        MockMvc mockMvc = MockMvcBuilders
+            .standaloneSetup(new ChatbotController(healthService, queryService, chatContextService))
+            .build();
+
+        mockMvc.perform(post("/chatbot/context/refresh")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.success").value(false))
+            .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("No active context identifiers")));
     }
 }

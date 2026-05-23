@@ -1,9 +1,12 @@
 package edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot;
 
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.ChatbotHealthResponse;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.ChatbotContextRefreshRequest;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.ChatbotContextRefreshResponse;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.ChatbotQueryRequest;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.ChatbotResponse;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.runtime.LocalLlmException;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.service.ChatContextService;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.service.ChatbotHealthService;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.service.ChatbotQueryService;
 import jakarta.validation.Valid;
@@ -26,10 +29,16 @@ public class ChatbotController {
 
     private final ChatbotHealthService chatbotHealthService;
     private final ChatbotQueryService chatbotQueryService;
+    private final ChatContextService chatContextService;
 
-    public ChatbotController(ChatbotHealthService chatbotHealthService, ChatbotQueryService chatbotQueryService) {
+    public ChatbotController(
+        ChatbotHealthService chatbotHealthService,
+        ChatbotQueryService chatbotQueryService,
+        ChatContextService chatContextService
+    ) {
         this.chatbotHealthService = chatbotHealthService;
         this.chatbotQueryService = chatbotQueryService;
+        this.chatContextService = chatContextService;
     }
 
     @GetMapping("/health")
@@ -68,5 +77,14 @@ public class ChatbotController {
             );
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response);
         }
+    }
+
+    @PostMapping("/context/refresh")
+    public ResponseEntity<ChatbotContextRefreshResponse> refreshContext(@RequestBody(required = false) ChatbotContextRefreshRequest request) {
+        ChatbotContextRefreshResponse response = chatContextService.refreshContext(request == null ? null : request.getContext());
+        if (response.isSuccess()) {
+            return ResponseEntity.ok(response);
+        }
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 }
