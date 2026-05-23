@@ -265,16 +265,23 @@ export const checkGitHubTokenStatus = async () => {
 };
 
 const normalizeChatbotError = (error: any): string => {
+    const backendMessage =
+        (typeof error?.response?.data?.message === "string" && error.response.data.message.trim())
+            ? error.response.data.message.trim()
+            : (typeof error?.response?.data === "string" && error.response.data.trim())
+                ? error.response.data.trim()
+                : "";
+
     if (error?.response?.status === 503) {
-        return "Chatbot runtime is currently unavailable. Please ensure the local model runtime is running.";
+        return backendMessage || "Chatbot runtime is currently unavailable. Please ensure the local model runtime is running.";
     }
     if (error?.response?.status === 400) {
-        return "Invalid chatbot request. Please check your question and context.";
+        return backendMessage || "Invalid chatbot request. Please check your question and context.";
     }
     if (!error?.response) {
         return "Network error while contacting chatbot backend.";
     }
-    return error?.response?.data?.message || "Chatbot request failed.";
+    return backendMessage || "Chatbot request failed.";
 };
 
 export const getChatbotHealth = async (): Promise<ChatbotHealthResponse> => {
