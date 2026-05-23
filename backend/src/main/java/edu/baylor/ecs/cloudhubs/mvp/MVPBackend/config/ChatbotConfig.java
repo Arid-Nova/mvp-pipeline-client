@@ -33,6 +33,12 @@ public class ChatbotConfig {
         message = "chatbot.temperature must be <= 2.0. Set CHATBOT_TEMPERATURE between 0.0 and 2.0.")
     private double temperature;
 
+    @Positive(message = "chatbot.context-budget.max-evidence-items must be positive.")
+    private int contextBudgetMaxEvidenceItems;
+
+    @Positive(message = "chatbot.context-budget.max-evidence-chars must be positive.")
+    private int contextBudgetMaxEvidenceChars;
+
     public enum Provider {
         OLLAMA,
         LLAMA_CPP,
@@ -85,5 +91,21 @@ public class ChatbotConfig {
 
     public void setTemperature(double temperature) {
         this.temperature = temperature;
+    }
+
+    public int getContextBudgetMaxEvidenceItems() {
+        return contextBudgetMaxEvidenceItems;
+    }
+
+    public void setContextBudgetMaxEvidenceItems(int contextBudgetMaxEvidenceItems) {
+        this.contextBudgetMaxEvidenceItems = contextBudgetMaxEvidenceItems;
+    }
+
+    public int getContextBudgetMaxEvidenceChars() {
+        return contextBudgetMaxEvidenceChars;
+    }
+
+    public void setContextBudgetMaxEvidenceChars(int contextBudgetMaxEvidenceChars) {
+        this.contextBudgetMaxEvidenceChars = contextBudgetMaxEvidenceChars;
     }
 }

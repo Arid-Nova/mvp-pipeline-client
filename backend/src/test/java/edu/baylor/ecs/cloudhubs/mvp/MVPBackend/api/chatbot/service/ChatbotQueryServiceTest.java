@@ -2,6 +2,7 @@ package edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.service;
 
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.*;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.prompt.PromptAssemblyService;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.retrieval.ContextBudgeter;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.runtime.LocalLlmClient;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.runtime.LocalLlmException;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.runtime.model.ChatbotPrompt;
@@ -34,7 +35,7 @@ class ChatbotQueryServiceTest {
         };
 
         ChatbotQueryService service = new ChatbotQueryService(
-            config, chatContextService, guardrailService, promptAssemblyService, localLlmClient
+            config, chatContextService, guardrailService, promptAssemblyService, new ContextBudgeter(), localLlmClient
         );
 
         ChatbotQueryRequest request = new ChatbotQueryRequest(
@@ -65,7 +66,7 @@ class ChatbotQueryServiceTest {
         };
 
         ChatbotQueryService service = new ChatbotQueryService(
-            config, chatContextService, guardrailService, promptAssemblyService, localLlmClient
+            config, chatContextService, guardrailService, promptAssemblyService, new ContextBudgeter(), localLlmClient
         );
 
         ChatbotQueryRequest request = new ChatbotQueryRequest(
@@ -94,7 +95,7 @@ class ChatbotQueryServiceTest {
         };
 
         ChatbotQueryService service = new ChatbotQueryService(
-            config, chatContextService, guardrailService, promptAssemblyService, localLlmClient
+            config, chatContextService, guardrailService, promptAssemblyService, new ContextBudgeter(), localLlmClient
         );
 
         ChatbotQueryRequest request = new ChatbotQueryRequest(
@@ -128,7 +129,7 @@ class ChatbotQueryServiceTest {
         };
 
         ChatbotQueryService service = new ChatbotQueryService(
-            config, chatContextService, guardrailService, promptAssemblyService, localLlmClient
+            config, chatContextService, guardrailService, promptAssemblyService, new ContextBudgeter(), localLlmClient
         );
 
         ChatbotQueryRequest request = new ChatbotQueryRequest(
@@ -151,6 +152,8 @@ class ChatbotQueryServiceTest {
         config.setTimeoutMs(30000);
         config.setMaxTokens(1024);
         config.setTemperature(0.2);
+        config.setContextBudgetMaxEvidenceItems(20);
+        config.setContextBudgetMaxEvidenceChars(12000);
         return config;
     }
 }

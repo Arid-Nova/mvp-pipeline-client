@@ -21,3 +21,5 @@ chatbot:
   timeout-ms: ${CHATBOT_TIMEOUT_MS:30000}
   max-tokens: ${CHATBOT_MAX_TOKENS:1024}
   temperature: ${CHATBOT_TEMPERATURE:0.2}
+  context-budget-max-evidence-items: ${CHATBOT_CONTEXT_BUDGET_MAX_EVIDENCE_ITEMS:20}
+  context-budget-max-evidence-chars: ${CHATBOT_CONTEXT_BUDGET_MAX_EVIDENCE_CHARS:12000}

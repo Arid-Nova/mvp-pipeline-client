@@ -4,6 +4,9 @@ import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.*;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.prompt.PromptAssemblyResult;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.prompt.PromptAssemblyService;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.prompt.PromptEvidenceItem;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.retrieval.ContextBudgetResult;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.retrieval.ContextBudgeter;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.retrieval.QuestionIntent;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.runtime.LocalLlmClient;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.runtime.LocalLlmException;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.runtime.model.LocalLlmFailureCode;
@@ -14,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -24,6 +28,7 @@ public class ChatbotQueryService {
     private final ChatContextService chatContextService;
     private final EvidenceGuardrailService evidenceGuardrailService;
     private final PromptAssemblyService promptAssemblyService;
+    private final ContextBudgeter contextBudgeter;
     private final LocalLlmClient localLlmClient;
 
     public ChatbotQueryService(
@@ -31,12 +36,14 @@ public class ChatbotQueryService {
         ChatContextService chatContextService,
         EvidenceGuardrailService evidenceGuardrailService,
         PromptAssemblyService promptAssemblyService,
+        ContextBudgeter contextBudgeter,
         LocalLlmClient localLlmClient
     ) {
         this.chatbotConfig = chatbotConfig;
         this.chatContextService = chatContextService;
         this.evidenceGuardrailService = evidenceGuardrailService;
         this.promptAssemblyService = promptAssemblyService;
+        this.contextBudgeter = contextBudgeter;
         this.localLlmClient = localLlmClient;
     }
 
@@ -54,7 +61,28 @@ public class ChatbotQueryService {
             chatbotConfig.getModel()
         );
 
-        List<EvidenceItem> evidenceItems = chatContextService.collectEvidence(request);
+        List<EvidenceItem> rawEvidenceItems = chatContextService.collectEvidence(request);
+        ContextBudgetResult budgetResult = contextBudgeter.budget(
+            rawEvidenceItems,
+            extractMatchedEntities(request),
+            intentFromQuestion(request == null ? null : request.getQuestion()),
+            chatbotConfig.getContextBudgetMaxEvidenceItems(),
+            chatbotConfig.getContextBudgetMaxEvidenceChars()
+        );
+        List<EvidenceItem> evidenceItems = budgetResult.getRetainedEvidence();
+        response.setTraceMetadata(Map.of(
+            "contextBudget", Map.of(
+                "originalEvidenceCount", budgetResult.getOriginalEvidenceCount(),
+                "retainedEvidenceCount", budgetResult.getRetainedEvidenceCount(),
+                "truncated", budgetResult.isTruncated(),
+                "omittedArtifactTypeCounts", budgetResult.getOmittedArtifactTypeCounts(),
+                "maxEvidenceItems", budgetResult.getMaxEvidenceItems(),
+                "maxEvidenceChars", budgetResult.getMaxEvidenceChars()
+            )
+        ));
+        if (budgetResult.isTruncated()) {
+            addFlagIfMissing(response, ChatbotFlag.partial);
+        }
         int contextFields = countContextFields(request.getContext());
         log.info(
             "chatbot.query.context requestId={} contextFieldCount={} evidenceCount={}",
@@ -224,5 +252,44 @@ public class ChatbotQueryService {
             }
             response.setConfidence(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
         }
+    }
+
+    private void addFlagIfMissing(ChatbotResponse response, ChatbotFlag flag) {
+        List<ChatbotFlag> flags = response.getFlags() == null ? new java.util.ArrayList<>() : new java.util.ArrayList<>(response.getFlags());
+        if (!flags.contains(flag)) {
+            flags.add(flag);
+            response.setFlags(flags);
+        }
+    }
+
+    private List<String> extractMatchedEntities(ChatbotQueryRequest request) {
+        if (request == null || request.getContext() == null) {
+            return List.of();
+        }
+        List<String> entities = new java.util.ArrayList<>();
+        if (hasValue(request.getContext().getSelectedService())) {
+            entities.add(request.getContext().getSelectedService().trim());
+        }
+        if (hasValue(request.getContext().getSelectedEndpoint())) {
+            entities.add(request.getContext().getSelectedEndpoint().trim());
+        }
+        return entities;
+    }
+
+    private QuestionIntent intentFromQuestion(String question) {
+        String q = question == null ? "" : question.toLowerCase();
+        if (q.contains("depends on") || q.contains("what depends") || q.contains("transitive") || q.contains("call")) {
+            return QuestionIntent.DEPENDENCY;
+        }
+        if (q.contains("endpoint") || q.contains("url") || q.contains("route")) {
+            return QuestionIntent.ENDPOINT_LOOKUP;
+        }
+        if (q.contains("service")) {
+            return QuestionIntent.SERVICE_LOOKUP;
+        }
+        if (q.contains("architecture") || q.contains("topology") || q.contains("system") || q.contains("component")) {
+            return QuestionIntent.ARCHITECTURE_TOPOLOGY;
+        }
+        return QuestionIntent.UNSUPPORTED_SPECULATIVE;
     }
 }

@@ -8,6 +8,7 @@ import lombok.Setter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 @Getter
 @Setter
@@ -24,6 +25,7 @@ public class ChatbotResponse {
     private long processingTimeMs;
     private String model;
     private String provider;
+    private Map<String, Object> traceMetadata;
 
     public void setCitations(List<CitationItem> citations) {
         if (citations == null) {
