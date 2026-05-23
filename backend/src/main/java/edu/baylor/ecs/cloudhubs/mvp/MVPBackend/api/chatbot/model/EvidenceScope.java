@@ -20,4 +20,5 @@ public class EvidenceScope {
     private String serviceName;
     private String endpointPath;
     private String httpMethod;
+    private String sessionId;
 }

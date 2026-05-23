@@ -41,7 +41,8 @@ class PromptAssemblyServiceTest {
             "run-44",
             "commit-abc",
             "order-service",
-            "POST /orders"
+            "POST /orders",
+            null
         );
 
         PromptAssemblyResult result = service.assemble(

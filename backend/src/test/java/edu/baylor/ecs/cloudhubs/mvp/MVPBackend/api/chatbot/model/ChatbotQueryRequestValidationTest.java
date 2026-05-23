@@ -34,7 +34,7 @@ class ChatbotQueryRequestValidationTest {
     void acceptsValidRequest() {
         ChatbotQueryRequest request = new ChatbotQueryRequest(
             "Which services changed in this commit?",
-            new ChatbotContext("TrainTicket", "ir-1", "index-1", "run-1", "abc123", "order-service", "GET /orders"),
+            new ChatbotContext("TrainTicket", "ir-1", "index-1", "run-1", "abc123", "order-service", "GET /orders", null),
             "conv-2",
             List.of(new ChatbotMessage("user", "previous turn"))
         );

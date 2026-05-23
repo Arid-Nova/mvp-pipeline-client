@@ -17,7 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ChatEvidenceServicesTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
-    private final ChatContextService chatContextService = new ChatContextService();
+    private final ChatContextService chatContextService = new ChatContextService(List.of(new ContextMetadataEvidenceContextProvider()));
     private final EvidenceGuardrailService evidenceGuardrailService = new EvidenceGuardrailService();
 
     @Test
@@ -61,7 +61,7 @@ class ChatEvidenceServicesTest {
 
     @Test
     void factualAnswerWithEvidenceGetsCitationIfMissing() {
-        ChatbotContext context = new ChatbotContext("TrainTicket", "ir-1", "idx-2", "run-3", "commit-4", "order-service", "POST /orders");
+        ChatbotContext context = new ChatbotContext("TrainTicket", "ir-1", "idx-2", "run-3", "commit-4", "order-service", "POST /orders", null);
         List<EvidenceItem> evidence = chatContextService.collectEvidence(context);
         assertThat(evidence).hasSize(1);
 

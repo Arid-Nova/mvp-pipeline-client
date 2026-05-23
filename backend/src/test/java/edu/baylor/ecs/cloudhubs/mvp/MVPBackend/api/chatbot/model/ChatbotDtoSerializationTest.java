@@ -21,7 +21,8 @@ class ChatbotDtoSerializationTest {
             "run-9",
             "commit-abc",
             "order-service",
-            "POST /orders"
+            "POST /orders",
+            null
         );
         List<ChatbotMessage> messages = List.of(
             new ChatbotMessage("user", "What changed in auth flow?"),

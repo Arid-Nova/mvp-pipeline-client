@@ -21,7 +21,7 @@ class ChatbotQueryServiceTest {
     @Test
     void insufficientEvidenceSkipsModelCall() {
         ChatbotConfig config = chatbotConfig();
-        ChatContextService chatContextService = new ChatContextService();
+        ChatContextService chatContextService = new ChatContextService(List.of(new ContextMetadataEvidenceContextProvider()));
         EvidenceGuardrailService guardrailService = new EvidenceGuardrailService();
         PromptAssemblyService promptAssemblyService = new PromptAssemblyService();
         AtomicBoolean modelCalled = new AtomicBoolean(false);
@@ -54,7 +54,7 @@ class ChatbotQueryServiceTest {
     @Test
     void modelUnavailableFlowRaisesTypedException() {
         ChatbotConfig config = chatbotConfig();
-        ChatContextService chatContextService = new ChatContextService();
+        ChatContextService chatContextService = new ChatContextService(List.of(new ContextMetadataEvidenceContextProvider()));
         EvidenceGuardrailService guardrailService = new EvidenceGuardrailService();
         PromptAssemblyService promptAssemblyService = new PromptAssemblyService();
         LocalLlmClient localLlmClient = new LocalLlmClient() {
@@ -70,7 +70,7 @@ class ChatbotQueryServiceTest {
 
         ChatbotQueryRequest request = new ChatbotQueryRequest(
             "What changed in service order-service?",
-            new ChatbotContext("TrainTicket", "ir-1", null, null, null, "order-service", null),
+            new ChatbotContext("TrainTicket", "ir-1", null, null, null, "order-service", null, null),
             null,
             List.of()
         );
@@ -83,7 +83,7 @@ class ChatbotQueryServiceTest {
     @Test
     void usesProvidedRequestIdInResponse() {
         ChatbotConfig config = chatbotConfig();
-        ChatContextService chatContextService = new ChatContextService();
+        ChatContextService chatContextService = new ChatContextService(List.of(new ContextMetadataEvidenceContextProvider()));
         EvidenceGuardrailService guardrailService = new EvidenceGuardrailService();
         PromptAssemblyService promptAssemblyService = new PromptAssemblyService();
         LocalLlmClient localLlmClient = new LocalLlmClient() {
@@ -99,7 +99,7 @@ class ChatbotQueryServiceTest {
 
         ChatbotQueryRequest request = new ChatbotQueryRequest(
             "What changed in service order-service?",
-            new ChatbotContext("TrainTicket", "ir-1", null, null, null, "order-service", null),
+            new ChatbotContext("TrainTicket", "ir-1", null, null, null, "order-service", null, null),
             null,
             List.of()
         );
@@ -111,7 +111,7 @@ class ChatbotQueryServiceTest {
     @Test
     void marksInsufficientEvidenceWhenModelReturnsInsufficientEvidenceAnswer() {
         ChatbotConfig config = chatbotConfig();
-        ChatContextService chatContextService = new ChatContextService();
+        ChatContextService chatContextService = new ChatContextService(List.of(new ContextMetadataEvidenceContextProvider()));
         EvidenceGuardrailService guardrailService = new EvidenceGuardrailService();
         PromptAssemblyService promptAssemblyService = new PromptAssemblyService();
         LocalLlmClient localLlmClient = new LocalLlmClient() {
@@ -133,7 +133,7 @@ class ChatbotQueryServiceTest {
 
         ChatbotQueryRequest request = new ChatbotQueryRequest(
             "What system context is currently selected?",
-            new ChatbotContext("TrainTicket", "ir-1", null, null, null, "order-service", null),
+            new ChatbotContext("TrainTicket", "ir-1", null, null, null, "order-service", null, null),
             null,
             List.of()
         );

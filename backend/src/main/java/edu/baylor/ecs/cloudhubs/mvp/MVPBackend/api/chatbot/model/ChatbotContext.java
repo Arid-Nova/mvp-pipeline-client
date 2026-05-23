@@ -17,4 +17,5 @@ public class ChatbotContext {
     private String commitId;
     private String selectedService;
     private String selectedEndpoint;
+    private Boolean expandedScope;
 }

@@ -5,6 +5,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.List;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -13,4 +15,7 @@ public class EvidenceQueryContext {
     private String question;
     private ChatbotContext chatbotContext;
     private EvidenceScope scope;
+    private List<ChatbotMessage> conversationHistory;
+    private String conversationId;
+    private boolean expandedScopeAllowed;
 }
