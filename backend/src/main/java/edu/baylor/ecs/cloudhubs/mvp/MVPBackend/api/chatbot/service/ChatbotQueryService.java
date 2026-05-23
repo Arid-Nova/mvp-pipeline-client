@@ -4,6 +4,7 @@ import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.*;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.prompt.PromptAssemblyResult;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.prompt.PromptAssemblyService;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.prompt.PromptEvidenceItem;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.prompt.PromptAssemblyMetadata;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.retrieval.ContextBudgetResult;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.retrieval.ContextBudgeter;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.retrieval.HybridRetrievalResult;
@@ -129,7 +130,11 @@ public class ChatbotQueryService {
             request.getQuestion(),
             request.getContext(),
             toPromptEvidence(evidenceItems),
-            request.getMessages()
+            request.getMessages(),
+            new PromptAssemblyMetadata(
+                budgetResult.isTruncated(),
+                response.getFlags() != null && response.getFlags().contains(ChatbotFlag.stale_context)
+            )
         );
 
         try {
@@ -223,8 +228,12 @@ public class ChatbotQueryService {
             .map(item -> new PromptEvidenceItem(
                 item.getArtifactId(),
                 item.getArtifactTypeValue(),
-                item.getArtifactName(),
+                item.getArtifactId(),
+                item.getArtifactVersion(),
                 item.getLocationHint(),
+                item.getEntityName(),
+                item.getServiceName(),
+                item.getEndpointPath(),
                 item.getContent()
             ))
             .toList();

@@ -13,7 +13,7 @@ class PromptAssemblyServiceTest {
     private final PromptAssemblyService service = new PromptAssemblyService();
 
     @Test
-    void includesGroundingAndRefusalRules() {
+    void promptIncludesGroundingRules() {
         PromptAssemblyResult result = service.assemble(
             "Is order-service vulnerable?",
             null,
@@ -22,18 +22,20 @@ class PromptAssemblyServiceTest {
         );
 
         assertThat(result.getSystemInstructions())
-            .contains("Use only the supplied AridNova evidence block")
-            .contains("Do not invent architecture facts")
-            .contains("If evidence is absent");
+            .contains("Answer only from the supplied AridNova evidence records")
+            .contains("Do not make unsupported architecture, dependency, endpoint, risk, or impact claims")
+            .contains("Cite evidence IDs")
+            .contains("direct facts versus inferred transitive paths")
+            .contains("insufficient evidence");
 
         assertThat(result.getDeveloperInstructions())
-            .contains("Start with 'Answer:'")
-            .contains("Then add 'Qualification:'")
-            .contains("insufficient evidence");
+            .contains("Every material claim must include at least one citation marker")
+            .contains("transitive dependencies")
+            .contains("Do not quote or reconstruct source files");
     }
 
     @Test
-    void includesContextMetadataWhenProvided() {
+    void promptIncludesEvidenceIdsAndLocationHintsInStructuredBlock() {
         ChatbotContext context = new ChatbotContext(
             "TrainTicket",
             "ir-12",
@@ -48,24 +50,63 @@ class PromptAssemblyServiceTest {
         PromptAssemblyResult result = service.assemble(
             "What changed?",
             context,
-            List.of(new PromptEvidenceItem("E1", "SERVICE", "order-service", "OrderController:88", "Auth check changed")),
+            List.of(new PromptEvidenceItem(
+                "E1",
+                "ENDPOINT",
+                "artifact-1",
+                "commit-abc",
+                "controllers[2].methods[1].url",
+                "OrderController",
+                "order-service",
+                "POST /orders",
+                "Authorization precheck added"
+            )),
             List.of(new ChatbotMessage("user", "previous turn"))
         );
 
-        assertThat(result.getUserPrompt())
-            .contains("systemName: TrainTicket")
-            .contains("irId: ir-12")
-            .contains("commitId: commit-abc")
-            .contains("selectedEndpoint: POST /orders");
-
         assertThat(result.getEvidenceBlock())
-            .contains("ContextSummary: system=TrainTicket")
-            .contains("[E1]")
-            .contains("location=OrderController:88");
+            .contains("AridNovaEvidenceRecords")
+            .contains("EvidenceRecord")
+            .contains("id=E1")
+            .contains("locationHint=controllers[2].methods[1].url")
+            .contains("service=order-service")
+            .contains("endpoint=POST /orders");
     }
 
     @Test
-    void emptyEvidenceCaseForcesQualifiedNonSpeculativeBehavior() {
+    void promptIncludesTruncationNoticeWhenApplicable() {
+        PromptAssemblyResult result = service.assemble(
+            "What depends on payment-service?",
+            new ChatbotContext("TrainTicket", "ir-1", null, null, "c1", "payment-service", null, null),
+            List.of(new PromptEvidenceItem("E9", "GRAPH", "graph-1", "c1", "links[4]", "payment-service", "payment-service", null, "payment -> order")),
+            null,
+            new PromptAssemblyMetadata(true, false)
+        );
+
+        assertThat(result.getUserPrompt())
+            .contains("ContextStatus")
+            .contains("evidenceTruncated: true");
+
+        assertThat(result.getEvidenceBlock())
+            .contains("EvidenceState: truncated=true");
+    }
+
+    @Test
+    void promptDoesNotIncludeSourceCodeBeyondEvidenceSnippetsSupplied() {
+        String snippet = "if (authorized) { return ok; }";
+        PromptAssemblyResult result = service.assemble(
+            "Explain endpoint auth flow",
+            new ChatbotContext(),
+            List.of(new PromptEvidenceItem("E2", "IR", "artifact-2", "v1", "controllers[0].methods[0]", "AuthController", "auth-service", "GET /auth", snippet)),
+            null
+        );
+
+        assertThat(result.getEvidenceBlock()).contains(snippet);
+        assertThat(result.getEvidenceBlock()).doesNotContain("class SecretInternalImplementation");
+    }
+
+    @Test
+    void noEvidencePathUsesInsufficientEvidenceConstraintNotSpeculativePrompting() {
         PromptAssemblyResult result = service.assemble(
             "Can you confirm policy drift?",
             new ChatbotContext(),
@@ -80,9 +121,5 @@ class PromptAssemblyServiceTest {
         assertThat(result.getUserPrompt())
             .contains("No evidence is currently available")
             .contains("insufficient evidence");
-
-        assertThat(result.toChatbotPrompt().getSystemInstruction())
-            .contains("Do not invent architecture facts")
-            .contains("If evidence is missing, explicitly say 'insufficient evidence'");
     }
 }

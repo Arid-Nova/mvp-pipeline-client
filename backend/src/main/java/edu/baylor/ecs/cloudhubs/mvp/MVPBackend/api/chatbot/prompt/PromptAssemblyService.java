@@ -12,17 +12,21 @@ public class PromptAssemblyService {
 
     private static final String SYSTEM_INSTRUCTIONS = String.join("\n",
         "You are the AridNova local architecture assistant.",
-        "Use only the supplied AridNova evidence block for factual claims.",
-        "Do not invent architecture facts, services, endpoints, commits, or policy details.",
-        "If evidence is absent or does not support the question, state that evidence is insufficient."
+        "Answer only from the supplied AridNova evidence records.",
+        "Do not make unsupported architecture, dependency, endpoint, risk, or impact claims.",
+        "Cite evidence IDs (e.g., [E1]) for every material claim.",
+        "Clearly label direct facts versus inferred transitive paths.",
+        "If evidence is missing or insufficient, explicitly say 'insufficient evidence'."
     );
 
     private static final String DEVELOPER_INSTRUCTIONS = String.join("\n",
         "Output format requirements:",
         "1) Start with 'Answer:' and provide a concise direct answer.",
         "2) Then add 'Qualification:' and state certainty/limits.",
-        "3) If evidence exists, include citation markers using evidence IDs like [E1], [E2].",
-        "4) If evidence is missing, explicitly say 'insufficient evidence' and avoid speculation."
+        "3) Every material claim must include at least one citation marker like [E1].",
+        "4) If mentioning transitive dependencies, state they are inferred from explicit links and cite both.",
+        "5) If evidence is missing, stale, or truncated, explain limits and avoid speculation.",
+        "6) Do not quote or reconstruct source files beyond evidence snippets in AridNovaEvidenceRecords."
     );
 
     public PromptAssemblyResult assemble(
@@ -31,11 +35,22 @@ public class PromptAssemblyService {
         List<PromptEvidenceItem> evidenceItems,
         List<ChatbotMessage> conversationHistory
     ) {
+        return assemble(question, context, evidenceItems, conversationHistory, new PromptAssemblyMetadata(false, false));
+    }
+
+    public PromptAssemblyResult assemble(
+        String question,
+        ChatbotContext context,
+        List<PromptEvidenceItem> evidenceItems,
+        List<ChatbotMessage> conversationHistory,
+        PromptAssemblyMetadata metadata
+    ) {
         List<PromptEvidenceItem> safeEvidence = evidenceItems == null ? List.of() : evidenceItems;
         List<ChatbotMessage> safeHistory = conversationHistory == null ? List.of() : conversationHistory;
+        PromptAssemblyMetadata safeMetadata = metadata == null ? new PromptAssemblyMetadata(false, false) : metadata;
 
-        String evidenceBlock = buildEvidenceBlock(context, safeEvidence);
-        String userPrompt = buildUserPrompt(question, context, safeEvidence.isEmpty());
+        String evidenceBlock = buildEvidenceBlock(context, safeEvidence, safeMetadata);
+        String userPrompt = buildUserPrompt(question, context, safeEvidence.isEmpty(), safeMetadata);
 
         return new PromptAssemblyResult(
             SYSTEM_INSTRUCTIONS,
@@ -46,7 +61,7 @@ public class PromptAssemblyService {
         );
     }
 
-    private String buildUserPrompt(String question, ChatbotContext context, boolean noEvidence) {
+    private String buildUserPrompt(String question, ChatbotContext context, boolean noEvidence, PromptAssemblyMetadata metadata) {
         StringBuilder builder = new StringBuilder();
         builder.append("Question:\n").append(question == null ? "" : question.trim()).append("\n\n");
         if (context != null) {
@@ -59,6 +74,12 @@ public class PromptAssemblyService {
                 .append("- selectedService: ").append(valueOrNA(context.getSelectedService())).append("\n")
                 .append("- selectedEndpoint: ").append(valueOrNA(context.getSelectedEndpoint())).append("\n\n");
         }
+        if (metadata.isTruncated() || metadata.isStaleContext()) {
+            builder.append("ContextStatus:\n")
+                .append("- evidenceTruncated: ").append(metadata.isTruncated()).append("\n")
+                .append("- staleContext: ").append(metadata.isStaleContext()).append("\n")
+                .append("- instruction: explicitly qualify any uncertainty caused by truncation or stale context.\n\n");
+        }
         if (noEvidence) {
             builder.append("Constraint:\n")
                 .append("No evidence is currently available. Provide a qualified response that states insufficient evidence.")
@@ -67,9 +88,9 @@ public class PromptAssemblyService {
         return builder.toString();
     }
 
-    private String buildEvidenceBlock(ChatbotContext context, List<PromptEvidenceItem> evidenceItems) {
+    private String buildEvidenceBlock(ChatbotContext context, List<PromptEvidenceItem> evidenceItems, PromptAssemblyMetadata metadata) {
         StringBuilder builder = new StringBuilder();
-        builder.append("AridNovaEvidence:\n");
+        builder.append("AridNovaEvidenceRecords:\n");
         if (context != null) {
             builder.append("ContextSummary: ")
                 .append("system=").append(valueOrNA(context.getSystemName()))
@@ -78,6 +99,10 @@ public class PromptAssemblyService {
                 .append(", endpoint=").append(valueOrNA(context.getSelectedEndpoint()))
                 .append("\n");
         }
+        builder.append("EvidenceState: truncated=").append(metadata.isTruncated())
+            .append(", staleContext=").append(metadata.isStaleContext())
+            .append("\n");
+
         if (evidenceItems.isEmpty()) {
             builder.append("EvidenceCount: 0\n");
             builder.append("EvidenceList: none\n");
@@ -87,12 +112,17 @@ public class PromptAssemblyService {
         builder.append("EvidenceCount: ").append(evidenceItems.size()).append("\n");
         builder.append("EvidenceList:\n");
         for (PromptEvidenceItem item : evidenceItems) {
-            builder.append("- [").append(valueOrNA(item.getEvidenceId())).append("] ")
-                .append("type=").append(valueOrNA(item.getArtifactType()))
-                .append("; name=").append(valueOrNA(item.getArtifactName()))
-                .append("; location=").append(valueOrNA(item.getLocationHint()))
-                .append("; summary=").append(valueOrNA(item.getSummary()))
-                .append("\n");
+            builder.append("- EvidenceRecord {")
+                .append(" id=").append(valueOrNA(item.getEvidenceId()))
+                .append("; artifactType=").append(valueOrNA(item.getArtifactType()))
+                .append("; artifactId=").append(valueOrNA(item.getArtifactId()))
+                .append("; artifactVersion=").append(valueOrNA(item.getArtifactVersion()))
+                .append("; locationHint=").append(valueOrNA(item.getLocationHint()))
+                .append("; entity=").append(valueOrNA(item.getEntityName()))
+                .append("; service=").append(valueOrNA(item.getServiceName()))
+                .append("; endpoint=").append(valueOrNA(item.getEndpointPath()))
+                .append("; content=").append(valueOrNA(item.getSummary()))
+                .append(" }\n");
         }
         return builder.toString();
     }

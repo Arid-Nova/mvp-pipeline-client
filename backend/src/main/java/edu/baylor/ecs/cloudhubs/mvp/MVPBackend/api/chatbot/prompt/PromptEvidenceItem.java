@@ -12,7 +12,11 @@ import lombok.Setter;
 public class PromptEvidenceItem {
     private String evidenceId;
     private String artifactType;
-    private String artifactName;
+    private String artifactId;
+    private String artifactVersion;
     private String locationHint;
+    private String entityName;
+    private String serviceName;
+    private String endpointPath;
     private String summary;
 }
