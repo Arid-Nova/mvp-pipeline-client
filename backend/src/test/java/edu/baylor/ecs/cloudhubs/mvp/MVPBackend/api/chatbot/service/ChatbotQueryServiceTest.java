@@ -10,6 +10,7 @@ import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.EvidenceItem;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.EvidenceQueryContext;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.EvidenceRetrievalResult;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.prompt.PromptAssemblyService;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.quality.ConfidenceService;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.retrieval.ContextBudgeter;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.retrieval.HybridRetriever;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.runtime.LocalLlmClient;
@@ -54,6 +55,7 @@ class ChatbotQueryServiceTest {
             promptAssemblyService,
             new HybridRetriever(),
             new ContextBudgeter(),
+            new ConfidenceService(),
             localLlmClient
         );
 
@@ -96,6 +98,7 @@ class ChatbotQueryServiceTest {
             promptAssemblyService,
             new HybridRetriever(),
             new ContextBudgeter(),
+            new ConfidenceService(),
             localLlmClient
         );
 
@@ -133,6 +136,7 @@ class ChatbotQueryServiceTest {
             promptAssemblyService,
             new HybridRetriever(),
             new ContextBudgeter(),
+            new ConfidenceService(),
             localLlmClient
         );
 
@@ -169,6 +173,7 @@ class ChatbotQueryServiceTest {
             promptAssemblyService,
             new HybridRetriever(),
             new ContextBudgeter(),
+            new ConfidenceService(),
             localLlmClient
         );
 
@@ -208,6 +213,7 @@ class ChatbotQueryServiceTest {
             promptAssemblyService,
             new HybridRetriever(),
             new ContextBudgeter(),
+            new ConfidenceService(),
             localLlmClient
         );
 

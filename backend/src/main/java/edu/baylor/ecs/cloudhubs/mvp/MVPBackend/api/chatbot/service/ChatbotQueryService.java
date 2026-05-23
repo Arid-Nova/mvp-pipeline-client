@@ -10,6 +10,8 @@ import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.retrieval.ContextBudg
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.retrieval.HybridRetrievalResult;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.retrieval.HybridRetriever;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.retrieval.QuestionIntent;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.quality.ConfidenceAssessment;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.quality.ConfidenceService;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.runtime.LocalLlmClient;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.runtime.LocalLlmException;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.runtime.model.LocalLlmFailureCode;
@@ -34,6 +36,7 @@ public class ChatbotQueryService {
     private final PromptAssemblyService promptAssemblyService;
     private final HybridRetriever hybridRetriever;
     private final ContextBudgeter contextBudgeter;
+    private final ConfidenceService confidenceService;
     private final LocalLlmClient localLlmClient;
 
     public ChatbotQueryService(
@@ -43,6 +46,7 @@ public class ChatbotQueryService {
         PromptAssemblyService promptAssemblyService,
         HybridRetriever hybridRetriever,
         ContextBudgeter contextBudgeter,
+        ConfidenceService confidenceService,
         LocalLlmClient localLlmClient
     ) {
         this.chatbotConfig = chatbotConfig;
@@ -51,6 +55,7 @@ public class ChatbotQueryService {
         this.promptAssemblyService = promptAssemblyService;
         this.hybridRetriever = hybridRetriever;
         this.contextBudgeter = contextBudgeter;
+        this.confidenceService = confidenceService;
         this.localLlmClient = localLlmClient;
     }
 
@@ -111,9 +116,9 @@ public class ChatbotQueryService {
             requestId,
             response.getFlags()
         );
+        applyEvidenceDerivedConfidence(response, retrieval, evidenceItems);
 
         if (response.getFlags() != null && response.getFlags().contains(ChatbotFlag.insufficient_evidence)) {
-            response.setConfidence(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
             long latencyMs = System.currentTimeMillis() - startMs;
             response.setProcessingTimeMs(latencyMs);
             log.info(
@@ -149,14 +154,13 @@ public class ChatbotQueryService {
             response.setAnswer(llmResult.getText());
             response.setModel(llmResult.getModel() == null || llmResult.getModel().isBlank() ? chatbotConfig.getModel() : llmResult.getModel());
             response.setProvider(llmResult.getProvider() == null || llmResult.getProvider().isBlank() ? chatbotConfig.getProvider().name() : llmResult.getProvider());
-            response.setConfidence(ChatbotConfidence.MEDIUM);
             response = evidenceGuardrailService.enforcePostGeneration(
                 request.getQuestion(),
                 retrieval.getIntent(),
                 evidenceItems,
                 response
             );
-            normalizeEvidenceQualification(response);
+            applyEvidenceDerivedConfidence(response, retrieval, evidenceItems);
             long latencyMs = System.currentTimeMillis() - startMs;
             response.setProcessingTimeMs(latencyMs);
             log.info(
@@ -208,6 +212,8 @@ public class ChatbotQueryService {
         response.setAnswer("Local model runtime is unavailable. " + ex.getMessage());
         response.setConfidence(ChatbotConfidence.LOW);
         response.setFlags(List.of(ChatbotFlag.model_unavailable));
+        response.setConfidenceRationale("Model provider is unavailable for this request.");
+        response.setConfidenceReasons(List.of("provider_unavailable"));
         response.setCitations(List.of());
         return response;
     }
@@ -264,22 +270,18 @@ public class ChatbotQueryService {
         return value != null && !value.isBlank();
     }
 
-    private void normalizeEvidenceQualification(ChatbotResponse response) {
-        if (response == null) {
-            return;
-        }
-        boolean mentionsInsufficientEvidence = response.getAnswer() != null
-            && response.getAnswer().toLowerCase().contains("insufficient evidence");
-        boolean hasNoCitations = response.getCitations() == null || response.getCitations().isEmpty();
-        if (mentionsInsufficientEvidence && hasNoCitations) {
-            if (response.getFlags() == null || !response.getFlags().contains(ChatbotFlag.insufficient_evidence)) {
-                List<ChatbotFlag> updatedFlags = response.getFlags() == null ? List.of() : response.getFlags();
-                List<ChatbotFlag> merged = new java.util.ArrayList<>(updatedFlags);
-                merged.add(ChatbotFlag.insufficient_evidence);
-                response.setFlags(merged);
-            }
-            response.setConfidence(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
-        }
+    private void applyEvidenceDerivedConfidence(ChatbotResponse response, HybridRetrievalResult retrieval, List<EvidenceItem> evidenceItems) {
+        ConfidenceAssessment assessment = confidenceService.assess(
+            retrieval.getIntent(),
+            evidenceItems,
+            response.getCitations(),
+            response.getFlags(),
+            retrieval.getMatchedEntities(),
+            retrieval.getMissingEvidence()
+        );
+        response.setConfidence(assessment.getConfidence());
+        response.setConfidenceRationale(assessment.getRationale());
+        response.setConfidenceReasons(assessment.getReasons());
     }
 
     private void addFlagIfMissing(ChatbotResponse response, ChatbotFlag flag) {

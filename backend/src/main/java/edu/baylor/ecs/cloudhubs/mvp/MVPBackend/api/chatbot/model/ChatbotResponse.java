@@ -25,6 +25,8 @@ public class ChatbotResponse {
     private long processingTimeMs;
     private String model;
     private String provider;
+    private String confidenceRationale;
+    private List<String> confidenceReasons = new ArrayList<>();
     private Map<String, Object> traceMetadata;
 
     public void setCitations(List<CitationItem> citations) {
