@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class ChatbotQueryService {
@@ -239,18 +240,44 @@ public class ChatbotQueryService {
             return List.of();
         }
         return evidenceItems.stream()
-            .map(item -> new PromptEvidenceItem(
-                item.getArtifactId(),
-                item.getArtifactTypeValue(),
-                item.getArtifactId(),
-                item.getArtifactVersion(),
-                item.getLocationHint(),
-                item.getEntityName(),
-                item.getServiceName(),
-                item.getEndpointPath(),
-                item.getContent()
-            ))
+            .map(item -> {
+                PromptEvidenceItem promptItem = new PromptEvidenceItem(
+                    item.getArtifactId(),
+                    item.getArtifactTypeValue(),
+                    item.getArtifactId(),
+                    item.getArtifactVersion(),
+                    item.getLocationHint(),
+                    item.getEntityName(),
+                    item.getServiceName(),
+                    item.getEndpointPath(),
+                    item.getContent()
+                );
+                promptItem.setAntiPatternMarkers(extractAntiPatternMarkers(item));
+                return promptItem;
+            })
             .toList();
+    }
+
+    private String extractAntiPatternMarkers(EvidenceItem item) {
+        if (item == null || item.getStructuredPayload() == null) {
+            return null;
+        }
+        var payload = item.getStructuredPayload();
+        List<String> markers = new ArrayList<>();
+        if (payload.has("antiPattern") && payload.path("antiPattern").isTextual()) {
+            markers.add(payload.path("antiPattern").asText());
+        }
+        if (payload.has("antiPatterns") && payload.path("antiPatterns").isArray()) {
+            payload.path("antiPatterns").forEach(node -> {
+                if (node.isTextual()) {
+                    markers.add(node.asText());
+                }
+            });
+        }
+        if (markers.isEmpty()) {
+            return null;
+        }
+        return markers.stream().distinct().collect(Collectors.joining(", "));
     }
 
     private int countContextFields(ChatbotContext context) {

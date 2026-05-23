@@ -27,6 +27,9 @@ public class HybridRetriever {
     private static final Pattern ENDPOINT_PATTERN = Pattern.compile("(/[a-zA-Z0-9_\\-/{}]+)");
     private static final Pattern METHOD_PATH_PATTERN = Pattern.compile("\\b(GET|POST|PUT|PATCH|DELETE)\\s+(/[a-zA-Z0-9_\\-/{}]+)", Pattern.CASE_INSENSITIVE);
     private static final Pattern FOLLOW_UP_PRONOUN_PATTERN = Pattern.compile("\\b(it|that service|that endpoint|that one|them)\\b", Pattern.CASE_INSENSITIVE);
+    private static final List<String> RISK_TERMS = List.of(
+        "risk", "smell", "anti-pattern", "antipattern", "bottleneck", "cycle", "coupled", "architecture issue"
+    );
 
     public HybridRetrievalResult retrieve(
         String question,
@@ -237,12 +240,14 @@ public class HybridRetriever {
         }
 
         List<String> qTokens = tokens(question);
+        boolean riskQuestion = isRiskOrAntiPatternQuestion(question);
         Map<EvidenceItem, Double> scores = new HashMap<>();
         for (EvidenceItem item : evidenceItems) {
             double score = tokenOverlapScore(qTokens, item)
                 + entityOverlapScore(qTokens, item)
                 + artifactPriorityScore(item)
-                + recencyScore(item);
+                + recencyScore(item)
+                + antiPatternBoost(item, riskQuestion);
             scores.put(item, score);
         }
 
@@ -321,6 +326,52 @@ public class HybridRetriever {
             return 0.15;
         }
         return 0.0;
+    }
+
+    private double antiPatternBoost(EvidenceItem item, boolean riskQuestion) {
+        if (!riskQuestion || item == null) {
+            return 0;
+        }
+        if (isAntiPatternEvidence(item)) {
+            return 3.0;
+        }
+        return 0;
+    }
+
+    private boolean isRiskOrAntiPatternQuestion(String question) {
+        String q = question == null ? "" : question.toLowerCase(Locale.ROOT);
+        for (String term : RISK_TERMS) {
+            if (q.contains(term)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isAntiPatternEvidence(EvidenceItem item) {
+        if (item == null) {
+            return false;
+        }
+        if ("ANTI_PATTERN".equalsIgnoreCase(safe(item.getEntityType()))) {
+            return true;
+        }
+        if (item.getStructuredPayload() != null) {
+            if (item.getStructuredPayload().has("antiPattern")) {
+                return true;
+            }
+            if (item.getStructuredPayload().has("antiPatterns")
+                && item.getStructuredPayload().path("antiPatterns").isArray()
+                && item.getStructuredPayload().path("antiPatterns").size() > 0) {
+                return true;
+            }
+        }
+        String text = (safe(item.getContentText()) + " " + safe(item.getEntityName())).toLowerCase(Locale.ROOT);
+        return text.contains("anti-pattern")
+            || text.contains("antipattern")
+            || text.contains("bottleneck")
+            || text.contains("cyclic")
+            || text.contains("megaservice")
+            || text.contains("coupling");
     }
 
     private int artifactRank(EvidenceItem item) {

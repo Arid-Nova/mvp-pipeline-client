@@ -1,5 +1,6 @@
 package edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.retrieval;
 
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.ChatbotContext;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.ChatbotMessage;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.EvidenceArtifactType;
@@ -146,6 +147,24 @@ class HybridRetrieverTest {
         );
 
         assertThat(result.getMatchedEntities()).doesNotContain("analytics-service");
+    }
+
+    @Test
+    void riskQuestionPrioritizesAntiPatternEvidence() {
+        EvidenceItem antiPattern = item(EvidenceArtifactType.ARCHITECTURE, "ap-1", "order-service", null, null, "Graph anti-pattern marker on node order-service: Bottleneck", Instant.parse("2026-05-20T10:00:00Z"));
+        antiPattern.setEntityType("ANTI_PATTERN");
+        antiPattern.setStructuredPayload(JsonNodeFactory.instance.objectNode().put("antiPattern", "Bottleneck"));
+        EvidenceItem generic = item(EvidenceArtifactType.ARCHITECTURE, "arch-1", "order-service", null, null, "Service overview and boundaries", Instant.parse("2026-05-20T10:00:00Z"));
+
+        HybridRetrievalResult result = retriever.retrieve(
+            "what architecture risks exist?",
+            context("train-ticket", null, null),
+            List.of(generic, antiPattern),
+            List.of()
+        );
+
+        assertThat(result.getStrategy()).isEqualTo(RetrievalStrategy.TEXT_RANKED);
+        assertThat(result.getRankedEvidence().get(0).getArtifactId()).isEqualTo("ap-1");
     }
 
     private EvidenceItem item(

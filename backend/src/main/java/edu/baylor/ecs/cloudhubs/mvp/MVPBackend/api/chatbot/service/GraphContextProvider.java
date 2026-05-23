@@ -137,11 +137,32 @@ public class GraphContextProvider implements EvidenceContextProvider {
             payload.put("nodeName", nodeName);
             payload.put("nodeType", safe(node.getNodeType()));
             ArrayNode antiPatterns = payload.putArray("antiPatterns");
-            for (String p : antiPatternNames(node.getPatterns())) {
+            List<String> patternNames = antiPatternNames(node.getPatterns());
+            for (String p : patternNames) {
                 antiPatterns.add(p);
             }
             item.setStructuredPayload(payload);
             evidence.add(item);
+
+            for (String pattern : patternNames) {
+                EvidenceItem antiPatternEvidence = new EvidenceItem();
+                antiPatternEvidence.setArtifactType(EvidenceArtifactType.ARCHITECTURE);
+                antiPatternEvidence.setArtifactId("graph-antipattern:" + nodeName + ":" + pattern);
+                antiPatternEvidence.setArtifactVersion(graphVersion);
+                antiPatternEvidence.setLocationHint("nodes[" + nodeName + "].patterns");
+                antiPatternEvidence.setEntityType("ANTI_PATTERN");
+                antiPatternEvidence.setEntityName(pattern);
+                antiPatternEvidence.setServiceName(nodeName);
+                antiPatternEvidence.setContentText("Graph anti-pattern marker on node " + nodeName + ": " + pattern);
+                antiPatternEvidence.setConfidenceSource("graph-explicit");
+                antiPatternEvidence.setSupportStrength(1.0);
+                ObjectNode antiPayload = objectMapper.createObjectNode();
+                antiPayload.put("antiPattern", pattern);
+                antiPayload.put("nodeName", nodeName);
+                antiPayload.put("sourceType", "GRAPH_NODE");
+                antiPatternEvidence.setStructuredPayload(antiPayload);
+                evidence.add(antiPatternEvidence);
+            }
         }
     }
 

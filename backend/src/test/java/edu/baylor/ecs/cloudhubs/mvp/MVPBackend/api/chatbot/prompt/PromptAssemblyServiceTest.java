@@ -26,6 +26,7 @@ class PromptAssemblyServiceTest {
             .contains("Do not make unsupported architecture, dependency, endpoint, risk, or impact claims")
             .contains("Cite evidence IDs")
             .contains("direct facts versus inferred transitive paths")
+            .contains("Only mention anti-patterns when explicit anti-pattern markers are present")
             .contains("insufficient evidence");
 
         assertThat(result.getDeveloperInstructions())
@@ -89,6 +90,38 @@ class PromptAssemblyServiceTest {
 
         assertThat(result.getEvidenceBlock())
             .contains("EvidenceState: truncated=true");
+    }
+
+    @Test
+    void promptIncludesAntiPatternMarkersOnlyFromEvidence() {
+        PromptEvidenceItem item = new PromptEvidenceItem(
+            "E7",
+            "ARCHITECTURE",
+            "graph-antipattern:order-service:Bottleneck",
+            "graph-v1",
+            "nodes[order-service].patterns",
+            "Bottleneck",
+            "order-service",
+            null,
+            "Graph anti-pattern marker on node order-service: Bottleneck"
+        );
+        item.setAntiPatternMarkers("Bottleneck");
+
+        PromptAssemblyResult withMarkers = service.assemble(
+            "what architecture risks exist?",
+            new ChatbotContext(),
+            List.of(item),
+            null
+        );
+        PromptAssemblyResult withoutMarkers = service.assemble(
+            "what architecture risks exist?",
+            new ChatbotContext(),
+            List.of(new PromptEvidenceItem("E8", "ARCHITECTURE", "arch-1", "v1", "nodes[order-service]", "order-service", "order-service", null, "Service summary")),
+            null
+        );
+
+        assertThat(withMarkers.getEvidenceBlock()).contains("antiPatterns=Bottleneck");
+        assertThat(withoutMarkers.getEvidenceBlock()).contains("antiPatterns=n/a");
     }
 
     @Test

@@ -90,6 +90,12 @@ class GraphContextProviderTest {
                 && item.getStructuredPayload().path("antiPatterns").toString().contains("Bottleneck"));
 
         assertThat(result.getEvidenceItems())
+            .anyMatch(item -> item.getArtifactType() == EvidenceArtifactType.ARCHITECTURE
+                && "ANTI_PATTERN".equals(item.getEntityType())
+                && "Bottleneck".equals(item.getEntityName())
+                && item.getLocationHint().contains("nodes[order-service].patterns"));
+
+        assertThat(result.getEvidenceItems())
             .anyMatch(item -> item.getArtifactType() == EvidenceArtifactType.DEPENDENCY
                 && "GRAPH_LINK".equals(item.getEntityType())
                 && item.getLocationHint().contains("links[order-service->payment-service]")

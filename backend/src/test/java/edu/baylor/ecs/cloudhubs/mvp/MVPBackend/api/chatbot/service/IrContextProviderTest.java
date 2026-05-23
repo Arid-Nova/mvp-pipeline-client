@@ -49,6 +49,10 @@ class IrContextProviderTest {
         assertThat(result.getEvidenceItems())
             .anyMatch(item -> item.getArtifactType() == EvidenceArtifactType.DEPENDENCY
                 && item.getLocationHint().contains("feignClients[0].annotations"));
+        assertThat(result.getEvidenceItems())
+            .anyMatch(item -> "ANTI_PATTERN".equals(item.getEntityType())
+                && item.getContentText().contains("GOD_SERVICE")
+                && item.getLocationHint().contains("microservices[0].antiPattern"));
     }
 
     @Test
@@ -72,6 +76,8 @@ class IrContextProviderTest {
             .filteredOn(item -> "MICROSERVICE".equals(item.getEntityType()))
             .hasSize(2);
         assertThat(result.getMissingEvidence()).isEmpty();
+        assertThat(result.getEvidenceItems())
+            .noneMatch(item -> "ANTI_PATTERN".equals(item.getEntityType()));
     }
 
     @Test
@@ -121,6 +127,7 @@ class IrContextProviderTest {
               \"microservices\": [
                 {
                   \"name\": \"order-service\",
+                  \"antiPattern\": \"GOD_SERVICE\",
                   \"controllers\": [
                     {
                       \"name\": \"OrderController\",
@@ -128,8 +135,9 @@ class IrContextProviderTest {
                         {
                           \"httpMethod\": \"POST\",
                           \"url\": \"/orders\",
+                          \"antiPattern\": \"CHATTY_SERVICE\",
                           \"methodCalls\": [
-                            { \"name\": \"createPayment\", \"url\": \"http://payment-service/pay\" }
+                            { \"name\": \"createPayment\", \"url\": \"http://payment-service/pay\", \"antiPattern\": \"CYCLIC_DEPENDENCY\" }
                           ]
                         }
                       ]

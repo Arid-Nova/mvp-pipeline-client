@@ -16,6 +16,7 @@ public class PromptAssemblyService {
         "Do not make unsupported architecture, dependency, endpoint, risk, or impact claims.",
         "Cite evidence IDs (e.g., [E1]) for every material claim.",
         "Clearly label direct facts versus inferred transitive paths.",
+        "Only mention anti-patterns when explicit anti-pattern markers are present in evidence records.",
         "If evidence is missing or insufficient, explicitly say 'insufficient evidence'."
     );
 
@@ -121,6 +122,7 @@ public class PromptAssemblyService {
                 .append("; entity=").append(valueOrNA(item.getEntityName()))
                 .append("; service=").append(valueOrNA(item.getServiceName()))
                 .append("; endpoint=").append(valueOrNA(item.getEndpointPath()))
+                .append("; antiPatterns=").append(valueOrNA(item.getAntiPatternMarkers()))
                 .append("; content=").append(valueOrNA(item.getSummary()))
                 .append(" }\n");
         }

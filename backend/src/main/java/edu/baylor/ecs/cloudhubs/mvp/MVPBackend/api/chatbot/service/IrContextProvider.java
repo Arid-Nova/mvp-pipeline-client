@@ -12,8 +12,10 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Component
 public class IrContextProvider implements EvidenceContextProvider {
@@ -125,6 +127,7 @@ public class IrContextProvider implements EvidenceContextProvider {
                 null,
                 "Microservice discovered in IR topology: " + serviceName,
                 microservice);
+            extractAntiPatternEvidence(ir, commitId, output, microservice, "microservices[" + i + "]", "MICROSERVICE", serviceName, serviceName, null);
 
             extractControllers(ir, commitId, output, microservice, i, serviceName);
             extractServiceDependencies(ir, commitId, output, microservice, i, serviceName);
@@ -150,6 +153,11 @@ public class IrContextProvider implements EvidenceContextProvider {
                 null,
                 "Controller in service " + serviceName + ": " + controllerName,
                 controller);
+            extractAntiPatternEvidence(
+                ir, commitId, output, controller,
+                "microservices[" + msIdx + "].controllers[" + c + "]",
+                "CONTROLLER", controllerName, serviceName, null
+            );
 
             JsonNode methods = controller.path("methods");
             if (!methods.isArray()) {
@@ -179,6 +187,11 @@ public class IrContextProvider implements EvidenceContextProvider {
                     httpMethod,
                     "Endpoint discovered: " + firstNonBlank(httpMethod, "HTTP") + " " + firstNonBlank(endpointUrl, "unknown"),
                     method);
+                extractAntiPatternEvidence(
+                    ir, commitId, output, method,
+                    "microservices[" + msIdx + "].controllers[" + c + "].methods[" + m + "]",
+                    "ENDPOINT_METHOD", controllerName, serviceName, endpointUrl
+                );
             }
         }
     }
@@ -220,6 +233,11 @@ public class IrContextProvider implements EvidenceContextProvider {
                         null,
                         "Method call dependency from " + componentName + " to " + firstNonBlank(calledTarget, "unknown target"),
                         call);
+                    extractAntiPatternEvidence(
+                        ir, commitId, output, call,
+                        "microservices[" + msIdx + "]." + componentKey + "[" + c + "].methods[" + m + "].methodCalls[" + callIdx + "]",
+                        "METHOD_CALL", componentName, serviceName, calledUrl
+                    );
                 }
             }
         }
@@ -245,6 +263,45 @@ public class IrContextProvider implements EvidenceContextProvider {
                 null,
                 "Feign client dependency from " + serviceName + " to " + target,
                 feign);
+            extractAntiPatternEvidence(
+                ir, commitId, output, feign,
+                "microservices[" + msIdx + "].feignClients[" + f + "]",
+                "FEIGN_CLIENT", clientName, serviceName, target
+            );
+        }
+    }
+
+    private void extractAntiPatternEvidence(
+        StoredIrPayload ir,
+        String commitId,
+        List<EvidenceItem> output,
+        JsonNode node,
+        String baseLocation,
+        String entityType,
+        String entityName,
+        String serviceName,
+        String endpointPath
+    ) {
+        Set<String> markers = antiPatternMarkers(node);
+        if (markers.isEmpty()) {
+            return;
+        }
+        for (String marker : markers) {
+            addEvidence(
+                output,
+                EvidenceArtifactType.ARCHITECTURE,
+                ir,
+                commitId,
+                "ap:" + serviceName + ":" + marker + ":" + baseLocation,
+                baseLocation + ".antiPattern",
+                "ANTI_PATTERN",
+                entityName,
+                serviceName,
+                endpointPath,
+                null,
+                "Anti-pattern marker in IR: " + marker + " for " + firstNonBlank(entityName, serviceName, "unknown"),
+                node
+            );
         }
     }
 
@@ -319,6 +376,27 @@ public class IrContextProvider implements EvidenceContextProvider {
             if (lower.contains("patch")) return "PATCH";
         }
         return null;
+    }
+
+    private Set<String> antiPatternMarkers(JsonNode node) {
+        if (node == null || node.isMissingNode() || node.isNull()) {
+            return Set.of();
+        }
+        Set<String> markers = new LinkedHashSet<>();
+        if (node.has("antiPattern") && node.path("antiPattern").isTextual()) {
+            String marker = node.path("antiPattern").asText();
+            if (hasValue(marker)) {
+                markers.add(marker.trim());
+            }
+        }
+        if (node.has("antiPatterns") && node.path("antiPatterns").isArray()) {
+            node.path("antiPatterns").forEach(patternNode -> {
+                if (patternNode.isTextual() && hasValue(patternNode.asText())) {
+                    markers.add(patternNode.asText().trim());
+                }
+            });
+        }
+        return markers;
     }
 
     private String extractUrlFromAnnotations(JsonNode annotationsNode) {
