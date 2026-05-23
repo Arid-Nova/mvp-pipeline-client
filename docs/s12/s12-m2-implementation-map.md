@@ -1,7 +1,7 @@
 # S12-M2 Implementation Map: Evidence-grounded architecture Q&A
 
-Date: 2026-05-22
-Scope: repository mapping and implementation prep only (no feature logic changes)
+Date: 2026-05-23
+Scope: implementation + acceptance validation complete for S12-M2
 
 ## 1) Existing S12-M1 files discovered
 
@@ -169,3 +169,112 @@ Behavior:
 - Recommended commands:
   - `scripts/s12-m2-smoke.sh --mocked-only`
   - `scripts/s12-m2-smoke.sh --live-http` (requires backend running on `localhost:8080`)
+
+## 9) Final Implemented Files (S12-M2)
+
+Backend implementation highlights:
+- `backend/src/main/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/model/EvidenceItem.java`
+- `backend/src/main/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/model/EvidenceArtifactType.java`
+- `backend/src/main/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/model/EvidenceLocation.java`
+- `backend/src/main/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/model/EvidenceScope.java`
+- `backend/src/main/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/model/EvidenceQueryContext.java`
+- `backend/src/main/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/model/EvidenceRetrievalResult.java`
+- `backend/src/main/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/model/MissingEvidence.java`
+- `backend/src/main/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/model/EvidenceCitationMapper.java`
+- `backend/src/main/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/service/ChatContextService.java`
+- `backend/src/main/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/service/EvidenceProviderRegistry.java`
+- `backend/src/main/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/service/IrContextProvider.java`
+- `backend/src/main/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/service/GraphContextProvider.java`
+- `backend/src/main/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/retrieval/HybridRetriever.java`
+- `backend/src/main/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/retrieval/ContextBudgeter.java`
+- `backend/src/main/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/prompt/PromptAssemblyService.java`
+- `backend/src/main/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/prompt/PromptEvidenceItem.java`
+- `backend/src/main/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/service/EvidenceGuardrailService.java`
+- `backend/src/main/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/quality/ConfidenceService.java`
+- `backend/src/main/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/service/ChatbotQueryService.java`
+- `backend/src/main/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/ChatbotController.java`
+- `backend/src/main/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/model/ChatbotContextRefreshRequest.java`
+- `backend/src/main/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/model/ChatbotContextRefreshResponse.java`
+
+Backend test coverage added/updated:
+- `backend/src/test/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/service/ChatContextServiceRetrievalTest.java`
+- `backend/src/test/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/service/IrContextProviderTest.java`
+- `backend/src/test/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/service/GraphContextProviderTest.java`
+- `backend/src/test/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/retrieval/HybridRetrieverTest.java`
+- `backend/src/test/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/retrieval/ContextBudgeterTest.java`
+- `backend/src/test/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/prompt/PromptAssemblyServiceTest.java`
+- `backend/src/test/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/service/ChatEvidenceServicesTest.java`
+- `backend/src/test/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/service/ChatbotQueryServiceTest.java`
+- `backend/src/test/java/edu/baylor/ecs/cloudhubs/mvp/MVPBackend/api/chatbot/service/ChatbotS12M2IntegrationTest.java`
+
+Frontend implementation highlights:
+- `frontend/src/components/chatbot/useChatbotState.ts`
+- `frontend/src/components/chatbot/ChatbotPanel.tsx`
+- `frontend/src/components/chatbot/ChatbotPanel.test.tsx`
+- `frontend/src/services/api.ts`
+- `frontend/src/services/types.ts`
+
+Demo/smoke assets:
+- `docs/s12/s12-m2-demo-script.md`
+- `scripts/s12-m2-smoke.sh`
+- `scripts/validate-chatbot-local-only.sh`
+
+## 10) Final Acceptance Test Runs
+
+Run on 2026-05-23:
+
+1. Backend S12-M2 acceptance suite
+- Command:
+  - `cd backend && ./mvnw -Dtest=ChatbotControllerTest,ChatbotQueryServiceTest,ChatbotS12M2IntegrationTest,ChatEvidenceServicesTest,ChatContextServiceRetrievalTest,IrContextProviderTest,GraphContextProviderTest,HybridRetrieverTest,ContextBudgeterTest,PromptAssemblyServiceTest,ConfidenceServiceTest,EvidenceItemSerializationTest,EvidenceCitationMapperTest,ChatbotDtoSerializationTest,ChatbotQueryRequestValidationTest test`
+- Result:
+  - `BUILD SUCCESS`
+  - `Tests run: 76, Failures: 0, Errors: 0, Skipped: 0`
+
+2. Frontend S12-M2 UI suite
+- Command:
+  - `cd frontend && npm test -- --watchAll=false --runInBand --testPathPattern=ChatbotPanel.test.tsx`
+- Result:
+  - `PASS src/components/chatbot/ChatbotPanel.test.tsx`
+  - `Tests: 16 passed, 16 total`
+- Notes:
+  - Non-failing React `act(...)`/deprecated test-utils warnings remain.
+
+3. S12-M2 smoke script
+- Command:
+  - `scripts/s12-m2-smoke.sh --mocked-only`
+- Result:
+  - `PASS: S12-M2 smoke checks passed.`
+  - Includes deterministic backend integration test execution with fake local model client.
+
+## 11) S12-M2 Acceptance Checklist
+
+- `S12-007` Follow-up context continuity: implemented and test-covered.
+- `S12-010` Normalized evidence schema: implemented and serialization/mapping tested.
+- `S12-011` Active-context scoped retrieval: implemented with provider registry and leakage guardrails.
+- `S12-012` Hybrid retrieval: structured + ranked fallback implemented and deterministic tests added.
+- `S12-013` Context refresh: backend endpoint + frontend control implemented and tested.
+- `S12-014` Context budgeting: deterministic truncation + metadata + flags implemented and tested.
+- `S12-015` Architecture topology Q&A: IR evidence retrieval and citation path implemented.
+- `S12-016` Dependency path explanation: graph direct/reverse/transitive evidence implemented.
+- `S12-017` Endpoint/service Q&A: endpoint/service lookup and citation path implemented.
+- `S12-018` Anti-pattern-aware responses: IR/graph anti-pattern markers extracted and prioritized for risk questions.
+- `S12-029` Missing evidence refusal: deterministic insufficient-evidence behavior implemented.
+- `S12-030` Confidence labels: evidence-derived confidence and rationale implemented.
+- `S12-031` Prompt/response guardrails: evidence-only prompting and post-generation citation validation implemented.
+- `S12-032` Citation drill-down: expandable citation metadata UI implemented and tested.
+- `S12-033` Strict evidence-only mode: configuration and behavior implemented and tested.
+
+Acceptance expectations verified:
+- Architecture topology answers cite IR/graph evidence.
+- Dependency answers cite graph/IR evidence.
+- Unsupported/speculative prompts are refused or qualified.
+- Missing evidence responses list missing source types.
+- Confidence/qualification labels are rendered in UI.
+- Retrieval respects active context scope.
+
+## 12) Known Limitations / S12-M3 Follow-up
+
+- Retrieval corpus is currently focused on IR + graph + context metadata for S12-M2. Verification, change impact, scenario/test, and Aegis providers are S12-M3 scope.
+- Context refresh validates request-scoped provider retrieval; no persisted chatbot retrieval index is maintained yet.
+- Frontend test output still emits non-fatal React `act(...)` warnings; behavior is stable, but test hygiene cleanup is still open.
+- Live smoke mode (`--live-http`) requires local backend runtime and does not provision artifacts automatically; manual context loading remains part of demo flow.
