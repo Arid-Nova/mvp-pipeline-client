@@ -105,6 +105,7 @@ Backend (Maven / Spring Boot module):
 - `cd backend && ./mvnw test`
 - `cd backend && ./mvnw -Dtest=ChatbotControllerTest test`
 - `cd backend && ./mvnw -Dtest=ChatbotQueryServiceTest,ChatEvidenceServicesTest test`
+- `cd backend && ./mvnw -Dtest=ChatbotS12M2IntegrationTest test`
 
 Frontend (CRA / React module):
 - `cd frontend && npm test -- --watchAll=false`
