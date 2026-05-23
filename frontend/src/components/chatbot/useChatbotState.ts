@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getChatbotHealth, sendChatbotQuery } from "../../services/api";
 import { ChatbotContext, ChatbotHealthResponse, ChatbotResponse } from "../../services/types";
 
@@ -27,6 +27,62 @@ const toRequestContext = (context?: ChatbotContext): ChatbotContext | undefined 
     return hasValue ? context : undefined;
 };
 
+const toContextId = (context?: ChatbotContext): string => {
+    if (!context) {
+        return "no-context";
+    }
+    return [
+        context.systemName,
+        context.irId,
+        context.indexId,
+        context.runId,
+        context.commitId,
+        context.selectedService,
+        context.selectedEndpoint
+    ].map((v) => (v || "").trim()).join("|");
+};
+
+const summarizeAnswer = (response?: ChatbotResponse): string => {
+    const text = response?.answer?.replace(/\s+/g, " ").trim() || "";
+    if (text.length <= 180) {
+        return text;
+    }
+    return `${text.slice(0, 180)}...`;
+};
+
+const citedEntities = (response?: ChatbotResponse): string[] => {
+    if (!response?.citations?.length) {
+        return [];
+    }
+    const values = response.citations.flatMap((c) => [
+        c.serviceName,
+        c.entityName,
+        c.endpointPath,
+        c.artifactName,
+        c.artifactId
+    ]);
+    return Array.from(new Set(values.filter((v): v is string => Boolean(v && v.trim())).map((v) => v.trim())));
+};
+
+const toHistoryMessage = (msg: ChatMessageModel, contextId: string): { role: string; content: string } => {
+    if (msg.role === "user") {
+        return {
+            role: "user",
+            content: `PREV_USER_QUESTION: ${msg.content}\nACTIVE_CONTEXT_ID: ${contextId}`
+        };
+    }
+    const summary = summarizeAnswer(msg.response);
+    const entities = citedEntities(msg.response);
+    return {
+        role: "assistant",
+        content: [
+            `PREV_ANSWER_SUMMARY: ${summary || "n/a"}`,
+            `CITED_ENTITIES: ${entities.length ? entities.join(", ") : "none"}`,
+            `ACTIVE_CONTEXT_ID: ${contextId}`
+        ].join("\n")
+    };
+};
+
 export const useChatbotState = (activeContext?: ChatbotContext) => {
     const [messages, setMessages] = useState<ChatMessageModel[]>([]);
     const [loading, setLoading] = useState(false);
@@ -37,10 +93,21 @@ export const useChatbotState = (activeContext?: ChatbotContext) => {
     const [lastFailedQuestion, setLastFailedQuestion] = useState<string | null>(null);
 
     const context = useMemo(() => toRequestContext(activeContext), [activeContext]);
+    const contextId = useMemo(() => toContextId(context), [context]);
+    const lastContextIdRef = useRef(contextId);
     const historyMessages = useMemo(
-        () => messages.slice(-HISTORY_MESSAGES).map((msg) => ({ role: msg.role, content: msg.content })),
-        [messages]
+        () => messages.slice(-HISTORY_MESSAGES).map((msg) => toHistoryMessage(msg, contextId)),
+        [messages, contextId]
     );
+
+    useEffect(() => {
+        if (lastContextIdRef.current !== contextId) {
+            setMessages([]);
+            setError(null);
+            setLastFailedQuestion(null);
+            lastContextIdRef.current = contextId;
+        }
+    }, [contextId]);
 
     const refreshHealth = useCallback(async () => {
         try {

@@ -1,6 +1,7 @@
 package edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.retrieval;
 
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.ChatbotContext;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.ChatbotMessage;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.EvidenceArtifactType;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.EvidenceItem;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.EvidenceQueryContext;
@@ -103,6 +104,48 @@ class HybridRetrieverTest {
 
         assertThat(first.getRankedEvidence()).extracting(EvidenceItem::getArtifactId)
             .containsExactlyElementsOf(second.getRankedEvidence().stream().map(EvidenceItem::getArtifactId).toList());
+    }
+
+    @Test
+    void followUpWhatDependsOnItResolvesToPreviouslyCitedService() {
+        List<EvidenceItem> evidence = List.of(
+            item(EvidenceArtifactType.DEPENDENCY, "dep-1", "payment-service", null, null, "depends", Instant.parse("2026-05-20T10:00:00Z")),
+            item(EvidenceArtifactType.DEPENDENCY, "dep-2", "order-service", null, null, "depends", Instant.parse("2026-05-20T10:01:00Z"))
+        );
+        EvidenceQueryContext ctx = context("train-ticket", null, null);
+        ctx.setConversationHistory(List.of(
+            new ChatbotMessage("assistant", "PREV_ANSWER_SUMMARY: summary\nCITED_ENTITIES: payment-service\nACTIVE_CONTEXT_ID: train-ticket")
+        ));
+
+        HybridRetrievalResult result = retriever.retrieve(
+            "what depends on it?",
+            ctx,
+            evidence,
+            List.of()
+        );
+
+        assertThat(result.getMatchedEntities()).contains("payment-service");
+        assertThat(result.getRankedEvidence()).extracting(EvidenceItem::getServiceName).contains("payment-service");
+    }
+
+    @Test
+    void priorUncitedAnswerTextIsNotUsedAsEvidenceEntity() {
+        List<EvidenceItem> evidence = List.of(
+            item(EvidenceArtifactType.SERVICE, "svc-1", "order-service", null, null, "Order service", Instant.parse("2026-05-20T10:00:00Z"))
+        );
+        EvidenceQueryContext ctx = context("train-ticket", null, null);
+        ctx.setConversationHistory(List.of(
+            new ChatbotMessage("assistant", "PREV_ANSWER_SUMMARY: analytics-service handles dashboards\nCITED_ENTITIES: none\nACTIVE_CONTEXT_ID: train-ticket")
+        ));
+
+        HybridRetrievalResult result = retriever.retrieve(
+            "what about it?",
+            ctx,
+            evidence,
+            List.of()
+        );
+
+        assertThat(result.getMatchedEntities()).doesNotContain("analytics-service");
     }
 
     private EvidenceItem item(

@@ -1,6 +1,7 @@
 package edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.retrieval;
 
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.EvidenceArtifactType;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.ChatbotMessage;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.EvidenceItem;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.EvidenceQueryContext;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.chatbot.model.MissingEvidence;
@@ -25,6 +26,7 @@ public class HybridRetriever {
     private static final Pattern SERVICE_PATTERN = Pattern.compile("\\b([a-zA-Z0-9_-]*service[a-zA-Z0-9_-]*)\\b", Pattern.CASE_INSENSITIVE);
     private static final Pattern ENDPOINT_PATTERN = Pattern.compile("(/[a-zA-Z0-9_\\-/{}]+)");
     private static final Pattern METHOD_PATH_PATTERN = Pattern.compile("\\b(GET|POST|PUT|PATCH|DELETE)\\s+(/[a-zA-Z0-9_\\-/{}]+)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern FOLLOW_UP_PRONOUN_PATTERN = Pattern.compile("\\b(it|that service|that endpoint|that one|them)\\b", Pattern.CASE_INSENSITIVE);
 
     public HybridRetrievalResult retrieve(
         String question,
@@ -128,7 +130,79 @@ public class HybridRetriever {
             addIfValue(entities, methodPath.group(2));
         }
 
+        if (isFollowUpPronounQuestion(question)) {
+            for (String entity : citedEntitiesFromHistory(context)) {
+                addIfValue(entities, entity);
+            }
+            if (entities.isEmpty()) {
+                for (String entity : previousQuestionEntitiesFromHistory(context)) {
+                    addIfValue(entities, entity);
+                }
+            }
+        }
+
         return entities.stream().sorted().toList();
+    }
+
+    private boolean isFollowUpPronounQuestion(String question) {
+        if (question == null || question.isBlank()) {
+            return false;
+        }
+        return FOLLOW_UP_PRONOUN_PATTERN.matcher(question).find();
+    }
+
+    private List<String> citedEntitiesFromHistory(EvidenceQueryContext context) {
+        if (context == null || context.getConversationHistory() == null) {
+            return List.of();
+        }
+        Set<String> entities = new HashSet<>();
+        for (ChatbotMessage message : context.getConversationHistory()) {
+            if (message == null || message.getContent() == null) {
+                continue;
+            }
+            String content = message.getContent();
+            String marker = "CITED_ENTITIES:";
+            int idx = content.indexOf(marker);
+            if (idx < 0) {
+                continue;
+            }
+            String line = content.substring(idx + marker.length()).split("\\n")[0].trim();
+            if (line.equalsIgnoreCase("none") || line.isBlank()) {
+                continue;
+            }
+            for (String token : line.split(",")) {
+                addIfValue(entities, token);
+            }
+        }
+        return entities.stream().toList();
+    }
+
+    private List<String> previousQuestionEntitiesFromHistory(EvidenceQueryContext context) {
+        if (context == null || context.getConversationHistory() == null) {
+            return List.of();
+        }
+        Set<String> entities = new HashSet<>();
+        for (ChatbotMessage message : context.getConversationHistory()) {
+            if (message == null || message.getContent() == null) {
+                continue;
+            }
+            String content = message.getContent();
+            String marker = "PREV_USER_QUESTION:";
+            int idx = content.indexOf(marker);
+            if (idx < 0) {
+                continue;
+            }
+            String line = content.substring(idx + marker.length()).split("\\n")[0].trim();
+            Matcher serviceMatcher = SERVICE_PATTERN.matcher(line);
+            while (serviceMatcher.find()) {
+                addIfValue(entities, serviceMatcher.group(1));
+            }
+            Matcher endpointMatcher = ENDPOINT_PATTERN.matcher(line);
+            while (endpointMatcher.find()) {
+                addIfValue(entities, endpointMatcher.group(1));
+            }
+        }
+        return entities.stream().toList();
     }
 
     private List<EvidenceItem> structuredLookup(String question, List<String> entities, List<EvidenceItem> evidenceItems) {

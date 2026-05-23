@@ -200,6 +200,78 @@ describe("ChatbotPanel", () => {
         expect(screen.getByTestId("qualification-notice")).toHaveTextContent("runtime is unavailable");
         expect(screen.getByText("LOW")).toBeInTheDocument();
     });
+
+    it("includes bounded follow-up metadata history in request payload", async () => {
+        mockedGetHealth.mockResolvedValue({
+            status: "healthy",
+            provider: "OLLAMA",
+            model: "llama3.2",
+            baseUrl: "http://localhost:8080",
+            message: "ok",
+            checkedAt: new Date().toISOString(),
+            latencyMs: 20
+        });
+
+        mockedSendQuery.mockResolvedValue({
+            answer: "Answer: ok",
+            citations: [{ artifactType: "SERVICE", artifactId: "E1", artifactName: "order-service", serviceName: "order-service", locationHint: "loc", version: "v1", summary: "s" }],
+            confidence: "MEDIUM",
+            flags: [],
+            requestId: "req-h1",
+            processingTimeMs: 10,
+            model: "llama3.2",
+            provider: "OLLAMA"
+        });
+
+        render(<ChatbotPanel activeContext={{ systemName: "TrainTicket", irId: "ir-9" }} />);
+        fireEvent.click(screen.getByTestId("chatbot-toggle"));
+
+        for (let i = 0; i < 6; i += 1) {
+            fireEvent.change(screen.getByTestId("chatbot-input"), { target: { value: `Question ${i}` } });
+            fireEvent.click(screen.getByTestId("chatbot-submit"));
+            // eslint-disable-next-line no-await-in-loop
+            await waitFor(() => expect(mockedSendQuery).toHaveBeenCalledTimes(i + 1));
+            // eslint-disable-next-line no-await-in-loop
+            await waitFor(() => expect(screen.getByTestId("chatbot-submit")).toHaveTextContent("Send"));
+        }
+
+        const lastPayload = mockedSendQuery.mock.calls[mockedSendQuery.mock.calls.length - 1][0];
+        expect(lastPayload.messages.length).toBeLessThanOrEqual(4);
+        expect(lastPayload.messages.some((m: any) => String(m.content).includes("CITED_ENTITIES:"))).toBe(true);
+        expect(lastPayload.messages.some((m: any) => String(m.content).includes("ACTIVE_CONTEXT_ID:"))).toBe(true);
+    });
+
+    it("changing active context clears scoped conversation", async () => {
+        mockedGetHealth.mockResolvedValue({
+            status: "healthy",
+            provider: "OLLAMA",
+            model: "llama3.2",
+            baseUrl: "http://localhost:8080",
+            message: "ok",
+            checkedAt: new Date().toISOString(),
+            latencyMs: 20
+        });
+        mockedSendQuery.mockResolvedValue({
+            answer: "Answer: first context",
+            citations: [],
+            confidence: "LOW",
+            flags: [],
+            requestId: "req-ctx",
+            processingTimeMs: 5,
+            model: "llama3.2",
+            provider: "OLLAMA"
+        });
+
+        const { rerender } = render(<ChatbotPanel activeContext={{ systemName: "SystemA", irId: "ir-a" }} />);
+        fireEvent.click(screen.getByTestId("chatbot-toggle"));
+        fireEvent.change(screen.getByTestId("chatbot-input"), { target: { value: "Question A" } });
+        fireEvent.click(screen.getByTestId("chatbot-submit"));
+        await waitFor(() => expect(screen.getByText(/first context/i)).toBeInTheDocument());
+
+        rerender(<ChatbotPanel activeContext={{ systemName: "SystemB", irId: "ir-b" }} />);
+        expect(screen.queryByText(/first context/i)).toBeNull();
+        expect(screen.getByText(/Ask a question about your current system context/i)).toBeInTheDocument();
+    });
 });
 
 describe("CitationList", () => {
