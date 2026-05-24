@@ -1,6 +1,5 @@
 from pydantic import BaseModel, Field
 
-
 class CommitListRequest(BaseModel):
     repo_url: str
     branch: str

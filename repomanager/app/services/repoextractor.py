@@ -6,9 +6,8 @@ from urllib.parse import quote
 from .configdb import config_db_service
 from fastapi import HTTPException
 
-# Pinned GitHub REST API version. Override via env if a newer one is needed.
+# This is a fallback if not configured.
 DEFAULT_GITHUB_API_VERSION = "2022-11-28"
-
 
 def _github_api_version() -> str:
     return os.getenv("GITHUB_API_VERSION") or DEFAULT_GITHUB_API_VERSION

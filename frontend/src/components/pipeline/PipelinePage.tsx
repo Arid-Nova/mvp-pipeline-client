@@ -12,8 +12,8 @@ import {
     saveSession,
     loadSession
 } from '../../services/api';
-import { RepositoryInput, VerificationInput } from '../../services/types';
 import { canonicalizeGithubUrl } from '../../utils/githubUrl';
+import { RepositoryInput, VerificationInput } from '../../services/types';
 import { CardType, SystemPayload, ComponentPayload, PipelinePayload, NodeData, Connection, ScenarioPayload} from './models';
 
 // Configuration and Constants

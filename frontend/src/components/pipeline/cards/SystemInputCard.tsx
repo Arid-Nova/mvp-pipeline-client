@@ -1,29 +1,29 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns/format';
-import { formatDistanceToNow } from 'date-fns/formatDistanceToNow';
-import { isValid as isValidDate } from 'date-fns/isValid';
-import { NodeData, RepositoryMeta } from '../models';
-import { importOrganization, fetchRepoMetadata, fetchBranchCommits } from '../../../services/api';
-import { RepoData } from '../../../services/types';
 import { BranchDropdown } from './BranchDropdown';
+import { RepoData } from '../../../services/types';
+import { NodeData, RepositoryMeta } from '../models';
+import { isValid as isValidDate } from 'date-fns/isValid';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { formatDistanceToNow } from 'date-fns/formatDistanceToNow';
 import { parseGithubRepoUrl, canonicalizeGithubUrl } from '../../../utils/githubUrl';
+import { importOrganization, fetchRepoMetadata, fetchBranchCommits } from '../../../services/api';
 
 interface SystemInputCardProps {
     node: NodeData;
     updateNodeData: (id: string, newData: Partial<NodeData['data']>) => void;
 }
 
-const DEFAULT_REPO: RepositoryMeta = { repoUrl: '', branch: '', commitId: '' };
 const FETCH_DEBOUNCE_MS = 500;
 const COMMITS_PAGE_SIZE = 10;
 const REPO_METADATA_KEY = 'repoMetadata' as const;
 const BRANCH_COMMITS_KEY = 'branchCommits' as const;
+const DEFAULT_REPO: RepositoryMeta = { repoUrl: '', branch: '', commitId: '' };
 
-// Convert a repo slug like "train-ticket" or "myCoolRepo" into Title Case.
+// Convert a repo slug, e.g., "train-ticket" or "myCoolRepo" into Title Case.
 // Used as a soft default for System Name on first metadata fetch.
-const prettifyRepoName = (name: string): string => {
+const prettifySystemName = (name: string): string => {
     if (!name) return '';
     return name
         .replace(/[-_.]+/g, ' ')
@@ -50,6 +50,7 @@ const formatRelative = (iso: string): string => {
     if (!isValidDate(d)) return '';
     return formatDistanceToNow(d, { addSuffix: true });
 };
+
 const formatAbsolute = (iso: string): string => {
     if (!iso) return '';
     const d = new Date(iso);
@@ -553,7 +554,7 @@ const RepoRow: React.FC<{
         const patch: SoftFillPatch = {};
         if (Object.keys(repoPatch).length > 0) patch.repo = repoPatch;
         if (index === 0 && !systemName && data.name) {
-            patch.systemName = prettifyRepoName(data.name);
+            patch.systemName = prettifySystemName(data.name);
         }
         if (patch.repo || patch.systemName !== undefined) {
             onSoftFill(patch);

@@ -1,6 +1,5 @@
 from pydantic import BaseModel, Field
 
-
 class RepoImportResponse(BaseModel):
     name: str
     repoUrl: str

@@ -1,6 +1,5 @@
 from pydantic import BaseModel
 
-
 class CommitInfo(BaseModel):
     sha: str
     message: str
