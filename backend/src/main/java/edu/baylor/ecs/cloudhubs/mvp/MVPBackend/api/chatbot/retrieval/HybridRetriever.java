@@ -27,8 +27,15 @@ public class HybridRetriever {
     private static final Pattern ENDPOINT_PATTERN = Pattern.compile("(/[a-zA-Z0-9_\\-/{}]+)");
     private static final Pattern METHOD_PATH_PATTERN = Pattern.compile("\\b(GET|POST|PUT|PATCH|DELETE)\\s+(/[a-zA-Z0-9_\\-/{}]+)", Pattern.CASE_INSENSITIVE);
     private static final Pattern FOLLOW_UP_PRONOUN_PATTERN = Pattern.compile("\\b(it|that service|that endpoint|that one|them)\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern AGGREGATE_MICROSERVICE_PATTERN = Pattern.compile(
+        "\\b(how many|count|number of|list|show)\\s+(micro\\s*services?|microservices?|services?)\\b",
+        Pattern.CASE_INSENSITIVE
+    );
     private static final List<String> RISK_TERMS = List.of(
         "risk", "smell", "anti-pattern", "antipattern", "bottleneck", "cycle", "coupled", "architecture issue"
+    );
+    private static final Set<String> GENERIC_ENTITY_TERMS = Set.of(
+        "service", "services", "microservice", "microservices", "system", "architecture", "component", "components", "endpoint", "endpoints"
     );
 
     public HybridRetrievalResult retrieve(
@@ -94,6 +101,9 @@ public class HybridRetriever {
         if (q.contains("topology") || q.contains("system architecture") || q.contains("system design") || q.contains("component diagram")) {
             return QuestionIntent.ARCHITECTURE_TOPOLOGY;
         }
+        if (AGGREGATE_MICROSERVICE_PATTERN.matcher(question == null ? "" : question).find()) {
+            return QuestionIntent.ARCHITECTURE_TOPOLOGY;
+        }
         if (q.contains("depends on") || q.contains("what depends") || q.contains("transitive") || q.contains("call")) {
             return QuestionIntent.DEPENDENCY;
         }
@@ -119,7 +129,7 @@ public class HybridRetriever {
 
         Matcher serviceMatcher = SERVICE_PATTERN.matcher(question == null ? "" : question);
         while (serviceMatcher.find()) {
-            addIfValue(entities, serviceMatcher.group(1));
+            addEntityIfSpecific(entities, serviceMatcher.group(1));
         }
 
         Matcher endpointMatcher = ENDPOINT_PATTERN.matcher(question == null ? "" : question);
@@ -443,6 +453,17 @@ public class HybridRetriever {
         if (hasValue(value)) {
             entities.add(value.trim());
         }
+    }
+
+    private void addEntityIfSpecific(Set<String> entities, String value) {
+        if (!hasValue(value)) {
+            return;
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        if (GENERIC_ENTITY_TERMS.contains(normalized)) {
+            return;
+        }
+        entities.add(value.trim());
     }
 
     private boolean hasValue(String value) {

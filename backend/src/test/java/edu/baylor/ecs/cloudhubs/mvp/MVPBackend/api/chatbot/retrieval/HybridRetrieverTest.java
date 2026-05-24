@@ -167,6 +167,27 @@ class HybridRetrieverTest {
         assertThat(result.getRankedEvidence().get(0).getArtifactId()).isEqualTo("ap-1");
     }
 
+    @Test
+    void microserviceCountQuestionUsesTopologyFallbackNotStrictEntityMiss() {
+        List<EvidenceItem> evidence = List.of(
+            item(EvidenceArtifactType.SERVICE, "svc-1", "order-service", null, null, "Order service", Instant.parse("2026-05-20T10:00:00Z")),
+            item(EvidenceArtifactType.SERVICE, "svc-2", "payment-service", null, null, "Payment service", Instant.parse("2026-05-20T10:01:00Z"))
+        );
+
+        HybridRetrievalResult result = retriever.retrieve(
+            "how many microservices are in the system?",
+            context("train-ticket", null, null),
+            evidence,
+            List.of()
+        );
+
+        assertThat(result.getIntent()).isEqualTo(QuestionIntent.ARCHITECTURE_TOPOLOGY);
+        assertThat(result.getRankedEvidence()).isNotEmpty();
+        assertThat(result.getMissingEvidence())
+            .extracting(MissingEvidence::getExpectedIdentifier)
+            .noneMatch(v -> v != null && v.toLowerCase().contains("microservices"));
+    }
+
     private EvidenceItem item(
         EvidenceArtifactType type,
         String id,

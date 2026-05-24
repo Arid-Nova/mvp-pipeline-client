@@ -231,6 +231,82 @@ class ChatbotQueryServiceTest {
         assertThat(response.getTraceMetadata()).containsKey("citationsCount");
     }
 
+    @Test
+    void microserviceCountQuestionUsesDeterministicEvidenceCountWithoutModelInference() {
+        ChatbotConfig config = chatbotConfig();
+        AtomicBoolean modelCalled = new AtomicBoolean(false);
+        LocalLlmClient localLlmClient = new LocalLlmClient() {
+            @Override
+            public LocalLlmResult generate(ChatbotPrompt prompt, ChatbotConfig cfg) {
+                modelCalled.set(true);
+                return new LocalLlmResult("should-not-run", cfg.getModel(), cfg.getProvider().name(), 200, "stop");
+            }
+        };
+
+        EvidenceContextProvider provider = new EvidenceContextProvider() {
+            @Override
+            public String providerId() {
+                return "service-list-provider";
+            }
+
+            @Override
+            public boolean supports(EvidenceQueryContext context, String question) {
+                return true;
+            }
+
+            @Override
+            public EvidenceRetrievalResult collectEvidence(EvidenceQueryContext context, String question) {
+                EvidenceItem s1 = new EvidenceItem();
+                s1.setArtifactType(EvidenceArtifactType.SERVICE);
+                s1.setEntityType("MICROSERVICE");
+                s1.setServiceName("order-service");
+                s1.setEntityName("order-service");
+                s1.setArtifactId("svc-order");
+                EvidenceItem s2 = new EvidenceItem();
+                s2.setArtifactType(EvidenceArtifactType.SERVICE);
+                s2.setEntityType("MICROSERVICE");
+                s2.setServiceName("payment-service");
+                s2.setEntityName("payment-service");
+                s2.setArtifactId("svc-payment");
+                EvidenceItem s3 = new EvidenceItem();
+                s3.setArtifactType(EvidenceArtifactType.SERVICE);
+                s3.setEntityType("MICROSERVICE");
+                s3.setServiceName("order-service");
+                s3.setEntityName("order-service");
+                s3.setArtifactId("svc-order-dup");
+
+                EvidenceRetrievalResult result = new EvidenceRetrievalResult();
+                result.setEvidenceItems(List.of(s1, s2, s3));
+                return result;
+            }
+        };
+
+        ChatbotQueryService service = new ChatbotQueryService(
+            config,
+            ChatContextService.forProviders(List.of(provider)),
+            new EvidenceGuardrailService(),
+            new PromptAssemblyService(),
+            new HybridRetriever(),
+            new ContextBudgeter(),
+            new ConfidenceService(),
+            localLlmClient
+        );
+
+        ChatbotQueryRequest request = new ChatbotQueryRequest(
+            "How many microservices are in the system?",
+            new ChatbotContext("TrainTicket", "ir-1", null, null, null, null, null, null),
+            "conv-micro-count",
+            List.of()
+        );
+
+        ChatbotResponse response = service.query(request, "req-micro-count");
+
+        assertThat(modelCalled.get()).isFalse();
+        assertThat(response.getAnswer()).contains("The system has 2 microservices");
+        assertThat(response.getAnswer()).contains("order-service").contains("payment-service");
+        assertThat(response.getCitations()).isNotEmpty();
+    }
+
     private ChatbotConfig chatbotConfig() {
         ChatbotConfig config = new ChatbotConfig();
         config.setProvider(ChatbotConfig.Provider.OLLAMA);

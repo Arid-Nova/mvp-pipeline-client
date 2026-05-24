@@ -22,10 +22,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.Locale;
 
 @Service
 public class ChatbotQueryService {
@@ -96,6 +98,26 @@ public class ChatbotQueryService {
         if (budgetResult.isTruncated()) {
             addFlagIfMissing(response, ChatbotFlag.partial);
             addFlagIfMissing(response, ChatbotFlag.truncated_context);
+        }
+
+        if (isMicroserviceCountQuestion(request.getQuestion())) {
+            List<String> services = uniqueMicroserviceNames(evidenceItems);
+            if (!services.isEmpty()) {
+                response.setAnswer("The system has " + services.size() + " microservices in the active IR evidence: "
+                    + String.join(", ", services) + ".");
+                applyEvidenceDerivedConfidence(response, retrieval, evidenceItems);
+                long latencyMs = System.currentTimeMillis() - startMs;
+                response.setProcessingTimeMs(latencyMs);
+                log.info(
+                    "chatbot.query.completed requestId={} provider={} model={} latencyMs={} flags={}",
+                    requestId,
+                    response.getProvider(),
+                    response.getModel(),
+                    latencyMs,
+                    response.getFlags()
+                );
+                return response;
+            }
         }
 
         int contextFields = countContextFields(request.getContext());
@@ -319,6 +341,44 @@ public class ChatbotQueryService {
             flags.add(flag);
             response.setFlags(flags);
         }
+    }
+
+    private boolean isMicroserviceCountQuestion(String question) {
+        if (question == null || question.isBlank()) {
+            return false;
+        }
+        String q = question.toLowerCase(Locale.ROOT);
+        boolean asksForCount = q.contains("how many")
+            || q.contains("count")
+            || q.contains("number of");
+        boolean asksMicroservices = q.contains("microservice")
+            || q.contains("microservices")
+            || q.contains("services in the system")
+            || q.contains("services are in the system");
+        return asksForCount && asksMicroservices;
+    }
+
+    private List<String> uniqueMicroserviceNames(List<EvidenceItem> evidenceItems) {
+        if (evidenceItems == null || evidenceItems.isEmpty()) {
+            return List.of();
+        }
+        LinkedHashSet<String> names = new LinkedHashSet<>();
+        for (EvidenceItem item : evidenceItems) {
+            if (item == null) {
+                continue;
+            }
+            String entityType = item.getEntityType();
+            if (!"MICROSERVICE".equalsIgnoreCase(entityType)
+                && item.getArtifactType() != EvidenceArtifactType.SERVICE) {
+                continue;
+            }
+            if (hasValue(item.getServiceName())) {
+                names.add(item.getServiceName().trim());
+            } else if (hasValue(item.getEntityName())) {
+                names.add(item.getEntityName().trim());
+            }
+        }
+        return names.stream().sorted().toList();
     }
 
     private Map<String, Object> buildTraceMetadata(String requestId, HybridRetrievalResult retrieval, ContextBudgetResult budgetResult, int citationsCount) {

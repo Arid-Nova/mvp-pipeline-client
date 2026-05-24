@@ -11,14 +11,27 @@ import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.api.ir.StoredIrPayload;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.Locale;
+import java.util.Map;
+import java.util.LinkedHashMap;
 
 @Component
 public class IrContextProvider implements EvidenceContextProvider {
+    private static final int MAX_IR_SNIPPET_EVIDENCE = 60;
+    private static final int MAX_VALUE_LENGTH = 240;
+    private static final Set<String> QUERY_STOPWORDS = Set.of(
+        "the", "and", "for", "with", "from", "that", "this", "what", "where", "when", "which", "who",
+        "about", "into", "onto", "your", "are", "was", "were", "can", "could", "should", "would", "any",
+        "show", "list", "tell", "does", "have", "has", "had", "how", "many", "count", "number", "system",
+        "architecture", "details", "detail", "content", "file", "ir", "json", "all", "full", "complete"
+    );
 
     private final IRService irService;
 
@@ -57,6 +70,7 @@ public class IrContextProvider implements EvidenceContextProvider {
         StoredIrPayload ir = selected.get();
         String commitId = resolveCommitId(ir.getPayload(), context);
         extractMicroserviceEvidence(ir, commitId, evidence);
+        extractQuestionAnchoredEvidence(ir, commitId, evidence, question);
 
         if (evidence.isEmpty()) {
             missing.add(new MissingEvidence(
@@ -133,6 +147,135 @@ public class IrContextProvider implements EvidenceContextProvider {
             extractServiceDependencies(ir, commitId, output, microservice, i, serviceName);
             extractFeignClients(ir, commitId, output, microservice, i, serviceName);
         }
+    }
+
+    private void extractQuestionAnchoredEvidence(StoredIrPayload ir, String commitId, List<EvidenceItem> output, String question) {
+        if (ir == null || ir.getPayload() == null || question == null || question.isBlank()) {
+            return;
+        }
+        Set<String> tokens = queryTokens(question);
+        if (tokens.isEmpty()) {
+            return;
+        }
+
+        Map<String, IrSnippetMatch> matches = new LinkedHashMap<>();
+        collectSnippetMatches(ir.getPayload(), "$", tokens, matches);
+
+        matches.values().stream()
+            .sorted(Comparator
+                .comparingInt(IrSnippetMatch::score).reversed()
+                .thenComparing(IrSnippetMatch::path))
+            .limit(MAX_IR_SNIPPET_EVIDENCE)
+            .forEach(match -> addEvidence(
+                output,
+                EvidenceArtifactType.IR,
+                ir,
+                commitId,
+                "ir-snippet:" + match.path(),
+                toLocationHint(match.path()),
+                "IR_FIELD",
+                match.fieldName(),
+                null,
+                null,
+                null,
+                "IR field match at " + match.path() + ": " + truncate(match.value()),
+                match.node()
+            ));
+    }
+
+    private void collectSnippetMatches(JsonNode node, String path, Set<String> tokens, Map<String, IrSnippetMatch> matches) {
+        if (node == null || node.isMissingNode() || node.isNull()) {
+            return;
+        }
+
+        if (node.isValueNode()) {
+            String value = node.asText("");
+            int score = computeMatchScore(path, value, tokens);
+            if (score > 0) {
+                matches.put(path, new IrSnippetMatch(path, leafFieldName(path), value, score, node));
+            }
+            return;
+        }
+
+        if (node.isObject()) {
+            Iterator<String> names = node.fieldNames();
+            while (names.hasNext()) {
+                String field = names.next();
+                collectSnippetMatches(node.get(field), path + "." + field, tokens, matches);
+            }
+            return;
+        }
+
+        if (node.isArray()) {
+            for (int i = 0; i < node.size(); i++) {
+                collectSnippetMatches(node.get(i), path + "[" + i + "]", tokens, matches);
+            }
+        }
+    }
+
+    private int computeMatchScore(String path, String value, Set<String> tokens) {
+        String pathLower = safe(path).toLowerCase(Locale.ROOT);
+        String valueLower = safe(value).toLowerCase(Locale.ROOT);
+        int score = 0;
+        for (String token : tokens) {
+            if (pathLower.contains(token)) {
+                score += 2;
+            }
+            if (valueLower.contains(token)) {
+                score += 3;
+            }
+        }
+        return score;
+    }
+
+    private Set<String> queryTokens(String question) {
+        Set<String> tokens = new HashSet<>();
+        for (String raw : question.toLowerCase(Locale.ROOT).split("[^a-z0-9_\\-/]+")) {
+            String token = raw == null ? "" : raw.trim();
+            if (token.length() < 3) {
+                continue;
+            }
+            if (QUERY_STOPWORDS.contains(token)) {
+                continue;
+            }
+            tokens.add(token);
+        }
+        return tokens;
+    }
+
+    private String toLocationHint(String jsonPath) {
+        if (!hasValue(jsonPath)) {
+            return "payload";
+        }
+        String normalized = jsonPath.startsWith("$.") ? jsonPath.substring(2) : jsonPath;
+        return normalized.isBlank() ? "payload" : normalized;
+    }
+
+    private String leafFieldName(String path) {
+        if (!hasValue(path)) {
+            return "ir-field";
+        }
+        String p = path;
+        int dotIdx = p.lastIndexOf('.');
+        if (dotIdx >= 0 && dotIdx + 1 < p.length()) {
+            p = p.substring(dotIdx + 1);
+        }
+        int arrIdx = p.indexOf('[');
+        if (arrIdx > 0) {
+            p = p.substring(0, arrIdx);
+        }
+        return hasValue(p) ? p : "ir-field";
+    }
+
+    private String truncate(String value) {
+        if (value == null) {
+            return "";
+        }
+        String compact = value.replaceAll("\\s+", " ").trim();
+        if (compact.length() <= MAX_VALUE_LENGTH) {
+            return compact;
+        }
+        return compact.substring(0, MAX_VALUE_LENGTH) + "...";
     }
 
     private void extractControllers(StoredIrPayload ir, String commitId, List<EvidenceItem> output, JsonNode microservice, int msIdx, String serviceName) {
@@ -446,5 +589,12 @@ public class IrContextProvider implements EvidenceContextProvider {
             }
         }
         return null;
+    }
+
+    private String safe(String value) {
+        return value == null ? "" : value;
+    }
+
+    private record IrSnippetMatch(String path, String fieldName, String value, int score, JsonNode node) {
     }
 }

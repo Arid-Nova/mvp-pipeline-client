@@ -113,6 +113,25 @@ class IrContextProviderTest {
         assertThat(citation.getSummary()).contains("Endpoint discovered");
     }
 
+    @Test
+    void extractsIrWideFieldMatchesForDetailQuestions() throws Exception {
+        JsonFixture fixture = buildFixture();
+        IRService irService = new StubIrService(Optional.of(fixture.payload), Optional.empty());
+
+        IrContextProvider provider = new IrContextProvider(irService);
+        EvidenceRetrievalResult result = provider.collectEvidence(
+            buildContext("ir-123", null, "commit-scope"),
+            "What is the ticketRetentionDays value?"
+        );
+
+        assertThat(result.getMissingEvidence()).isEmpty();
+        assertThat(result.getEvidenceItems())
+            .anyMatch(item -> item.getArtifactType() == EvidenceArtifactType.IR
+                && "IR_FIELD".equals(item.getEntityType())
+                && item.getLocationHint().contains("ticketRetentionDays")
+                && item.getContentText().contains("30"));
+    }
+
     private EvidenceQueryContext buildContext(String irId, String systemName, String commitId) {
         ChatbotContext chatbotContext = new ChatbotContext(systemName, irId, null, null, commitId, null, null, null);
         EvidenceScope scope = new EvidenceScope(systemName, irId, null, null, commitId, null, null, null, null, null, null);
@@ -124,6 +143,10 @@ class IrContextProviderTest {
             {
               \"name\": \"TrainTicket\",
               \"metadata\": [ { \"commitId\": \"commit-from-ir\" } ],
+              \"governance\": {
+                \"ticketRetentionDays\": 30,
+                \"ownerTeam\": \"platform-architecture\"
+              },
               \"microservices\": [
                 {
                   \"name\": \"order-service\",
