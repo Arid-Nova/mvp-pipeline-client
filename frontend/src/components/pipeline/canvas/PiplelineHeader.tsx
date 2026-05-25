@@ -150,6 +150,7 @@ interface PipelineHeaderProps {
     onRedo?: () => void;
     clearPipeline: () => void;
     runPipeline: () => void;
+    stopPipeline: () => void;
     onLoad: (sessionId: string) => Promise<void>;
     onSave: (name: string, isSaveAs: boolean) => Promise<void>;
 }
@@ -168,7 +169,8 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
     onSave,
     onLoad,
     clearPipeline,
-    runPipeline
+    runPipeline,
+    stopPipeline
 }) => {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [tokenInput, setTokenInput] = useState('');
@@ -475,37 +477,42 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                 </div>
 
                 <div className="relative group flex items-center">
-                    <button 
-                        onClick={runPipeline}
-                        disabled={isRunning || nodesCount === 0}
-                        className={`
-                            px-5 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-3
-                            ${isRunning 
-                                ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
-                                : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md active:translate-y-0.5'}
-                        `}
-                    >
-                        {isRunning ? (
-                            <>
-                                <svg className="animate-spin h-4 w-4 text-emerald-500" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                                </svg>
-                                <span>Processing...</span>
-                            </>
-                        ) : (
-                            <>
-                                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-                                    <path d="M10 8L16 12L10 16V8Z" fill="currentColor"/>
-                                </svg>
-                                <span>Run Pipeline</span>
-                            </>
-                        )}
-                    </button>
+                    {isRunning ? (
+                        /* Stop Pipeline*/
+                        <button 
+                            onClick={stopPipeline} 
+                            className="px-5 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-3 bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 hover:border-rose-500 shadow-lg shadow-rose-900/20 active:translate-y-0.5 animate-pulse"
+                        >
+                            {/* Spinning Indicator */}
+                            <svg className="animate-spin h-4 w-4 text-rose-400 group-hover:text-white" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                            <span>Stop Pipeline</span>
+                        </button>
+                    ) : (
+                        /* Run Pipeline */
+                        <button 
+                            onClick={runPipeline}
+                            disabled={nodesCount === 0}
+                            className={`
+                                px-5 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-3
+                                ${nodesCount === 0 
+                                    ? 'bg-slate-800 text-slate-500 border border-slate-700/50 cursor-not-allowed shadow-none' 
+                                    : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md active:translate-y-0.5'}
+                            `}
+                        >
+                            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                                <path d="M10 8L16 12L10 16V8Z" fill="currentColor"/>
+                            </svg>
+                            <span>Run Pipeline</span>
+                        </button>
+                    )}
 
-                    <div className="absolute top-full right-0 mt-2 w-max pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-50 bg-slate-800 text-slate-300 text-[10px] py-1 px-2 rounded border border-slate-700">
-                        Execute current graph
+                    {/* Tooltip description */}
+                    <div className="absolute top-full right-0 mt-2 w-max pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-50 bg-slate-900/90 text-slate-300 text-[10px] py-1 px-2 rounded border border-slate-700 backdrop-blur-sm shadow-xl">
+                        {isRunning ? "Force terminate all ongoing background tasks" : "Execute current graph"}
                     </div>
                 </div>
             </div>
