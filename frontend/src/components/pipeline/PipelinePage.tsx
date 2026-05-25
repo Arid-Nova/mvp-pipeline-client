@@ -38,6 +38,7 @@ import { IRGenerationCard } from './cards/IRGenerationCard';
 import { VerificationComparisonCard } from './cards/VerificationComparisonCard';
 
 // Canvas Components
+import { FeedbackModal } from './canvas/FeedbackModal';
 import { PipelineCanvas } from './canvas/PipelineCanvas';
 import { ToolboxSidebar } from './canvas/ToolboxSideBar';
 import { PipelineHeader } from './canvas/PiplelineHeader';
@@ -69,6 +70,9 @@ const PipelinePage: React.FC = () => {
 
     // Notification States
     const [notification, setNotification] = useState<ToastNotification | null>(null);
+
+    // Feedback State
+    const [showFeedback, setShowFeedback] = useState(false);
 
     // History States (Undo/Redo)
     const [history, setHistory] = useState<{nodes: NodeData[], connections: Connection[]}[]>([{ nodes: [], connections: [] }]);
@@ -183,6 +187,63 @@ const PipelinePage: React.FC = () => {
                 duration: 5000
             });   
         }
+    };
+
+    // Feedback from the user
+    useEffect(() => {
+        // Check if the user has already dealt with the feedback prompt
+        if (localStorage.getItem('pipeline_feedback_handled') === 'true') {
+            return;
+        }
+
+        let activeTimeMs = 0;
+        let lastActivityTime = Date.now();
+        // const TARGET_ACTIVE_TIME = 15; // 15 miliseconds for testing
+        const TARGET_ACTIVE_TIME = 15 * 60 * 1000; // 15 minutes 
+
+        // Function to ping activity
+        const recordActivity = () => {
+            lastActivityTime = Date.now();
+        };
+
+        // Listeners for active usage
+        window.addEventListener('mousemove', recordActivity);
+        window.addEventListener('keydown', recordActivity);
+        window.addEventListener('click', recordActivity);
+
+        // Check time accumulation every second
+        const interval = setInterval(() => {
+            const now = Date.now();
+            // If the user interacted within the last 60 seconds, consider them "active"
+            if (now - lastActivityTime < 60000) {
+                activeTimeMs += 1000;
+                
+                if (activeTimeMs >= TARGET_ACTIVE_TIME) {
+                    setShowFeedback(true);
+                    clearInterval(interval); 
+                }
+            }
+        }, 1000);
+
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('mousemove', recordActivity);
+            window.removeEventListener('keydown', recordActivity);
+            window.removeEventListener('click', recordActivity);
+        };
+    }, []);
+
+    const handleFeedbackSubmit = async (rating: number, comment: string) => {
+        console.log("Feedback Submitted:", { rating, comment });
+        // TODO: Send to your backend API.
+        
+        localStorage.setItem('pipeline_feedback_handled', 'true');
+        setShowFeedback(false);
+    };
+
+    const handleFeedbackSkip = () => {
+        localStorage.setItem('pipeline_feedback_handled', 'true');
+        setShowFeedback(false);
     };
 
     // History of Actions handling for Undo and Redo operations
@@ -1475,6 +1536,13 @@ const PipelinePage: React.FC = () => {
                     handleLinkClick={handleLinkClick}
                     deleteNode={deleteNode}
                     renderCardContent={renderCardContent}
+                />
+
+                {/* Feedback Modal */}
+                <FeedbackModal 
+                    isOpen={showFeedback} 
+                    onClose={handleFeedbackSkip} 
+                    onSubmit={handleFeedbackSubmit} 
                 />
             </div>
         </div>
