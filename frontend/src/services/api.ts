@@ -1,7 +1,7 @@
 import axios, { 
     VERIFY_API, COMPONENT_API, VECTOR_API, 
     ANALYSIS_API, TEST_API, AEGIS_API, REPO_API, 
-    USER_API
+    USER_API, EXECUTOR_API
 } from '../utils/axiosSetup';
 import { showError } from '../utils/notifications';
 import {
@@ -519,3 +519,17 @@ export const recordUserFeedback = async (payload: UserFeedback) => {
         throw new Error(error.response?.data?.detail || 'Failed to record feedback');
     }
 }
+
+// Test Executor Proxy Service 
+export const executeTest = async (language: string, payload: { command?: string; code?: string }) => {
+    try {
+        const response = await EXECUTOR_API.post(`/api/execute/${language}`, payload);
+        return { ok: true, status: response.status, data: response.data };
+    } catch (error: any) {
+        return { 
+            ok: false, 
+            status: error.response?.status || 500, 
+            error: error.message 
+        };
+    }
+};
