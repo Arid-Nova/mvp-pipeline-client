@@ -67,7 +67,7 @@ const BrandSection = ({ sessionName, hasUnsavedChanges }: { sessionName?: string
                 <span className="text-slate-600 font-light text-2xl mx-1 mb-1">|</span>
                 
                 {/* Subtitle or Session Name */}
-                <div className="flex flex-col mt-1">
+                <div className="tour-session-status flex flex-col mt-1">
                     {sessionName ? (
                         <div className="flex items-center gap-2">
                             <div className="flex flex-col gap-0.5">
@@ -328,7 +328,7 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                 )}
 
                 {/* --- Undo and Redo --- */}
-                <div className="flex items-center gap-2 border-l border-slate-700 pl-4 ml-2">
+                <div className="tour-undo-redo flex items-center gap-2 border-l border-slate-700 pl-4 ml-2">
                     <button
                         onClick={onUndo}
                         disabled={!canUndo}
@@ -353,7 +353,7 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                 </div>
 
                 {/* --- Settings Cogwheel & Dropdown --- */}
-                <div className="relative" ref={settingsRef}>
+                <div className="tour-settings-button relative" ref={settingsRef}>
                     <button 
                         onClick={() => {
                             setIsSettingsOpen(!isSettingsOpen)
@@ -476,7 +476,7 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                     )}
                 </div>
 
-                <div className="relative group flex items-center">
+                <div className="tour-run-pipeline relative group flex items-center">
                     {isRunning ? (
                         /* Stop Pipeline*/
                         <button 

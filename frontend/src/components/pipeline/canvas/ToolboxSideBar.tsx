@@ -22,7 +22,7 @@ export const ToolboxSidebar: React.FC<ToolboxSidebarProps> = ({
         <div className="tour-toolbox-sidebar w-72 h-full border-r border-white/10 bg-slate-900/50 flex flex-col overflow-hidden">
             <div className="p-4 border-b border-white/10 flex justify-between items-center bg-slate-900/80">
                 <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Toolbox</h2>
-                <div className="relative group flex items-center">
+                <div className="tour-clear-pipeline relative group flex items-center">
                     <button 
                         onClick={clearPipeline} 
                         className="text-[10px] text-rose-400 hover:text-rose-300 transition-colors uppercase font-bold"
@@ -82,7 +82,7 @@ export const ToolboxSidebar: React.FC<ToolboxSidebarProps> = ({
                 ))}
             </div>
 
-            <div className="p-4 border-t border-white/10 bg-slate-900/80 shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.3)] z-10">
+            <div className="tour-explore-preview p-4 border-t border-white/10 bg-slate-900/80 shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.3)] z-10">
                 <button 
                     onClick={() => navigate('/explore')}
                     className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/20 hover:border-blue-400/50 hover:bg-blue-500/20 transition-all flex items-center justify-center gap-2 group"

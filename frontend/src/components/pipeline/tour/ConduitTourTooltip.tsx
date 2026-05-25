@@ -86,7 +86,7 @@ export const ConduitTourTooltip = ({
                                 : 'bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 border-blue-400/20 shadow-lg shadow-blue-900/50'
                         }`}
                     >
-                        {isLastStep ? 'Initialize Session' : 'Continue'}
+                        {isLastStep ? 'Done' : 'Continue'}
                     </button>
                 </div>
             </div>
