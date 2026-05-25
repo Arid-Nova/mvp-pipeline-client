@@ -70,7 +70,7 @@ const applyInterceptors = (instance: AxiosInstance) => {
     );
 };
 
-[axios, VERIFY_API, COMPONENT_API, VECTOR_API, ANALYSIS_API, TEST_API, AEGIS_API, REPO_API].forEach(applyInterceptors);
+[axios, VERIFY_API, COMPONENT_API, VECTOR_API, ANALYSIS_API, TEST_API, AEGIS_API, REPO_API, USER_API].forEach(applyInterceptors);
 
 export const setupAxios = () => {
     axios.defaults.baseURL = process.env.IR_SERVICE_URL || 'http://localhost:8080';

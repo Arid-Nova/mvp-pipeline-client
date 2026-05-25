@@ -64,6 +64,7 @@ services:
       - TEST_SERVICE_URL=http://localhost:8030
       - AEGIS_SERVICE_URL=http://localhost:8900
       - REPO_SERVICE_URL=http://localhost:8020
+      - USER_SERVICE_URL=http://localhost:8010
 
   verifier:
     build:
@@ -230,6 +231,23 @@ services:
       - MONGO_PASSWORD=${MONGO_ROOT_PASSWORD}
       - GITHUB_API_VERSION=2026-03-10
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - INTERNAL_SERVICE_KEY=${INTERNAL_SERVICE_KEY}
+    networks:
+      - app_network
+    restart: always
+
+  usermanager :
+    build:
+      context: ./user
+      dockerfile: Dockerfile
+    container_name: cloudhub_usermanager
+    ports:
+      - "8010:8010" 
+    environment:
+      - MONGO_URI=mongodb://cloudhub_mongo:27017
+      - MONGO_DB=aridnova_system
+      - MONGO_USER=${MONGO_ROOT_USERNAME:-root}
+      - MONGO_PASSWORD=${MONGO_ROOT_PASSWORD}
       - INTERNAL_SERVICE_KEY=${INTERNAL_SERVICE_KEY}
     networks:
       - app_network

@@ -500,7 +500,7 @@ export const generateChangeImpactInsights = async (payload: ChangeImpactInsight,
 // User Services 
 export const recordUserFeedback = async (payload: UserFeedback) => {
     try {
-        const response = await USER_API.post('/user/feedback', payload);
+        const response = await USER_API.post('/users/feedback', payload);
         return response.data;
     } catch (error: any) {
         throw new Error(error.response?.data?.detail || 'Failed to record feedback');
