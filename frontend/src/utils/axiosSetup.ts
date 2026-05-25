@@ -4,13 +4,15 @@ import Logger from "js-logger";
 export const controller = new AbortController();
 
 // Service configurations
-export const VERIFY_API = axios.create({ baseURL: process.env.VERIFY_SERVICE_URL || 'http://localhost:9000' });
-export const COMPONENT_API = axios.create({ baseURL: process.env.COMPONENT_SERVICE_URL || 'http://localhost:8060' });
-export const VECTOR_API = axios.create({ baseURL: process.env.VECTOR_SERVICE_URL || 'http://localhost:8050' });
-export const ANALYSIS_API = axios.create({ baseURL: process.env.ANALYSIS_SERVICE_URL || 'http://localhost:8040' });
-export const TEST_API = axios.create({ baseURL: process.env.TEST_SERVICE_URL || 'http://localhost:8030' });
-export const AEGIS_API = axios.create({ baseURL: process.env.AEGIS_SERVICE_URL || 'http://localhost:8900' });
-export const REPO_API = axios.create({ baseURL: process.env.REPO_SERVICE_URL || 'http://localhost:8020'});
+export const VERIFY_API = axios.create({ baseURL: process.env.REACT_APP_VERIFY_SERVICE_URL || 'http://localhost:9000' });
+export const COMPONENT_API = axios.create({ baseURL: process.env.REACT_APP_COMPONENT_SERVICE_URL || 'http://localhost:8060' });
+export const VECTOR_API = axios.create({ baseURL: process.env.REACT_APP_VECTOR_SERVICE_URL || 'http://localhost:8050' });
+export const ANALYSIS_API = axios.create({ baseURL: process.env.REACT_APP_ANALYSIS_SERVICE_URL || 'http://localhost:8040' });
+export const TEST_API = axios.create({ baseURL: process.env.REACT_APP_TEST_SERVICE_URL || 'http://localhost:8030' });
+export const AEGIS_API = axios.create({ baseURL: process.env.REACT_APP_AEGIS_SERVICE_URL || 'http://localhost:8900' });
+export const REPO_API = axios.create({ baseURL: process.env.REACT_APP_REPO_SERVICE_URL || 'http://localhost:8020'});
+export const EXECUTOR_API = axios.create({ baseURL: process.env.REACT_APP_EXEC_SERVICE_URL || 'http://localhost:8010'});
+export const USER_API = axios.create({ baseURL: process.env.REACT_APP_USER_SERVICE_URL || 'http://localhost:8100'});
 
 // Helper function for logging
 const applyInterceptors = (instance: AxiosInstance) => {
@@ -69,7 +71,7 @@ const applyInterceptors = (instance: AxiosInstance) => {
     );
 };
 
-[axios, VERIFY_API, COMPONENT_API, VECTOR_API, ANALYSIS_API, TEST_API, AEGIS_API, REPO_API].forEach(applyInterceptors);
+[axios, VERIFY_API, COMPONENT_API, VECTOR_API, ANALYSIS_API, TEST_API, AEGIS_API, REPO_API, USER_API, EXECUTOR_API].forEach(applyInterceptors);
 
 export const setupAxios = () => {
     axios.defaults.baseURL = process.env.IR_SERVICE_URL || 'http://localhost:8080';

@@ -10,7 +10,8 @@ import {
     analyzeAegis,
     fetchChangeImpact,
     saveSession,
-    loadSession
+    loadSession,
+    recordUserFeedback
 } from '../../services/api';
 import { canonicalizeGithubUrl } from '../../utils/githubUrl';
 import { RepositoryInput, VerificationInput } from '../../services/types';
@@ -38,6 +39,7 @@ import { IRGenerationCard } from './cards/IRGenerationCard';
 import { VerificationComparisonCard } from './cards/VerificationComparisonCard';
 
 // Canvas Components
+import { FeedbackModal } from './canvas/FeedbackModal';
 import { PipelineCanvas } from './canvas/PipelineCanvas';
 import { ToolboxSidebar } from './canvas/ToolboxSideBar';
 import { PipelineHeader } from './canvas/PiplelineHeader';
@@ -69,6 +71,9 @@ const PipelinePage: React.FC = () => {
 
     // Notification States
     const [notification, setNotification] = useState<ToastNotification | null>(null);
+
+    // Feedback State
+    const [showFeedback, setShowFeedback] = useState(false);
 
     // History States (Undo/Redo)
     const [history, setHistory] = useState<{nodes: NodeData[], connections: Connection[]}[]>([{ nodes: [], connections: [] }]);
@@ -183,6 +188,70 @@ const PipelinePage: React.FC = () => {
                 duration: 5000
             });   
         }
+    };
+
+    // Feedback from the user
+    useEffect(() => {
+        // Check if the user has already dealt with the feedback prompt
+        if (localStorage.getItem('pipeline_feedback_handled') === 'true') {
+            return;
+        }
+
+        let activeTimeMs = 0;
+        let lastActivityTime = Date.now();
+        // const TARGET_ACTIVE_TIME = 15; // 15 miliseconds for testing
+        const TARGET_ACTIVE_TIME = 15 * 60 * 1000; // 15 minutes 
+
+        // Function to ping activity
+        const recordActivity = () => {
+            lastActivityTime = Date.now();
+        };
+
+        // Listeners for active usage
+        window.addEventListener('mousemove', recordActivity);
+        window.addEventListener('keydown', recordActivity);
+        window.addEventListener('click', recordActivity);
+
+        // Check time accumulation every second
+        const interval = setInterval(() => {
+            const now = Date.now();
+            // If the user interacted within the last 60 seconds, consider them "active"
+            if (now - lastActivityTime < 60000) {
+                activeTimeMs += 1000;
+                
+                if (activeTimeMs >= TARGET_ACTIVE_TIME) {
+                    setShowFeedback(true);
+                    clearInterval(interval); 
+                }
+            }
+        }, 1000);
+
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('mousemove', recordActivity);
+            window.removeEventListener('keydown', recordActivity);
+            window.removeEventListener('click', recordActivity);
+        };
+    }, []);
+
+    const handleFeedbackSubmit = async (rating: number, comment: string) => {
+        try {
+            await recordUserFeedback({
+                rating: rating,
+                comments: comment
+            });
+            console.log("Feedback successfully submitted.");
+        } catch (error) {
+            console.error("Failed to submit feedback:", error);
+        } finally {
+            localStorage.setItem('pipeline_feedback_handled', 'true');
+            setShowFeedback(false);
+        }
+    };
+
+    const handleFeedbackSkip = () => {
+        localStorage.setItem('pipeline_feedback_handled', 'true');
+        setShowFeedback(false);
     };
 
     // History of Actions handling for Undo and Redo operations
@@ -414,11 +483,15 @@ const PipelinePage: React.FC = () => {
             sessionStorage.removeItem('pipeline_connections');
         }
     };
-    // -------------------------
 
+    // Pipeline Execution States
     const [isLinking, setIsLinking] = useState<string | null>(null);
     const [isRunning, setIsRunning] = useState(false);
-    
+
+    // Pipeline Stoppage States     
+    const abortControllerRef = useRef<AbortController | null>(null);
+    const killSwitchRef = useRef<boolean>(false);
+
     // Dragging state
     const [dragNodeId, setDragNodeId] = useState<string | null>(null);
     const canvasRef = useRef<HTMLDivElement>(null);
@@ -548,6 +621,9 @@ const PipelinePage: React.FC = () => {
         const node = nodes.find(n => n.id === nodeId);
         if (!node) return;
 
+        killSwitchRef.current = false;
+        abortControllerRef.current = new AbortController();
+
         setIsRunning(true);
         
         const updateStatus = (id: string, status: NodeData['status'], log: string, data?: any) => {
@@ -585,9 +661,16 @@ const PipelinePage: React.FC = () => {
             }
 
             // Execute the specific node logic
-            await processNextNodes(upstreamNode?.id || '', payload, updateStatus);
+            await processNextNodes(upstreamNode?.id || '', payload, updateStatus, {
+                signal: abortControllerRef.current.signal,
+                killSwitch: killSwitchRef
+            });
         } catch (error: any) {
-            updateStatus(nodeId, 'failed', error.message);
+            if (error.name === 'AbortError') {
+            updateStatus(nodeId, 'idle', 'Pipeline stopped by user.');
+            } else {
+                updateStatus(nodeId, 'failed', error.message);
+            }
         } finally {
             setIsRunning(false);
         }
@@ -672,10 +755,20 @@ const PipelinePage: React.FC = () => {
     };
 
     // processNextNodes accepts 'any' because it handles both PipelinePayload (IR) and Verification Packages
-    const processNextNodes = async (sourceId: string, payload: any, updateStatus: Function) => {
+    const processNextNodes = async (
+        sourceId: string, 
+        payload: any, 
+        updateStatus: Function,
+        options?: { signal: AbortSignal, killSwitch: React.MutableRefObject<boolean> }
+    ) => {
         const outgoing = connections.filter(c => c.source === sourceId);
         
         for (const conn of outgoing) {
+            if (options?.killSwitch?.current) {
+                console.log("Pipeline execution halted by user.");
+                break; 
+            }
+
             const targetNode = nodes.find(n => n.id === conn.target);
             if (!targetNode) continue;
 
@@ -695,7 +788,7 @@ const PipelinePage: React.FC = () => {
                     };
 
                     updateStatus(targetNode.id, 'running', 'Generating Base IR...');
-                    const ir = await fetchIRFromRepo(input);
+                    const ir = await fetchIRFromRepo(input, { signal: options?.signal });
                     
                     const nextPayload: PipelinePayload = {
                         irJson: ir,
@@ -707,7 +800,7 @@ const PipelinePage: React.FC = () => {
                         }))
                     };
                     updateStatus(targetNode.id, 'completed', 'IR generated.', { payload: nextPayload });
-                    await processNextNodes(targetNode.id, nextPayload, updateStatus);
+                    await processNextNodes(targetNode.id, nextPayload, updateStatus, options);
                 }
                 else if (targetNode.type === 'COMPONENT_GENERATE') {
                     if (payload.type !== 'SYSTEM_PAYLOAD') throw new Error("Expected System Source");
@@ -730,7 +823,7 @@ const PipelinePage: React.FC = () => {
                     updateStatus(targetNode.id, 'running', 'Calling Component API...');
                     
                     // Retrieves the components and endpoints
-                    const rawResponse = await createComponent(reqBody);
+                    const rawResponse = await createComponent(reqBody, { signal: options?.signal });
                     const generatedComponents = {
                         id: rawResponse.id,
                         componentIndex: decompressPayload(rawResponse.componentIndex),
@@ -738,7 +831,7 @@ const PipelinePage: React.FC = () => {
                     };
 
                     // Retrieves the authorization vectors
-                    const authVectors = await generateAuthVectors(generatedComponents.id)
+                    const authVectors = await generateAuthVectors(generatedComponents.id, { signal: options?.signal })
 
                     const nextPayload: PipelinePayload = {
                         irJson: generatedComponents,
@@ -752,7 +845,7 @@ const PipelinePage: React.FC = () => {
                     };
 
                     updateStatus(targetNode.id, 'completed', 'Components generated.', { payload: nextPayload });
-                    await processNextNodes(targetNode.id, nextPayload, updateStatus);
+                    await processNextNodes(targetNode.id, nextPayload, updateStatus, options);
                 }
                 else if (targetNode.type === 'COMPONENT_HOLDER') {
                     // Type Guard: Expects payload from COMPONENT_GENERATE
@@ -778,7 +871,7 @@ const PipelinePage: React.FC = () => {
 
                     updateStatus(targetNode.id, 'completed', 'Components Stored.', { componentPayload: compPayload });
                     
-                    await processNextNodes(targetNode.id, incomingPayload, updateStatus);
+                    await processNextNodes(targetNode.id, incomingPayload, updateStatus, options);
                 }
 
                 if (targetNode.type === 'IR_HOLDER') {
@@ -787,7 +880,7 @@ const PipelinePage: React.FC = () => {
                     if (!irPayload.irJson) throw new Error("Invalid input: Expected IR JSON");
 
                     updateStatus(targetNode.id, 'completed', 'IR Stored.', { payload: irPayload });
-                    await processNextNodes(targetNode.id, irPayload, updateStatus);
+                    await processNextNodes(targetNode.id, irPayload, updateStatus, options);
                 } 
                 if (targetNode.type === 'TEST_EXECUTOR') {
                     const generatedTests = payload?.testSuitePayload?.tests;
@@ -823,7 +916,7 @@ const PipelinePage: React.FC = () => {
                     }
 
                     updateStatus(targetNode.id, 'running', 'Verifying...');
-                    const result = await verifySystem(input);
+                    const result = await verifySystem(input, { signal: options?.signal });
                     
                     updateStatus(targetNode.id, 'completed', 'Verification Done.', { verificationResult: result });
                     
@@ -837,7 +930,7 @@ const PipelinePage: React.FC = () => {
                     };
 
                     // PASS RESULT DOWNSTREAM
-                    await processNextNodes(targetNode.id, downstreamPackage, updateStatus); 
+                    await processNextNodes(targetNode.id, downstreamPackage, updateStatus, options); 
                 }
                 else if (targetNode.type === 'SCENARIO_GENERATE') {
                     // 1. Look back up the graph to find the connected COMPONENT_HOLDER
@@ -903,7 +996,7 @@ const PipelinePage: React.FC = () => {
                     const indexId = componentHolderNode?.data.componentPayload?.id;
                     const authVecId = componentHolderNode?.data.componentPayload?.authvecid;
 
-                    let scenarioJson = await generateScenarios(indexId, authVecId);
+                    let scenarioJson = await generateScenarios(indexId, authVecId, { signal: options?.signal });
 
                     const scenarios: any[] = [];
 
@@ -927,7 +1020,7 @@ const PipelinePage: React.FC = () => {
                         targetedServices
                     });
 
-                    await processNextNodes(targetNode.id, { ...payload, scenarioPayload }, updateStatus);
+                    await processNextNodes(targetNode.id, { ...payload, scenarioPayload }, updateStatus, options);
                 }
                 else if (targetNode.type === 'TEST_GENERATE') {
                     // Find upstream prompt node
@@ -945,13 +1038,13 @@ const PipelinePage: React.FC = () => {
                     const selectedLlm = targetNode.data.selectedLlm || 'gpt-4o-mini'; 
                     updateStatus(targetNode.id, 'running', `Sending ${prompts.length} prompts to ${selectedLlm}...`);
 
-                    const data = await generateTestSuites(selectedLlm, prompts); // Assumes { status: "success", tests: [...] }
+                    const data = await generateTestSuites(selectedLlm, prompts, { signal: options?.signal }); // Assumes { status: "success", tests: [...] }
                     
                     updateStatus(targetNode.id, 'completed', 'Test Suite Generated Successfully.', { 
                         testSuitePayload: data 
                     });
 
-                    await processNextNodes(targetNode.id, { ...payload, testSuitePayload: data }, updateStatus);
+                    await processNextNodes(targetNode.id, { ...payload, testSuitePayload: data }, updateStatus, options);
                 }
                 else if (targetNode.type === 'PROMPT_GENERATE') {
                     const scenarioNode = nodes.find(n => 
@@ -968,13 +1061,13 @@ const PipelinePage: React.FC = () => {
 
                     updateStatus(targetNode.id, 'running', `Generating prompts for ${selectedIds.length} scenarios...`);
 
-                    const data = await generatePrompts(selectedIds, targetLanguage); // Assuming { prompts: [...] }
+                    const data = await generatePrompts(selectedIds, targetLanguage, { signal: options?.signal }); // Assuming { prompts: [...] }
                     
                     updateStatus(targetNode.id, 'completed', 'Prompts Generated Successfully.', { 
                         promptPayload: data 
                     });
 
-                    await processNextNodes(targetNode.id, { ...payload, promptPayload: data }, updateStatus);
+                    await processNextNodes(targetNode.id, { ...payload, promptPayload: data }, updateStatus, options);
                 }
                 else if (targetNode.type === 'VISUALIZATION') {
                     // 1. Look at the FRESH payload passed directly from the node that just triggered this
@@ -1051,8 +1144,10 @@ const PipelinePage: React.FC = () => {
                     };
 
                     // Call the Python/Engine API
-                    analyzeAegis(enginePayload)
+                    analyzeAegis(enginePayload, { signal: options?.signal })
                     .then(async (response) => {
+                        if (options?.killSwitch?.current) return;
+
                         if (!response.ok) {
                             throw new Error(`Engine Status: ${response.status}`);
                         }
@@ -1083,6 +1178,8 @@ const PipelinePage: React.FC = () => {
                 else if (targetNode.type === 'FORMAL_VIZ') {
                     // Use the deadlock fix to safely get state
                     setTimeout(() => {
+                        if (options?.killSwitch?.current) return;
+
                         const liveNodes = nodesRef.current || nodes;
                         
                         const verifyNode = liveNodes.find(n => n.type === 'FORMAL_VERIFY' && connections.some(c => c.source === n.id && c.target === targetNode.id));
@@ -1140,6 +1237,8 @@ const PipelinePage: React.FC = () => {
                 }
                 else if (targetNode.type === 'VERIFICATION_COMPARISON') {
                     setTimeout(async () => {
+                        if (options?.killSwitch?.current) return;
+
                         const liveNodes = nodesRef.current || nodes;
 
                         const verifyNode = liveNodes.find(n => n.type === 'FORMAL_VERIFY' 
@@ -1184,7 +1283,7 @@ const PipelinePage: React.FC = () => {
 
                             updateStatus(targetNode.id, 'completed', 'Comparison Generated.', { comparisonResult: stats });
 
-                            await processNextNodes(targetNode.id, { ...payload, comparisonResult: stats }, updateStatus);
+                            await processNextNodes(targetNode.id, { ...payload, comparisonResult: stats }, updateStatus, options);
 
                         } catch (error: any) {
                             updateStatus(targetNode.id, 'failed', error.message || "Failed to calculate comparison statistics.");
@@ -1193,6 +1292,8 @@ const PipelinePage: React.FC = () => {
                 }
                 else if (targetNode.type === 'CHANGE_IMPACT') {
                     setTimeout(async () => {
+                        if (options?.killSwitch?.current) return;
+
                         const liveNodes = nodesRef.current || nodes;
 
                         const baseNode = liveNodes.find(n => (n.type === 'MULTI_REPO' || n.type === 'IR_HOLDER') 
@@ -1238,7 +1339,7 @@ const PipelinePage: React.FC = () => {
                                 }))
                             };
 
-                            const result = await fetchChangeImpact(deltaInput);
+                            const result = await fetchChangeImpact(deltaInput, { signal: options?.signal });
 
                             const changes = result.changes || [];
                             const affectedSet = new Set<string>();
@@ -1257,7 +1358,7 @@ const PipelinePage: React.FC = () => {
                             });
                             
                             // Trigger downstream cards now that this is complete
-                            await processNextNodes(targetNode.id, { ...payload, changeImpactPayload: result }, updateStatus);
+                            await processNextNodes(targetNode.id, { ...payload, changeImpactPayload: result }, updateStatus, options);
                         } catch (error: any) {
                             // Deliberatly ignoring this message.
                             if(error.message !== 'Delta API error') 
@@ -1267,6 +1368,8 @@ const PipelinePage: React.FC = () => {
                 }
                 else if (targetNode.type === 'SECURITY_REGRESSION') {
                     setTimeout(async () => {
+                        if (options?.killSwitch?.current) return;
+
                         const liveNodes = nodesRef.current || nodes;
 
                         const fvNodes = liveNodes.filter(n => 
@@ -1309,7 +1412,7 @@ const PipelinePage: React.FC = () => {
                             updateStatus(targetNode.id, 'completed', `Found ${introduced.length} regressions.`, { 
                                 regressionPayload 
                             });
-                            await processNextNodes(targetNode.id, { ...payload, regressionPayload }, updateStatus);
+                            await processNextNodes(targetNode.id, { ...payload, regressionPayload }, updateStatus, options);
                         } catch (error: any) {
                             updateStatus(targetNode.id, 'failed', error.message || "Failed to calculate drift.");
                         }
@@ -1317,10 +1420,22 @@ const PipelinePage: React.FC = () => {
                 }
 
             } catch (err: any) {
-                updateStatus(targetNode.id, 'failed', `Error: ${err.message}`);
+                if (err.name === 'AbortError') {
+                    updateStatus(targetNode.id, 'idle', 'Pipeline stopped by user.');
+                } else {
+                    updateStatus(targetNode.id, 'failed', `Error: ${err.message}`);
+                }
             }
         }
     };
+
+    const stopPipeline = useCallback(() => {
+            killSwitchRef.current = true; 
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort(); 
+            }
+            setIsRunning(false);
+        }, []);
 
     // --- Renderers ---
     const renderCardContent = (node: NodeData) => {
@@ -1392,6 +1507,7 @@ const PipelinePage: React.FC = () => {
                 onLoad={handleLoadSession}
                 clearPipeline={clearPipeline}
                 runPipeline={runPipeline}
+                stopPipeline={stopPipeline}
                 onSave={handleSaveSession} 
                 onUndo={handleUndo}
                 onRedo={handleRedo}
@@ -1428,6 +1544,13 @@ const PipelinePage: React.FC = () => {
                     handleLinkClick={handleLinkClick}
                     deleteNode={deleteNode}
                     renderCardContent={renderCardContent}
+                />
+
+                {/* Feedback Modal */}
+                <FeedbackModal 
+                    isOpen={showFeedback} 
+                    onClose={handleFeedbackSkip} 
+                    onSubmit={handleFeedbackSubmit} 
                 />
             </div>
         </div>

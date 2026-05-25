@@ -29,7 +29,7 @@ app.add_middleware(
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*", "Authorization", "Content-Type", "X-Internal-Service-Auth"],
 )
 
 llm_analyzer = LLMAnalyzer()
@@ -78,7 +78,8 @@ async def list_repository_commits(req: CommitListRequest):
 
     return await fetchbranchcommits(owner, repo, branch, page=req.page, per_page=req.per_page)
 
-@app.post("/settings/github-token", responses={400: {"description": "Invalid GitHub Token format."}})
+@app.post("/settings/github-token", dependencies=[Depends(verify_internal_service)], 
+          responses={400: {"description": "Invalid GitHub Token format."}})
 async def save_github_token(req: TokenRequest):
     # Basic validation for modern GitHub tokens
     if not req.github_token.startswith(("ghp_", "github_pat_")):
@@ -87,7 +88,7 @@ async def save_github_token(req: TokenRequest):
     await config_db_service.save_token(req.github_token)
     return {"message": "Token securely saved."}
 
-@app.delete("/settings/github-token")
+@app.delete("/settings/github-token", dependencies=[Depends(verify_internal_service)])
 async def delete_github_token():
     await config_db_service.delete_token()
     return {"message": "Token deleted successfully."}
@@ -97,7 +98,7 @@ async def get_encrypted_github_token():
     token = await config_db_service.get_token()
     return {"token": token}
 
-@app.get("/settings/github-token/status")
+@app.get("/settings/github-token/status", dependencies=[Depends(verify_internal_service)])
 async def check_github_token_status():
     token = await config_db_service.get_token()
     return {"hasToken": token is not None}

@@ -288,7 +288,7 @@ const CommitPickerModal: React.FC<{
     } = useInfiniteQuery({
         queryKey: [BRANCH_COMMITS_KEY, repoUrl, branch],
         queryFn: ({ pageParam, signal }) =>
-            fetchBranchCommits(repoUrl, branch, pageParam, COMMITS_PAGE_SIZE, signal),
+            fetchBranchCommits(repoUrl, branch, pageParam, COMMITS_PAGE_SIZE, { signal: signal }),
         initialPageParam: 1,
         getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.page + 1 : undefined),
         enabled: open && !!repoUrl && !!branch,
@@ -525,7 +525,7 @@ const RepoRow: React.FC<{
 
     const { data, isFetching, isError, error } = useQuery({
         queryKey: [REPO_METADATA_KEY, debouncedCanonical],
-        queryFn: ({ signal }) => fetchRepoMetadata(debouncedUrl, signal),
+        queryFn: ({ signal }) => fetchRepoMetadata(debouncedUrl, { signal: signal }),
         enabled: !!debouncedCanonical,
     });
 

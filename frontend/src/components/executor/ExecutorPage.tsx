@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ExecutionResult } from './models';
 import Editor from '@monaco-editor/react';
+import { executeTest } from '../../services/api';
 
 const ExecutorPage: React.FC = () => {
     const location = useLocation();
@@ -119,11 +120,7 @@ const ExecutorPage: React.FC = () => {
                     runLogs.push(`> Executing cURL payload ${i + 1} of ${rawBlocks.length}...`);
 
                     // 3. Execute via Proxy
-                    const response = await fetch(`http://localhost:8010/api/execute/curl`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ command: cleanCmd })
-                    });
+                    const response = await executeTest('curl', { command: cleanCmd });
 
                     if (!response.ok) {
                         allProxiesPassed = false;
@@ -133,7 +130,7 @@ const ExecutorPage: React.FC = () => {
                         break; 
                     }
 
-                    const data = await response.json();
+                    const data = response.data;
                     
                     // Level 1: Proxy Success (Did cURL actually run without syntax/network errors?)
                     if (data.returncode !== 0) {
@@ -174,11 +171,7 @@ const ExecutorPage: React.FC = () => {
             } else {
                 // --- PYTHON / JAVA EXECUTOR ---
                 runLogs.push(`> Executing ${targetLang.toUpperCase()} script via Proxy...`);
-                const response = await fetch(`http://localhost:8010/api/execute/${targetLang}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code: codeToExecute })
-                });
+                const response = await executeTest(targetLang, { code: codeToExecute });
 
                 if (!response.ok) {
                     allProxiesPassed = false;
@@ -186,7 +179,7 @@ const ExecutorPage: React.FC = () => {
                     runLogs.push(`[ERROR] Proxy failed to execute script.`);
                     finalAssertions.push({ description: "Proxy Engine Execution", passed: false, actual: `HTTP ${response.status}` });
                 } else {
-                    const data = await response.json();
+                    const data = response.data;
                     
                     if (data.returncode !== 0) {
                         allProxiesPassed = false;

@@ -108,3 +108,9 @@ export interface ChangeImpactInsight {
         riskScore: number;
     }>;
 }
+
+// User Feedback
+export interface UserFeedback {
+    rating : number,
+    comments: string
+}
