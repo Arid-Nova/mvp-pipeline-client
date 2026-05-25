@@ -215,6 +215,9 @@ const PipelinePage: React.FC = () => {
     const handleTourFinish = () => {
         setRunTour(false);
         sessionStorage.removeItem('trigger_pipeline_tour');
+
+        document.body.style.pointerEvents = 'auto';
+        document.body.style.overflow = 'auto';
     };
 
     // Feedback from the user
@@ -1523,7 +1526,7 @@ const PipelinePage: React.FC = () => {
                 onClose={() => setNotification(null)} 
             />
 
-            {/* <PipelineTour run={runTour} onFinish={handleTourFinish} /> */}
+            {runTour && <PipelineTour run={runTour} onFinish={handleTourFinish} />}
             
             {/* Header */}
             <PipelineHeader 

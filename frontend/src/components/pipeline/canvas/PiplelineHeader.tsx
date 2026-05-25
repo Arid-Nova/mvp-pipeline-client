@@ -309,7 +309,7 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
     };
 
     return (
-        <div className="h-16 border-b border-slate-700 bg-slate-800 flex items-center justify-between px-6 z-20 shadow-md">
+        <div className="tour-pipeline-header h-16 border-b border-slate-700 bg-slate-800 flex items-center justify-between px-6 z-20 shadow-md">
             {/* Left Side: Brand and Navigation */}
             <BrandSection sessionName={sessionName} hasUnsavedChanges={hasUnsavedChanges}/>
 

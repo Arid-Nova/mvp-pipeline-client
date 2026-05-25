@@ -1,5 +1,5 @@
 import React from 'react';
-import { Joyride, Step, STATUS, type EventData } from 'react-joyride';
+import { Joyride, Step, STATUS, EventData } from 'react-joyride';
 
 interface PipelineTourProps {
     run: boolean;
@@ -29,6 +29,8 @@ export const PipelineTour: React.FC<PipelineTourProps> = ({ run, onFinish }) => 
                 </div>
             ),
             placement: 'right',
+            skipBeacon: true,     
+            blockTargetInteraction: false
         },
         {
             target: '.tour-pipeline-canvas',
@@ -39,6 +41,8 @@ export const PipelineTour: React.FC<PipelineTourProps> = ({ run, onFinish }) => 
                 </div>
             ),
             placement: 'center',
+            skipBeacon: true,     
+            blockTargetInteraction: false
         },
         {
             target: '.tour-pipeline-header', 
@@ -49,14 +53,14 @@ export const PipelineTour: React.FC<PipelineTourProps> = ({ run, onFinish }) => 
                 </div>
             ),
             placement: 'bottom',
+            skipBeacon: true,     
+            blockTargetInteraction: false
         }
     ];
 
     const handleJoyrideEvent = (data: EventData) => {
         const { status } = data;
-        const finishedStatuses: string[] = [STATUS.FINISHED, STATUS.SKIPPED];
-        
-        if (finishedStatuses.includes(status)) {
+        if (status === 'finished' || status === 'skipped') {
             onFinish();
         }
     };
@@ -68,7 +72,7 @@ export const PipelineTour: React.FC<PipelineTourProps> = ({ run, onFinish }) => 
             continuous={true} 
             onEvent={handleJoyrideEvent}
             options={{
-                primaryColor: '#059669',
+                primaryColor: '#3b82f6',
                 textColor: '#1e293b',
                 backgroundColor: '#ffffff',
                 overlayColor: 'rgba(0, 0, 0, 0.75)',
