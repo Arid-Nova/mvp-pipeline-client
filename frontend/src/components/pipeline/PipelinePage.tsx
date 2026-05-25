@@ -12,6 +12,7 @@ import {
     saveSession,
     loadSession
 } from '../../services/api';
+import { canonicalizeGithubUrl } from '../../utils/githubUrl';
 import { RepositoryInput, VerificationInput } from '../../services/types';
 import { CardType, SystemPayload, ComponentPayload, PipelinePayload, NodeData, Connection, ScenarioPayload} from './models';
 
@@ -562,10 +563,27 @@ const PipelinePage: React.FC = () => {
             // We need to provide the payload from the UPSTREAM node
             const upstreamConnection = connections.find(c => c.target === nodeId);
             const upstreamNode = nodes.find(n => n.id === upstreamConnection?.source);
-            
-            // Reconstruct the payload from upstream data
-            const payload: any = upstreamNode?.data.payload || {};
-            
+
+            // SYSTEM_INPUT nodes don't persist a `data.payload`; their output
+            // is synthesized from `data.systemName` + `data.repositories`. Build
+            // that here so running a downstream card directly (without first
+            // running the whole pipeline) still gets a valid SystemPayload.
+            let payload: any;
+            if (upstreamNode?.type === 'SYSTEM_INPUT') {
+                const reposToProcess = upstreamNode.data.repositories;
+                if (!upstreamNode.data.systemName || !reposToProcess || reposToProcess.length === 0) {
+                    updateStatus(nodeId, 'failed', 'Upstream System Source needs a System Name and at least one repository.');
+                    return;
+                }
+                payload = {
+                    type: 'SYSTEM_PAYLOAD',
+                    systemName: upstreamNode.data.systemName,
+                    repositories: reposToProcess,
+                } as SystemPayload;
+            } else {
+                payload = upstreamNode?.data.payload || {};
+            }
+
             // Execute the specific node logic
             await processNextNodes(upstreamNode?.id || '', payload, updateStatus);
         } catch (error: any) {
@@ -671,7 +689,7 @@ const PipelinePage: React.FC = () => {
                     const input: RepositoryInput = {
                         systemName: sysPayload.systemName,
                         systemRepositories: sysPayload.repositories.map(repo => ({
-                            repoBranchPair: { repositoryURL: repo.repoUrl, branchName: repo.branch || "master" },
+                            repoBranchPair: { repositoryURL: canonicalizeGithubUrl(repo.repoUrl), branchName: repo.branch || "master" },
                             commitID: repo.commitId || undefined
                         }))
                     };

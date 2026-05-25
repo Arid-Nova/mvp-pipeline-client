@@ -5,22 +5,35 @@ import ReactDOM from 'react-dom/client';
 import reportWebVitals from './reportWebVitals';
 import { setupAxios, setupLogger } from "./utils/axiosSetup";
 import { BrowserRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 setupLogger();
 setupAxios();
 
-//Not used - possible initial state but it shouldn't be hardcoded using the commit1 import (possible backend integration)
-//let graphData = getData(commit1, undefined);
-//const graphLifespan = axios.post(`/graph/create`, graphData);
+// Single QueryClient for the whole app. Cards opt into caching/refetch via
+// useQuery / useInfiniteQuery; networkMode 'always' so failed fetches still
+// surface errors when the dev backend is briefly down.
+const queryClient = new QueryClient({
+    defaultOptions: {
+        queries: {
+            staleTime: 60_000,        // 1m: repo metadata rarely changes mid-session
+            gcTime: 5 * 60_000,        // 5m
+            retry: 1,
+            refetchOnWindowFocus: false,
+        },
+    },
+});
 
 const root = ReactDOM.createRoot(
     document.getElementById('root') as HTMLElement
 );
 root.render(
     <React.StrictMode>
-        <BrowserRouter> 
-            <App />
-        </BrowserRouter>
+        <QueryClientProvider client={queryClient}>
+            <BrowserRouter>
+                <App />
+            </BrowserRouter>
+        </QueryClientProvider>
     </React.StrictMode>
 );
 

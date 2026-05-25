@@ -3,9 +3,10 @@ import axios, {
     ANALYSIS_API, TEST_API, AEGIS_API, REPO_API 
 } from '../utils/axiosSetup';
 import { showError } from '../utils/notifications';
-import { 
-    RepositoryInput, VerificationInput, VerificationResponse, 
-    OrgImportResponse, SessionPageResponse, ChangeImpactInsight 
+import {
+    RepositoryInput, VerificationInput, VerificationResponse,
+    OrgImportResponse, SessionPageResponse, ChangeImpactInsight,
+    RepoMetadata, CommitPageResponse,
 } from './types';
 import { PromptItem } from '../components/pipeline/models';
 import { decompressPayload, decompressGzipResponse } from '../utils/decompress';
@@ -224,6 +225,38 @@ export const importOrganization = async (orgUrl: string): Promise<OrgImportRespo
         const errorMessage = error.response?.data?.detail || "API error: Failed to import organization";
         showError(errorMessage);
         throw new Error(errorMessage);
+    }
+};
+
+export const fetchBranchCommits = async (
+    repoUrl: string,
+    branch: string,
+    page: number = 1,
+    perPage: number = 10,
+    signal?: AbortSignal,
+): Promise<CommitPageResponse> => {
+    try {
+        const response = await REPO_API.post(
+            '/import/repository/commits',
+            { repo_url: repoUrl, branch, page, per_page: perPage },
+            { signal },
+        );
+        return response.data;
+    } catch (error: any) {
+        throw new Error(error.response?.data?.detail || 'Failed to fetch commits');
+    }
+};
+
+export const fetchRepoMetadata = async (repoUrl: string, signal?: AbortSignal): Promise<RepoMetadata> => {
+    try {
+        const response = await REPO_API.post(
+            '/import/repository',
+            { repo_url: repoUrl },
+            { signal },
+        );
+        return response.data;
+    } catch (error: any) {
+        throw new Error(error.response?.data?.detail || 'Failed to fetch repository metadata');
     }
 };
 
