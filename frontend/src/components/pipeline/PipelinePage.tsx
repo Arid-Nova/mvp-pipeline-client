@@ -10,7 +10,8 @@ import {
     analyzeAegis,
     fetchChangeImpact,
     saveSession,
-    loadSession
+    loadSession,
+    recordUserFeedback
 } from '../../services/api';
 import { canonicalizeGithubUrl } from '../../utils/githubUrl';
 import { RepositoryInput, VerificationInput } from '../../services/types';
@@ -234,11 +235,18 @@ const PipelinePage: React.FC = () => {
     }, []);
 
     const handleFeedbackSubmit = async (rating: number, comment: string) => {
-        console.log("Feedback Submitted:", { rating, comment });
-        // TODO: Send to your backend API.
-        
-        localStorage.setItem('pipeline_feedback_handled', 'true');
-        setShowFeedback(false);
+        try {
+            await recordUserFeedback({
+                rating: rating,
+                comments: comment
+            });
+            console.log("Feedback successfully submitted.");
+        } catch (error) {
+            console.error("Failed to submit feedback:", error);
+        } finally {
+            localStorage.setItem('pipeline_feedback_handled', 'true');
+            setShowFeedback(false);
+        }
     };
 
     const handleFeedbackSkip = () => {

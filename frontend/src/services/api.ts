@@ -1,12 +1,14 @@
 import axios, { 
     VERIFY_API, COMPONENT_API, VECTOR_API, 
-    ANALYSIS_API, TEST_API, AEGIS_API, REPO_API 
+    ANALYSIS_API, TEST_API, AEGIS_API, REPO_API, 
+    USER_API
 } from '../utils/axiosSetup';
 import { showError } from '../utils/notifications';
 import {
     RepositoryInput, VerificationInput, VerificationResponse,
     OrgImportResponse, SessionPageResponse, ChangeImpactInsight,
     RepoMetadata, CommitPageResponse,
+    UserFeedback,
 } from './types';
 import { PromptItem } from '../components/pipeline/models';
 import { decompressPayload, decompressGzipResponse } from '../utils/decompress';
@@ -494,3 +496,13 @@ export const generateChangeImpactInsights = async (payload: ChangeImpactInsight,
         throw new Error(error.response?.data?.detail || "API error generating impact insights");
     }
 };
+
+// User Services 
+export const recordUserFeedback = async (payload: UserFeedback) => {
+    try {
+        const response = await USER_API.post('/user/feedback', payload);
+        return response.data;
+    } catch (error: any) {
+        throw new Error(error.response?.data?.detail || 'Failed to record feedback');
+    }
+}
