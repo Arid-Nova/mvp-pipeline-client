@@ -48,6 +48,9 @@ import { SecurityRegressionCard } from './cards/SecurityRegressionCard';
 import { Notification as ToastNotification } from '../../utils/notifications';
 import NotificationToast from '../generic/NotificationToast';
 
+// Tour Component
+import { PipelineTour } from './tour/PipelineTour';
+
 import { decompressPayload } from '../../utils/decompress';
 
 // In-browser cache to avoid data resetting
@@ -59,6 +62,9 @@ let inMemoryPipelineCache: {
 } | null = null;
 
 const PipelinePage: React.FC = () => {
+    // Pipeline Tour State
+    const [runTour, setRunTour] = useState(false);
+
     // Zoom and Pan State
     const [scale, setScale] = useState(1);
     const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -188,6 +194,27 @@ const PipelinePage: React.FC = () => {
                 duration: 5000
             });   
         }
+    };
+
+    // Tour Trigger from App
+    useEffect(() => {
+        if (sessionStorage.getItem('trigger_pipeline_tour') === 'true') {
+            setRunTour(true);
+        }
+
+        const handleTriggerTour = () => {
+            setRunTour(true);
+        };
+
+        window.addEventListener('trigger-pipeline-tour', handleTriggerTour);
+        return () => {
+            window.removeEventListener('trigger-pipeline-tour', handleTriggerTour);
+        };
+    }, []);
+
+    const handleTourFinish = () => {
+        setRunTour(false);
+        sessionStorage.removeItem('trigger_pipeline_tour');
     };
 
     // Feedback from the user
@@ -1495,6 +1522,8 @@ const PipelinePage: React.FC = () => {
                 notification={notification} 
                 onClose={() => setNotification(null)} 
             />
+
+            {/* <PipelineTour run={runTour} onFinish={handleTourFinish} /> */}
             
             {/* Header */}
             <PipelineHeader 
