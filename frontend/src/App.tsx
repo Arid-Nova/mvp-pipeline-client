@@ -6,7 +6,8 @@ import {Notification, setNotificationCallback, showError, showSuccess} from "./u
 import getData from "./parsers/getData";
 import { setupAxios, setupLogger } from "./utils/axiosSetup";
 
-import { checkHistoricalIRs, fetchHistoricalIRs, startUserSession, endUserSession } from './services/api';
+import { checkHistoricalIRs, fetchHistoricalIRs, 
+    startUserSession, endUserSession, checkEndedSessionsExists } from './services/api';
 
 import NotificationToast from "./components/generic/NotificationToast";
 import LandingPage from "./components/landing/LandingPage";
@@ -230,6 +231,12 @@ function App(data: any) {
                 const sessionId = await startUserSession(browserInfo, resolution);   
                 if (sessionId) {
                     sessionStorage.setItem('active_session_id', sessionId);
+                }
+
+                // Checking if there are no ended sessions to trigger tour.
+                const hasEndedSessions = await checkEndedSessionsExists();
+                if (!hasEndedSessions) {
+                    // triggerTour(); 
                 }
             };
             initSession();

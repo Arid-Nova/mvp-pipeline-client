@@ -72,3 +72,11 @@ async def end_user_session(session_id: str):
         )
         
     return {"message": "Session ended successfully"}
+
+@app.get("/users/sessions", 
+         dependencies=[Depends(verify_internal_service)])
+async def check_ended_sessions():
+    has_ended = await config_db_service.has_ended_sessions()
+    return {
+        "has_ended_sessions": has_ended
+    }

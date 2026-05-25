@@ -552,6 +552,20 @@ export const startUserSession = async (browserInfo: string, resolution: string) 
     }
 }
 
+export const checkEndedSessionsExists = async (): Promise<boolean> => {
+    try {
+        const response = await USER_API.get('/users/sessions', {
+            headers: {
+                'X-Internal-Service-Auth': process.env.REACT_APP_INTERNAL_SERVICE_KEY
+            }
+        });
+        return response.data.has_ended_sessions;
+    } catch (error: any) {
+        console.error("Failed to check ended sessions status", error);
+        return true; 
+    }
+}
+
 export const endUserSession = (sessionId: string) => {
     // Need to use raw fetch with `keepalive: true` here because
     // axios get cancelled by the browser when a tab closes.

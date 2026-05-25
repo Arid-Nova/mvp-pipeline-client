@@ -78,5 +78,10 @@ class ConfigDatabase:
             return result.matched_count > 0           
         except InvalidId:
             return False
+    
+    async def has_ended_sessions(self) -> bool:
+        query = {"end_datetime": {"$exists": True, "$ne": None}}
+        count = await self.session_collection.count_documents(query, limit=1)
+        return count > 0
 
 config_db_service = ConfigDatabase()
