@@ -67,7 +67,7 @@ const BrandSection = ({ sessionName, hasUnsavedChanges }: { sessionName?: string
                 <span className="text-slate-600 font-light text-2xl mx-1 mb-1">|</span>
                 
                 {/* Subtitle or Session Name */}
-                <div className="flex flex-col mt-1">
+                <div className="tour-session-status flex flex-col mt-1">
                     {sessionName ? (
                         <div className="flex items-center gap-2">
                             <div className="flex flex-col gap-0.5">
@@ -309,7 +309,7 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
     };
 
     return (
-        <div className="h-16 border-b border-slate-700 bg-slate-800 flex items-center justify-between px-6 z-20 shadow-md">
+        <div className="tour-pipeline-header h-16 border-b border-slate-700 bg-slate-800 flex items-center justify-between px-6 z-20 shadow-md">
             {/* Left Side: Brand and Navigation */}
             <BrandSection sessionName={sessionName} hasUnsavedChanges={hasUnsavedChanges}/>
 
@@ -328,7 +328,7 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                 )}
 
                 {/* --- Undo and Redo --- */}
-                <div className="flex items-center gap-2 border-l border-slate-700 pl-4 ml-2">
+                <div className="tour-undo-redo flex items-center gap-2 border-l border-slate-700 pl-4 ml-2">
                     <button
                         onClick={onUndo}
                         disabled={!canUndo}
@@ -353,7 +353,7 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                 </div>
 
                 {/* --- Settings Cogwheel & Dropdown --- */}
-                <div className="relative" ref={settingsRef}>
+                <div className="tour-settings-button relative" ref={settingsRef}>
                     <button 
                         onClick={() => {
                             setIsSettingsOpen(!isSettingsOpen)
@@ -471,12 +471,30 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                                         Set Token
                                     </button>
                                 </div>
+
+                                <div className="flex items-center gap-2 border-b border-slate-700 pb-2">
+                                    <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Help</h3>
+                                </div>
+                                <div>
+                                    <button 
+                                        onClick={() => { 
+                                            window.dispatchEvent(new Event('trigger-pipeline-tour'));
+                                            setIsSettingsOpen(false);
+                                        }} 
+                                        className="w-full py-2 bg-slate-900 border border-slate-700 hover:bg-slate-800 text-slate-300 hover:text-amber-400 hover:border-amber-500/50 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-sm group"
+                                    >
+                                        Start a Tour
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}
                 </div>
 
-                <div className="relative group flex items-center">
+                <div className="tour-run-pipeline relative group flex items-center">
                     {isRunning ? (
                         /* Stop Pipeline*/
                         <button 

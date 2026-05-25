@@ -50,7 +50,7 @@ export const PipelineCanvas: React.FC<PipelineCanvasProps> = ({
     return(
         <div 
             ref={canvasRef}
-            className="flex-1 relative overflow-hidden bg-slate-950 cursor-grab active:cursor-grabbing"
+            className="tour-pipeline-canvas flex-1 relative overflow-hidden bg-slate-950 cursor-grab active:cursor-grabbing"
             onDragOver={handleCanvasDragOver}
             onDrop={handleCanvasDrop}
             onWheel={handleWheel}

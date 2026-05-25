@@ -161,3 +161,21 @@
   -webkit-text-fill-color: transparent;
   filter: drop-shadow(0 2px 4px rgba(232, 253, 45, 0.3));
 }
+
+@keyframes tourIconScan {
+  0%, 100% {
+    transform: rotate(0deg) scale(1) translateX(0px);
+  }
+  25% {
+    transform: rotate(-10deg) scale(1.05) translateX(-1px);
+  }
+  75% {
+    transform: rotate(10deg) scale(1.05) translateX(1px);
+  }
+}
+
+.tour-animated-icon {
+  transform-origin: 10px 10px; 
+  animation: tourIconScan 3.5s ease-in-out infinite;
+  filter: drop-shadow(0 0 5px rgba(45, 212, 191, 0.6));
+}

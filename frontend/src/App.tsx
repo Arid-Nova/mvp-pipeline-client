@@ -236,7 +236,8 @@ function App(data: any) {
                 // Checking if there are no ended sessions to trigger tour.
                 const hasEndedSessions = await checkEndedSessionsExists();
                 if (!hasEndedSessions) {
-                    // triggerTour(); 
+                    sessionStorage.setItem('trigger_pipeline_tour', 'true');
+                    window.dispatchEvent(new Event('trigger-pipeline-tour'));
                 }
             };
             initSession();
