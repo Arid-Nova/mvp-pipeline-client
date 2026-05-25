@@ -6,7 +6,8 @@ import {Notification, setNotificationCallback, showError, showSuccess} from "./u
 import getData from "./parsers/getData";
 import { setupAxios, setupLogger } from "./utils/axiosSetup";
 
-import { checkHistoricalIRs, fetchHistoricalIRs } from './services/api';
+import { checkHistoricalIRs, fetchHistoricalIRs, 
+    startUserSession, endUserSession, checkEndedSessionsExists } from './services/api';
 
 import NotificationToast from "./components/generic/NotificationToast";
 import LandingPage from "./components/landing/LandingPage";
@@ -219,6 +220,49 @@ function App(data: any) {
     const navigate = useNavigate();
     const location = useLocation();
 
+    // User's browser sessions with the pipeline
+    // Recording start of a session
+    useEffect(() => {
+        if (location.pathname === '/pipeline' && !sessionStorage.getItem('active_session_id')) {
+            const initSession = async () => {
+                const browserInfo = navigator.userAgent; 
+                const resolution = `${window.screen.width}x${window.screen.height}`; 
+                
+                const sessionId = await startUserSession(browserInfo, resolution);   
+                if (sessionId) {
+                    sessionStorage.setItem('active_session_id', sessionId);
+                }
+
+                // Checking if there are no ended sessions to trigger tour.
+                const hasEndedSessions = await checkEndedSessionsExists();
+                if (!hasEndedSessions) {
+                    // triggerTour(); 
+                }
+            };
+            initSession();
+        }
+    }, [location.pathname]);
+
+    // Recording end of a session on tab close
+    useEffect(() => {
+        const handleTabClose = () => {
+            const sessionId = sessionStorage.getItem('active_session_id');
+            console.log(`[Session Check] Tab closing/navigating away. Ending session: ${sessionId}`);
+            
+            if (sessionId) {
+                endUserSession(sessionId);
+                sessionStorage.removeItem('active_session_id');
+            }
+        };
+
+        window.addEventListener('pagehide', handleTabClose);
+        return () => {
+            window.removeEventListener('pagehide', handleTabClose);
+        };
+    }, []);
+
+
+    // IR uploading handle
     useEffect(() => {
         if (location.state && location.state.irData) {
             handleIRLoaded(location.state.irData);
