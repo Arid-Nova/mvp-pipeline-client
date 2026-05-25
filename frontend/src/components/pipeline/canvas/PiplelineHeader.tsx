@@ -471,6 +471,24 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                                         Set Token
                                     </button>
                                 </div>
+
+                                <div className="flex items-center gap-2 border-b border-slate-700 pb-2">
+                                    <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Help</h3>
+                                </div>
+                                <div>
+                                    <button 
+                                        onClick={() => { 
+                                            window.dispatchEvent(new Event('trigger-pipeline-tour'));
+                                            setIsSettingsOpen(false);
+                                        }} 
+                                        className="w-full py-2 bg-slate-900 border border-slate-700 hover:bg-slate-800 text-slate-300 hover:text-amber-400 hover:border-amber-500/50 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-sm group"
+                                    >
+                                        Start a Tour
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}
