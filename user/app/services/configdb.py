@@ -17,7 +17,7 @@ class ConfigDatabase:
             password=self.password
         )
         self.db = self.client[self.db_name]
-        self.collection = self.db["settings"]
+        self.collection = self.db["user_feedback"]
 
     def _get_aes_key(self):
         raw_key = os.getenv("ENCRYPTION_KEY")
@@ -26,10 +26,8 @@ class ConfigDatabase:
         return hashlib.sha256(raw_key.encode('utf-8')).digest()
     
     async def save_feedback(self, rating: int, comments: str):
-        await self.collection.update_one(
-            {"key": "user_feedback"},
-            {"$set": {"rating": rating, "comments": comments}},
-            upsert=True
+        await self.collection.insert_one(
+            {"rating": rating, "comments": comments}
         )
 
 config_db_service = ConfigDatabase()

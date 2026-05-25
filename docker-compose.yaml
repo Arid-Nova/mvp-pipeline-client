@@ -49,6 +49,18 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        - REACT_APP_IR_SERVICE_URL=http://localhost:8080
+        - REACT_APP_VERIFY_SERVICE_URL=http://localhost:9000
+        - REACT_APP_COMPONENT_SERVICE_URL=http://localhost:8060
+        - REACT_APP_VECTOR_SERVICE_URL=http://localhost:8050
+        - REACT_APP_ANALYSIS_SERVICE_URL=http://localhost:8040
+        - REACT_APP_TEST_SERVICE_URL=http://localhost:8030
+        - REACT_APP_AEGIS_SERVICE_URL=http://localhost:8900
+        - REACT_APP_REPO_SERVICE_URL=http://localhost:8020
+        - REACT_APP_USER_SERVICE_URL=http://localhost:8100
+        - REACT_APP_EXEC_SERVICE_URL=http://localhost:8010
+        - REACT_APP_INTERNAL_SERVICE_KEY=${INTERNAL_SERVICE_KEY}
     container_name: cloudhub_frontend
     ports:
       - "3000:3000"
@@ -56,16 +68,6 @@ services:
       - app_network
     environment:
       - NODE_ENV=production
-      - IR_SERVICE_URL=http://localhost:8080
-      - VERIFY_SERVICE_URL=http://localhost:9000
-      - COMPONENT_SERVICE_URL=http://localhost:8060
-      - VECTOR_SERVICE_URL=http://localhost:8050
-      - ANALYSIS_SERVICE_URL=http://localhost:8040
-      - TEST_SERVICE_URL=http://localhost:8030
-      - AEGIS_SERVICE_URL=http://localhost:8900
-      - REPO_SERVICE_URL=http://localhost:8020
-      - USER_SERVICE_URL=http://localhost:8100
-      - EXEC_SERVICE_URL=http://localhost:8010
 
   verifier:
     build:

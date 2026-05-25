@@ -423,7 +423,7 @@ export const saveGitHubToken = async (token: string, options?: { signal?: AbortS
         const response = await REPO_API.post('/settings/github-token', { github_token: token }, {
             signal: options?.signal,
             headers: {
-                'X-Internal-Service-Auth': process.env.INTERNAL_SERVICE_KEY
+                'X-Internal-Service-Auth': process.env.REACT_APP_INTERNAL_SERVICE_KEY
             } 
         });
         return response.data;
@@ -444,7 +444,7 @@ export const deleteGitHubToken = async (options?: { signal?: AbortSignal }) => {
         const response = await REPO_API.delete('/settings/github-token', {
             signal: options?.signal,
             headers: {
-                'X-Internal-Service-Auth': process.env.INTERNAL_SERVICE_KEY
+                'X-Internal-Service-Auth': process.env.REACT_APP_INTERNAL_SERVICE_KEY
             } 
         });
         return response.data;
@@ -465,7 +465,7 @@ export const checkGitHubTokenStatus = async (options?: { signal?: AbortSignal })
         const response = await REPO_API.get('/settings/github-token/status', {
             signal: options?.signal,
             headers: {
-                'X-Internal-Service-Auth': process.env.INTERNAL_SERVICE_KEY
+                'X-Internal-Service-Auth': process.env.REACT_APP_INTERNAL_SERVICE_KEY
             } 
         });
         return response.data.hasToken;
@@ -511,7 +511,7 @@ export const recordUserFeedback = async (payload: UserFeedback) => {
     try {
         const response = await USER_API.post('/users/feedback', payload, {
             headers: {
-                'X-Internal-Service-Auth': process.env.INTERNAL_SERVICE_KEY
+                'X-Internal-Service-Auth': process.env.REACT_APP_INTERNAL_SERVICE_KEY
             }
         });
         return response.data;
