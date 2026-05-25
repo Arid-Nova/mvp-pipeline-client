@@ -421,7 +421,10 @@ export const fetchRepoMetadata = async (repoUrl: string, options?: { signal?: Ab
 export const saveGitHubToken = async (token: string, options?: { signal?: AbortSignal }) => {
     try {
         const response = await REPO_API.post('/settings/github-token', { github_token: token }, {
-            signal: options?.signal 
+            signal: options?.signal,
+            headers: {
+                'X-Internal-Service-Auth': process.env.INTERNAL_SERVICE_KEY
+            } 
         });
         return response.data;
     } catch (error: any) {
@@ -439,7 +442,10 @@ export const saveGitHubToken = async (token: string, options?: { signal?: AbortS
 export const deleteGitHubToken = async (options?: { signal?: AbortSignal }) => {
     try {
         const response = await REPO_API.delete('/settings/github-token', {
-            signal: options?.signal 
+            signal: options?.signal,
+            headers: {
+                'X-Internal-Service-Auth': process.env.INTERNAL_SERVICE_KEY
+            } 
         });
         return response.data;
     } catch (error: any) {
@@ -457,7 +463,10 @@ export const deleteGitHubToken = async (options?: { signal?: AbortSignal }) => {
 export const checkGitHubTokenStatus = async (options?: { signal?: AbortSignal }) => {
     try {
         const response = await REPO_API.get('/settings/github-token/status', {
-            signal: options?.signal 
+            signal: options?.signal,
+            headers: {
+                'X-Internal-Service-Auth': process.env.INTERNAL_SERVICE_KEY
+            } 
         });
         return response.data.hasToken;
     } catch (error) {
@@ -500,7 +509,11 @@ export const generateChangeImpactInsights = async (payload: ChangeImpactInsight,
 // User Services 
 export const recordUserFeedback = async (payload: UserFeedback) => {
     try {
-        const response = await USER_API.post('/users/feedback', payload);
+        const response = await USER_API.post('/users/feedback', payload, {
+            headers: {
+                'X-Internal-Service-Auth': process.env.INTERNAL_SERVICE_KEY
+            }
+        });
         return response.data;
     } catch (error: any) {
         throw new Error(error.response?.data?.detail || 'Failed to record feedback');

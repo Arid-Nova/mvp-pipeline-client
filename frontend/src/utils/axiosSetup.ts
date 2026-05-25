@@ -11,7 +11,8 @@ export const ANALYSIS_API = axios.create({ baseURL: process.env.ANALYSIS_SERVICE
 export const TEST_API = axios.create({ baseURL: process.env.TEST_SERVICE_URL || 'http://localhost:8030' });
 export const AEGIS_API = axios.create({ baseURL: process.env.AEGIS_SERVICE_URL || 'http://localhost:8900' });
 export const REPO_API = axios.create({ baseURL: process.env.REPO_SERVICE_URL || 'http://localhost:8020'});
-export const USER_API = axios.create({ baseURL: process.env.USER_SERVICE_URL || 'http://localhost:8010'});
+export const EXECUTOR_API = axios.create({ baseURL: process.env.EXEC_SERVICE_URL || 'http://localhost:8010'});
+export const USER_API = axios.create({ baseURL: process.env.USER_SERVICE_URL || 'http://localhost:8100'});
 
 // Helper function for logging
 const applyInterceptors = (instance: AxiosInstance) => {
@@ -70,7 +71,7 @@ const applyInterceptors = (instance: AxiosInstance) => {
     );
 };
 
-[axios, VERIFY_API, COMPONENT_API, VECTOR_API, ANALYSIS_API, TEST_API, AEGIS_API, REPO_API, USER_API].forEach(applyInterceptors);
+[axios, VERIFY_API, COMPONENT_API, VECTOR_API, ANALYSIS_API, TEST_API, AEGIS_API, REPO_API, USER_API, EXECUTOR_API].forEach(applyInterceptors);
 
 export const setupAxios = () => {
     axios.defaults.baseURL = process.env.IR_SERVICE_URL || 'http://localhost:8080';

@@ -64,13 +64,15 @@ Ensure you have the following installed on your machine:
 
     ```
     http://localhost:8080
-	http://localhost:8900
+	http://localhost:8090
     http://localhost:5600
-    http://localhost:8600
-    http://localhost:8500
-    http://localhost:8400
-    http://localhost:8300
-    http://localhost:8200
+    http://localhost:8060
+    http://localhost:8050
+    http://localhost:8040
+    http://localhost:8030
+    http://localhost:8020
+    http://localhost:8010
+    http://localhost:8100
     ```
 
 	The MariaDB database will be running on port 3306. Please make sure the root password is set correctly and the database name is `msGraph`. The connection URL should be:
@@ -97,7 +99,8 @@ The following Docker containers are used in the MVP:
 - `cloudhub_testgenerator`: The service for executing the LLM prompts and retreiving the actual test suites.
 - `aegis_dashboard`: The frontend service of the Aegis introspection engine.
 - `aegis_api`: The backend service of the Aegis introspection engine.
-- `repohandler`: Proxy service for handling repository metadata.
+- `cloudhub_repohandler`: Proxy service for handling repository metadata.
+- `cloudhub_usermanager`: Service managing user related interactions.
 - `cache_db`: The MariaDB database service.
 - `cloudhub_mongo`: The Mongo DB service.
 - `aegis_neo4j`: The Neo4J database service.
