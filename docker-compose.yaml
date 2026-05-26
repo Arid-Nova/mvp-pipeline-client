@@ -52,6 +52,7 @@ services:
       CHATBOT_TIMEOUT_MS: ${CHATBOT_TIMEOUT_MS:-120000}
       CHATBOT_MAX_TOKENS: ${CHATBOT_MAX_TOKENS:-1024}
       CHATBOT_TEMPERATURE: ${CHATBOT_TEMPERATURE:-0.2}
+      CHATBOT_STRICT_EVIDENCE_ONLY: "false"
     depends_on:
       mariadb:
         condition: service_healthy
