@@ -304,6 +304,44 @@ export const PipelineTour: React.FC<PipelineTourProps> = ({ run, onFinish }) => 
             blockTargetInteraction: false
         },
         {
+            target: '.tour-template-library',
+            content: (
+                <div className="text-left flex flex-col gap-3">
+                    <div className="flex items-center gap-2 mb-1">
+                        <svg className="w-5 h-5 text-indigo-400 drop-shadow-[0_0_5px_rgba(99,102,241,0.4)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                        </svg>
+                        
+                        <h3 className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-indigo-200 uppercase tracking-wider drop-shadow-sm">
+                            Instant Blueprints
+                        </h3>
+                    </div>
+
+                    <div className="rounded-lg overflow-hidden border border-slate-700/80 shadow-[0_0_20px_rgba(0,0,0,0.4)] bg-slate-900 relative">
+                        <div className="absolute inset-0 bg-indigo-500/5 mix-blend-overlay pointer-events-none z-10"></div>
+                        <img 
+                            src="/tour/preconfig.gif" 
+                            alt="Template Library Demo" 
+                            className="w-full h-auto object-cover block"
+                        />
+                    </div>
+                    
+                    <p className="text-[13px] text-slate-300 leading-relaxed">
+                        Don't want to build from scratch? Click here to open the <strong className="text-indigo-400 font-bold">Template Library</strong>.
+                    </p>
+                    
+                    <div className="p-2.5 bg-slate-900/60 border border-slate-700/50 rounded-lg shadow-inner">
+                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                            Select a pre-configured architecture like <span className="text-slate-200">Policy Drift</span> or <span className="text-slate-200">Regressive Testing</span> to instantly populate and wire the canvas with a single click.
+                        </p>
+                    </div>
+                </div>
+            ),
+            placement: 'right', 
+            skipBeacon: true,     
+            blockTargetInteraction: false
+        },
+        {
             target: '.tour-explore-preview',
             content: (
                 <div>
