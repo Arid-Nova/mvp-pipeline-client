@@ -67,7 +67,7 @@ const BrandSection = ({ sessionName, hasUnsavedChanges }: { sessionName?: string
                 <span className="text-slate-600 font-light text-2xl mx-1 mb-1">|</span>
                 
                 {/* Subtitle or Session Name */}
-                <div className="flex flex-col mt-1">
+                <div className="tour-session-status flex flex-col mt-1">
                     {sessionName ? (
                         <div className="flex items-center gap-2">
                             <div className="flex flex-col gap-0.5">
@@ -150,6 +150,7 @@ interface PipelineHeaderProps {
     onRedo?: () => void;
     clearPipeline: () => void;
     runPipeline: () => void;
+    stopPipeline: () => void;
     onLoad: (sessionId: string) => Promise<void>;
     onSave: (name: string, isSaveAs: boolean) => Promise<void>;
 }
@@ -168,7 +169,8 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
     onSave,
     onLoad,
     clearPipeline,
-    runPipeline
+    runPipeline,
+    stopPipeline
 }) => {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [tokenInput, setTokenInput] = useState('');
@@ -307,7 +309,7 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
     };
 
     return (
-        <div className="h-16 border-b border-slate-700 bg-slate-800 flex items-center justify-between px-6 z-20 shadow-md">
+        <div className="tour-pipeline-header h-16 border-b border-slate-700 bg-slate-800 flex items-center justify-between px-6 z-20 shadow-md">
             {/* Left Side: Brand and Navigation */}
             <BrandSection sessionName={sessionName} hasUnsavedChanges={hasUnsavedChanges}/>
 
@@ -326,7 +328,7 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                 )}
 
                 {/* --- Undo and Redo --- */}
-                <div className="flex items-center gap-2 border-l border-slate-700 pl-4 ml-2">
+                <div className="tour-undo-redo flex items-center gap-2 border-l border-slate-700 pl-4 ml-2">
                     <button
                         onClick={onUndo}
                         disabled={!canUndo}
@@ -351,7 +353,7 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                 </div>
 
                 {/* --- Settings Cogwheel & Dropdown --- */}
-                <div className="relative" ref={settingsRef}>
+                <div className="tour-settings-button relative" ref={settingsRef}>
                     <button 
                         onClick={() => {
                             setIsSettingsOpen(!isSettingsOpen)
@@ -469,43 +471,99 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                                         Set Token
                                     </button>
                                 </div>
+
+                                <div className="flex items-center gap-2 border-b border-slate-700 pb-2">
+                                    <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Help/Documentation</h3>
+                                </div>
+                                <div>
+                                    <button 
+                                        onClick={() => { 
+                                            window.dispatchEvent(new Event('trigger-pipeline-tour'));
+                                            setIsSettingsOpen(false);
+                                        }} 
+                                        className="w-full py-2 bg-slate-900 border border-slate-700 hover:bg-slate-800 text-slate-300 hover:text-white hover:border-slate-500 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-sm group"
+                                    >
+                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                                        </svg>
+                                        Start a Tour
+                                    </button>
+
+                                    <span className="block h-1" />
+
+                                    {/* Video Demos Playlist */}
+                                    <a 
+                                        href="https://www.youtube.com/playlist?list=PL-wbcL0lihjDzvWDNHR4oFr7-7eNr-uf6"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="w-full py-2 bg-slate-900 border border-slate-700 hover:bg-slate-800 text-slate-300 hover:text-white hover:border-slate-500 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-sm group text-center"
+                                    >
+                                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M8 5v14l11-7z"/>
+                                        </svg>
+                                        Watch Video Demos
+                                    </a>
+
+                                    <span className="block h-1" />
+
+                                    {/* Documentation Guide */}
+                                    <a 
+                                        href="https://docs.google.com/document/d/1TRfHll6ZbzoHfdcWFsw98wXIGXO_ji32/edit?pli=1"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="w-full py-2 bg-slate-900 border border-slate-700 hover:bg-slate-800 text-slate-300 hover:text-white hover:border-slate-500 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-sm group text-center"
+                                    >
+                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                        </svg>
+                                        Read Documentation
+                                    </a>
+                                </div>
                             </div>
                         </div>
                     )}
                 </div>
 
-                <div className="relative group flex items-center">
-                    <button 
-                        onClick={runPipeline}
-                        disabled={isRunning || nodesCount === 0}
-                        className={`
-                            px-5 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-3
-                            ${isRunning 
-                                ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
-                                : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md active:translate-y-0.5'}
-                        `}
-                    >
-                        {isRunning ? (
-                            <>
-                                <svg className="animate-spin h-4 w-4 text-emerald-500" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                                </svg>
-                                <span>Processing...</span>
-                            </>
-                        ) : (
-                            <>
-                                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-                                    <path d="M10 8L16 12L10 16V8Z" fill="currentColor"/>
-                                </svg>
-                                <span>Run Pipeline</span>
-                            </>
-                        )}
-                    </button>
+                <div className="tour-run-pipeline relative group flex items-center">
+                    {isRunning ? (
+                        /* Stop Pipeline*/
+                        <button 
+                            onClick={stopPipeline} 
+                            className="px-5 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-3 bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 hover:border-rose-500 shadow-lg shadow-rose-900/20 active:translate-y-0.5 animate-pulse"
+                        >
+                            {/* Spinning Indicator */}
+                            <svg className="animate-spin h-4 w-4 text-rose-400 group-hover:text-white" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                            <span>Stop Pipeline</span>
+                        </button>
+                    ) : (
+                        /* Run Pipeline */
+                        <button 
+                            onClick={runPipeline}
+                            disabled={nodesCount === 0}
+                            className={`
+                                px-5 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-3
+                                ${nodesCount === 0 
+                                    ? 'bg-slate-800 text-slate-500 border border-slate-700/50 cursor-not-allowed shadow-none' 
+                                    : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md active:translate-y-0.5'}
+                            `}
+                        >
+                            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                                <path d="M10 8L16 12L10 16V8Z" fill="currentColor"/>
+                            </svg>
+                            <span>Run Pipeline</span>
+                        </button>
+                    )}
 
-                    <div className="absolute top-full right-0 mt-2 w-max pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-50 bg-slate-800 text-slate-300 text-[10px] py-1 px-2 rounded border border-slate-700">
-                        Execute current graph
+                    {/* Tooltip description */}
+                    <div className="absolute top-full right-0 mt-2 w-max pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-50 bg-slate-900/90 text-slate-300 text-[10px] py-1 px-2 rounded border border-slate-700 backdrop-blur-sm shadow-xl">
+                        {isRunning ? "Force terminate all ongoing background tasks" : "Execute current graph"}
                     </div>
                 </div>
             </div>
