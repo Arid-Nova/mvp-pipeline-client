@@ -16,6 +16,7 @@
 #   /api/verifier/*         -> formalmethod :9000
 #   /api/aegis/*            -> aegis_api :8900
 #   /api/repo/*             -> repohandler :8020
+#   /api/user/*             -> usermanager :8100
 #   /aegis-ui/*             -> aegis_dashboard :5600 (Flask UI, served as HTML)
 
 {$DEMO_DOMAIN} {
@@ -52,6 +53,9 @@
 	}
 	handle_path /api/repo/* {
 		reverse_proxy repohandler:8020
+	}
+	handle_path /api/user/* {
+		reverse_proxy usermanager:8100
 	}
 	handle_path /aegis-ui/* {
 		reverse_proxy aegis_dashboard:5600

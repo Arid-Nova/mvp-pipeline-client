@@ -50,6 +50,9 @@ services:
   repohandler:
     ports: !reset []
 
+  usermanager:
+    ports: !reset []
+
   mariadb:
     ports: !reset []
 
