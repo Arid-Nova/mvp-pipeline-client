@@ -37,7 +37,7 @@ Ensure you have the following installed on your machine:
 
     ```sh
     git clone https://<your_githubtoken>@github.com/Arid-Nova/mvp-pipeline-client.git
-    cd mvp
+    cd <directory_you_cloned_the_repo_to>
     ```
 
 2. **Build and run the Docker containers:**
@@ -45,10 +45,10 @@ Ensure you have the following installed on your machine:
     From the root directory of the project, run the following command:
 
     ```sh
-    docker-compose up --build
+    docker-compose up --build -d 
     ```
 
-    This command will build the Docker images and start the containers for both the backend and frontend services. '-d' flag can be used to run the containers in detached mode.
+    This command will build the Docker images and start the containers for both the backend and frontend services.
 
 	> The first time you run this command, it will take some time to download the required Docker images. Subsequent runs will be faster.
 
@@ -133,6 +133,6 @@ Then run the docker-compose file again.
 
 # Important Note to Contributors
 
-Contributors to this project need nessecarily be subscribed to the Trello board at `https://trello.com/b/Uv6vuZr2/aridnova`. Any refactoring should be performed on a branch, checked out from Master. Any refactoring requires a task in the Trello board, else merge requests won't be accepted. 
+Contributors to this project need nessecarily be part of the AridNova organization in GitHub. Any refactoring should be performed on a branch, checked out from `development branch`. Any refactoring requires a task in the GitHub issue board, else merge requests won't be accepted. 
 
-To get access to the Trello board please contact project administrator Shakthi Weerasinghe via email - `syweerasinghe@arizona.edu` OR `yasas276@gmail.com`.
+To get access to AridNova organization please contact project administrator Shakthi Weerasinghe via email - `syweerasinghe@arizona.edu` OR `yasas276@gmail.com`.
