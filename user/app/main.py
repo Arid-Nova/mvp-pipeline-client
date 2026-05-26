@@ -103,15 +103,8 @@ async def check_ended_sessions():
 
 @app.post("/users/demographics")
 async def capture_demographics(req: DemographicsRequest, request: Request):
-    # Public by design: the landing/marketing page is a separate public app that
-    # cannot hold the internal service key, so no verify_internal_service here.
-    #
-    # Upserts on the anonymous, browser-stored `visitor_id`: self-reported
-    # details, IP-based location and `first_seen` are written once, while every
-    # call bumps `visit_count` and `last_seen` so repeat demo visits are counted
-    # without re-prompting the form. Location and timestamp are captured even
-    # when the visitor skips the form.
     ip_address = extract_client_ip(request)
+    
     ip_geo = await geolocate_ip(ip_address)
 
     result = await config_db_service.upsert_demographics(

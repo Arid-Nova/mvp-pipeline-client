@@ -10,7 +10,6 @@ GEOLOCATION_API_URL = os.getenv("GEOLOCATION_API_URL", "http://ip-api.com/json")
 GEOLOCATION_TIMEOUT_SECONDS = 3.0
 _GEOLOCATION_FIELDS = "status,message,country,countryCode,regionName,city,lat,lon"
 
-
 def _is_public_ip(ip_address: Optional[str]) -> bool:
     """True only for routable public addresses worth a geolocation lookup."""
     if not ip_address:
@@ -27,7 +26,6 @@ def _is_public_ip(ip_address: Optional[str]) -> bool:
         or ip.is_multicast
         or ip.is_unspecified
     )
-
 
 async def geolocate_ip(ip_address: Optional[str]) -> Optional[dict]:
     """

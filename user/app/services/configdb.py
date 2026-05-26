@@ -26,13 +26,6 @@ class ConfigDatabase:
         self.session_collection = self.db["user_session"]
         self.demographics_collection = self.db["user_demographics"]
 
-    async def ensure_indexes(self):
-        # Unique (sparse) index keeps one document per anonymous visitor and
-        # protects the upsert against duplicates under concurrent first visits.
-        await self.demographics_collection.create_index(
-            "visitor_id", unique=True, sparse=True
-        )
-
     # Common utilities
     def _get_aes_key(self):
         raw_key = os.getenv("ENCRYPTION_KEY")
@@ -135,5 +128,12 @@ class ConfigDatabase:
         }
         result = await self.demographics_collection.insert_one(document)
         return {"id": str(result.inserted_id), "visit_count": 1}
+
+    async def ensure_indexes(self):
+        # Unique (sparse) index keeps one document per anonymous visitor and
+        # protects the upsert against duplicates under concurrent first visits.
+        await self.demographics_collection.create_index(
+            "visitor_id", unique=True, sparse=True
+        )
 
 config_db_service = ConfigDatabase()
