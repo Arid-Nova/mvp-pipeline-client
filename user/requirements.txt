@@ -5,3 +5,4 @@ pydantic-settings
 openai
 motor>=3.3.1
 pycryptodome
+httpx

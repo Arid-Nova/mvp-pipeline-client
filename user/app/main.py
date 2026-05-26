@@ -1,17 +1,40 @@
+import os
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
 from .utils.verifier import verify_internal_service
+from .utils.network import extract_client_ip
+from .utils.geolocate import geolocate_ip
 
 from .services.configdb import config_db_service
 
 from .models.FeedbackRequest import FeedbackRequest
 from .models.SessionStartRequest import SessionStartRequest
+from .models.DemographicsRequest import DemographicsRequest
 
-app = FastAPI(title="User Management Service")
 
-origins = [
-    "http://localhost:3000"
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        await config_db_service.ensure_indexes()
+    except Exception as exc:
+        # Don't block startup if MongoDB isn't reachable yet; the index is a
+        # safeguard, not a hard requirement for serving requests.
+        logging.warning("Could not ensure MongoDB indexes at startup: %s", exc)
+    yield
+
+
+app = FastAPI(title="User Management Service", lifespan=lifespan)
+
+# Local pipeline app plus any public landing/marketing origins (comma-separated).
+origins = ["http://localhost:3000"]
+origins += [
+    origin.strip()
+    for origin in os.getenv("LANDING_ORIGINS", "").split(",")
+    if origin.strip()
 ]
 
 app.add_middleware(
@@ -39,10 +62,7 @@ async def save_feedback(req: FeedbackRequest):
             })
 async def start_new_user_session(req: SessionStartRequest, request: Request):
     try:
-        # Extracting the IP address
-        ip_address = request.headers.get("X-Forwarded-For") or request.client.host
-        if ip_address and "," in ip_address:
-            ip_address = ip_address.split(",")[0].strip()
+        ip_address = extract_client_ip(request)
 
         session_id = await config_db_service.save_new_session(
             browser=req.browser,
@@ -73,10 +93,32 @@ async def end_user_session(session_id: str):
         
     return {"message": "Session ended successfully"}
 
-@app.get("/users/sessions", 
+@app.get("/users/sessions",
          dependencies=[Depends(verify_internal_service)])
 async def check_ended_sessions():
     has_ended = await config_db_service.has_ended_sessions()
     return {
         "has_ended_sessions": has_ended
     }
+
+@app.post("/users/demographics")
+async def capture_demographics(req: DemographicsRequest, request: Request):
+    # Public by design: the landing/marketing page is a separate public app that
+    # cannot hold the internal service key, so no verify_internal_service here.
+    #
+    # Upserts on the anonymous, browser-stored `visitor_id`: self-reported
+    # details, IP-based location and `first_seen` are written once, while every
+    # call bumps `visit_count` and `last_seen` so repeat demo visits are counted
+    # without re-prompting the form. Location and timestamp are captured even
+    # when the visitor skips the form.
+    ip_address = extract_client_ip(request)
+    ip_geo = await geolocate_ip(ip_address)
+
+    result = await config_db_service.upsert_demographics(
+        visitor_id=req.visitor_id,
+        profile=req.model_dump(exclude={"visitor_id"}),
+        ip_address=ip_address,
+        ip_geo=ip_geo,
+    )
+
+    return {"message": "Captured", **result}
