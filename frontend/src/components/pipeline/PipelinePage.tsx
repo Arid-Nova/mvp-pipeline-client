@@ -14,6 +14,7 @@ import {
     recordUserFeedback
 } from '../../services/api';
 import { canonicalizeGithubUrl } from '../../utils/githubUrl';
+import { PIPELINE_TEMPLATES } from './configs/PipelineTemplates';
 import { RepositoryInput, VerificationInput } from '../../services/types';
 import { CardType, SystemPayload, ComponentPayload, PipelinePayload, NodeData, Connection, ScenarioPayload} from './models';
 
@@ -50,6 +51,7 @@ import NotificationToast from '../generic/NotificationToast';
 
 // Tour Component
 import { PipelineTour } from './tour/PipelineTour';
+import { TemplateLibraryModal } from './canvas/TemplateLibraryModal';
 
 import { decompressPayload } from '../../utils/decompress';
 
@@ -513,6 +515,58 @@ const PipelinePage: React.FC = () => {
             sessionStorage.removeItem('pipeline_connections');
         }
     };
+
+    // Preconfigured pipelines
+    const applyTemplate = (templateId: string) => {
+        const template = PIPELINE_TEMPLATES.find(t => t.id === templateId);
+        if (!template) return;
+
+        if (nodes.length > 0) {
+            const confirm = window.confirm("Applying a template will clear your current canvas. Continue?");
+            if (!confirm) return;
+        }
+
+        const idMapping: Record<string, string> = {};
+        const newNodes: NodeData[] = [];
+
+        template.nodes.forEach(tNode => {
+            const freshId = Math.random().toString(36).substr(2, 9);
+            idMapping[tNode.tempId] = freshId;
+
+            newNodes.push({
+                id: freshId,
+                type: tNode.type,
+                x: tNode.x,
+                y: tNode.y,
+                data: {},
+                status: 'idle',
+                logs: []
+            });
+        });
+
+        const newConnections: Connection[] = template.connections.map(tConn => ({
+            id: Math.random().toString(36).substr(2, 9),
+            source: idMapping[tConn.sourceTempId],
+            target: idMapping[tConn.targetTempId]
+        }));
+
+        setNodes(newNodes);
+        setConnections(newConnections);
+        
+        // Resetting the viewport 
+        setScale(1);
+        setOffset({ x: 0, y: 0 });
+
+        saveHistory(newNodes, newConnections);
+        
+        setNotification({
+            type: 'success',
+            message: `Workspace Loaded!`,
+            duration: 3000
+        });
+    };
+
+    const [isTemplateLibraryOpen, setIsTemplateLibraryOpen] = useState(false);
 
     // Pipeline Execution States
     const [isLinking, setIsLinking] = useState<string | null>(null);
@@ -1554,6 +1608,7 @@ const PipelinePage: React.FC = () => {
                     toggleCategory={toggleCategory}
                     addNode={addNode}
                     clearPipeline={clearPipeline}
+                    openTemplateModal={() => setIsTemplateLibraryOpen(true)}
                 />
 
                 {/* Canvas */}
@@ -1583,6 +1638,13 @@ const PipelinePage: React.FC = () => {
                     isOpen={showFeedback} 
                     onClose={handleFeedbackSkip} 
                     onSubmit={handleFeedbackSubmit} 
+                />
+
+                {/* Template Library */}
+                <TemplateLibraryModal
+                    isOpen={isTemplateLibraryOpen}
+                    onClose={() => setIsTemplateLibraryOpen(false)}
+                    onSelectTemplate={applyTemplate}
                 />
             </div>
         </div>
