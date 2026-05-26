@@ -19,6 +19,11 @@ COPY . .
 ARG REACT_APP_USE_PROXY=""
 ENV REACT_APP_USE_PROXY=$REACT_APP_USE_PROXY
 
+# Baked into the bundle so api.ts can send the X-Internal-Service-Auth header
+# on calls to the repo/user services.
+ARG REACT_APP_INTERNAL_SERVICE_KEY=""
+ENV REACT_APP_INTERNAL_SERVICE_KEY=$REACT_APP_INTERNAL_SERVICE_KEY
+
 # Build the React application
 RUN npm run build
 

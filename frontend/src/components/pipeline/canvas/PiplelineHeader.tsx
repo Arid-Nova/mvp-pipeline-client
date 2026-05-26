@@ -59,20 +59,25 @@ const BrandSection = ({ sessionName, hasUnsavedChanges }: { sessionName?: string
                 </div>
                 
                 {/* Brand Name */}
-                <h1 className="font-black text-2xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-cyan-400 to-teal-400">
-                    AridNova
+                <h1 className="font-bold text-2xl tracking-[0.2em] uppercase bg-clip-text text-transparent bg-gradient-to-br from-white via-slate-400 to-teal-500">
+                    CONDUIT
                 </h1>
                 
                 {/* Divider */}
                 <span className="text-slate-600 font-light text-2xl mx-1 mb-1">|</span>
                 
                 {/* Subtitle or Session Name */}
-                <div className="flex flex-col mt-1">
+                <div className="tour-session-status flex flex-col mt-1">
                     {sessionName ? (
                         <div className="flex items-center gap-2">
-                            <span className="text-[13px] font-semibold text-slate-400 tracking-wider uppercase">
-                                Microservice Analysis Pipeline Creator
-                            </span>
+                            <div className="flex flex-col gap-0.5">
+                                <span className="text-[13px] font-semibold text-slate-400 tracking-wider uppercase leading-none">
+                                    Microservice Analysis Toolkit
+                                </span>
+                                <span className="text-[9px] font-medium text-slate-500 tracking-widest uppercase leading-none">
+                                    By AridNova
+                                </span>
+                            </div>
 
                             <span className="text-slate-600 font-light text-2xl mx-1 mb-1">|</span>
                             
@@ -91,7 +96,7 @@ const BrandSection = ({ sessionName, hasUnsavedChanges }: { sessionName?: string
                         </div>
                     ) : (
                         <span className="text-[13px] font-semibold text-slate-400 tracking-wider uppercase">
-                            Microservice Analysis Pipeline Creator
+                            Microservice Analysis Toolkit
                         </span>
                     )}
                 </div>
@@ -145,6 +150,7 @@ interface PipelineHeaderProps {
     onRedo?: () => void;
     clearPipeline: () => void;
     runPipeline: () => void;
+    stopPipeline: () => void;
     onLoad: (sessionId: string) => Promise<void>;
     onSave: (name: string, isSaveAs: boolean) => Promise<void>;
 }
@@ -163,7 +169,8 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
     onSave,
     onLoad,
     clearPipeline,
-    runPipeline
+    runPipeline,
+    stopPipeline
 }) => {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [tokenInput, setTokenInput] = useState('');
@@ -302,7 +309,7 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
     };
 
     return (
-        <div className="h-16 border-b border-slate-700 bg-slate-800 flex items-center justify-between px-6 z-20 shadow-md">
+        <div className="tour-pipeline-header h-16 border-b border-slate-700 bg-slate-800 flex items-center justify-between px-6 z-20 shadow-md">
             {/* Left Side: Brand and Navigation */}
             <BrandSection sessionName={sessionName} hasUnsavedChanges={hasUnsavedChanges}/>
 
@@ -321,7 +328,7 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                 )}
 
                 {/* --- Undo and Redo --- */}
-                <div className="flex items-center gap-2 border-l border-slate-700 pl-4 ml-2">
+                <div className="tour-undo-redo flex items-center gap-2 border-l border-slate-700 pl-4 ml-2">
                     <button
                         onClick={onUndo}
                         disabled={!canUndo}
@@ -346,7 +353,7 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                 </div>
 
                 {/* --- Settings Cogwheel & Dropdown --- */}
-                <div className="relative" ref={settingsRef}>
+                <div className="tour-settings-button relative" ref={settingsRef}>
                     <button 
                         onClick={() => {
                             setIsSettingsOpen(!isSettingsOpen)
@@ -464,43 +471,66 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                                         Set Token
                                     </button>
                                 </div>
+
+                                <div className="flex items-center gap-2 border-b border-slate-700 pb-2">
+                                    <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Help</h3>
+                                </div>
+                                <div>
+                                    <button 
+                                        onClick={() => { 
+                                            window.dispatchEvent(new Event('trigger-pipeline-tour'));
+                                            setIsSettingsOpen(false);
+                                        }} 
+                                        className="w-full py-2 bg-slate-900 border border-slate-700 hover:bg-slate-800 text-slate-300 hover:text-amber-400 hover:border-amber-500/50 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-sm group"
+                                    >
+                                        Start a Tour
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}
                 </div>
 
-                <div className="relative group flex items-center">
-                    <button 
-                        onClick={runPipeline}
-                        disabled={isRunning || nodesCount === 0}
-                        className={`
-                            px-5 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-3
-                            ${isRunning 
-                                ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
-                                : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md active:translate-y-0.5'}
-                        `}
-                    >
-                        {isRunning ? (
-                            <>
-                                <svg className="animate-spin h-4 w-4 text-emerald-500" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                                </svg>
-                                <span>Processing...</span>
-                            </>
-                        ) : (
-                            <>
-                                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-                                    <path d="M10 8L16 12L10 16V8Z" fill="currentColor"/>
-                                </svg>
-                                <span>Run Pipeline</span>
-                            </>
-                        )}
-                    </button>
+                <div className="tour-run-pipeline relative group flex items-center">
+                    {isRunning ? (
+                        /* Stop Pipeline*/
+                        <button 
+                            onClick={stopPipeline} 
+                            className="px-5 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-3 bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 hover:border-rose-500 shadow-lg shadow-rose-900/20 active:translate-y-0.5 animate-pulse"
+                        >
+                            {/* Spinning Indicator */}
+                            <svg className="animate-spin h-4 w-4 text-rose-400 group-hover:text-white" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                            <span>Stop Pipeline</span>
+                        </button>
+                    ) : (
+                        /* Run Pipeline */
+                        <button 
+                            onClick={runPipeline}
+                            disabled={nodesCount === 0}
+                            className={`
+                                px-5 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-3
+                                ${nodesCount === 0 
+                                    ? 'bg-slate-800 text-slate-500 border border-slate-700/50 cursor-not-allowed shadow-none' 
+                                    : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md active:translate-y-0.5'}
+                            `}
+                        >
+                            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                                <path d="M10 8L16 12L10 16V8Z" fill="currentColor"/>
+                            </svg>
+                            <span>Run Pipeline</span>
+                        </button>
+                    )}
 
-                    <div className="absolute top-full right-0 mt-2 w-max pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-50 bg-slate-800 text-slate-300 text-[10px] py-1 px-2 rounded border border-slate-700">
-                        Execute current graph
+                    {/* Tooltip description */}
+                    <div className="absolute top-full right-0 mt-2 w-max pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-50 bg-slate-900/90 text-slate-300 text-[10px] py-1 px-2 rounded border border-slate-700 backdrop-blur-sm shadow-xl">
+                        {isRunning ? "Force terminate all ongoing background tasks" : "Execute current graph"}
                     </div>
                 </div>
             </div>

@@ -1,7 +1,12 @@
 frontend-ejected/
-formalmethod/app/__pycache__
-formalmethod/app/core/__pycache__
-formalmethod/app/core/solver/__pycache__
-formalmethod/app/services/__pycache__
 mock
+
+# Local secrets — never commit. Use .env.example as the committed template.
 .env
+.env.local
+.env.*.local
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class

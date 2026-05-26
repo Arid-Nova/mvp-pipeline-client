@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ExecutionResult } from './models';
 import Editor from '@monaco-editor/react';
-import { EXECUTOR_API } from '../../utils/axiosSetup';
+import { executeTest } from '../../services/api';
 
 const ExecutorPage: React.FC = () => {
     const location = useLocation();
@@ -120,18 +120,17 @@ const ExecutorPage: React.FC = () => {
                     runLogs.push(`> Executing cURL payload ${i + 1} of ${rawBlocks.length}...`);
 
                     // 3. Execute via Proxy
-                    let data: any;
-                    try {
-                        const resp = await EXECUTOR_API.post(`/api/execute/curl`, { command: cleanCmd });
-                        data = resp.data;
-                    } catch (err: any) {
+                    const response = await executeTest('curl', { command: cleanCmd });
+
+                    if (!response.ok) {
                         allProxiesPassed = false;
                         allTestsPassed = false;
-                        const status = err.response?.status ?? 'unknown';
-                        runLogs.push(`[ERROR] Proxy connection failed: HTTP ${status}`);
-                        finalAssertions.push({ description: `Proxy Engine (Cmd ${i+1})`, passed: false, actual: `HTTP ${status}` });
-                        break;
+                        runLogs.push(`[ERROR] Proxy connection failed: HTTP ${response.status}`);
+                        finalAssertions.push({ description: `Proxy Engine (Cmd ${i+1})`, passed: false, actual: `HTTP ${response.status}` });
+                        break; 
                     }
+
+                    const data = response.data;
                     
                     // Level 1: Proxy Success (Did cURL actually run without syntax/network errors?)
                     if (data.returncode !== 0) {
@@ -172,23 +171,16 @@ const ExecutorPage: React.FC = () => {
             } else {
                 // --- PYTHON / JAVA EXECUTOR ---
                 runLogs.push(`> Executing ${targetLang.toUpperCase()} script via Proxy...`);
-                let data: any;
-                let proxyOk = true;
-                let proxyStatus: any = 'unknown';
-                try {
-                    const resp = await EXECUTOR_API.post(`/api/execute/${targetLang}`, { code: codeToExecute });
-                    data = resp.data;
-                } catch (err: any) {
-                    proxyOk = false;
-                    proxyStatus = err.response?.status ?? 'unknown';
-                }
+                const response = await executeTest(targetLang, { code: codeToExecute });
 
-                if (!proxyOk) {
+                if (!response.ok) {
                     allProxiesPassed = false;
                     allTestsPassed = false;
                     runLogs.push(`[ERROR] Proxy failed to execute script.`);
-                    finalAssertions.push({ description: "Proxy Engine Execution", passed: false, actual: `HTTP ${proxyStatus}` });
+                    finalAssertions.push({ description: "Proxy Engine Execution", passed: false, actual: `HTTP ${response.status}` });
                 } else {
+                    const data = response.data;
+                    
                     if (data.returncode !== 0) {
                         allProxiesPassed = false;
                         allTestsPassed = false;

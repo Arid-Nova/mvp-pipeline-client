@@ -5,11 +5,15 @@ from .utils.verifier import verify_internal_service
 
 from .services.configdb import config_db_service
 
-from .services.repoextractor import fetchorganizationrepos
+from .services.repoextractor import fetchorganizationrepos, fetchrepositorymetadata, fetchbranchcommits
 from .services.llmanalyzer import LLMAnalyzer
 
 from .models.orgimportrequest import OrgImportRequest
 from .models.orgimportresponse import OrgImportResponse
+from .models.repoimportrequest import RepoImportRequest
+from .models.repoimportresponse import RepoImportResponse
+from .models.commitlistrequest import CommitListRequest
+from .models.commitlistresponse import CommitListResponse
 from .models.tokenrequest import TokenRequest
 
 import re
@@ -25,7 +29,7 @@ app.add_middleware(
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*", "Authorization", "Content-Type", "X-Internal-Service-Auth"],
 )
 
 llm_analyzer = LLMAnalyzer()
@@ -46,7 +50,36 @@ async def import_organization(req: OrgImportRequest):
     # LLM analysis and response preparation
     return await llm_analyzer.analyze_repos_with_llm(org_name, condensed_repos)
 
-@app.post("/settings/github-token", responses={400: {"description": "Invalid GitHub Token format."}})
+@app.post("/import/repository", response_model=RepoImportResponse,
+          responses={400: {"description": "Invalid GitHub Repository URL"}})
+async def import_repository(req: RepoImportRequest):
+
+    # Extract owner/repo and tolerate optional .git suffix and trailing slash
+    # e.g., "https://github.com/FudanSELab/train-ticket(.git)?/?" -> ("FudanSELab", "train-ticket")
+    match = re.match(r"^https?://github\.com/([^/]+)/([^/]+?)(?:\.git)?/?$", req.repo_url.strip())
+    if not match:
+        raise HTTPException(status_code=400, detail="Invalid GitHub Repository URL")
+
+    owner, repo = match.group(1), match.group(2)
+    metadata = await fetchrepositorymetadata(owner, repo)
+    return metadata
+
+@app.post("/import/repository/commits", response_model=CommitListResponse,
+          responses={400: {"description": "Invalid GitHub Repository URL"}})
+async def list_repository_commits(req: CommitListRequest):
+    match = re.match(r"^https?://github\.com/([^/]+)/([^/]+?)(?:\.git)?/?$", req.repo_url.strip())
+    if not match:
+        raise HTTPException(status_code=400, detail="Invalid GitHub Repository URL")
+
+    owner, repo = match.group(1), match.group(2)
+    branch = req.branch.strip()
+    if not branch:
+        raise HTTPException(status_code=400, detail="Branch is required")
+
+    return await fetchbranchcommits(owner, repo, branch, page=req.page, per_page=req.per_page)
+
+@app.post("/settings/github-token", dependencies=[Depends(verify_internal_service)], 
+          responses={400: {"description": "Invalid GitHub Token format."}})
 async def save_github_token(req: TokenRequest):
     # Basic validation for modern GitHub tokens
     if not req.github_token.startswith(("ghp_", "github_pat_")):
@@ -55,7 +88,7 @@ async def save_github_token(req: TokenRequest):
     await config_db_service.save_token(req.github_token)
     return {"message": "Token securely saved."}
 
-@app.delete("/settings/github-token")
+@app.delete("/settings/github-token", dependencies=[Depends(verify_internal_service)])
 async def delete_github_token():
     await config_db_service.delete_token()
     return {"message": "Token deleted successfully."}
@@ -65,7 +98,7 @@ async def get_encrypted_github_token():
     token = await config_db_service.get_token()
     return {"token": token}
 
-@app.get("/settings/github-token/status")
+@app.get("/settings/github-token/status", dependencies=[Depends(verify_internal_service)])
 async def check_github_token_status():
     token = await config_db_service.get_token()
     return {"hasToken": token is not None}

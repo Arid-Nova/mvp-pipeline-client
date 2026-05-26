@@ -57,7 +57,7 @@ export interface OrgImportResponse {
 export interface SessionSummary {
     id: string;
     name: string;
-    updated_at: string; 
+    updated_at: string;
 }
 
 export interface SessionPageResponse {
@@ -65,6 +65,31 @@ export interface SessionPageResponse {
     currentPage: number;
     totalPages: number;
     totalElements: number;
+}
+
+// Single-repo metadata fetched from the repomanager service
+export interface RepoMetadata {
+    name: string;
+    repoUrl: string;
+    defaultBranch: string;
+    latestCommit: string;
+    branches: string[];
+    commitMap: Record<string, string>;
+}
+
+// Paginated commit history for a branch
+export interface CommitInfo {
+    sha: string;
+    message: string;
+    author: string;
+    date: string;
+}
+
+export interface CommitPageResponse {
+    commits: CommitInfo[];
+    page: number;
+    perPage: number;
+    hasMore: boolean;
 }
 
 // Change Impact
@@ -82,4 +107,10 @@ export interface ChangeImpactInsight {
         status: string;
         riskScore: number;
     }>;
+}
+
+// User Feedback
+export interface UserFeedback {
+    rating : number,
+    comments: string
 }
