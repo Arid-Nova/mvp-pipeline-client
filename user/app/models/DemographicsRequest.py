@@ -1,7 +1,6 @@
 from typing import Optional
 from pydantic import BaseModel
 
-
 class DemographicsRequest(BaseModel):
     """
     Anonymized demographics submitted by a demo visitor from the public
