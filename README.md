@@ -36,7 +36,7 @@ Ensure you have the following installed on your machine:
 1. **Clone the repository:**
 
     ```sh
-    git clone https://github.com/UACloudVision/mvp-pipeline-client.git
+    git clone https://<your_githubtoken>@github.com/Arid-Nova/mvp-pipeline-client.git
     cd mvp
     ```
 
