@@ -476,7 +476,7 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                                     <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
-                                    <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Help</h3>
+                                    <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Help/Documentation</h3>
                                 </div>
                                 <div>
                                     <button 
@@ -484,10 +484,43 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                                             window.dispatchEvent(new Event('trigger-pipeline-tour'));
                                             setIsSettingsOpen(false);
                                         }} 
-                                        className="w-full py-2 bg-slate-900 border border-slate-700 hover:bg-slate-800 text-slate-300 hover:text-amber-400 hover:border-amber-500/50 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-sm group"
+                                        className="w-full py-2 bg-slate-900 border border-slate-700 hover:bg-slate-800 text-slate-300 hover:text-white hover:border-slate-500 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-sm group"
                                     >
+                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                                        </svg>
                                         Start a Tour
                                     </button>
+
+                                    <span className="block h-1" />
+
+                                    {/* Video Demos Playlist */}
+                                    <a 
+                                        href="https://www.youtube.com/playlist?list=PL-wbcL0lihjDzvWDNHR4oFr7-7eNr-uf6"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="w-full py-2 bg-slate-900 border border-slate-700 hover:bg-slate-800 text-slate-300 hover:text-white hover:border-slate-500 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-sm group text-center"
+                                    >
+                                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M8 5v14l11-7z"/>
+                                        </svg>
+                                        Watch Video Demos
+                                    </a>
+
+                                    <span className="block h-1" />
+
+                                    {/* Documentation Guide */}
+                                    <a 
+                                        href="https://docs.google.com/document/d/1TRfHll6ZbzoHfdcWFsw98wXIGXO_ji32/edit?pli=1"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="w-full py-2 bg-slate-900 border border-slate-700 hover:bg-slate-800 text-slate-300 hover:text-white hover:border-slate-500 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-sm group text-center"
+                                    >
+                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                        </svg>
+                                        Read Documentation
+                                    </a>
                                 </div>
                             </div>
                         </div>

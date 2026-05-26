@@ -12,19 +12,15 @@ export const TemplateLibraryModal: React.FC<TemplateLibraryModalProps> = ({
     onClose, 
     onSelectTemplate 
 }) => {
-    // Default the active preview to the first available template item
     const [activeTemplate, setActiveTemplate] = useState(PIPELINE_TEMPLATES[0]);
 
     if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-            {/* ✨ CRUCIAL FIX: Hard-coded strict height (h-[390px]) and widescreen width (w-[960px]) 
-              directly on the outermost card container. This prevents any dynamic stretching.
-            */}
             <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-[960px] max-w-[95vw] h-[480px] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
                 
-                {/* Header Section (shrink-0 preserves its layout height perfectly) */}
+                {/* Header Section */}
                 <div className="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-800/50 shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-indigo-500/20 rounded-lg shadow-inner">
@@ -47,10 +43,10 @@ export const TemplateLibraryModal: React.FC<TemplateLibraryModalProps> = ({
                     </button>
                 </div>
 
-                {/* Split Row Content (min-h-0 prevents inner elements from bypassing parent bounds) */}
+                {/* Split Row Content */}
                 <div className="flex flex-1 min-h-0 bg-slate-950/50">
                     
-                    {/* LEFT COLUMN: Strictly Scrollable Template List */}
+                    {/* LEFT COLUMN */}
                     <div className="w-1/2 p-4 overflow-y-auto border-r border-slate-800 space-y-2.5 custom-scrollbar h-full">
                         {PIPELINE_TEMPLATES.map(template => (
                             <button
@@ -95,7 +91,7 @@ export const TemplateLibraryModal: React.FC<TemplateLibraryModalProps> = ({
                         ))}
                     </div>
 
-                    {/* RIGHT COLUMN: Interactive Live Preview Panel */}
+                    {/* RIGHT COLUMN */}
                     <div className="w-1/2 p-4 bg-slate-900/40 flex flex-col justify-between h-full">
                         {activeTemplate ? (
                             <div className="flex flex-col h-full animate-in fade-in duration-300 justify-between">
