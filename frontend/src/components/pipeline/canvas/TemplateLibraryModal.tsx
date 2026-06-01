@@ -1,4 +1,4 @@
-import React from 'react'; 
+import React, { useState } from 'react'; 
 import { PIPELINE_TEMPLATES } from '../configs/PipelineTemplates';
 
 interface TemplateLibraryModalProps {
@@ -12,14 +12,16 @@ export const TemplateLibraryModal: React.FC<TemplateLibraryModalProps> = ({
     onClose, 
     onSelectTemplate 
 }) => {
+    const [activeTemplate, setActiveTemplate] = useState(PIPELINE_TEMPLATES[0]);
+
     if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-[600px] max-w-[90vw] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-[960px] max-w-[95vw] h-[480px] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
                 
-                {/* Header */}
-                <div className="flex items-center justify-between p-5 border-b border-slate-800 bg-slate-800/50">
+                {/* Header Section */}
+                <div className="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-800/50 shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-indigo-500/20 rounded-lg shadow-inner">
                             <svg className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -27,7 +29,7 @@ export const TemplateLibraryModal: React.FC<TemplateLibraryModalProps> = ({
                             </svg>
                         </div>
                         <div>
-                            <h2 className="text-lg text-white tracking-wide">Pipeline Library</h2>
+                            <h2 className="text-md font-semibold text-white tracking-wide">Pipeline Library</h2>
                             <p className="text-[11px] text-slate-400 font-medium">Select a pre-configured pipeline to jumpstart your analysis.</p>
                         </div>
                     </div>
@@ -41,9 +43,11 @@ export const TemplateLibraryModal: React.FC<TemplateLibraryModalProps> = ({
                     </button>
                 </div>
 
-                {/* List of Templates */}
-                <div className="p-5 bg-slate-950/50 overflow-y-auto max-h-[60vh]">
-                    <div className="space-y-3">
+                {/* Split Row Content */}
+                <div className="flex flex-1 min-h-0 bg-slate-950/50">
+                    
+                    {/* LEFT COLUMN */}
+                    <div className="w-1/2 p-4 overflow-y-auto border-r border-slate-800 space-y-2.5 custom-scrollbar h-full">
                         {PIPELINE_TEMPLATES.map(template => (
                             <button
                                 key={template.id}
@@ -51,26 +55,34 @@ export const TemplateLibraryModal: React.FC<TemplateLibraryModalProps> = ({
                                     onSelectTemplate(template.id);
                                     onClose(); 
                                 }}
-                                className="w-full text-left p-4 bg-slate-800/40 border border-slate-700/50 hover:bg-slate-800 hover:border-indigo-500/50 rounded-xl transition-all duration-300 group relative overflow-hidden flex gap-4 items-center shadow-sm hover:shadow-lg"
+                                onMouseEnter={() => setActiveTemplate(template)}
+                                className={`w-full text-left p-3 border rounded-xl transition-all duration-300 group relative overflow-hidden flex gap-3 items-center shadow-sm ${
+                                    activeTemplate?.id === template.id 
+                                        ? 'bg-slate-800 border-indigo-500/60 shadow-md' 
+                                        : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/80 hover:border-slate-600'
+                                }`}
                             >
-                                {/* Hover highlight background */}
                                 <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/0 via-indigo-500/0 to-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                                 
                                 {/* Icon */}
-                                <div className="p-3 bg-slate-900 border border-slate-700 rounded-xl group-hover:border-indigo-500/30 group-hover:shadow-[0_0_15px_rgba(99,102,241,0.2)] transition-all shrink-0">
+                                <div className="p-1 shrink-0 transition-transform duration-200 group-hover:scale-105 text-slate-400">
                                     {template.icon}
                                 </div>
                                 
                                 {/* Text Content */}
-                                <div className="flex-1">
-                                    <h3 className="text-[13px] font-bold text-slate-200 group-hover:text-indigo-300 mb-1 tracking-wide uppercase transition-colors">{template.name}</h3>
-                                    <p className="text-[11px] text-slate-400 leading-relaxed group-hover:text-slate-300 transition-colors">{template.description}</p>
+                                <div className="flex-1 min-w-0">
+                                    <h3 className={`text-[12px] font-bold mb-0.5 tracking-wide uppercase truncate transition-colors ${
+                                        activeTemplate?.id === template.id ? 'text-indigo-300' : 'text-slate-200 group-hover:text-indigo-300'
+                                    }`}>{template.name}</h3>
+                                    <p className="text-[11px] text-slate-400 leading-tight group-hover:text-slate-300 transition-colors line-clamp-2">{template.description}</p>
                                 </div>
 
                                 {/* Action Arrow */}
-                                <div className="shrink-0 opacity-0 group-hover:opacity-100 transition-all transform translate-x-4 group-hover:translate-x-0 duration-300 pr-2">
-                                    <div className="p-2 bg-indigo-500/20 text-indigo-400 rounded-full border border-indigo-500/30">
-                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <div className={`shrink-0 transition-all transform duration-300 pr-1 ${
+                                    activeTemplate?.id === template.id ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-3 group-hover:opacity-100 group-hover:translate-x-0'
+                                }`}>
+                                    <div className="p-1.5 bg-indigo-500/20 text-indigo-400 rounded-full border border-indigo-500/30">
+                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                                         </svg>
                                     </div>
@@ -78,6 +90,45 @@ export const TemplateLibraryModal: React.FC<TemplateLibraryModalProps> = ({
                             </button>
                         ))}
                     </div>
+
+                    {/* RIGHT COLUMN */}
+                    <div className="w-1/2 p-4 bg-slate-900/40 flex flex-col justify-between h-full">
+                        {activeTemplate ? (
+                            <div className="flex flex-col h-full animate-in fade-in duration-300 justify-between">
+                                {/* Preview Header */}
+                                <div className="space-y-1 shrink-0">
+                                    <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20 inline-block">
+                                        Pipeline Preview
+                                    </span>
+                                    <h4 className="text-[13px] font-bold text-slate-200 tracking-wide truncate">
+                                        {activeTemplate.name}
+                                    </h4>
+                                </div>
+
+                                <div className="flex-1 min-h-0 my-2 flex items-center justify-center overflow-hidden rounded-xl border border-slate-800 bg-slate-950/80 shadow-inner p-0.5">
+                                    <img 
+                                        // @ts-ignore
+                                        src={`/library/${activeTemplate.gif || 'changeimpact.gif'}`} 
+                                        alt={`${activeTemplate.name} Preview`} 
+                                        className="max-w-full max-h-full object-contain block rounded-lg" 
+                                        key={activeTemplate.id} 
+                                    />
+                                </div>
+
+                                {/* Preview Description Footer */}
+                                <div className="p-2.5 bg-slate-950/40 border border-slate-800 rounded-lg shrink-0">
+                                    <p className="text-[11px] text-slate-400 leading-normal">
+                                        Generates <span className="text-slate-300 font-medium">{activeTemplate.nodes?.length || 0} structural blueprint nodes</span> with pre-wired architecture mapping.
+                                    </p>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="h-full flex items-center justify-center text-slate-500 text-[11px]">
+                                Hover over a pipeline template to see a live preview.
+                            </div>
+                        )}
+                    </div>
+
                 </div>
             </div>
         </div>
