@@ -22,6 +22,11 @@ interface PipelineCanvasProps {
     handleLinkClick: (id: string, type: string) => void;
     deleteNode: (id: string) => void;
     renderCardContent: (node: NodeData) => React.ReactNode;
+    onTouchMove: (e: React.TouchEvent) => void;
+    onTouchEnd: (e: React.TouchEvent) => void;
+    onTouchCancel: (e: React.TouchEvent) => void;
+    handleNodeTouchStart: (e: React.TouchEvent, id: string) => void;
+    handleCanvasTouchStart: (e: React.TouchEvent) => void;
 }
 
 export const PipelineCanvas: React.FC<PipelineCanvasProps> = ({
@@ -42,7 +47,12 @@ export const PipelineCanvas: React.FC<PipelineCanvasProps> = ({
     runFromNode,
     handleLinkClick,
     deleteNode,
-    renderCardContent
+    renderCardContent,
+    onTouchMove,
+    onTouchEnd,
+    onTouchCancel,
+    handleNodeTouchStart,
+    handleCanvasTouchStart
 }) => {
     const sourceNode = isLinking ? nodes.find(n => n.id === isLinking) : null;
     const allowedTargets = sourceNode ? (VALID_CONNECTIONS[sourceNode.type] || []) : [];
@@ -50,7 +60,7 @@ export const PipelineCanvas: React.FC<PipelineCanvasProps> = ({
     return(
         <div 
             ref={canvasRef}
-            className="tour-pipeline-canvas flex-1 relative overflow-hidden bg-slate-950 cursor-grab active:cursor-grabbing"
+            className="tour-pipeline-canvas flex-1 relative overflow-hidden bg-slate-950 cursor-grab active:cursor-grabbing touch-none"
             onDragOver={handleCanvasDragOver}
             onDrop={handleCanvasDrop}
             onWheel={handleWheel}
@@ -62,6 +72,10 @@ export const PipelineCanvas: React.FC<PipelineCanvasProps> = ({
             onPointerMove={handleCanvasMouseMove as any}
             onPointerUp={() => setIsPanning(false)}
             onPointerLeave={() => setIsPanning(false)}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+            onTouchCancel={onTouchCancel}
+            onTouchStart={handleCanvasTouchStart}
         >
             <div 
                 id="canvas-grid"
@@ -127,6 +141,7 @@ export const PipelineCanvas: React.FC<PipelineCanvasProps> = ({
                                 key={node.id}
                                 draggable
                                 onDragStart={(e) => handleNodeDragStart(e, node.id)}
+                                onTouchStart={(e) => handleNodeTouchStart(e, node.id)}
                                 className={`
                                     absolute rounded-xl border backdrop-blur-md transition-all duration-300 ease-in-out
                                     ${node.data?.isExpanded ? 'w-[650px]' : 'w-80'}

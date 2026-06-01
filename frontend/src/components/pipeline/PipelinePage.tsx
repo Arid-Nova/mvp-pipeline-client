@@ -579,6 +579,12 @@ const PipelinePage: React.FC = () => {
     const killSwitchRef = useRef<boolean>(false);
     // Dragging state
     const [dragNodeId, setDragNodeId] = useState<string | null>(null);
+    const [touchDragNodeId, setTouchDragNodeId] = useState<string | null>(null);
+
+    // Canvas dragging states 
+    const lastTouchRef = useRef<{x: number, y: number} | null>(null);
+    const pinchDistanceRef = useRef<number | null>(null);
+
     const canvasRef = useRef<HTMLDivElement>(null);
 
     const chatbotContext = useMemo(() => {
@@ -601,7 +607,6 @@ const PipelinePage: React.FC = () => {
     }, [nodes, pipelineRunId]);
 
     // --- Actions ---
-
     const addNode = (type: CardType) => {
         const id = Math.random().toString(36).substr(2, 9);
         
@@ -681,6 +686,101 @@ const PipelinePage: React.FC = () => {
 
         saveHistory(updatedNodes, connections);
     };
+
+    // Same functions above but for touch events
+    const handleNodeTouchStart = useCallback((e: React.TouchEvent, id: string) => {
+        setTouchDragNodeId(id);
+    }, []);
+
+    const handleCanvasTouchMove = useCallback((e: React.TouchEvent) => {
+        if (e.cancelable) e.preventDefault();
+
+        if (e.touches.length === 2) {
+            if (pinchDistanceRef.current !== null) {
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                const currentDistance = Math.sqrt(dx * dx + dy * dy);
+                
+                // Scale change
+                const distanceDelta = currentDistance - pinchDistanceRef.current;
+                const scaleChange = distanceDelta * 0.005; 
+                setScale(prev => Math.min(Math.max(prev + scaleChange, MIN_SCALE), MAX_SCALE));
+                
+                pinchDistanceRef.current = currentDistance;
+            }
+            return;
+        } 
+
+        // The user is panning the background canvas
+        if (isPanning && lastTouchRef.current && e.touches.length === 1) {
+            const touch = e.touches[0];
+            const dx = touch.clientX - lastTouchRef.current.x;
+            const dy = touch.clientY - lastTouchRef.current.y;
+            
+            setOffset(prev => ({
+                x: prev.x + dx,
+                y: prev.y + dy
+            }));
+            
+            lastTouchRef.current = { x: touch.clientX, y: touch.clientY };
+            return; 
+        }
+
+        // The user is dragging a card
+        if (!touchDragNodeId || !canvasRef.current) return;
+
+        const touch = e.touches[0];
+        const rect = canvasRef.current.getBoundingClientRect();
+        const x = (touch.clientX - rect.left - offset.x) / scale - 150; 
+        const y = (touch.clientY - rect.top - offset.y) / scale - 50;
+
+        setNodes(prev => prev.map(n => n.id === touchDragNodeId ? { ...n, x, y } : n));
+    }, [isPanning, touchDragNodeId, offset, scale]);
+
+    const handleCanvasTouchEnd = useCallback((e: React.TouchEvent) => {
+        if (e.touches.length < 2) {
+            pinchDistanceRef.current = null;
+        }
+
+        if (e.touches.length === 1) {
+            // User lifted one finger but left the other down -> switch back to panning smoothly
+            lastTouchRef.current = { 
+                x: e.touches[0].clientX, 
+                y: e.touches[0].clientY 
+            };
+        } else if (e.touches.length === 0) {
+            // All fingers lifted
+            setIsPanning(false);
+            lastTouchRef.current = null;
+        }
+
+        if (!touchDragNodeId) return;
+        
+        saveHistory(nodes, connections);
+        setTouchDragNodeId(null);
+    }, [touchDragNodeId, nodes, connections, saveHistory]);
+
+    // -- Canvas Dragging and Panning for touch devices --
+    const handleCanvasTouchStart = useCallback((e: React.TouchEvent) => {
+        if ((e.target as HTMLElement).id === 'canvas-grid' || (e.target as HTMLElement).closest('#canvas-grid')) {   
+            if (e.touches.length === 2) {
+                // Two fingers down -> Zoom in/out
+                setIsPanning(false);
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                pinchDistanceRef.current = Math.sqrt(dx * dx + dy * dy);
+                
+            } else if (e.touches.length === 1) {
+                // One finger down -> Panning
+                setIsPanning(true);
+                lastTouchRef.current = { 
+                    x: e.touches[0].clientX, 
+                    y: e.touches[0].clientY 
+                };
+            }
+        }
+    }, []);
+
 
     // --- Linking Logic ---
     const handleLinkClick = (id: string, type: string) => {
@@ -1652,6 +1752,11 @@ const PipelinePage: React.FC = () => {
                     handleLinkClick={handleLinkClick}
                     deleteNode={deleteNode}
                     renderCardContent={renderCardContent}
+                    onTouchMove={handleCanvasTouchMove}
+                    onTouchEnd={handleCanvasTouchEnd}
+                    onTouchCancel={handleCanvasTouchEnd}
+                    handleNodeTouchStart={handleNodeTouchStart}
+                    handleCanvasTouchStart={handleCanvasTouchStart}
                 />
 
                 {/* Feedback Modal */}
