@@ -85,11 +85,11 @@ const BrandSection = ({ sessionName, hasUnsavedChanges }: { sessionName?: string
                                 {displayTitle}
                             </span>
                             {hasUnsavedChanges ? (
-                                <span className="bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[9px] px-1.5 py-0.5 rounded-sm uppercase tracking-widest font-semibold transition-colors duration-300">
+                                <span className="hidden md:inline-block bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[9px] px-1.5 py-0.5 rounded-sm uppercase tracking-widest font-semibold transition-colors duration-300">
                                     Unsaved
                                 </span>
                             ) : (
-                                <span className="bg-teal-500/10 text-teal-400 border border-teal-500/20 text-[9px] px-1.5 py-0.5 rounded-sm uppercase tracking-widest font-semibold transition-colors duration-300">
+                                <span className="inline-block bg-teal-500/10 text-teal-400 border border-teal-500/20 text-[9px] px-1.5 py-0.5 rounded-sm uppercase tracking-widest font-semibold transition-colors duration-300">
                                     Saved
                                 </span>
                             )}

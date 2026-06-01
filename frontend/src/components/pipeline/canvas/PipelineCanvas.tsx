@@ -26,6 +26,7 @@ interface PipelineCanvasProps {
     onTouchEnd: (e: React.TouchEvent) => void;
     onTouchCancel: (e: React.TouchEvent) => void;
     handleNodeTouchStart: (e: React.TouchEvent, id: string) => void;
+    handleCanvasTouchStart: (e: React.TouchEvent) => void;
 }
 
 export const PipelineCanvas: React.FC<PipelineCanvasProps> = ({
@@ -50,7 +51,8 @@ export const PipelineCanvas: React.FC<PipelineCanvasProps> = ({
     onTouchMove,
     onTouchEnd,
     onTouchCancel,
-    handleNodeTouchStart
+    handleNodeTouchStart,
+    handleCanvasTouchStart
 }) => {
     const sourceNode = isLinking ? nodes.find(n => n.id === isLinking) : null;
     const allowedTargets = sourceNode ? (VALID_CONNECTIONS[sourceNode.type] || []) : [];
@@ -58,7 +60,7 @@ export const PipelineCanvas: React.FC<PipelineCanvasProps> = ({
     return(
         <div 
             ref={canvasRef}
-            className="tour-pipeline-canvas flex-1 relative overflow-hidden bg-slate-950 cursor-grab active:cursor-grabbing"
+            className="tour-pipeline-canvas flex-1 relative overflow-hidden bg-slate-950 cursor-grab active:cursor-grabbing touch-none"
             onDragOver={handleCanvasDragOver}
             onDrop={handleCanvasDrop}
             onWheel={handleWheel}
@@ -73,6 +75,7 @@ export const PipelineCanvas: React.FC<PipelineCanvasProps> = ({
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
             onTouchCancel={onTouchCancel}
+            onTouchStart={handleCanvasTouchStart}
         >
             <div 
                 id="canvas-grid"
