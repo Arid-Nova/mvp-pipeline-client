@@ -321,7 +321,7 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                     <button 
                         onClick={clearPipeline}
                         disabled={isRunning}
-                        className="text-xs text-slate-500 hover:text-red-400 transition-colors mr-2"
+                        className="text-xs text-slate-500 hover:text-red-400 active:text-red-500 transition-all mr-2 px-3 py-1.5 bg-red-500/0 hover:bg-red-500/10 active:bg-red-500/20 rounded-md touch-manipulation disabled:opacity-50 disabled:pointer-events-none"
                     >
                         Clear All
                     </button>

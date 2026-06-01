@@ -578,10 +578,11 @@ const PipelinePage: React.FC = () => {
 
     // Dragging state
     const [dragNodeId, setDragNodeId] = useState<string | null>(null);
+    const [touchDragNodeId, setTouchDragNodeId] = useState<string | null>(null);
+
     const canvasRef = useRef<HTMLDivElement>(null);
 
     // --- Actions ---
-
     const addNode = (type: CardType) => {
         const id = Math.random().toString(36).substr(2, 9);
         
@@ -661,6 +662,35 @@ const PipelinePage: React.FC = () => {
 
         saveHistory(updatedNodes, connections);
     };
+
+    // Same functions above but for touch events
+    const handleNodeTouchStart = useCallback((e: React.TouchEvent, id: string) => {
+        setTouchDragNodeId(id);
+    }, []);
+
+    const handleCanvasTouchMove = useCallback((e: React.TouchEvent) => {
+        if (!touchDragNodeId || !canvasRef.current) return;
+
+        if (e.cancelable) {
+            e.preventDefault();
+        }
+
+        const touch = e.touches[0];
+        const rect = canvasRef.current.getBoundingClientRect();
+        
+        const x = (touch.clientX - rect.left - offset.x) / scale - 150; 
+        const y = (touch.clientY - rect.top - offset.y) / scale - 50;
+
+        setNodes(prev => prev.map(n => n.id === touchDragNodeId ? { ...n, x, y } : n));
+    }, [touchDragNodeId, offset, scale]);
+
+    const handleCanvasTouchEnd = useCallback(() => {
+        if (!touchDragNodeId) return;
+        
+        saveHistory(nodes, connections);
+        setTouchDragNodeId(null);
+    }, [touchDragNodeId, nodes, connections, saveHistory]);
+
 
     // --- Linking Logic ---
     const handleLinkClick = (id: string, type: string) => {
@@ -1631,6 +1661,10 @@ const PipelinePage: React.FC = () => {
                     handleLinkClick={handleLinkClick}
                     deleteNode={deleteNode}
                     renderCardContent={renderCardContent}
+                    onTouchMove={handleCanvasTouchMove}
+                    onTouchEnd={handleCanvasTouchEnd}
+                    onTouchCancel={handleCanvasTouchEnd}
+                    handleNodeTouchStart={handleNodeTouchStart}
                 />
 
                 {/* Feedback Modal */}
