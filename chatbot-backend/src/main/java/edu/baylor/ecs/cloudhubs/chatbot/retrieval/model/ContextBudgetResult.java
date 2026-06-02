@@ -24,6 +24,7 @@ public class ContextBudgetResult {
     private int maxEvidenceChars;
 
     public List<EvidenceItem> getRetainedEvidence() {
-        return retainedEvidence == null ? List.of() : retainedEvidence;
+        if (retainedEvidence == null) retainedEvidence = new ArrayList<>();
+        return retainedEvidence;
     }
 }

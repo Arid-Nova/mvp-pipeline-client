@@ -17,10 +17,12 @@ public class EvidenceRetrievalResult {
     private List<MissingEvidence> missingEvidence = new ArrayList<>();
 
     public List<EvidenceItem> getEvidenceItems() {
-        return evidenceItems == null ? List.of() : evidenceItems;
+        if (evidenceItems == null) evidenceItems = new ArrayList<>();
+        return evidenceItems;
     }
 
     public List<MissingEvidence> getMissingEvidence() {
-        return missingEvidence == null ? List.of() : missingEvidence;
+        if (missingEvidence == null) missingEvidence = new ArrayList<>();
+        return missingEvidence;
     }
 }

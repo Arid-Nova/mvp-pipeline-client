@@ -23,14 +23,17 @@ public class HybridRetrievalResult {
     private List<MissingEvidence> missingEvidence = new ArrayList<>();
 
     public List<EvidenceItem> getRankedEvidence() {
-        return rankedEvidence == null ? List.of() : rankedEvidence;
+        if (rankedEvidence == null) rankedEvidence = new ArrayList<>();
+        return rankedEvidence;
     }
 
     public List<String> getMatchedEntities() {
-        return matchedEntities == null ? List.of() : matchedEntities;
+        if (matchedEntities == null) matchedEntities = new ArrayList<>();
+        return matchedEntities;
     }
 
     public List<MissingEvidence> getMissingEvidence() {
-        return missingEvidence == null ? List.of() : missingEvidence;
+        if (missingEvidence == null) missingEvidence = new ArrayList<>();
+        return missingEvidence;
     }
 }
