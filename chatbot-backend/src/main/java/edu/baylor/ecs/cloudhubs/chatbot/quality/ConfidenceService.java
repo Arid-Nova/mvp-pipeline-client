@@ -8,6 +8,7 @@ import edu.baylor.ecs.cloudhubs.chatbot.model.EvidenceItem;
 import edu.baylor.ecs.cloudhubs.chatbot.model.MissingEvidence;
 import edu.baylor.ecs.cloudhubs.chatbot.quality.model.ConfidenceAssessment;
 import edu.baylor.ecs.cloudhubs.chatbot.retrieval.model.QuestionIntent;
+import edu.baylor.ecs.cloudhubs.chatbot.util.StringUtils;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -105,9 +106,9 @@ public class ConfidenceService {
             }
             String normalized = entity.trim().toLowerCase(Locale.ROOT);
             for (EvidenceItem item : evidenceItems) {
-                if (equalsIgnoreCase(item.getServiceName(), normalized)
-                    || equalsIgnoreCase(item.getEntityName(), normalized)
-                    || equalsIgnoreCase(item.getEndpointPath(), normalized)) {
+                if (StringUtils.equalsIgnoreCase(item.getServiceName(), normalized)
+                    || StringUtils.equalsIgnoreCase(item.getEntityName(), normalized)
+                    || StringUtils.equalsIgnoreCase(item.getEndpointPath(), normalized)) {
                     return true;
                 }
             }
@@ -115,7 +116,4 @@ public class ConfidenceService {
         return false;
     }
 
-    private boolean equalsIgnoreCase(String value, String normalized) {
-        return value != null && value.trim().toLowerCase(Locale.ROOT).equals(normalized);
-    }
 }

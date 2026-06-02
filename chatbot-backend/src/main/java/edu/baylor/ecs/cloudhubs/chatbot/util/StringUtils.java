@@ -24,4 +24,8 @@ public final class StringUtils {
     public static String valueOrDefault(String value, String fallback) {
         return isBlank(value) ? fallback : value;
     }
+
+    public static boolean equalsIgnoreCase(String value, String normalized) {
+        return value != null && value.trim().toLowerCase(java.util.Locale.ROOT).equals(normalized);
+    }
 }
