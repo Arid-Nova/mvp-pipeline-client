@@ -1,7 +1,7 @@
 import axios, { 
     VERIFY_API, COMPONENT_API, VECTOR_API, 
     ANALYSIS_API, TEST_API, AEGIS_API, REPO_API, 
-    USER_API, EXECUTOR_API
+    USER_API, EXECUTOR_API, CHATBOT_API
 } from '../utils/axiosSetup';
 import { showError } from '../utils/notifications';
 import {
@@ -504,7 +504,7 @@ const normalizeChatbotError = (error: any): string => {
 
 export const getChatbotHealth = async (): Promise<ChatbotHealthResponse> => {
     try {
-        const response = await axios.get('/chatbot/health');
+        const response = await CHATBOT_API.get('/chatbot/health');
         return response.data;
     } catch (error: any) {
         const msg = normalizeChatbotError(error);
@@ -515,7 +515,7 @@ export const getChatbotHealth = async (): Promise<ChatbotHealthResponse> => {
 
 export const sendChatbotQuery = async (request: ChatbotQueryRequest): Promise<ChatbotResponse> => {
     try {
-        const response = await axios.post('/chatbot/query', request);
+        const response = await CHATBOT_API.post('/chatbot/query', request);
         return response.data;
     } catch (error: any) {
         const msg = normalizeChatbotError(error);
@@ -526,7 +526,7 @@ export const sendChatbotQuery = async (request: ChatbotQueryRequest): Promise<Ch
 
 export const refreshChatbotContext = async (request: ChatbotContextRefreshRequest): Promise<ChatbotContextRefreshResponse> => {
     try {
-        const response = await axios.post('/chatbot/context/refresh', request);
+        const response = await CHATBOT_API.post('/chatbot/context/refresh', request);
         return response.data;
     } catch (error: any) {
         const msg = normalizeChatbotError(error);

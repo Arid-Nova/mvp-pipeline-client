@@ -13,14 +13,3 @@ spring:
     multipart:
       max-file-size: 50MB
       max-request-size: 50MB
-
-chatbot:
-  provider: ${CHATBOT_PROVIDER:OLLAMA}
-  model: ${CHATBOT_MODEL:llama3.2}
-  base-url: ${CHATBOT_BASE_URL:http://ollama:11434}
-  timeout-ms: ${CHATBOT_TIMEOUT_MS:30000}
-  max-tokens: ${CHATBOT_MAX_TOKENS:1024}
-  temperature: ${CHATBOT_TEMPERATURE:0.2}
-  context-budget-max-evidence-items: ${CHATBOT_CONTEXT_BUDGET_MAX_EVIDENCE_ITEMS:20}
-  context-budget-max-evidence-chars: ${CHATBOT_CONTEXT_BUDGET_MAX_EVIDENCE_CHARS:12000}
-  strict-evidence-only: ${CHATBOT_STRICT_EVIDENCE_ONLY:true}

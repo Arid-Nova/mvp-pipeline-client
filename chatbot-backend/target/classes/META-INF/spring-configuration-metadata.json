@@ -1,0 +1,62 @@
+{
+  "groups": [
+    {
+      "name": "chatbot",
+      "type": "edu.baylor.ecs.cloudhubs.chatbot.ChatbotConfig",
+      "sourceType": "edu.baylor.ecs.cloudhubs.chatbot.ChatbotConfig"
+    }
+  ],
+  "properties": [
+    {
+      "name": "chatbot.base-url",
+      "type": "java.lang.String",
+      "sourceType": "edu.baylor.ecs.cloudhubs.chatbot.ChatbotConfig"
+    },
+    {
+      "name": "chatbot.context-budget-max-evidence-chars",
+      "type": "java.lang.Integer",
+      "sourceType": "edu.baylor.ecs.cloudhubs.chatbot.ChatbotConfig",
+      "defaultValue": 0
+    },
+    {
+      "name": "chatbot.context-budget-max-evidence-items",
+      "type": "java.lang.Integer",
+      "sourceType": "edu.baylor.ecs.cloudhubs.chatbot.ChatbotConfig",
+      "defaultValue": 0
+    },
+    {
+      "name": "chatbot.max-tokens",
+      "type": "java.lang.Integer",
+      "sourceType": "edu.baylor.ecs.cloudhubs.chatbot.ChatbotConfig",
+      "defaultValue": 0
+    },
+    {
+      "name": "chatbot.model",
+      "type": "java.lang.String",
+      "sourceType": "edu.baylor.ecs.cloudhubs.chatbot.ChatbotConfig"
+    },
+    {
+      "name": "chatbot.provider",
+      "type": "edu.baylor.ecs.cloudhubs.chatbot.ChatbotConfig$Provider",
+      "sourceType": "edu.baylor.ecs.cloudhubs.chatbot.ChatbotConfig"
+    },
+    {
+      "name": "chatbot.strict-evidence-only",
+      "type": "java.lang.Boolean",
+      "sourceType": "edu.baylor.ecs.cloudhubs.chatbot.ChatbotConfig",
+      "defaultValue": false
+    },
+    {
+      "name": "chatbot.temperature",
+      "type": "java.lang.Double",
+      "sourceType": "edu.baylor.ecs.cloudhubs.chatbot.ChatbotConfig"
+    },
+    {
+      "name": "chatbot.timeout-ms",
+      "type": "java.lang.Integer",
+      "sourceType": "edu.baylor.ecs.cloudhubs.chatbot.ChatbotConfig",
+      "defaultValue": 0
+    }
+  ],
+  "hints": []
+}
