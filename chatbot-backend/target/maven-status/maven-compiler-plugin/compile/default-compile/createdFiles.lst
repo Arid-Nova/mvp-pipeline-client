@@ -46,6 +46,7 @@ edu/baylor/ecs/cloudhubs/chatbot/retrieval/RetrievalStrategy.class
 edu/baylor/ecs/cloudhubs/chatbot/model/ChatbotHealthResponse.class
 edu/baylor/ecs/cloudhubs/chatbot/service/ChatbotRuntimeHealthChecker.class
 edu/baylor/ecs/cloudhubs/chatbot/model/EvidenceCitationMapper.class
+edu/baylor/ecs/cloudhubs/chatbot/util/StringUtils.class
 edu/baylor/ecs/cloudhubs/chatbot/retrieval/ContextBudgetResult.class
 edu/baylor/ecs/cloudhubs/chatbot/service/EvidenceGuardrailService.class
 edu/baylor/ecs/cloudhubs/chatbot/runtime/LocalLlmClient.class

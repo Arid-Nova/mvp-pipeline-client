@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
+import edu.baylor.ecs.cloudhubs.chatbot.util.StringUtils;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -58,7 +59,7 @@ public class EvidenceItem {
     }
 
     public void setArtifactId(String artifactId) {
-        this.artifactId = isBlank(artifactId) ? "unknown-artifact" : artifactId;
+        this.artifactId = StringUtils.isBlank(artifactId) ? "unknown-artifact" : artifactId;
     }
 
     @JsonIgnore
@@ -69,7 +70,7 @@ public class EvidenceItem {
     // Legacy alias: artifactName -> entityName
     @JsonProperty("artifactName")
     public String getArtifactName() {
-        return firstNonBlank(entityName, serviceName, endpointPath, artifactId);
+        return StringUtils.firstNonBlank(entityName, serviceName, endpointPath, artifactId);
     }
 
     @JsonProperty("artifactName")
@@ -80,7 +81,7 @@ public class EvidenceItem {
     // Legacy alias: version -> artifactVersion/commitId
     @JsonProperty("version")
     public String getVersion() {
-        return firstNonBlank(artifactVersion, commitId);
+        return StringUtils.firstNonBlank(artifactVersion, commitId);
     }
 
     @JsonProperty("version")
@@ -97,21 +98,5 @@ public class EvidenceItem {
     @JsonProperty("content")
     public void setContent(String content) {
         this.contentText = content;
-    }
-
-    private String firstNonBlank(String... values) {
-        if (values == null) {
-            return null;
-        }
-        for (String value : values) {
-            if (!isBlank(value)) {
-                return value;
-            }
-        }
-        return null;
-    }
-
-    private boolean isBlank(String value) {
-        return value == null || value.isBlank();
     }
 }

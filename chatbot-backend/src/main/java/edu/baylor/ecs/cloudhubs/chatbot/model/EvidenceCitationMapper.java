@@ -2,6 +2,7 @@ package edu.baylor.ecs.cloudhubs.chatbot.model;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.baylor.ecs.cloudhubs.chatbot.util.StringUtils;
 
 import java.util.List;
 
@@ -24,10 +25,10 @@ public final class EvidenceCitationMapper {
         }
 
         String artifactType = evidence.getArtifactTypeValue();
-        String artifactId = valueOrDefault(evidence.getArtifactId(), "unknown-artifact");
-        String artifactName = firstNonBlank(evidence.getEntityName(), evidence.getServiceName(), evidence.getEndpointPath(), artifactId);
-        String locationHint = firstNonBlank(evidence.getLocationHint(), evidence.getSourcePath(), evidence.getSourceEndpoint(), "n/a");
-        String version = firstNonBlank(evidence.getArtifactVersion(), evidence.getCommitId(), "n/a");
+        String artifactId = StringUtils.valueOrDefault(evidence.getArtifactId(), "unknown-artifact");
+        String artifactName = StringUtils.firstNonBlank(evidence.getEntityName(), evidence.getServiceName(), evidence.getEndpointPath(), artifactId);
+        String locationHint = StringUtils.firstNonBlank(evidence.getLocationHint(), evidence.getSourcePath(), evidence.getSourceEndpoint(), "n/a");
+        String version = StringUtils.firstNonBlank(evidence.getArtifactVersion(), evidence.getCommitId(), "n/a");
         String summary = evidence.getContentText();
         if (summary == null || summary.isBlank()) {
             summary = structuredPayloadSummary(evidence);
@@ -57,19 +58,4 @@ public final class EvidenceCitationMapper {
         }
     }
 
-    private static String valueOrDefault(String value, String fallback) {
-        return value == null || value.isBlank() ? fallback : value;
-    }
-
-    private static String firstNonBlank(String... values) {
-        if (values == null) {
-            return null;
-        }
-        for (String value : values) {
-            if (value != null && !value.isBlank()) {
-                return value;
-            }
-        }
-        return null;
-    }
 }
