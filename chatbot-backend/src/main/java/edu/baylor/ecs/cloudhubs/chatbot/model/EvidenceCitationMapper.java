@@ -28,7 +28,13 @@ public final class EvidenceCitationMapper {
         String artifactName = firstNonBlank(evidence.getEntityName(), evidence.getServiceName(), evidence.getEndpointPath(), artifactId);
         String locationHint = firstNonBlank(evidence.getLocationHint(), evidence.getSourcePath(), evidence.getSourceEndpoint(), "n/a");
         String version = firstNonBlank(evidence.getArtifactVersion(), evidence.getCommitId(), "n/a");
-        String summary = firstNonBlank(evidence.getContentText(), structuredPayloadSummary(evidence), "No evidence summary available.");
+        String summary = evidence.getContentText();
+        if (summary == null || summary.isBlank()) {
+            summary = structuredPayloadSummary(evidence);
+            if (summary == null || summary.isBlank()) {
+                summary = "No evidence summary available.";
+            }
+        }
 
         return new CitationItem(artifactType, artifactId, artifactName, locationHint, version, summary);
     }
