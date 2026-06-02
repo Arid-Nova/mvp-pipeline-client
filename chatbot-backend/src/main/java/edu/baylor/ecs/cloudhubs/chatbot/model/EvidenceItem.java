@@ -1,8 +1,8 @@
 package edu.baylor.ecs.cloudhubs.chatbot.model;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
 import edu.baylor.ecs.cloudhubs.chatbot.util.StringUtils;
 import lombok.Getter;
@@ -17,18 +17,21 @@ import java.time.Instant;
 public class EvidenceItem {
     private EvidenceArtifactType artifactType = EvidenceArtifactType.UNKNOWN;
     private String artifactId = "unknown-artifact";
+    @JsonAlias("version")
     private String artifactVersion;
     private String commitId;
     private String sourcePath;
     private String sourceEndpoint;
     private String locationHint;
     private String entityType;
+    @JsonAlias("artifactName")
     private String entityName;
     private String serviceName;
     private String endpointPath;
     private String httpMethod;
     private String confidenceSource;
     private Double supportStrength;
+    @JsonAlias("content")
     private String contentText;
     private JsonNode structuredPayload;
 
@@ -67,36 +70,18 @@ public class EvidenceItem {
         return artifactType == null ? EvidenceArtifactType.UNKNOWN.name() : artifactType.name();
     }
 
-    // Legacy alias: artifactName -> entityName
-    @JsonProperty("artifactName")
+    @JsonIgnore
     public String getArtifactName() {
         return StringUtils.firstNonBlank(entityName, serviceName, endpointPath, artifactId);
     }
 
-    @JsonProperty("artifactName")
-    public void setArtifactName(String artifactName) {
-        this.entityName = artifactName;
-    }
-
-    // Legacy alias: version -> artifactVersion/commitId
-    @JsonProperty("version")
+    @JsonIgnore
     public String getVersion() {
         return StringUtils.firstNonBlank(artifactVersion, commitId);
     }
 
-    @JsonProperty("version")
-    public void setVersion(String version) {
-        this.artifactVersion = version;
-    }
-
-    // Legacy alias: content -> contentText
-    @JsonProperty("content")
+    @JsonIgnore
     public String getContent() {
         return contentText;
-    }
-
-    @JsonProperty("content")
-    public void setContent(String content) {
-        this.contentText = content;
     }
 }
