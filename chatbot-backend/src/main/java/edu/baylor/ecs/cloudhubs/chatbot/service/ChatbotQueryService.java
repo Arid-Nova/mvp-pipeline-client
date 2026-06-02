@@ -1,10 +1,10 @@
 package edu.baylor.ecs.cloudhubs.chatbot.service;
 
 import edu.baylor.ecs.cloudhubs.chatbot.model.*;
-import edu.baylor.ecs.cloudhubs.chatbot.prompt.PromptAssemblyResult;
 import edu.baylor.ecs.cloudhubs.chatbot.prompt.PromptAssemblyService;
-import edu.baylor.ecs.cloudhubs.chatbot.prompt.PromptEvidenceItem;
-import edu.baylor.ecs.cloudhubs.chatbot.prompt.PromptAssemblyMetadata;
+import edu.baylor.ecs.cloudhubs.chatbot.prompt.model.PromptAssemblyMetadata;
+import edu.baylor.ecs.cloudhubs.chatbot.prompt.model.PromptAssemblyResult;
+import edu.baylor.ecs.cloudhubs.chatbot.prompt.model.PromptEvidenceItem;
 import edu.baylor.ecs.cloudhubs.chatbot.retrieval.ContextBudgetResult;
 import edu.baylor.ecs.cloudhubs.chatbot.retrieval.ContextBudgeter;
 import edu.baylor.ecs.cloudhubs.chatbot.retrieval.HybridRetrievalResult;

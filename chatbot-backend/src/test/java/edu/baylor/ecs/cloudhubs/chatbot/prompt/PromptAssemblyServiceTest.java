@@ -2,6 +2,9 @@ package edu.baylor.ecs.cloudhubs.chatbot.prompt;
 
 import edu.baylor.ecs.cloudhubs.chatbot.model.ChatbotContext;
 import edu.baylor.ecs.cloudhubs.chatbot.model.ChatbotMessage;
+import edu.baylor.ecs.cloudhubs.chatbot.prompt.model.PromptAssemblyMetadata;
+import edu.baylor.ecs.cloudhubs.chatbot.prompt.model.PromptAssemblyResult;
+import edu.baylor.ecs.cloudhubs.chatbot.prompt.model.PromptEvidenceItem;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

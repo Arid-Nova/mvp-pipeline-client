@@ -5,6 +5,7 @@ edu/baylor/ecs/cloudhubs/chatbot/service/ChatContextService.class
 edu/baylor/ecs/cloudhubs/chatbot/model/EvidenceLocation.class
 edu/baylor/ecs/cloudhubs/chatbot/ChatbotController.class
 edu/baylor/ecs/cloudhubs/chatbot/runtime/AbstractHttpLocalLlmAdapter.class
+edu/baylor/ecs/cloudhubs/chatbot/prompt/model/PromptAssemblyResult.class
 edu/baylor/ecs/cloudhubs/chatbot/model/ChatbotResponse.class
 edu/baylor/ecs/cloudhubs/chatbot/quality/ConfidenceService.class
 edu/baylor/ecs/cloudhubs/chatbot/retrieval/HybridRetriever.class
@@ -15,11 +16,13 @@ edu/baylor/ecs/cloudhubs/chatbot/retrieval/HybridRetriever$1.class
 edu/baylor/ecs/cloudhubs/chatbot/retrieval/ContextBudgeter.class
 edu/baylor/ecs/cloudhubs/chatbot/model/ChatbotConfidence.class
 edu/baylor/ecs/cloudhubs/chatbot/model/ChatbotContextRefreshResponse.class
+edu/baylor/ecs/cloudhubs/chatbot/prompt/model/PromptAssemblyMetadata.class
 edu/baylor/ecs/cloudhubs/chatbot/ChatbotConfig.class
 edu/baylor/ecs/cloudhubs/chatbot/retrieval/HybridRetrievalResult.class
 edu/baylor/ecs/cloudhubs/chatbot/model/MissingEvidence.class
 edu/baylor/ecs/cloudhubs/chatbot/runtime/model/ChatbotPrompt.class
 edu/baylor/ecs/cloudhubs/chatbot/model/ChatbotContext.class
+edu/baylor/ecs/cloudhubs/chatbot/prompt/model/PromptEvidenceItem.class
 edu/baylor/ecs/cloudhubs/chatbot/retrieval/ContextBudgeter$1.class
 edu/baylor/ecs/cloudhubs/chatbot/service/EvidenceContextProvider.class
 edu/baylor/ecs/cloudhubs/chatbot/model/ChatbotQueryRequest.class
@@ -27,13 +30,10 @@ edu/baylor/ecs/cloudhubs/chatbot/model/EvidenceArtifactType.class
 edu/baylor/ecs/cloudhubs/chatbot/retrieval/QuestionIntent.class
 edu/baylor/ecs/cloudhubs/chatbot/model/ChatbotContextRefreshRequest.class
 edu/baylor/ecs/cloudhubs/chatbot/runtime/model/LocalLlmFailureCode.class
-edu/baylor/ecs/cloudhubs/chatbot/prompt/PromptAssemblyMetadata.class
 edu/baylor/ecs/cloudhubs/chatbot/service/EvidenceProviderRegistry.class
 edu/baylor/ecs/cloudhubs/chatbot/runtime/DefaultLocalLlmClient.class
 edu/baylor/ecs/cloudhubs/chatbot/model/CitationItem.class
 edu/baylor/ecs/cloudhubs/chatbot/model/ChatbotFlag.class
-edu/baylor/ecs/cloudhubs/chatbot/prompt/PromptEvidenceItem.class
-edu/baylor/ecs/cloudhubs/chatbot/prompt/PromptAssemblyResult.class
 edu/baylor/ecs/cloudhubs/chatbot/ChatbotBackendApplication.class
 edu/baylor/ecs/cloudhubs/chatbot/model/EvidenceScope.class
 edu/baylor/ecs/cloudhubs/chatbot/runtime/LocalLlmAdapter.class
