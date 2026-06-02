@@ -226,18 +226,16 @@ public class HybridRetriever {
             return List.of();
         }
 
-        List<EvidenceItem> matches = new ArrayList<>();
+        Set<String> normalizedEntities = new HashSet<>();
+        for (String e : entities) {
+            if (hasValue(e)) normalizedEntities.add(e.trim().toLowerCase(Locale.ROOT));
+        }
         String qUpper = question == null ? "" : question.toUpperCase(Locale.ROOT);
+
+        List<EvidenceItem> matches = new ArrayList<>();
         for (EvidenceItem item : evidenceItems) {
-            for (String entity : entities) {
-                if (matchesServiceExact(item, entity)
-                    || matchesServiceIgnoreCase(item, entity)
-                    || matchesEndpointPath(item, entity)
-                    || matchesMethodAndPath(item, entity, qUpper)
-                    || matchesEntityName(item, entity)) {
-                    matches.add(item);
-                    break;
-                }
+            if (matchesAnyEntity(item, normalizedEntities, qUpper)) {
+                matches.add(item);
             }
         }
 
@@ -245,6 +243,33 @@ public class HybridRetriever {
             .distinct()
             .sorted(structuredComparator())
             .toList();
+    }
+
+    private boolean matchesAnyEntity(EvidenceItem item, Set<String> normalizedEntities, String qUpper) {
+        if (hasValue(item.getServiceName())
+            && normalizedEntities.contains(item.getServiceName().trim().toLowerCase(Locale.ROOT))) {
+            return true;
+        }
+        if (hasValue(item.getEndpointPath())
+            && normalizedEntities.contains(item.getEndpointPath().trim().toLowerCase(Locale.ROOT))) {
+            return true;
+        }
+        if (hasValue(item.getHttpMethod()) && hasValue(item.getEndpointPath())) {
+            String methodPath = item.getHttpMethod().toUpperCase(Locale.ROOT) + " " + item.getEndpointPath();
+            if (normalizedEntities.contains(methodPath.toLowerCase(Locale.ROOT))
+                || qUpper.contains(methodPath)) {
+                return true;
+            }
+        }
+        if (hasValue(item.getEntityName())
+            && normalizedEntities.contains(item.getEntityName().trim().toLowerCase(Locale.ROOT))) {
+            return true;
+        }
+        if (hasValue(item.getArtifactName())
+            && normalizedEntities.contains(item.getArtifactName().trim().toLowerCase(Locale.ROOT))) {
+            return true;
+        }
+        return false;
     }
 
     private List<EvidenceItem> rankTextFallback(String question, List<EvidenceItem> evidenceItems) {
@@ -280,35 +305,6 @@ public class HybridRetriever {
             .thenComparing((EvidenceItem item) -> safe(item.getServiceName()), String.CASE_INSENSITIVE_ORDER)
             .thenComparing((EvidenceItem item) -> safe(item.getEndpointPath()), String.CASE_INSENSITIVE_ORDER)
             .thenComparing(item -> safe(item.getArtifactId()));
-    }
-
-    private boolean matchesServiceExact(EvidenceItem item, String entity) {
-        return hasValue(entity) && entity.equals(safe(item.getServiceName()));
-    }
-
-    private boolean matchesServiceIgnoreCase(EvidenceItem item, String entity) {
-        return hasValue(entity) && entity.equalsIgnoreCase(safe(item.getServiceName()));
-    }
-
-    private boolean matchesEndpointPath(EvidenceItem item, String entity) {
-        return hasValue(entity)
-            && hasValue(item.getEndpointPath())
-            && safe(item.getEndpointPath()).equalsIgnoreCase(entity);
-    }
-
-    private boolean matchesMethodAndPath(EvidenceItem item, String entity, String qUpper) {
-        if (!hasValue(item.getHttpMethod()) || !hasValue(item.getEndpointPath())) {
-            return false;
-        }
-        String methodPath = item.getHttpMethod().toUpperCase(Locale.ROOT) + " " + item.getEndpointPath();
-        return methodPath.equalsIgnoreCase(entity)
-            || qUpper.contains(methodPath.toUpperCase(Locale.ROOT));
-    }
-
-    private boolean matchesEntityName(EvidenceItem item, String entity) {
-        return hasValue(entity)
-            && ((hasValue(item.getEntityName()) && item.getEntityName().equalsIgnoreCase(entity))
-            || (hasValue(item.getArtifactName()) && item.getArtifactName().equalsIgnoreCase(entity)));
     }
 
     private double tokenOverlapScore(List<String> qTokens, EvidenceItem item) {
