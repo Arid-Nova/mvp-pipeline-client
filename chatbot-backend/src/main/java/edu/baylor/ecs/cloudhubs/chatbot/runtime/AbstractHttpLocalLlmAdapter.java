@@ -6,12 +6,15 @@ import edu.baylor.ecs.cloudhubs.chatbot.runtime.model.ChatbotPrompt;
 import edu.baylor.ecs.cloudhubs.chatbot.runtime.model.LocalLlmFailureCode;
 import edu.baylor.ecs.cloudhubs.chatbot.runtime.model.LocalLlmResult;
 import edu.baylor.ecs.cloudhubs.chatbot.ChatbotConfig;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
@@ -19,15 +22,19 @@ import org.springframework.web.client.RestTemplate;
 import java.net.ConnectException;
 import java.net.SocketTimeoutException;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 public abstract class AbstractHttpLocalLlmAdapter implements LocalLlmAdapter {
+
+    private static final ConcurrentHashMap<Integer, RestTemplate> TEMPLATE_CACHE = new ConcurrentHashMap<>();
 
     private final ObjectMapper objectMapper;
     private final Function<Integer, RestTemplate> restTemplateFactory;
 
     protected AbstractHttpLocalLlmAdapter(ObjectMapper objectMapper) {
-        this(objectMapper, AbstractHttpLocalLlmAdapter::buildRestTemplate);
+        this(objectMapper, timeoutMs -> TEMPLATE_CACHE.computeIfAbsent(timeoutMs, AbstractHttpLocalLlmAdapter::buildPooledRestTemplate));
     }
 
     protected AbstractHttpLocalLlmAdapter(
@@ -68,11 +75,22 @@ public abstract class AbstractHttpLocalLlmAdapter implements LocalLlmAdapter {
         }
     }
 
-    private static RestTemplate buildRestTemplate(int timeoutMs) {
-        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-        requestFactory.setConnectTimeout(timeoutMs);
-        requestFactory.setReadTimeout(timeoutMs);
-        return new RestTemplate(requestFactory);
+    private static RestTemplate buildPooledRestTemplate(int timeoutMs) {
+        PoolingHttpClientConnectionManager cm = new PoolingHttpClientConnectionManager();
+        cm.setMaxTotal(50);
+        cm.setDefaultMaxPerRoute(20);
+
+        RequestConfig requestConfig = RequestConfig.custom()
+            .setConnectionRequestTimeout(timeoutMs, TimeUnit.MILLISECONDS)
+            .setResponseTimeout(timeoutMs, TimeUnit.MILLISECONDS)
+            .build();
+
+        return new RestTemplate(new HttpComponentsClientHttpRequestFactory(
+            HttpClients.custom()
+                .setConnectionManager(cm)
+                .setDefaultRequestConfig(requestConfig)
+                .build()
+        ));
     }
 
     protected JsonNode readJson(String body) {
