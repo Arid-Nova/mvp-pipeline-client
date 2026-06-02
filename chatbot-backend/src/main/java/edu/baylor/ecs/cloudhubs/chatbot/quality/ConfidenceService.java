@@ -58,7 +58,7 @@ public class ConfidenceService {
         ConfidenceAssessment assessment = new ConfidenceAssessment();
         assessment.setReasons(new ArrayList<>(reasons));
 
-        if (insufficient || safeEvidence.isEmpty() || requiredIntentWithoutEvidence(intent, safeEvidence)) {
+        if (insufficient || safeEvidence.isEmpty()) {
             assessment.setConfidence(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
             assessment.setRationale("Required architecture evidence is missing for this query scope.");
             return assessment;
@@ -85,15 +85,6 @@ public class ConfidenceService {
         assessment.setConfidence(ChatbotConfidence.LOW);
         assessment.setRationale("Only weak evidence signals were available.");
         return assessment;
-    }
-
-    private boolean requiredIntentWithoutEvidence(QuestionIntent intent, List<EvidenceItem> evidenceItems) {
-        if (!(intent == QuestionIntent.ARCHITECTURE_TOPOLOGY
-            || intent == QuestionIntent.DEPENDENCY
-            || intent == QuestionIntent.ENDPOINT_LOOKUP)) {
-            return false;
-        }
-        return evidenceItems == null || evidenceItems.isEmpty();
     }
 
     private boolean hasExactMatch(List<String> matchedEntities, List<EvidenceItem> evidenceItems) {

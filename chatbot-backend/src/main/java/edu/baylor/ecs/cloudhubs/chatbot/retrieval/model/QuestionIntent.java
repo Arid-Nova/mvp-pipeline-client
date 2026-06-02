@@ -5,5 +5,9 @@ public enum QuestionIntent {
     SERVICE_LOOKUP,
     ENDPOINT_LOOKUP,
     DEPENDENCY,
-    UNSUPPORTED_SPECULATIVE
+    UNSUPPORTED_SPECULATIVE;
+
+    public boolean requiresEvidence() {
+        return this == ARCHITECTURE_TOPOLOGY || this == DEPENDENCY || this == ENDPOINT_LOOKUP;
+    }
 }
