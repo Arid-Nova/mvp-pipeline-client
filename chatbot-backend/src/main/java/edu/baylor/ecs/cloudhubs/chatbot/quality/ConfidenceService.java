@@ -12,6 +12,8 @@ import edu.baylor.ecs.cloudhubs.chatbot.util.StringUtils;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -30,23 +32,30 @@ public class ConfidenceService {
     ) {
         List<EvidenceItem> safeEvidence = evidenceItems == null ? List.of() : evidenceItems;
         List<CitationItem> safeCitations = citations == null ? List.of() : citations;
-        List<ChatbotFlag> safeFlags = flags == null ? List.of() : flags;
+        EnumSet<ChatbotFlag> flagSet = (flags == null || flags.isEmpty())
+            ? EnumSet.noneOf(ChatbotFlag.class) : EnumSet.copyOf(flags);
         List<String> safeMatched = matchedEntities == null ? List.of() : matchedEntities;
         List<MissingEvidence> safeMissing = missingEvidence == null ? List.of() : missingEvidence;
 
-        Set<String> reasons = new LinkedHashSet<>();
-        boolean hasIr = safeEvidence.stream().anyMatch(e -> e.getArtifactType() == EvidenceArtifactType.IR);
-        boolean hasGraph = safeEvidence.stream().anyMatch(e -> e.getArtifactType() == EvidenceArtifactType.GRAPH);
+        boolean hasIr = false;
+        boolean hasGraph = false;
+        for (EvidenceItem e : safeEvidence) {
+            if (e.getArtifactType() == EvidenceArtifactType.IR) hasIr = true;
+            else if (e.getArtifactType() == EvidenceArtifactType.GRAPH) hasGraph = true;
+            if (hasIr && hasGraph) break;
+        }
+
         boolean exactMatch = hasExactMatch(safeMatched, safeEvidence);
-        boolean partial = safeFlags.contains(ChatbotFlag.partial);
-        boolean truncated = safeFlags.contains(ChatbotFlag.truncated_context);
-        boolean stale = safeFlags.contains(ChatbotFlag.stale_context);
-        boolean citationValidationFailed = safeFlags.contains(ChatbotFlag.citation_validation_failed);
-        boolean insufficient = safeFlags.contains(ChatbotFlag.insufficient_evidence);
-        boolean providerUnavailable = safeFlags.contains(ChatbotFlag.model_unavailable)
+        boolean partial = flagSet.contains(ChatbotFlag.partial);
+        boolean truncated = flagSet.contains(ChatbotFlag.truncated_context);
+        boolean stale = flagSet.contains(ChatbotFlag.stale_context);
+        boolean citationValidationFailed = flagSet.contains(ChatbotFlag.citation_validation_failed);
+        boolean insufficient = flagSet.contains(ChatbotFlag.insufficient_evidence);
+        boolean providerUnavailable = flagSet.contains(ChatbotFlag.model_unavailable)
             || safeMissing.stream().anyMatch(m -> m != null && m.getReason() != null
             && m.getReason().toLowerCase(Locale.ROOT).contains("unavailable"));
 
+        Set<String> reasons = new LinkedHashSet<>();
         if (exactMatch) reasons.add("exact_match");
         if (hasIr) reasons.add("has_ir_evidence");
         if (hasGraph) reasons.add("has_graph_evidence");
@@ -91,17 +100,15 @@ public class ConfidenceService {
         if (matchedEntities == null || matchedEntities.isEmpty() || evidenceItems == null || evidenceItems.isEmpty()) {
             return false;
         }
+        Set<String> evidenceIdentifiers = new HashSet<>();
+        for (EvidenceItem item : evidenceItems) {
+            if (item.getServiceName() != null) evidenceIdentifiers.add(item.getServiceName().trim().toLowerCase(Locale.ROOT));
+            if (item.getEntityName() != null) evidenceIdentifiers.add(item.getEntityName().trim().toLowerCase(Locale.ROOT));
+            if (item.getEndpointPath() != null) evidenceIdentifiers.add(item.getEndpointPath().trim().toLowerCase(Locale.ROOT));
+        }
         for (String entity : matchedEntities) {
-            if (entity == null || entity.isBlank()) {
-                continue;
-            }
-            String normalized = entity.trim().toLowerCase(Locale.ROOT);
-            for (EvidenceItem item : evidenceItems) {
-                if (StringUtils.equalsIgnoreCase(item.getServiceName(), normalized)
-                    || StringUtils.equalsIgnoreCase(item.getEntityName(), normalized)
-                    || StringUtils.equalsIgnoreCase(item.getEndpointPath(), normalized)) {
-                    return true;
-                }
+            if (entity != null && !entity.isBlank() && evidenceIdentifiers.contains(entity.trim().toLowerCase(Locale.ROOT))) {
+                return true;
             }
         }
         return false;
