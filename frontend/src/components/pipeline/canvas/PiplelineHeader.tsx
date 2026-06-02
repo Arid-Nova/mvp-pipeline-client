@@ -85,11 +85,11 @@ const BrandSection = ({ sessionName, hasUnsavedChanges }: { sessionName?: string
                                 {displayTitle}
                             </span>
                             {hasUnsavedChanges ? (
-                                <span className="bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[9px] px-1.5 py-0.5 rounded-sm uppercase tracking-widest font-semibold transition-colors duration-300">
+                                <span className="hidden md:inline-block bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[9px] px-1.5 py-0.5 rounded-sm uppercase tracking-widest font-semibold transition-colors duration-300">
                                     Unsaved
                                 </span>
                             ) : (
-                                <span className="bg-teal-500/10 text-teal-400 border border-teal-500/20 text-[9px] px-1.5 py-0.5 rounded-sm uppercase tracking-widest font-semibold transition-colors duration-300">
+                                <span className="inline-block bg-teal-500/10 text-teal-400 border border-teal-500/20 text-[9px] px-1.5 py-0.5 rounded-sm uppercase tracking-widest font-semibold transition-colors duration-300">
                                     Saved
                                 </span>
                             )}
@@ -321,7 +321,7 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                     <button 
                         onClick={clearPipeline}
                         disabled={isRunning}
-                        className="text-xs text-slate-500 hover:text-red-400 transition-colors mr-2"
+                        className="text-xs text-slate-500 hover:text-red-400 active:text-red-500 transition-all mr-2 px-3 py-1.5 bg-red-500/0 hover:bg-red-500/10 active:bg-red-500/20 rounded-md touch-manipulation disabled:opacity-50 disabled:pointer-events-none"
                     >
                         Clear All
                     </button>
