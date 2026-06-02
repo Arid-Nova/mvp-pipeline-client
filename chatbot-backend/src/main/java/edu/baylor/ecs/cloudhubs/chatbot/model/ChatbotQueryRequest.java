@@ -2,6 +2,7 @@ package edu.baylor.ecs.cloudhubs.chatbot.model;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -22,7 +23,10 @@ public class ChatbotQueryRequest {
     @Valid
     private ChatbotContext context;
 
-    @Size(max = 128, message = "conversationId must be at most 128 characters.")
+    @Pattern(
+        regexp = "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+        message = "conversationId must be a valid UUID."
+    )
     private String conversationId;
 
     @Valid
