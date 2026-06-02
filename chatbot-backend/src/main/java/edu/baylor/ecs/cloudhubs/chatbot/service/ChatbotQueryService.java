@@ -96,8 +96,8 @@ public class ChatbotQueryService {
         response.setCitations(EvidenceCitationMapper.toCitations(evidenceItems));
         response.setTraceMetadata(buildTraceMetadata(requestId, retrieval, budgetResult, response.getCitations().size()));
         if (budgetResult.isTruncated()) {
-            addFlagIfMissing(response, ChatbotFlag.partial);
-            addFlagIfMissing(response, ChatbotFlag.truncated_context);
+            addFlagIfMissing(response, ChatbotFlag.PARTIAL);
+            addFlagIfMissing(response, ChatbotFlag.TRUNCATED_CONTEXT);
         }
 
         if (isMicroserviceCountQuestion(request.getQuestion())) {
@@ -142,7 +142,7 @@ public class ChatbotQueryService {
         );
         applyEvidenceDerivedConfidence(response, retrieval, evidenceItems);
 
-        if (response.getFlags() != null && response.getFlags().contains(ChatbotFlag.insufficient_evidence)) {
+        if (response.getFlags() != null && response.getFlags().contains(ChatbotFlag.INSUFFICIENT_EVIDENCE)) {
             long latencyMs = System.currentTimeMillis() - startMs;
             response.setProcessingTimeMs(latencyMs);
             log.info(
@@ -163,7 +163,7 @@ public class ChatbotQueryService {
             request.getMessages(),
             new PromptAssemblyMetadata(
                 budgetResult.isTruncated(),
-                response.getFlags() != null && response.getFlags().contains(ChatbotFlag.stale_context)
+                response.getFlags() != null && response.getFlags().contains(ChatbotFlag.STALE_CONTEXT)
             )
         );
 
@@ -226,7 +226,7 @@ public class ChatbotQueryService {
                 chatbotConfig.getModel(),
                 latencyMs,
                 ex.getClass().getSimpleName(),
-                LocalLlmFailureCode.provider_error
+                LocalLlmFailureCode.PROVIDER_ERROR
             );
             throw ex;
         }
@@ -236,7 +236,7 @@ public class ChatbotQueryService {
         ChatbotResponse response = baseResponse(requestId);
         response.setAnswer("Local model runtime is unavailable. " + ex.getMessage());
         response.setConfidence(ChatbotConfidence.LOW);
-        response.setFlags(List.of(ChatbotFlag.model_unavailable));
+        response.setFlags(List.of(ChatbotFlag.MODEL_UNAVAILABLE));
         response.setConfidenceRationale("Model provider is unavailable for this request.");
         response.setConfidenceReasons(List.of("provider_unavailable"));
         response.setCitations(List.of());

@@ -67,7 +67,7 @@ public class OllamaLocalLlmAdapter extends AbstractHttpLocalLlmAdapter {
     protected LocalLlmResult parseResponse(JsonNode root, ChatbotConfig config, int statusCode) {
         JsonNode contentNode = root.path("message").path("content");
         if (contentNode.isMissingNode() || contentNode.asText().isBlank()) {
-            throw new LocalLlmException(LocalLlmFailureCode.invalid_response,
+            throw new LocalLlmException(LocalLlmFailureCode.INVALID_RESPONSE,
                 "Ollama response missing message.content.");
         }
         String model = root.path("model").asText(config.getModel());

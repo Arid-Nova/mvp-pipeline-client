@@ -74,7 +74,7 @@ class ChatbotS12M2IntegrationTest {
         );
         ChatbotResponse response = service.query(request, "req-int-unknown");
 
-        assertThat(response.getFlags()).contains(ChatbotFlag.insufficient_evidence);
+        assertThat(response.getFlags()).contains(ChatbotFlag.INSUFFICIENT_EVIDENCE);
         assertThat(response.getAnswer()).containsIgnoringCase("insufficient evidence");
         assertThat(response.getAnswer()).doesNotContain("analytics-service exposes");
     }
@@ -85,7 +85,7 @@ class ChatbotS12M2IntegrationTest {
 
         ChatbotResponse response = service.query(request("Give architecture issue summary with invalid citations"), "req-int-guardrail");
 
-        assertThat(response.getFlags()).contains(ChatbotFlag.citation_validation_failed);
+        assertThat(response.getFlags()).contains(ChatbotFlag.CITATION_VALIDATION_FAILED);
         assertThat(response.getAnswer()).contains("[citation_removed]");
         assertThat(response.getConfidence()).isEqualTo(ChatbotConfidence.LOW);
     }
@@ -107,7 +107,7 @@ class ChatbotS12M2IntegrationTest {
 
         ChatbotResponse response = service.query(request("Explain architecture topology"), "req-int-trunc");
 
-        assertThat(response.getFlags()).contains(ChatbotFlag.truncated_context);
+        assertThat(response.getFlags()).contains(ChatbotFlag.TRUNCATED_CONTEXT);
         assertThat(response.getTraceMetadata()).containsKey("contextBudget");
         assertThat(response.getConfidence()).isNotNull();
     }

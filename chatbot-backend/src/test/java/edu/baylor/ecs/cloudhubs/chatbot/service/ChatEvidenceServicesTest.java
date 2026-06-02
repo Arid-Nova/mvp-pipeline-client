@@ -58,7 +58,7 @@ class ChatEvidenceServicesTest {
             true
         );
 
-        assertThat(guarded.getFlags()).contains(ChatbotFlag.insufficient_evidence);
+        assertThat(guarded.getFlags()).contains(ChatbotFlag.INSUFFICIENT_EVIDENCE);
         assertThat(guarded.getAnswer()).contains("Missing sources").contains("IR").contains("graph").contains("active context");
         assertThat(guarded.getConfidence()).isEqualTo(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
     }
@@ -78,7 +78,7 @@ class ChatEvidenceServicesTest {
             true
         );
 
-        assertThat(guarded.getFlags()).contains(ChatbotFlag.partial);
+        assertThat(guarded.getFlags()).contains(ChatbotFlag.PARTIAL);
         assertThat(guarded.getAnswer()).contains("Partial evidence available").contains("graph");
     }
 
@@ -100,7 +100,7 @@ class ChatEvidenceServicesTest {
             true
         );
 
-        assertThat(guarded.getFlags()).contains(ChatbotFlag.citation_validation_failed, ChatbotFlag.insufficient_evidence);
+        assertThat(guarded.getFlags()).contains(ChatbotFlag.CITATION_VALIDATION_FAILED, ChatbotFlag.INSUFFICIENT_EVIDENCE);
         assertThat(guarded.getConfidence()).isEqualTo(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
         assertThat(guarded.getAnswer()).contains("Insufficient citation support");
     }
@@ -123,7 +123,7 @@ class ChatEvidenceServicesTest {
             true
         );
 
-        assertThat(guarded.getFlags()).contains(ChatbotFlag.citation_validation_failed);
+        assertThat(guarded.getFlags()).contains(ChatbotFlag.CITATION_VALIDATION_FAILED);
         assertThat(guarded.getConfidence()).isEqualTo(ChatbotConfidence.LOW);
         assertThat(guarded.getAnswer()).contains("[citation_removed]");
     }
@@ -151,7 +151,7 @@ class ChatEvidenceServicesTest {
             true
         );
 
-        assertThat(guarded.getFlags()).contains(ChatbotFlag.insufficient_evidence);
+        assertThat(guarded.getFlags()).contains(ChatbotFlag.INSUFFICIENT_EVIDENCE);
         assertThat(guarded.getAnswer()).contains("Insufficient evidence").contains("Missing sources");
     }
 
@@ -181,7 +181,7 @@ class ChatEvidenceServicesTest {
             false
         );
 
-        assertThat(post.getFlags()).doesNotContain(ChatbotFlag.insufficient_evidence);
+        assertThat(post.getFlags()).doesNotContain(ChatbotFlag.INSUFFICIENT_EVIDENCE);
         assertThat(post.getCitations()).hasSize(1);
         assertThat(post.getAnswer()).contains("Recommendation");
     }

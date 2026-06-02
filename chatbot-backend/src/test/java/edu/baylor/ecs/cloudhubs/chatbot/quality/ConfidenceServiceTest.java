@@ -46,7 +46,7 @@ class ConfidenceServiceTest {
             QuestionIntent.DEPENDENCY,
             List.of(dep),
             List.of(new CitationItem("DEPENDENCY", "E3", "payment-service", "links[0]", "c1", "edge")),
-            List.of(ChatbotFlag.partial),
+            List.of(ChatbotFlag.PARTIAL),
             List.of("payment-service"),
             List.of(new MissingEvidence(EvidenceArtifactType.GRAPH, "graph source missing", "graph"))
         );
@@ -63,7 +63,7 @@ class ConfidenceServiceTest {
             QuestionIntent.ENDPOINT_LOOKUP,
             List.of(ep),
             List.of(new CitationItem("ENDPOINT", "E4", "order-service", "controllers[0]", "c2", "endpoint")),
-            List.of(ChatbotFlag.truncated_context),
+            List.of(ChatbotFlag.TRUNCATED_CONTEXT),
             List.of("/orders"),
             List.of()
         );
@@ -78,7 +78,7 @@ class ConfidenceServiceTest {
             QuestionIntent.ARCHITECTURE_TOPOLOGY,
             List.of(),
             List.of(),
-            List.of(ChatbotFlag.insufficient_evidence),
+            List.of(ChatbotFlag.INSUFFICIENT_EVIDENCE),
             List.of(),
             List.of(new MissingEvidence(EvidenceArtifactType.IR, "missing", "ir"))
         );

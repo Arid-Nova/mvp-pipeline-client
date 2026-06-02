@@ -44,7 +44,7 @@ public class EvidenceGuardrailService {
 
         List<String> missingSources = computeMissingSources(intent, safeEvidence, safeMissing);
         if (safeEvidence.isEmpty() || allSourcesMissingForSupportedIntent(intent, safeEvidence)) {
-            addFlagIfMissing(safeResponse, ChatbotFlag.insufficient_evidence);
+            addFlagIfMissing(safeResponse, ChatbotFlag.INSUFFICIENT_EVIDENCE);
             safeResponse.setConfidence(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
             safeResponse.setAnswer("Insufficient evidence: required architecture evidence is missing. Missing sources: "
                 + String.join(", ", missingSources));
@@ -52,14 +52,14 @@ public class EvidenceGuardrailService {
         }
 
         if (strictEvidenceOnly && hasWeakOnlyEvidence(safeEvidence)) {
-            addFlagIfMissing(safeResponse, ChatbotFlag.insufficient_evidence);
+            addFlagIfMissing(safeResponse, ChatbotFlag.INSUFFICIENT_EVIDENCE);
             safeResponse.setConfidence(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
             safeResponse.setAnswer("Insufficient evidence: strict evidence-only mode blocks weak or inferred-only support.");
             return safeResponse;
         }
 
         if (!missingSources.isEmpty()) {
-            addFlagIfMissing(safeResponse, ChatbotFlag.partial);
+            addFlagIfMissing(safeResponse, ChatbotFlag.PARTIAL);
             if (safeResponse.getAnswer() == null || safeResponse.getAnswer().isBlank()) {
                 safeResponse.setAnswer("Partial evidence available. Missing sources: " + String.join(", ", missingSources));
             }
@@ -95,13 +95,13 @@ public class EvidenceGuardrailService {
 
         boolean invalidCitationFound = sanitizeUnknownCitationIds(safeResponse, validCitationIds);
         if (invalidCitationFound) {
-            addFlagIfMissing(safeResponse, ChatbotFlag.citation_validation_failed);
+            addFlagIfMissing(safeResponse, ChatbotFlag.CITATION_VALIDATION_FAILED);
             safeResponse.setConfidence(ChatbotConfidence.LOW);
         }
 
         if (hasAnswerText(safeResponse) && (safeResponse.getCitations() == null || safeResponse.getCitations().isEmpty())) {
-            addFlagIfMissing(safeResponse, ChatbotFlag.citation_validation_failed);
-            addFlagIfMissing(safeResponse, ChatbotFlag.insufficient_evidence);
+            addFlagIfMissing(safeResponse, ChatbotFlag.CITATION_VALIDATION_FAILED);
+            addFlagIfMissing(safeResponse, ChatbotFlag.INSUFFICIENT_EVIDENCE);
             safeResponse.setConfidence(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
             safeResponse.setAnswer("Insufficient citation support: generated answer did not include valid evidence citations.");
             return safeResponse;
@@ -110,19 +110,19 @@ public class EvidenceGuardrailService {
         List<CitationItem> filtered = filterToValidCitations(safeResponse.getCitations(), validCitationIds);
         if (filtered.size() != safeResponse.getCitations().size()) {
             safeResponse.setCitations(filtered);
-            addFlagIfMissing(safeResponse, ChatbotFlag.citation_validation_failed);
+            addFlagIfMissing(safeResponse, ChatbotFlag.CITATION_VALIDATION_FAILED);
             safeResponse.setConfidence(ChatbotConfidence.LOW);
         }
 
         if (hasAnswerText(safeResponse) && safeResponse.getCitations().isEmpty()) {
-            addFlagIfMissing(safeResponse, ChatbotFlag.insufficient_evidence);
+            addFlagIfMissing(safeResponse, ChatbotFlag.INSUFFICIENT_EVIDENCE);
             safeResponse.setConfidence(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
             safeResponse.setAnswer("Insufficient citation support: no valid citations remain after validation.");
             return safeResponse;
         }
 
         if (strictEvidenceOnly && hasWeakOnlyEvidence(safeEvidence)) {
-            addFlagIfMissing(safeResponse, ChatbotFlag.insufficient_evidence);
+            addFlagIfMissing(safeResponse, ChatbotFlag.INSUFFICIENT_EVIDENCE);
             safeResponse.setConfidence(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
             safeResponse.setAnswer("Insufficient evidence: strict evidence-only mode requires stronger direct support.");
         }

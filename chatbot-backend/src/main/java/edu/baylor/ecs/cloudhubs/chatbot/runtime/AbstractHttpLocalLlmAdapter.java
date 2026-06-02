@@ -63,7 +63,7 @@ public abstract class AbstractHttpLocalLlmAdapter implements LocalLlmAdapter {
         } catch (LocalLlmException ex) {
             throw ex;
         } catch (Exception ex) {
-            throw new LocalLlmException(LocalLlmFailureCode.provider_error,
+            throw new LocalLlmException(LocalLlmFailureCode.PROVIDER_ERROR,
                 "Local model provider request failed unexpectedly.", ex);
         }
     }
@@ -78,13 +78,13 @@ public abstract class AbstractHttpLocalLlmAdapter implements LocalLlmAdapter {
     protected JsonNode readJson(String body) {
         try {
             if (body == null || body.isBlank()) {
-                throw new LocalLlmException(LocalLlmFailureCode.invalid_response, "Provider returned an empty response body.");
+                throw new LocalLlmException(LocalLlmFailureCode.INVALID_RESPONSE, "Provider returned an empty response body.");
             }
             return objectMapper.readTree(body);
         } catch (LocalLlmException ex) {
             throw ex;
         } catch (Exception ex) {
-            throw new LocalLlmException(LocalLlmFailureCode.invalid_response,
+            throw new LocalLlmException(LocalLlmFailureCode.INVALID_RESPONSE,
                 "Provider returned invalid JSON response.", ex);
         }
     }
@@ -92,28 +92,28 @@ public abstract class AbstractHttpLocalLlmAdapter implements LocalLlmAdapter {
     private LocalLlmException mapAccessException(ResourceAccessException ex) {
         Throwable cause = ex.getCause();
         if (cause instanceof SocketTimeoutException) {
-            return new LocalLlmException(LocalLlmFailureCode.timeout,
+            return new LocalLlmException(LocalLlmFailureCode.TIMEOUT,
                 "Local model request timed out. Increase CHATBOT_TIMEOUT_MS or check model runtime health.", ex);
         }
         if (cause instanceof ConnectException) {
-            return new LocalLlmException(LocalLlmFailureCode.model_unavailable,
+            return new LocalLlmException(LocalLlmFailureCode.MODEL_UNAVAILABLE,
                 "Local model runtime is unavailable. Verify CHATBOT_BASE_URL and runtime container status.", ex);
         }
-        return new LocalLlmException(LocalLlmFailureCode.provider_error,
+        return new LocalLlmException(LocalLlmFailureCode.PROVIDER_ERROR,
             "Local model runtime could not be reached.", ex);
     }
 
     private LocalLlmException mapStatusException(HttpStatusCodeException ex) {
         int status = ex.getStatusCode().value();
         if (status == 502 || status == 503 || status == 504) {
-            return new LocalLlmException(LocalLlmFailureCode.model_unavailable,
+            return new LocalLlmException(LocalLlmFailureCode.MODEL_UNAVAILABLE,
                 "Local model runtime is unavailable (HTTP " + status + ").", ex);
         }
         if (status == 408) {
-            return new LocalLlmException(LocalLlmFailureCode.timeout,
+            return new LocalLlmException(LocalLlmFailureCode.TIMEOUT,
                 "Local model request timed out (HTTP 408).", ex);
         }
-        return new LocalLlmException(LocalLlmFailureCode.provider_error,
+        return new LocalLlmException(LocalLlmFailureCode.PROVIDER_ERROR,
             "Local model provider returned error HTTP status " + status + ".", ex);
     }
 }

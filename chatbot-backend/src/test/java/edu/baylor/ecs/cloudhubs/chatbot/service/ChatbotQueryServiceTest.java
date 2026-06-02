@@ -112,7 +112,7 @@ class ChatbotQueryServiceTest {
         ChatbotResponse response = service.query(request, "req-arch-1");
 
         assertThat(modelCalled.get()).isFalse();
-        assertThat(response.getFlags()).contains(ChatbotFlag.insufficient_evidence);
+        assertThat(response.getFlags()).contains(ChatbotFlag.INSUFFICIENT_EVIDENCE);
         assertThat(response.getConfidence()).isEqualTo(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
     }
 
@@ -126,7 +126,7 @@ class ChatbotQueryServiceTest {
         LocalLlmClient localLlmClient = new LocalLlmClient() {
             @Override
             public LocalLlmResult generate(ChatbotPrompt prompt, ChatbotConfig cfg) {
-                throw new LocalLlmException(LocalLlmFailureCode.model_unavailable, "runtime down");
+                throw new LocalLlmException(LocalLlmFailureCode.MODEL_UNAVAILABLE, "runtime down");
             }
         };
 
@@ -150,7 +150,7 @@ class ChatbotQueryServiceTest {
 
         assertThatThrownBy(() -> service.query(request))
             .isInstanceOf(LocalLlmException.class)
-            .satisfies(ex -> assertThat(((LocalLlmException) ex).getCode()).isEqualTo(LocalLlmFailureCode.model_unavailable));
+            .satisfies(ex -> assertThat(((LocalLlmException) ex).getCode()).isEqualTo(LocalLlmFailureCode.MODEL_UNAVAILABLE));
     }
 
     @Test

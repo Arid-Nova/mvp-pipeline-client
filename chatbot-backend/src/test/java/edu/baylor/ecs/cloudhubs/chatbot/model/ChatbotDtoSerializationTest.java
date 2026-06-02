@@ -50,7 +50,7 @@ class ChatbotDtoSerializationTest {
         ChatbotResponse response = new ChatbotResponse();
         response.setAnswer("Authorization appears partially inconsistent.");
         response.setConfidence(ChatbotConfidence.MEDIUM);
-        response.setFlags(List.of(ChatbotFlag.partial, ChatbotFlag.stale_context));
+        response.setFlags(List.of(ChatbotFlag.PARTIAL, ChatbotFlag.STALE_CONTEXT));
         response.setRequestId("req-42");
         response.setProcessingTimeMs(128);
         response.setModel("llama3.2");
@@ -65,7 +65,7 @@ class ChatbotDtoSerializationTest {
 
         assertThat(restored.getAnswer()).contains("partially");
         assertThat(restored.getConfidence()).isEqualTo(ChatbotConfidence.MEDIUM);
-        assertThat(restored.getFlags()).containsExactly(ChatbotFlag.partial, ChatbotFlag.stale_context);
+        assertThat(restored.getFlags()).containsExactly(ChatbotFlag.PARTIAL, ChatbotFlag.STALE_CONTEXT);
         assertThat(restored.getCitations()).hasSize(2);
         assertThat(restored.getCitations().get(0).getArtifactType()).isEqualTo("SERVICE");
         assertThat(restored.getCitations().get(0).getLocationHint()).isEqualTo("OrderController:88");

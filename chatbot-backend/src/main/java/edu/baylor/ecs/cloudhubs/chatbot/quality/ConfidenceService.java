@@ -46,12 +46,12 @@ public class ConfidenceService {
         }
 
         boolean exactMatch = hasExactMatch(safeMatched, safeEvidence);
-        boolean partial = flagSet.contains(ChatbotFlag.partial);
-        boolean truncated = flagSet.contains(ChatbotFlag.truncated_context);
-        boolean stale = flagSet.contains(ChatbotFlag.stale_context);
-        boolean citationValidationFailed = flagSet.contains(ChatbotFlag.citation_validation_failed);
-        boolean insufficient = flagSet.contains(ChatbotFlag.insufficient_evidence);
-        boolean providerUnavailable = flagSet.contains(ChatbotFlag.model_unavailable)
+        boolean partial = flagSet.contains(ChatbotFlag.PARTIAL);
+        boolean truncated = flagSet.contains(ChatbotFlag.TRUNCATED_CONTEXT);
+        boolean stale = flagSet.contains(ChatbotFlag.STALE_CONTEXT);
+        boolean citationValidationFailed = flagSet.contains(ChatbotFlag.CITATION_VALIDATION_FAILED);
+        boolean insufficient = flagSet.contains(ChatbotFlag.INSUFFICIENT_EVIDENCE);
+        boolean providerUnavailable = flagSet.contains(ChatbotFlag.MODEL_UNAVAILABLE)
             || safeMissing.stream().anyMatch(m -> m != null && m.getReason() != null
             && m.getReason().toLowerCase(Locale.ROOT).contains("unavailable"));
 

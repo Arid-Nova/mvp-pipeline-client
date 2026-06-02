@@ -106,7 +106,7 @@ class ChatbotControllerTest {
         ChatbotQueryService queryService = new ChatbotQueryService(null, null, null, null, null, null, null, null) {
             @Override
             public ChatbotResponse query(ChatbotQueryRequest request, String requestId) {
-                throw new LocalLlmException(LocalLlmFailureCode.provider_error, "should not be called");
+                throw new LocalLlmException(LocalLlmFailureCode.PROVIDER_ERROR, "should not be called");
             }
         };
 

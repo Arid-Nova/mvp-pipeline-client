@@ -65,13 +65,13 @@ public class OpenAiStyleLocalLlmAdapter extends AbstractHttpLocalLlmAdapter {
         JsonNode firstChoice = root.path("choices").isArray() && root.path("choices").size() > 0
             ? root.path("choices").get(0) : null;
         if (firstChoice == null) {
-            throw new LocalLlmException(LocalLlmFailureCode.invalid_response,
+            throw new LocalLlmException(LocalLlmFailureCode.INVALID_RESPONSE,
                 "Provider response missing choices[0].");
         }
 
         JsonNode contentNode = firstChoice.path("message").path("content");
         if (contentNode.isMissingNode() || contentNode.asText().isBlank()) {
-            throw new LocalLlmException(LocalLlmFailureCode.invalid_response,
+            throw new LocalLlmException(LocalLlmFailureCode.INVALID_RESPONSE,
                 "Provider response missing choices[0].message.content.");
         }
 

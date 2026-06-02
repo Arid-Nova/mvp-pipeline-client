@@ -26,7 +26,7 @@ public class DefaultLocalLlmClient implements LocalLlmClient {
         LocalLlmAdapter adapter = adapters.get(config.getProvider());
         if (adapter == null) {
             throw new LocalLlmException(
-                LocalLlmFailureCode.provider_error,
+                LocalLlmFailureCode.PROVIDER_ERROR,
                 "No local provider adapter registered for provider " + config.getProvider() + "."
             );
         }

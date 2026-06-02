@@ -135,11 +135,11 @@ class LocalLlmAdapterTest {
 
         assertThatThrownBy(() -> timeoutAdapter.generate(prompt, config))
             .isInstanceOf(LocalLlmException.class)
-            .satisfies(ex -> assertThat(((LocalLlmException) ex).getCode()).isEqualTo(LocalLlmFailureCode.timeout));
+            .satisfies(ex -> assertThat(((LocalLlmException) ex).getCode()).isEqualTo(LocalLlmFailureCode.TIMEOUT));
 
         assertThatThrownBy(() -> unavailableAdapter.generate(prompt, config))
             .isInstanceOf(LocalLlmException.class)
-            .satisfies(ex -> assertThat(((LocalLlmException) ex).getCode()).isEqualTo(LocalLlmFailureCode.model_unavailable));
+            .satisfies(ex -> assertThat(((LocalLlmException) ex).getCode()).isEqualTo(LocalLlmFailureCode.MODEL_UNAVAILABLE));
 
         RestTemplate restTemplate = new RestTemplate();
         MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
@@ -150,7 +150,7 @@ class LocalLlmAdapterTest {
 
         assertThatThrownBy(() -> providerErrorAdapter.generate(prompt, config))
             .isInstanceOf(LocalLlmException.class)
-            .satisfies(ex -> assertThat(((LocalLlmException) ex).getCode()).isEqualTo(LocalLlmFailureCode.provider_error));
+            .satisfies(ex -> assertThat(((LocalLlmException) ex).getCode()).isEqualTo(LocalLlmFailureCode.PROVIDER_ERROR));
     }
 
     @Test
