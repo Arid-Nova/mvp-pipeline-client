@@ -70,9 +70,13 @@ public class ContextBudgeter {
             }
         }
 
+        Map<EvidenceItem, Integer> sortedIndexMap = new HashMap<>();
+        for (int i = 0; i < sorted.size(); i++) {
+            sortedIndexMap.put(sorted.get(i).item(), i);
+        }
         retained = retained.stream()
             .sorted(Comparator
-                .comparingInt((EvidenceItem item) -> retainedOrderIndex(item, sorted))
+                .comparingInt((EvidenceItem item) -> sortedIndexMap.getOrDefault(item, Integer.MAX_VALUE))
                 .thenComparing(item -> safe(item.getArtifactId()))
                 .thenComparing(item -> safe(item.getLocationHint())))
             .toList();
@@ -203,15 +207,6 @@ public class ContextBudgeter {
             }
         }
         return size;
-    }
-
-    private int retainedOrderIndex(EvidenceItem item, List<RankedCandidate> sorted) {
-        for (int i = 0; i < sorted.size(); i++) {
-            if (sorted.get(i).item() == item) {
-                return i;
-            }
-        }
-        return Integer.MAX_VALUE;
     }
 
     private boolean hasValue(String value) {
