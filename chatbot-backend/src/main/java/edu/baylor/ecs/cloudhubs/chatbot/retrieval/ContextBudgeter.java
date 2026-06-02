@@ -1,6 +1,5 @@
 package edu.baylor.ecs.cloudhubs.chatbot.retrieval;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.baylor.ecs.cloudhubs.chatbot.model.EvidenceArtifactType;
 import edu.baylor.ecs.cloudhubs.chatbot.model.EvidenceItem;
@@ -8,10 +7,13 @@ import edu.baylor.ecs.cloudhubs.chatbot.retrieval.model.ContextBudgetResult;
 import edu.baylor.ecs.cloudhubs.chatbot.retrieval.model.QuestionIntent;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
+import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -32,13 +34,18 @@ public class ContextBudgeter {
         List<EvidenceItem> safeEvidence = rankedEvidence == null ? List.of() : rankedEvidence;
         List<RankedCandidate> sorted = sortCandidates(safeEvidence, intent);
 
+        Map<EvidenceItem, Integer> charEstimates = new IdentityHashMap<>();
+        for (RankedCandidate c : sorted) {
+            charEstimates.put(c.item(), estimateChars(c.item()));
+        }
+
         List<EvidenceItem> retained = new ArrayList<>();
         Set<Integer> retainedIndexes = new HashSet<>();
         int usedChars = 0;
 
         RankedCandidate directMatch = firstDirectMatch(sorted, matchedEntities);
         if (directMatch != null && maxEvidenceItems > 0) {
-            int chars = estimateChars(directMatch.item());
+            int chars = charEstimates.get(directMatch.item());
             if (chars <= maxEvidenceChars || retained.isEmpty()) {
                 retained.add(directMatch.item());
                 retainedIndexes.add(directMatch.originalIndex());
@@ -53,7 +60,7 @@ public class ContextBudgeter {
             if (retained.size() >= maxEvidenceItems) {
                 break;
             }
-            int chars = estimateChars(candidate.item());
+            int chars = charEstimates.get(candidate.item());
             if (usedChars + chars > maxEvidenceChars) {
                 continue;
             }
@@ -201,12 +208,21 @@ public class ContextBudgeter {
 
         if (item.getStructuredPayload() != null) {
             try {
-                size += objectMapper.writeValueAsString(item.getStructuredPayload()).length();
-            } catch (JsonProcessingException ex) {
+                CountingWriter cw = new CountingWriter();
+                objectMapper.writeValue(cw, item.getStructuredPayload());
+                size += cw.count;
+            } catch (IOException ex) {
                 size += item.getStructuredPayload().toString().length();
             }
         }
         return size;
+    }
+
+    private static final class CountingWriter extends Writer {
+        int count;
+        @Override public void write(char[] cbuf, int off, int len) { count += len; }
+        @Override public void flush() {}
+        @Override public void close() {}
     }
 
     private boolean hasValue(String value) {

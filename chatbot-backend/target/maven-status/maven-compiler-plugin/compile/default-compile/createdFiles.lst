@@ -17,6 +17,7 @@ edu/baylor/ecs/cloudhubs/chatbot/retrieval/HybridRetriever$1.class
 edu/baylor/ecs/cloudhubs/chatbot/retrieval/ContextBudgeter.class
 edu/baylor/ecs/cloudhubs/chatbot/model/ChatbotConfidence.class
 edu/baylor/ecs/cloudhubs/chatbot/model/ChatbotContextRefreshResponse.class
+edu/baylor/ecs/cloudhubs/chatbot/retrieval/ContextBudgeter$CountingWriter.class
 edu/baylor/ecs/cloudhubs/chatbot/prompt/model/PromptAssemblyMetadata.class
 edu/baylor/ecs/cloudhubs/chatbot/ChatbotConfig.class
 edu/baylor/ecs/cloudhubs/chatbot/model/MissingEvidence.class
