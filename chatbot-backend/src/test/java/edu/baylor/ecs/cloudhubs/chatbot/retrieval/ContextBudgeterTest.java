@@ -2,6 +2,8 @@ package edu.baylor.ecs.cloudhubs.chatbot.retrieval;
 
 import edu.baylor.ecs.cloudhubs.chatbot.model.EvidenceArtifactType;
 import edu.baylor.ecs.cloudhubs.chatbot.model.EvidenceItem;
+import edu.baylor.ecs.cloudhubs.chatbot.retrieval.model.ContextBudgetResult;
+import edu.baylor.ecs.cloudhubs.chatbot.retrieval.model.QuestionIntent;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

@@ -5,6 +5,9 @@ import edu.baylor.ecs.cloudhubs.chatbot.model.ChatbotMessage;
 import edu.baylor.ecs.cloudhubs.chatbot.model.EvidenceItem;
 import edu.baylor.ecs.cloudhubs.chatbot.model.EvidenceQueryContext;
 import edu.baylor.ecs.cloudhubs.chatbot.model.MissingEvidence;
+import edu.baylor.ecs.cloudhubs.chatbot.retrieval.model.HybridRetrievalResult;
+import edu.baylor.ecs.cloudhubs.chatbot.retrieval.model.QuestionIntent;
+import edu.baylor.ecs.cloudhubs.chatbot.retrieval.model.RetrievalStrategy;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;

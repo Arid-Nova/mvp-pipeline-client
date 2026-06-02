@@ -7,7 +7,7 @@ import edu.baylor.ecs.cloudhubs.chatbot.model.CitationItem;
 import edu.baylor.ecs.cloudhubs.chatbot.model.EvidenceArtifactType;
 import edu.baylor.ecs.cloudhubs.chatbot.model.EvidenceItem;
 import edu.baylor.ecs.cloudhubs.chatbot.model.MissingEvidence;
-import edu.baylor.ecs.cloudhubs.chatbot.retrieval.QuestionIntent;
+import edu.baylor.ecs.cloudhubs.chatbot.retrieval.model.QuestionIntent;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;

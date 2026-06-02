@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.baylor.ecs.cloudhubs.chatbot.model.EvidenceArtifactType;
 import edu.baylor.ecs.cloudhubs.chatbot.model.EvidenceItem;
+import edu.baylor.ecs.cloudhubs.chatbot.retrieval.model.ContextBudgetResult;
+import edu.baylor.ecs.cloudhubs.chatbot.retrieval.model.QuestionIntent;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
