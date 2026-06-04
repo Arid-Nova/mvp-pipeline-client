@@ -61,6 +61,8 @@ services:
         - REACT_APP_USER_SERVICE_URL=http://localhost:8100
         - REACT_APP_EXEC_SERVICE_URL=http://localhost:8010
         - REACT_APP_INTERNAL_SERVICE_KEY=${INTERNAL_SERVICE_KEY}
+        - REACT_APP_PUBLIC_POSTHOG_KEY=${PUBLIC_POSTHOG_KEY}
+        - REACT_APP_PUBLIC_POSTHOG_HOST=${PUBLIC_POSTHOG_HOST:-https://us.i.posthog.com}
     container_name: cloudhub_frontend
     ports:
       - "3000:3000"
