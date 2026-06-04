@@ -27,11 +27,11 @@ export const ToolboxSidebar: React.FC<ToolboxSidebarProps> = ({
                 <div className="tour-clear-pipeline relative group flex items-center">
                     <button 
                         onClick={clearPipeline} 
-                        className="text-[10px] text-rose-400 hover:text-rose-300 transition-colors uppercase font-bold"
+                        className="text-[10px] text-rose-400 hover:text-rose-300 active:text-rose-500 transition-all uppercase font-bold px-3 py-1.5 bg-rose-500/0 hover:bg-rose-500/10 active:bg-rose-500/20 rounded-md touch-manipulation"
                     >
                         Clear
                     </button>
-                    <div className="absolute top-full right-0 mt-2 w-max pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50 bg-slate-800 text-slate-300 text-[11px] font-medium py-1.5 px-2.5 rounded-md shadow-xl border border-slate-700/50 tracking-normal normal-case">
+                    <div className="hidden md:block absolute top-full right-0 mt-2 w-max pointer-events-none opacity-0 md:group-hover:opacity-100 transition-opacity duration-200 z-50 bg-slate-800 text-slate-300 text-[11px] font-medium py-1.5 px-2.5 rounded-md shadow-xl border border-slate-700/50 tracking-normal normal-case">
                         Clear the constructed pipeline
                     </div>
                 </div>
