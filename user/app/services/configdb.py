@@ -87,10 +87,13 @@ class ConfigDatabase:
 
     # Demo-visitor demographics (captured from the public landing/marketing page)
     async def upsert_demographics(self, visitor_id, profile: dict, ip_address: str, ip_geo):
-        now = datetime.now(timezone.utc)
         # One entry appended per visit, so `visits` is the full timeline and its
         # length stays in step with `visit_count`.
-        visit_entry = {"ts": now, "ip_address": ip_address, "ip_geo": ip_geo}
+        visit_entry = {
+            "ts": datetime.now(timezone.utc),
+            "ip_address": ip_address,
+            "ip_geo": ip_geo,
+        }
 
         # Anonymous visitors carry a stable browser-stored id: store their
         # details once and log every subsequent demo visit.
@@ -103,9 +106,9 @@ class ConfigDatabase:
                         **profile,
                         "ip_address": ip_address,
                         "ip_geo": ip_geo,
-                        "first_seen": now,
+                        "first_seen": datetime.now(timezone.utc),
                     },
-                    "$set": {"last_seen": now},
+                    "$set": {"last_seen": datetime.now(timezone.utc)},
                     "$inc": {"visit_count": 1},
                     "$push": {"visits": visit_entry},
                 },
@@ -121,8 +124,8 @@ class ConfigDatabase:
             **profile,
             "ip_address": ip_address,
             "ip_geo": ip_geo,
-            "first_seen": now,
-            "last_seen": now,
+            "first_seen": datetime.now(timezone.utc),
+            "last_seen": datetime.now(timezone.utc),
             "visit_count": 1,
             "visits": [visit_entry],
         }
