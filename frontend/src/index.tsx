@@ -6,9 +6,14 @@ import reportWebVitals from './reportWebVitals';
 import { setupAxios, setupLogger } from "./utils/axiosSetup";
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import posthog from 'posthog-js';
+import { PostHogProvider } from 'posthog-js/react';
+import { initAnalytics } from './analytics/posthog';
 
 setupLogger();
 setupAxios();
+// Initialize PostHog once, before render (no-op when no key is configured).
+initAnalytics();
 
 // Single QueryClient for the whole app. Cards opt into caching/refetch via
 // useQuery / useInfiniteQuery; networkMode 'always' so failed fetches still
@@ -29,11 +34,13 @@ const root = ReactDOM.createRoot(
 );
 root.render(
     <React.StrictMode>
-        <QueryClientProvider client={queryClient}>
-            <BrowserRouter>
-                <App />
-            </BrowserRouter>
-        </QueryClientProvider>
+        <PostHogProvider client={posthog}>
+            <QueryClientProvider client={queryClient}>
+                <BrowserRouter>
+                    <App />
+                </BrowserRouter>
+            </QueryClientProvider>
+        </PostHogProvider>
     </React.StrictMode>
 );
 
