@@ -21,8 +21,6 @@ async def lifespan(app: FastAPI):
     try:
         await config_db_service.ensure_indexes()
     except Exception as exc:
-        # Don't block startup if MongoDB isn't reachable yet; the index is a
-        # safeguard, not a hard requirement for serving requests.
         logging.warning("Could not ensure MongoDB indexes at startup: %s", exc)
     yield
 

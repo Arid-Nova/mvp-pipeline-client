@@ -2,7 +2,6 @@ from typing import Optional
 
 from fastapi import Request
 
-
 def extract_client_ip(request: Request) -> Optional[str]:
     """
     Return the originating client IP for a request.
