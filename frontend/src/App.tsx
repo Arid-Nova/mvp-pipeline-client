@@ -6,8 +6,9 @@ import {Notification, setNotificationCallback, showError, showSuccess} from "./u
 import getData from "./parsers/getData";
 import { setupAxios, setupLogger } from "./utils/axiosSetup";
 
-import { checkHistoricalIRs, fetchHistoricalIRs, 
+import { checkHistoricalIRs, fetchHistoricalIRs,
     startUserSession, endUserSession, checkEndedSessionsExists } from './services/api';
+import { setBackendSession, clearBackendSession, trackPageview } from './analytics/posthog';
 
 import NotificationToast from "./components/generic/NotificationToast";
 import LandingPage from "./components/landing/LandingPage";
@@ -228,9 +229,12 @@ function App(data: any) {
                 const browserInfo = navigator.userAgent; 
                 const resolution = `${window.screen.width}x${window.screen.height}`; 
                 
-                const sessionId = await startUserSession(browserInfo, resolution);   
+                const sessionId = await startUserSession(browserInfo, resolution);
                 if (sessionId) {
                     sessionStorage.setItem('active_session_id', sessionId);
+                    // Tag pipeline events with the backend session id for joining
+                    // to backend session/demographics records.
+                    setBackendSession(sessionId);
                 }
 
                 // Checking if there are no ended sessions to trigger tour.
@@ -253,6 +257,7 @@ function App(data: any) {
             if (sessionId) {
                 endUserSession(sessionId);
                 sessionStorage.removeItem('active_session_id');
+                clearBackendSession();
             }
         };
 
@@ -261,6 +266,12 @@ function App(data: any) {
             window.removeEventListener('pagehide', handleTabClose);
         };
     }, []);
+
+    // SPA pageviews: capture on every route change (carries the `app: "pipeline"`
+    // super property, so it stays separable from marketing pageviews).
+    useEffect(() => {
+        trackPageview(location.pathname);
+    }, [location.pathname]);
 
 
     // IR uploading handle

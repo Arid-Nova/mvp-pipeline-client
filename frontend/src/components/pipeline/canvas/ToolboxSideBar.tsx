@@ -1,7 +1,8 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom'; 
-import { CATEGORIES, CARD_CONFIG } from '../pipelineConfig'; 
 import { CardType } from '../models';
+import { useNavigate } from 'react-router-dom'; 
+import { CATEGORIES, CARD_CONFIG } from '../pipelineConfig';
+import { track, PipelineEvent } from '../../../analytics/posthog';
 
 interface ToolboxSidebarProps {
     expandedCategories: Record<string, boolean>;
@@ -100,8 +101,11 @@ export const ToolboxSidebar: React.FC<ToolboxSidebarProps> = ({
                 </div>
                 <br/>
                 <div className='tour-explore-preview'>
-                    <button 
-                        onClick={() => navigate('/explore')}
+                    <button
+                        onClick={() => {
+                            track(PipelineEvent.PREVIEW_FEATURES_CLICKED);
+                            navigate('/explore');
+                        }}
                         className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/20 hover:border-blue-400/50 hover:bg-blue-500/20 transition-all flex items-center justify-center gap-2 group"
                     >
                         <svg className="w-4 h-4 text-blue-400 group-hover:text-cyan-300 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -14,6 +14,7 @@ import {
     recordUserFeedback
 } from '../../services/api';
 import { canonicalizeGithubUrl } from '../../utils/githubUrl';
+import { track, PipelineEvent } from '../../analytics/posthog';
 import { PIPELINE_TEMPLATES } from './configs/PipelineTemplates';
 import { RepositoryInput, VerificationInput } from '../../services/types';
 import { CardType, SystemPayload, ComponentPayload, PipelinePayload, NodeData, Connection, ScenarioPayload} from './models';
@@ -144,12 +145,18 @@ const PipelinePage: React.FC = () => {
 
             lastSavedStateRef.current = JSON.stringify({ nodes, connections });
             setHasUnsavedChanges(false);
-            
+
+            track(PipelineEvent.SESSION_SAVED, {
+                isSaveAs,
+                nodeCount: nodes.length,
+                connectionCount: connections.length,
+            });
+
             setNotification({
                 type: 'success',
                 message: 'Session saved successfully!',
                 duration: 5000
-            });      
+            });
         } catch {
             setNotification({
                 type: 'error',
@@ -182,12 +189,17 @@ const PipelinePage: React.FC = () => {
                 connections: canvas_data.connections || [] 
             });
             setHasUnsavedChanges(false);
-            
+
+            track(PipelineEvent.SESSION_LOADED, {
+                nodeCount: (canvas_data.nodes || []).length,
+                connectionCount: (canvas_data.connections || []).length,
+            });
+
             setNotification({
                 type: 'success',
                 message: `Workspace loaded successfully!`,
                 duration: 5000
-            });      
+            });
         } catch (error) {
             console.error("Failed to load session:", error);
             setNotification({
@@ -314,6 +326,7 @@ const PipelinePage: React.FC = () => {
             setHistoryIndex(prevIndex);
             setNodes(history[prevIndex].nodes);
             setConnections(history[prevIndex].connections);
+            track(PipelineEvent.UNDO);
         }
     }, [history, historyIndex]);
 
@@ -323,6 +336,7 @@ const PipelinePage: React.FC = () => {
             setHistoryIndex(nextIndex);
             setNodes(history[nextIndex].nodes);
             setConnections(history[nextIndex].connections);
+            track(PipelineEvent.REDO);
         }
     }, [history, historyIndex]);
 
@@ -504,6 +518,7 @@ const PipelinePage: React.FC = () => {
 
     const clearPipeline = () => {
         if(window.confirm("Are you sure you want to clear the pipeline? This cannot be undone.")) {
+            track(PipelineEvent.CLEARED, { nodeCount: nodes.length });
             setNodes([]);
             setConnections([]);
             setSessionName(''); 
@@ -552,12 +567,18 @@ const PipelinePage: React.FC = () => {
 
         setNodes(newNodes);
         setConnections(newConnections);
-        
-        // Resetting the viewport 
+
+        // Resetting the viewport
         setScale(1);
         setOffset({ x: 0, y: 0 });
 
         saveHistory(newNodes, newConnections);
+
+        track(PipelineEvent.TEMPLATE_APPLIED, {
+            templateId: template.id,
+            templateName: template.name,
+            nodeCount: newNodes.length,
+        });
         
         setNotification({
             type: 'success',
@@ -617,9 +638,12 @@ const PipelinePage: React.FC = () => {
         
         setNodes(prev => [...prev, newNode]);
         saveHistory([...nodes, newNode], connections);
+
+        track(PipelineEvent.CARD_ADDED, { cardType: type });
     };
 
     const deleteNode = (id: string) => {
+        const deleted = nodes.find(n => n.id === id);
         const updatedNodes = nodes.filter(n => n.id !== id);
         const updatedConnections = connections.filter(c => c.source !== id && c.target !== id);
 
@@ -627,6 +651,8 @@ const PipelinePage: React.FC = () => {
         setConnections(updatedConnections);
 
         saveHistory(updatedNodes, updatedConnections);
+
+        track(PipelineEvent.CARD_DELETED, { cardType: deleted?.type });
     };
 
     const updateNodeData = useCallback((id: string, newData: Partial<NodeData['data']>) => {
@@ -778,13 +804,17 @@ const PipelinePage: React.FC = () => {
             const allowedTargets = VALID_CONNECTIONS[sourceNode.type];
             if (allowedTargets.includes(type as CardType)) {
                 if (!connections.some(c => c.source === isLinking && c.target === id)) {
-                    setConnections([...connections, { 
-                        id: Math.random().toString(36), 
-                        source: isLinking, 
-                        target: id 
+                    setConnections([...connections, {
+                        id: Math.random().toString(36),
+                        source: isLinking,
+                        target: id
                     }]);
+                    track(PipelineEvent.LINK_CREATED, {
+                        sourceType: sourceNode.type,
+                        targetType: type,
+                    });
                 }
-            } 
+            }
             // else {
             //     alert(`Invalid Connection! ${sourceNode.type} can only connect to: ${allowedTargets.join(', ')}`);
             // }
@@ -798,6 +828,8 @@ const PipelinePage: React.FC = () => {
         setConnections(updatedConnections);
 
         saveHistory(nodes, updatedConnections);
+
+        track(PipelineEvent.LINK_DELETED);
     };
 
     // --- Execution Logic ---
@@ -809,7 +841,11 @@ const PipelinePage: React.FC = () => {
         abortControllerRef.current = new AbortController();
 
         setIsRunning(true);
-        
+
+        const runStartedAt = Date.now();
+        let runStatus = 'completed';
+        track(PipelineEvent.NODE_RUN_STARTED, { cardType: node.type });
+
         const updateStatus = (id: string, status: NodeData['status'], log: string, data?: any) => {
             setNodes(prev => prev.map(n => n.id === id ? { 
                 ...n, 
@@ -833,6 +869,7 @@ const PipelinePage: React.FC = () => {
                 const reposToProcess = upstreamNode.data.repositories;
                 if (!upstreamNode.data.systemName || !reposToProcess || reposToProcess.length === 0) {
                     updateStatus(nodeId, 'failed', 'Upstream System Source needs a System Name and at least one repository.');
+                    runStatus = 'failed';
                     return;
                 }
                 payload = {
@@ -852,16 +889,30 @@ const PipelinePage: React.FC = () => {
         } catch (error: any) {
             if (error.name === 'AbortError') {
             updateStatus(nodeId, 'idle', 'Pipeline stopped by user.');
+            runStatus = 'stopped';
             } else {
                 updateStatus(nodeId, 'failed', error.message);
+                runStatus = 'failed';
             }
         } finally {
             setIsRunning(false);
+            track(PipelineEvent.NODE_RUN_COMPLETED, {
+                cardType: node.type,
+                status: runStatus,
+                durationMs: Date.now() - runStartedAt,
+            });
         }
     };
 
     const runPipeline = async () => {
         setIsRunning(true);
+
+        const runStartedAt = Date.now();
+        let runStatus = 'completed';
+        track(PipelineEvent.RUN_STARTED, {
+            nodeCount: nodes.length,
+            connectionCount: connections.length,
+        });
         // Reset logs but keep data
         const updatedNodes = nodes.map(n => ({ ...n, status: 'idle' as const, logs: [] }));
         setNodes(updatedNodes);
@@ -932,9 +983,16 @@ const PipelinePage: React.FC = () => {
 
         } catch (e: any) {
             console.error(e);
+            runStatus = e?.name === 'AbortError' ? 'stopped' : 'failed';
             alert("Pipeline Error: " + e.message);
         } finally {
             setIsRunning(false);
+            track(PipelineEvent.RUN_COMPLETED, {
+                nodeCount: nodes.length,
+                connectionCount: connections.length,
+                status: runStatus,
+                durationMs: Date.now() - runStartedAt,
+            });
         }
     };
 
@@ -1614,11 +1672,12 @@ const PipelinePage: React.FC = () => {
     };
 
     const stopPipeline = useCallback(() => {
-            killSwitchRef.current = true; 
+            killSwitchRef.current = true;
             if (abortControllerRef.current) {
-                abortControllerRef.current.abort(); 
+                abortControllerRef.current.abort();
             }
             setIsRunning(false);
+            track(PipelineEvent.RUN_STOPPED);
         }, []);
 
     // --- Renderers ---
@@ -1708,7 +1767,10 @@ const PipelinePage: React.FC = () => {
                     toggleCategory={toggleCategory}
                     addNode={addNode}
                     clearPipeline={clearPipeline}
-                    openTemplateModal={() => setIsTemplateLibraryOpen(true)}
+                    openTemplateModal={() => {
+                        track(PipelineEvent.TEMPLATE_LIBRARY_OPENED);
+                        setIsTemplateLibraryOpen(true);
+                    }}
                 />
 
                 {/* Canvas */}

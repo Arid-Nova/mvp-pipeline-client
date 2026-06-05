@@ -24,6 +24,7 @@ class ConfigDatabase:
         self.db = self.client[self.db_name]
         self.feedback_collection = self.db["user_feedback"]
         self.session_collection = self.db["user_session"]
+        self.demographics_collection = self.db["user_demographics"]
 
     # Common utilities
     def _get_aes_key(self):
@@ -83,5 +84,59 @@ class ConfigDatabase:
         query = {"end_datetime": {"$exists": True, "$ne": None}}
         count = await self.session_collection.count_documents(query, limit=1)
         return count > 0
+
+    # Demo-visitor demographics (captured from the public landing/marketing page)
+    async def upsert_demographics(self, visitor_id, profile: dict, ip_address: str, ip_geo):
+        # One entry appended per visit, so `visits` is the full timeline and its
+        # length stays in step with `visit_count`.
+        visit_entry = {
+            "ts": datetime.now(timezone.utc),
+            "ip_address": ip_address,
+            "ip_geo": ip_geo,
+        }
+
+        # Anonymous visitors carry a stable browser-stored id: store their
+        # details once and log every subsequent demo visit.
+        if visitor_id:
+            await self.demographics_collection.update_one(
+                {"visitor_id": visitor_id},
+                {
+                    "$setOnInsert": {
+                        "visitor_id": visitor_id,
+                        **profile,
+                        "ip_address": ip_address,
+                        "ip_geo": ip_geo,
+                        "first_seen": datetime.now(timezone.utc),
+                    },
+                    "$set": {"last_seen": datetime.now(timezone.utc)},
+                    "$inc": {"visit_count": 1},
+                    "$push": {"visits": visit_entry},
+                },
+                upsert=True,
+            )
+            doc = await self.demographics_collection.find_one(
+                {"visitor_id": visitor_id}, {"_id": 0, "visit_count": 1}
+            )
+            return {"visitor_id": visitor_id, "visit_count": (doc or {}).get("visit_count", 1)}
+
+        # No id supplied: record a standalone entry (no dedup or counting).
+        document = {
+            **profile,
+            "ip_address": ip_address,
+            "ip_geo": ip_geo,
+            "first_seen": datetime.now(timezone.utc),
+            "last_seen": datetime.now(timezone.utc),
+            "visit_count": 1,
+            "visits": [visit_entry],
+        }
+        result = await self.demographics_collection.insert_one(document)
+        return {"id": str(result.inserted_id), "visit_count": 1}
+
+    async def ensure_indexes(self):
+        # Unique (sparse) index keeps one document per anonymous visitor and
+        # protects the upsert against duplicates under concurrent first visits.
+        await self.demographics_collection.create_index(
+            "visitor_id", unique=True, sparse=True
+        )
 
 config_db_service = ConfigDatabase()
