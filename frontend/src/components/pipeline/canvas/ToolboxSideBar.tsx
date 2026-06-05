@@ -1,7 +1,7 @@
 import React from 'react';
+import { CardType } from '../models';
 import { useNavigate } from 'react-router-dom'; 
 import { CATEGORIES, CARD_CONFIG } from '../pipelineConfig';
-import { CardType } from '../models';
 import { track, PipelineEvent } from '../../../analytics/posthog';
 
 interface ToolboxSidebarProps {
