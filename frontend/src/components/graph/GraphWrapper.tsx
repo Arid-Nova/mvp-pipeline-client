@@ -69,7 +69,7 @@ const VisualizationOptions: React.FC<Props> = ({
     };
     
     return (
-        <div>
+        <div className="tour-3d-canvas">
             <Graph3D
                 width={width}
                 height={height}

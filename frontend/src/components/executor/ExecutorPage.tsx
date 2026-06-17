@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ExecutionResult } from './models';
 import Editor from '@monaco-editor/react';
+import { TestTour } from './tour/TestTour';
 import { executeTest } from '../../services/api';
 
 const ExecutorPage: React.FC = () => {
@@ -14,6 +15,9 @@ const ExecutorPage: React.FC = () => {
     const [activeTestIndex, setActiveTestIndex] = useState(0);
     const [results, setResults] = useState<Record<string, ExecutionResult>>({});
     const [editedCodes, setEditedCodes] = useState<Record<string, string>>({});
+
+    // Tour state
+    const [isTourRunning, setIsTourRunning] = useState(false);
 
     // --- Code Editing ---
     const getCurrentCode = (scenarioId: string, originalCode: string) => {
@@ -53,6 +57,13 @@ const ExecutorPage: React.FC = () => {
             [tests[activeTestIndex].scenario_id]: value || ''
         }));
     };
+
+    // --- Tour Handler ---
+    useEffect(() => {
+        const handleStartTour = () => setIsTourRunning(true);
+        window.addEventListener('trigger-test-tour', handleStartTour);
+        return () => window.removeEventListener('trigger-test-tour', handleStartTour);
+    }, []);
 
     // --- Execution Logic ---
     const runActiveTest = async () => {
@@ -247,6 +258,8 @@ const ExecutorPage: React.FC = () => {
 
     return (
         <div className="flex h-screen bg-slate-950 text-slate-200 overflow-hidden font-sans">
+            {/* Tour for the Test Executor */}
+            <TestTour run={isTourRunning} onFinish={() => setIsTourRunning(false)} />
             
             {/* LEFT SIDEBAR: Config & Test List */}
             <div className="w-80 bg-slate-900/50 border-r border-slate-700/50 flex flex-col shadow-2xl z-10">
@@ -262,7 +275,7 @@ const ExecutorPage: React.FC = () => {
                 </div>
 
                 {/* Global Configuration */}
-                <div className="p-5 border-b border-slate-700/50 space-y-4 bg-slate-900/30">
+                <div className="tour-environment-settings p-5 border-b border-slate-700/50 space-y-4 bg-slate-900/30">
                     <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                         Environment
@@ -296,7 +309,7 @@ const ExecutorPage: React.FC = () => {
                 </div>
 
                 {/* Test List */}
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">
+                <div className="tour-test-list flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">
                     {tests.map((test: any, idx: number) => {
                         const status = results[test.scenario_id]?.status;
                         return (
@@ -340,30 +353,52 @@ const ExecutorPage: React.FC = () => {
                         <span className="text-sm font-mono text-slate-300">{activeTest.endpoint}</span>
                     </div>
                     
-                    <button 
-                        onClick={runActiveTest}
-                        disabled={activeResult?.status === 'running'}
-                        className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white text-xs font-bold uppercase tracking-wider rounded-lg flex items-center gap-2 shadow-lg hover:shadow-emerald-900/50 transition-all active:scale-95"
-                    >
-                        {activeResult?.status === 'running' ? (
-                            <>
-                                <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-                                Executing...
-                            </>
-                        ) : (
-                            <>
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                Run This Test
-                            </>
-                        )}
-                    </button>
+
+                    <div className="flex items-center gap-4">
+                        {/* Tour Execution for Test Executor */}
+                        <div className="relative group flex items-center">
+                            <button 
+                                onClick={() => window.dispatchEvent(new Event('trigger-test-tour'))}
+                                className="px-4 py-2 bg-transparent hover:bg-slate-800 border border-slate-700 text-slate-400 hover:text-white text-xs font-bold uppercase tracking-wider rounded-lg flex items-center gap-2 transition-all"
+                            >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <circle cx="12" cy="12" r="9" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16.48 8.52l-2.072 6.215a1 1 0 01-.634.634l-6.215 2.072a1 1 0 01-1.268-1.268l2.072-6.215a1 1 0 01.634-.634l6.215-2.072a1 1 0 011.268 1.268z" />
+                                </svg>
+                                Tour
+                            </button>
+                            
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1 text-[10px] font-mono tracking-wide bg-slate-800 border border-slate-700 text-slate-300 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none shadow-xl z-50">
+                                Start Feature Guide
+                            </div>
+                        </div>
+
+                        {/* Run Test Button */}
+                        <button 
+                            onClick={runActiveTest}
+                            disabled={activeResult?.status === 'running'}
+                            className="tour-test-play px-6 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white text-xs font-bold uppercase tracking-wider rounded-lg flex items-center gap-2 shadow-lg hover:shadow-emerald-900/50 transition-all active:scale-95"
+                        >
+                            {activeResult?.status === 'running' ? (
+                                <>
+                                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                                    Executing...
+                                </>
+                            ) : (
+                                <>
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    Run This Test
+                                </>
+                            )}
+                        </button>
+                    </div>
                 </div>
 
                 {/* Split View: Editor & Terminal */}
                 <main className="flex-1 flex flex-col min-h-0">
                     
                     {/* Editor Pane using Monaco */}
-                    <div className="flex-1 w-full border-b border-slate-700/50 relative min-h-[400px]">
+                    <div className="tour-code-editor flex-1 w-full border-b border-slate-700/50 relative min-h-[400px]">
                         <Editor
                             height="100%"
                             width="100%"
@@ -386,7 +421,7 @@ const ExecutorPage: React.FC = () => {
                     </div>
 
                     {/* Results / Terminal Pane */}
-                    <div className="flex-1 min-h-0 bg-black/40 flex flex-col relative overflow-hidden">
+                    <div className="tour-execution-results flex-1 min-h-0 bg-black/40 flex flex-col relative overflow-hidden">
                         <div className="absolute top-0 inset-x-0 h-8 bg-slate-900/80 border-b border-slate-800 flex items-center px-4">
                             <span className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">Execution Output</span>
                         </div>

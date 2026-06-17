@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
+import { GraphTour } from "./components/tour/GraphTour";
 
 import VerificationResultPage from "./components/verification/VerificationResultPage";
 import {Notification, setNotificationCallback, showError, showSuccess} from "./utils/notifications"
@@ -47,6 +48,9 @@ window.addEventListener('touchmove', function() {}, {passive: false});
 function App(data: any) {
     const graphRef = useRef();
     const ref = useRef<HTMLDivElement>(null);
+
+    // Tour state
+    const [isVizTourRunning, setIsVizTourRunning] = useState(false);
 
     // State Management
     const [search, setSearch] = useState("");
@@ -114,6 +118,13 @@ function App(data: any) {
         checkScreenSize();
         window.addEventListener('resize', checkScreenSize);
         return () => window.removeEventListener('resize', checkScreenSize);
+    }, []);
+
+    // Tour handler
+    useEffect(() => {
+        const handleStartTour = () => setIsVizTourRunning(true);
+        window.addEventListener('trigger-viz-tour', handleStartTour);
+        return () => window.removeEventListener('trigger-viz-tour', handleStartTour);
     }, []);
 
     // Set up notification callback when component mounts
@@ -372,6 +383,8 @@ function App(data: any) {
         
         return (
         <div className={`max-w-full min-h-screen max-h-screen overflow-clip ${isDark ? `bg-gray-900` : `bg-gray-100`}`} ref={ref}>
+            <GraphTour run={isVizTourRunning} onFinish={() => setIsVizTourRunning(false)} />
+
             <ErrorBoundary setNotification={setNotification}>
                 {/* 1. Mode Toggle (Top Left) */}
                 <GraphMode
@@ -454,7 +467,7 @@ function App(data: any) {
                     isHighLevelExpanded={isHighLevelExpanded}
                     setIsHighLevelExpanded={setIsHighLevelExpanded}
                 />
-
+                
                 {/* 5. The Main Graph Canvas */}
                 <GraphWrapper
                     height={ref?.current?.clientHeight ?? 735}
