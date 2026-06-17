@@ -226,7 +226,7 @@ const VerificationResultPage = () => {
                                 Tour
                             </button>
                             <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1 text-[10px] font-mono tracking-wide bg-slate-800 border border-slate-700 text-slate-300 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none shadow-xl z-50">
-                                Page Guide
+                                Feature Guide
                             </div>
                         </div>
 
