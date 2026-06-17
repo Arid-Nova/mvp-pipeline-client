@@ -51,7 +51,7 @@ const VerificationResultPage = () => {
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
     const [isHighLevelExpanded, setIsHighLevelExpanded] = useState(false);
     const [focusNode, setFocusNode] = useState(null);
-    const [search, setSearch] = useState("");
+    const [search, setSearch] = useState<string[]>([]);
     const [trackNodes, setTrackNodes] = useState<any[]>([]);
 
     // Process Graph Data

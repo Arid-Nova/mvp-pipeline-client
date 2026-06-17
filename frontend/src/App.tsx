@@ -53,7 +53,7 @@ function App(data: any) {
     const [isVizTourRunning, setIsVizTourRunning] = useState(false);
 
     // State Management
-    const [search, setSearch] = useState("");
+    const [search, setSearch] = useState<string[]>([]);
     const [value, setValue] = useState(8);
     const [initCoords, setInitCoords] = useState(null);
     const [initRotation, setInitRotation] = useState(null);

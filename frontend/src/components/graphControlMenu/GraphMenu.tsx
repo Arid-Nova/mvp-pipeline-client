@@ -6,8 +6,8 @@ import compareChanges from "../../parsers/getChanges";
 
 type Props = {
     graphRef: any;
-    search: string;
-    setSearch: React.Dispatch<React.SetStateAction<string>>;
+    search: string[];
+    setSearch: React.Dispatch<React.SetStateAction<string[]>>;
     value: number;
     setValue: React.Dispatch<React.SetStateAction<number>>;
     graphData: any;
@@ -352,6 +352,7 @@ const GraphMenu: React.FC<Props> = ({
                 setSearch={setSearch}
                 graphData={graphData}
             />
+
             <GraphButtonMenu
                 graphRef={graphRef}
                 graphData={graphData}
