@@ -525,7 +525,7 @@ export const recordUserFeedback = async (payload: UserFeedback) => {
     try {
         const response = await USER_API.post('/users/feedback', payload, {
             headers: {
-                'X-Internal-Service-Auth': process.env.REACT_APP_INTERNAL_SERVICE_KEY || 'd2lsZGNhdPXXiE7tr17M+AXew75O2K6IYDbcnYHXnCE='
+                'X-Internal-Service-Auth': process.env.REACT_APP_INTERNAL_SERVICE_KEY
             }
         });
         return response.data;
@@ -542,7 +542,7 @@ export const startUserSession = async (browserInfo: string, resolution: string) 
             screen_resolution: resolution
         }, {
             headers: {
-                'X-Internal-Service-Auth': process.env.REACT_APP_INTERNAL_SERVICE_KEY || 'd2lsZGNhdPXXiE7tr17M+AXew75O2K6IYDbcnYHXnCE='
+                'X-Internal-Service-Auth': process.env.REACT_APP_INTERNAL_SERVICE_KEY
             }
         });
         return response.data.session_id;
@@ -556,7 +556,7 @@ export const checkEndedSessionsExists = async (): Promise<boolean> => {
     try {
         const response = await USER_API.get('/users/sessions', {
             headers: {
-                'X-Internal-Service-Auth': process.env.REACT_APP_INTERNAL_SERVICE_KEY || 'd2lsZGNhdPXXiE7tr17M+AXew75O2K6IYDbcnYHXnCE='
+                'X-Internal-Service-Auth': process.env.REACT_APP_INTERNAL_SERVICE_KEY
             }
         });
         return response.data.has_ended_sessions;
