@@ -289,13 +289,59 @@ function App(data: any) {
     // IR uploading handle
     useEffect(() => {
         if (location.state && location.state.irData) {
-            handleIRLoaded(location.state.irData);
+            if (Array.isArray(location.state.irData)) {
+                handleMultipleIRsLoaded(location.state.irData, location.state.overwriteTimeline ?? true);
+            } else {
+                handleIRLoaded(location.state.irData, location.state.overwriteTimeline ?? true);
+            }
             window.history.replaceState({}, document.title);
         }
-    }, [location.state]); 
+    }, [location.state]);
+
+    const handleMultipleIRsLoaded = (irArray: any[], overwrite: boolean = true) => {
+        try {
+            const processedArray = irArray.map((irJson, index) => {
+                const safeIr = JSON.parse(JSON.stringify(irJson)); 
+                
+                if (!safeIr.commitID && !safeIr.commitId && !safeIr.metadata?.[0]?.commitId) {
+                    const stableString = safeIr.name || "pipeline-run";
+                    const stableHash = JSON.stringify(safeIr).length; // Stable pseudo-hash based on content size
+                    safeIr.commitID = `${stableString}-${stableHash}-${index}`;
+                }
+                return safeIr;
+            });
+
+            if (overwrite) {
+                setGraphTimeline(processedArray);
+            } else {
+                setGraphTimeline((prev: any) => {
+                    const newTimeline = [...prev];
+                    processedArray.forEach((ir: any) => {
+                        const commit = ir.commitID || ir.commitId || ir.metadata?.[0]?.commitId;
+                        if (!newTimeline.some((item: any) => (item.commitID || item.commitId || item.metadata?.[0]?.commitId) === commit)) {
+                            newTimeline.push(ir);
+                        }
+                    });
+                    return newTimeline;
+                });
+            }
+
+            const latestIR = processedArray[processedArray.length - 1];
+            const processedData = getData(latestIR, undefined);
+            
+            if (processedData) {
+                setGraphData(processedData);
+                setCurrentInstance(overwrite ? processedArray.length - 1 : (prev: any) => (prev !== undefined ? prev + processedArray.length : processedArray.length - 1));
+                showSuccess(`Loaded ${processedArray.length} pipeline versions!`);
+                navigate('/graph-visualize', { replace: true, state: {} });
+            }
+        } catch (error: any) {
+            showError(`Failed to process parallel data: ${error.message}`);
+        }
+    };
 
     // Manually uploading a IR (not from history)
-    const handleIRLoaded = (irJson: any) => {
+    const handleIRLoaded = (irJson: any, overwrite: boolean = true) => {
         try {
             if (!irJson.commitID) {
                 console.warn("Missing commitID in IR Data, generating fallback.");
@@ -308,15 +354,18 @@ function App(data: any) {
             if (processedData) {
                 setGraphData(processedData);
                 setGraphTimeline(prev => {
+                    if (overwrite) return [irJson];
+
                     const exists = prev.some(item => item.commitID === irJson.commitID);
                     if (exists) return prev;
                     return [...prev, irJson];
                 });
                 
                 // Initialize timeline if this is the first upload
-                if (typeof currentInstance === "undefined") {
-                    setCurrentInstance(0);
-                }
+                // if (typeof currentInstance === "undefined") {
+                //     setCurrentInstance(0);
+                // }
+                setCurrentInstance(overwrite ? 0 : (prev: any) => prev !== undefined ? prev + 1 : 0);
 
                 showSuccess('Graph data loaded successfully!');
                 if (location.pathname === '/graph-visualize') {
