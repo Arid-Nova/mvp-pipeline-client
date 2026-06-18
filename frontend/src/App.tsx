@@ -34,6 +34,7 @@ import NewPage from "./utils/node.js";
 
 // Mobile compatibility setting
 import { polyfill } from "mobile-drag-drop";
+import { TimelineDeltaImpactCard } from "./components/graph/TimelineDeltaImpactCard";
 
 setupLogger();
 setupAxios();
@@ -519,6 +520,12 @@ function App(data: any) {
                         />
                     )}
                 </div>
+
+                <TimelineDeltaImpactCard 
+                    currentInstance={currentInstance ?? 0}
+                    graphTimeline={graphTimeline}
+                />
+
                 <TrackNodeMenu
                     trackNodes={trackNodes}
                     setTrackNodes={setTrackNodes}
@@ -526,6 +533,7 @@ function App(data: any) {
                     graphTimeline={graphTimeline}
                     currentInstance={currentInstance ?? 0}
                 />
+
             </ErrorBoundary>
         </div>
     )};
