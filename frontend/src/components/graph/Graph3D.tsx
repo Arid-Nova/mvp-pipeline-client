@@ -16,7 +16,7 @@ import { showRenderingError } from "../../utils/notifications";
 type Props = {
     width: number;
     height: number;
-    search: string;
+    search: string[];
     threshold: number;
     sharedProps: SharedProps;
     graphRef: any;
@@ -496,7 +496,7 @@ const Graph: React.FC<Props> = ({
 
                 // 5. Label / Annotation Logic
                 let labelText = node.displayName || node.nodeName;
-                let textColor = node.color || 'rgba(255, 255, 255, 0.8)';
+                let textColor = node.color || `rgba(255, 255, 255, ${opacity})`;
                 let bgColor = 'rgba(0, 0, 0, 0)'; // Transparent by default
                 let borderColor = 'rgba(0,0,0,0)';
                 let borderWidth = 0;
