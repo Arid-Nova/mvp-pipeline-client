@@ -326,12 +326,12 @@ function App(data: any) {
                 });
             }
 
-            const latestIR = processedArray[processedArray.length - 1];
-            const processedData = getData(latestIR, undefined);
+            const firstIR = processedArray[0];
+            const processedData = getData(firstIR, undefined);
             
             if (processedData) {
                 setGraphData(processedData);
-                setCurrentInstance(overwrite ? processedArray.length - 1 : (prev: any) => (prev !== undefined ? prev + processedArray.length : processedArray.length - 1));
+                setCurrentInstance(overwrite ? 0 : (prev: any) => (prev !== undefined ? prev + processedArray.length : 0));
                 showSuccess(`Loaded ${processedArray.length} pipeline versions!`);
                 navigate('/graph-visualize', { replace: true, state: {} });
             }
