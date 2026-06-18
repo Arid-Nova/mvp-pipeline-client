@@ -1,6 +1,6 @@
 import React from 'react';
 import { Joyride, Step, EventData } from 'react-joyride';
-import { ConduitTourTooltip } from './ConduitTourTooltip';
+import { ConduitTourTooltip } from '../../tour/ConduitTourTooltip';
 
 interface PipelineTourProps {
     run: boolean;
