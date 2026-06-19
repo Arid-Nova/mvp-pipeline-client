@@ -27,13 +27,12 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment || 'dev' }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Login to Azure
+      - name: Login to Azure CLI
         uses: azure/login@v2
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}

@@ -4,7 +4,7 @@ This file tracks Azure tenants, subscriptions, and GitHub Actions deployment app
 
 ## Conuco Labs
 
-- Tenant ID: `de31056d-d95f-41b2-ab24-379515b0fac0`
+- Tenant ID: `362751f4-e3ba-4ae4-9d9b-b82b861d59c0`
 
 ### Subscriptions
 
