@@ -29,14 +29,23 @@ export const TimelineDeltaImpactCard: React.FC<TimelineDeltaImpactCardProps> = (
     const prevIR = currentInstance > 0 ? graphTimeline[currentInstance - 1] : null;
 
     useEffect(() => {
+        // Celaring the stale AI state
+        setAiInsight(null);
+
         if (!prevIR || !currentIR) {
             setImpactPayload(null);
             return;
         }
 
+        let isStale = false;
+        const abortController = new AbortController();
+
         const fetchImpact = async () => {
             setIsLoading(true);
             setError(null);
+
+            if (activeTab === 'ai') setActiveTab('overview');
+
             try {
                 const systemName = prevIR.name || currentIR.name || prevIR.systemName || "train-ticket";
 
@@ -90,6 +99,8 @@ export const TimelineDeltaImpactCard: React.FC<TimelineDeltaImpactCardProps> = (
 
                 const result = await fetchChangeImpact(deltaInput);
 
+                if (isStale) return;
+
                 const changes = result.changes || [];
                 const affectedSet = new Set<string>();
                 changes.forEach((c: any) => {
@@ -109,16 +120,24 @@ export const TimelineDeltaImpactCard: React.FC<TimelineDeltaImpactCardProps> = (
                 });
 
             } catch (err: any) {
+                if (isStale) return;
                 console.error("Failed to fetch change impact", err);
                 if (err.name !== "AbortError") {
                     setError("Failed to calculate architectural impact between these versions.");
                 }
             } finally {
-                setIsLoading(false);
+                if (!isStale) {
+                    setIsLoading(false);
+                }
             }
         };
 
         fetchImpact();
+
+        return () => {
+            isStale = true;
+            abortController.abort();
+        };
     }, [currentInstance, currentIR, prevIR]);
 
     const targetedServices = impactPayload?.targetedServices || [];

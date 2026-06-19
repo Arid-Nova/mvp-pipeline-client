@@ -300,13 +300,26 @@ function App(data: any) {
 
     const handleMultipleIRsLoaded = (irArray: any[], overwrite: boolean = true) => {
         try {
+            // Fallback hash generation (this is less likely to be used in practise).
+            const generateHash = (str: string) => {
+                let hash = 0;
+                for (let i = 0; i < str.length; i++) {
+                    const char = str.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash &= hash; 
+                }
+                return Math.abs(hash).toString(16); 
+            };
+
             const processedArray = irArray.map((irJson, index) => {
                 const safeIr = JSON.parse(JSON.stringify(irJson)); 
                 
                 if (!safeIr.commitID && !safeIr.commitId && !safeIr.metadata?.[0]?.commitId) {
                     const stableString = safeIr.name || "pipeline-run";
-                    const stableHash = JSON.stringify(safeIr).length; // Stable pseudo-hash based on content size
-                    safeIr.commitID = `${stableString}-${stableHash}-${index}`;
+                    const stableHash = generateHash(JSON.stringify(safeIr));
+
+                    // Also added an `alt-` prefix to indicate it's a fallback commit ID
+                    safeIr.commitID = `alt-${stableString}-${stableHash}-${index}`;
                 }
                 return safeIr;
             });
