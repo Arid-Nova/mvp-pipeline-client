@@ -21,6 +21,7 @@ type Props = {
     setCurrentInstance: any;
     setDefNodeColor: any;
     trackChanges: any;
+    onOpenTrends?: () => void;
 };
 
 const TimeSlider: React.FC<Props> = ({
@@ -31,6 +32,7 @@ const TimeSlider: React.FC<Props> = ({
     setCurrentInstance,
     setDefNodeColor,
     trackChanges,
+    onOpenTrends,
 }) => {
     // Original state for the slider's value is unchanged.
     // const [value, setValue] = useState(0);
@@ -89,7 +91,30 @@ const TimeSlider: React.FC<Props> = ({
             <div className="tour-timeline-slider bg-slate-800/70 text-white rounded-xl p-4 shadow-lg backdrop-blur-none transition-all duration-300">
                 
                 {/* Header with title and collapse/expand button */}
-                <div className="relative mb-3">
+                <div className="relative mb-3 flex items-center justify-center">
+                    {onOpenTrends && (
+                        <button 
+                            onClick={(e) => { 
+                                console.log("Trends button CLICKED!"); 
+                                e.stopPropagation(); 
+                                onOpenTrends(); 
+                            }}
+                            onTouchEnd={(e) => { 
+                                console.log("Trends button TOUCHED!"); 
+                                e.preventDefault(); 
+                                e.stopPropagation(); 
+                                onOpenTrends(); 
+                            }}
+                            className="absolute left-0 px-3 py-1 bg-indigo-500/20 hover:bg-indigo-500/40 text-indigo-300 border border-indigo-500/30 rounded-lg transition-colors flex items-center gap-2 text-xs font-semibold tracking-wide shadow-sm z-50 cursor-pointer pointer-events-auto"
+                            title="View Architectural Trends Dashboard"
+                        >
+                            <svg className="w-4 h-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                            </svg>
+                            <span className="hidden sm:inline pointer-events-none">Trends</span>
+                        </button>
+                    )}
+
                     <label htmlFor="steps-range" className="font-semibold text-xl animated-gradient-dark block text-center w-full">
                         Commit Timeline
                     </label>
