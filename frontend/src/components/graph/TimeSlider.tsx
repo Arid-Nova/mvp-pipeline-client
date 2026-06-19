@@ -33,15 +33,15 @@ const TimeSlider: React.FC<Props> = ({
     trackChanges,
 }) => {
     // Original state for the slider's value is unchanged.
-    const [value, setValue] = useState(0);
+    // const [value, setValue] = useState(0);
     
     // UI state for the expand/collapse feature.
     const [isExpanded, setIsExpanded] = useState(false);
 
     // Original handleChange function is unchanged.
     const handleChange = (e: any) => {
-        setValue(e.target.value);
-        setCurrentInstance(parseInt(e.target.value));
+        const newValue = parseInt(e.target.value);
+        setCurrentInstance(newValue);
         if (trackChanges && (e.target.value != 0)) {
             setGraphData(compareChanges(graphTimeline[e.target.value - 1], graphTimeline[e.target.value]))
         } else {
@@ -77,6 +77,8 @@ const TimeSlider: React.FC<Props> = ({
     if (!graphTimeline || graphTimeline.length === 0) {
         return null;
     }
+
+    const safeInstance = currentInstance !== undefined ? currentInstance : 0;
 
     return (
         <div 
@@ -121,7 +123,7 @@ const TimeSlider: React.FC<Props> = ({
                     type="range"
                     min="0"
                     max={graphTimeline.length - 1}
-                    value={value}
+                    value={safeInstance}
                     onChange={handleChange}
                     onClick={(e) => e.stopPropagation()}
                     onMouseDown={(e) => e.stopPropagation()}
@@ -143,18 +145,15 @@ const TimeSlider: React.FC<Props> = ({
                 <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isExpanded ? 'max-h-40 mt-4' : 'max-h-0'}`}>
                     <div className="flex flex-col text-sm font-mono text-slate-300">
                         <div className="font-semibold text-base font-sans text-white">
-                            Iteration {parseInt(String(value)) + 1}
+                            Version {parseInt(String(safeInstance)) + 1}
                         </div>
-                        {graphTimeline[currentInstance] && (
+                        {graphTimeline[safeInstance] && (
                             <>
-                                {/* <div>
-                                    Commit #{graphTimeline[currentInstance].commitID.substring(0, 7)}
-                                </div> */}
                                 <div>
-                                    Created: {formatEpoch(graphTimeline[currentInstance].metadata?.createDate)}
+                                    Created: {formatEpoch(graphTimeline[safeInstance].metadata?.createDate)}
                                 </div>
                                 <div>
-                                    Modified: {formatEpoch(graphTimeline[currentInstance].metadata?.modifyDate)}
+                                    Modified: {formatEpoch(graphTimeline[safeInstance].metadata?.modifyDate)}
                                 </div>
                             </>
                         )}

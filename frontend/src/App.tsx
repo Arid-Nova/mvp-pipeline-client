@@ -34,6 +34,7 @@ import NewPage from "./utils/node.js";
 
 // Mobile compatibility setting
 import { polyfill } from "mobile-drag-drop";
+import { TimelineDeltaImpactCard } from "./components/graph/TimelineDeltaImpactCard";
 
 setupLogger();
 setupAxios();
@@ -288,13 +289,72 @@ function App(data: any) {
     // IR uploading handle
     useEffect(() => {
         if (location.state && location.state.irData) {
-            handleIRLoaded(location.state.irData);
+            if (Array.isArray(location.state.irData)) {
+                handleMultipleIRsLoaded(location.state.irData, location.state.overwriteTimeline ?? true);
+            } else {
+                handleIRLoaded(location.state.irData, location.state.overwriteTimeline ?? true);
+            }
             window.history.replaceState({}, document.title);
         }
-    }, [location.state]); 
+    }, [location.state]);
+
+    const handleMultipleIRsLoaded = (irArray: any[], overwrite: boolean = true) => {
+        try {
+            // Fallback hash generation (this is less likely to be used in practise).
+            const generateHash = (str: string) => {
+                let hash = 0;
+                for (let i = 0; i < str.length; i++) {
+                    const char = str.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash &= hash; 
+                }
+                return Math.abs(hash).toString(16); 
+            };
+
+            const processedArray = irArray.map((irJson, index) => {
+                const safeIr = JSON.parse(JSON.stringify(irJson)); 
+                
+                if (!safeIr.commitID && !safeIr.commitId && !safeIr.metadata?.[0]?.commitId) {
+                    const stableString = safeIr.name || "pipeline-run";
+                    const stableHash = generateHash(JSON.stringify(safeIr));
+
+                    // Also added an `alt-` prefix to indicate it's a fallback commit ID
+                    safeIr.commitID = `alt-${stableString}-${stableHash}-${index}`;
+                }
+                return safeIr;
+            });
+
+            if (overwrite) {
+                setGraphTimeline(processedArray);
+            } else {
+                setGraphTimeline((prev: any) => {
+                    const newTimeline = [...prev];
+                    processedArray.forEach((ir: any) => {
+                        const commit = ir.commitID || ir.commitId || ir.metadata?.[0]?.commitId;
+                        if (!newTimeline.some((item: any) => (item.commitID || item.commitId || item.metadata?.[0]?.commitId) === commit)) {
+                            newTimeline.push(ir);
+                        }
+                    });
+                    return newTimeline;
+                });
+            }
+
+            const firstIR = processedArray[0];
+            const processedData = getData(firstIR, undefined);
+            
+            if (processedData) {
+                setGraphData(processedData);
+                setCurrentInstance(overwrite ? 0 : (prev: any) => (prev !== undefined ? prev + processedArray.length : 0));
+                showSuccess(`Loaded ${processedArray.length} pipeline versions!`);
+                navigate('/graph-visualize', { replace: true, state: {} });
+            }
+        } catch (error: any) {
+            showError(`Failed to process parallel data: ${error.message}`);
+        }
+    };
 
     // Manually uploading a IR (not from history)
-    const handleIRLoaded = (irJson: any) => {
+    const handleIRLoaded = (irJson: any, overwrite: boolean = true) => {
         try {
             if (!irJson.commitID) {
                 console.warn("Missing commitID in IR Data, generating fallback.");
@@ -307,15 +367,18 @@ function App(data: any) {
             if (processedData) {
                 setGraphData(processedData);
                 setGraphTimeline(prev => {
+                    if (overwrite) return [irJson];
+
                     const exists = prev.some(item => item.commitID === irJson.commitID);
                     if (exists) return prev;
                     return [...prev, irJson];
                 });
                 
                 // Initialize timeline if this is the first upload
-                if (typeof currentInstance === "undefined") {
-                    setCurrentInstance(0);
-                }
+                // if (typeof currentInstance === "undefined") {
+                //     setCurrentInstance(0);
+                // }
+                setCurrentInstance(overwrite ? 0 : (prev: any) => prev !== undefined ? prev + 1 : 0);
 
                 showSuccess('Graph data loaded successfully!');
                 if (location.pathname === '/graph-visualize') {
@@ -519,6 +582,7 @@ function App(data: any) {
                         />
                     )}
                 </div>
+
                 <TrackNodeMenu
                     trackNodes={trackNodes}
                     setTrackNodes={setTrackNodes}
@@ -526,6 +590,13 @@ function App(data: any) {
                     graphTimeline={graphTimeline}
                     currentInstance={currentInstance ?? 0}
                 />
+
+                <TimelineDeltaImpactCard 
+                    currentInstance={currentInstance ?? 0}
+                    graphTimeline={graphTimeline}
+                    isHistoryVisible={historyPrompt.show}
+                />
+
             </ErrorBoundary>
         </div>
     )};
