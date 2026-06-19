@@ -12,6 +12,14 @@ on:
           - dev
           - prod
 
+  push:
+    branches:
+      - josesosa/devops/build-bicep-pipeline-with-cheaper-demo-vm
+
+  pull_request:
+    branches:
+      - josesosa/devops/build-bicep-pipeline-with-cheaper-demo-vm
+
 permissions:
   id-token: write
   contents: read
@@ -19,7 +27,7 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment }}
+    environment: ${{ github.event.inputs.environment || 'dev' }}
 
     steps:
       - name: Checkout code
