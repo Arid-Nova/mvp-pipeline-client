@@ -94,9 +94,15 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
 
     // 2. BATCH FETCH OF CHANGE IMPACT API
     useEffect(() => {
-        if (!isOpen || graphTimeline.length < 2) return;
+        if (!isOpen) {
+            setIsLoadingDeltas(false);
+            return;
+        }
+
+        if (graphTimeline.length < 2) return;
         
         let isMounted = true;
+        const controller = new AbortController();
 
         const fetchAllDeltas = async () => {
             setIsLoadingDeltas(true);
@@ -145,7 +151,9 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
                 };
 
                 try {
-                    const res = await fetchChangeImpact(deltaInput);
+                    const res = await fetchChangeImpact(deltaInput, { signal: controller.signal } as any);
+                    if (!isMounted) break;
+
                     const changes = res?.changes || res?.data?.changes || (Array.isArray(res) ? res : []);
                     const affectedSet = new Set<string>();
                     
@@ -157,7 +165,10 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
                     });
                     
                     results[i] = { affected: affectedSet.size, changes: changes.length };
-                } catch (error) {
+                } catch (error: any) {
+                    if (error.name === 'AbortError') {
+                        break;
+                    }
                     results[i] = { affected: 0, changes: 0 };
                 }
             }
@@ -169,7 +180,11 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
         };
 
         fetchAllDeltas();
-        return () => { isMounted = false; };
+        return () => { 
+            isMounted = false; 
+            controller.abort(); 
+            setIsLoadingDeltas(false); 
+        };
     }, [isOpen, graphTimeline]);
 
     // 3. COMBINE METRICS

@@ -95,7 +95,6 @@ const TimeSlider: React.FC<Props> = ({
                     {onOpenTrends && (
                         <button 
                             onClick={(e) => { 
-                                console.log("Trends button CLICKED!"); 
                                 e.stopPropagation(); 
                                 onOpenTrends(); 
                             }}
