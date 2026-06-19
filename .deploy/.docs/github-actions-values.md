@@ -14,12 +14,15 @@ This file tracks Azure tenants, subscriptions, and GitHub Actions deployment app
     - `github-actions-mvp-pipeline`
       - App ID: `74c2b754-5643-4d83-844a-7fdca7257225`
       - Object ID: `de31056d-d95f-41b2-ab24-379515b0fac0`
-      - Federated credential:
-        - Name: `github-actions-oidc`
-        - Credential ID: `b012ca3d-aa27-471b-b32d-2327bdb1a7ee`
-        - Issuer: `https://token.actions.githubusercontent.com`
-        - Subject: `repo:Arid-Nove/mvp-pipeline-client:ref:refs/heads/main`
-        - Audiences: `api://AzureADTokenExchange`
+      - Federated credentials:
+        - Name: `github-actions-dev`
+          - Issuer: `https://token.actions.githubusercontent.com`
+          - Subject: `repo:Arid-Nova/mvp-pipeline-client:environment:dev`
+          - Audiences: `api://AzureADTokenExchange`
+        - Name: `github-actions-prod`
+          - Issuer: `https://token.actions.githubusercontent.com`
+          - Subject: `repo:Arid-Nova/mvp-pipeline-client:environment:prod`
+          - Audiences: `api://AzureADTokenExchange`
 
 ## Compact reference
 
@@ -27,4 +30,4 @@ This file tracks Azure tenants, subscriptions, and GitHub Actions deployment app
 | --- | --- | --- | --- | --- |
 | Conuco Labs | Conuco_Labs_Subscription | github-actions-mvp-pipeline | 74c2b754-5643-4d83-844a-7fdca7257225 | de31056d-d95f-41b2-ab24-379515b0fac0 |
 
-> Note: Do not commit passwords or secrets. Store any service principal secrets in secure vaults or GitHub repository secrets.
+&gt; Note: Do not commit passwords or secrets. Store any service principal secrets in secure vaults or GitHub repository secrets.
