@@ -5,6 +5,7 @@ import { calculateMatrixData } from '../../utils/changeImpactUtils';
 interface TimelineDeltaImpactCardProps {
     currentInstance: number;
     graphTimeline: Array<any>;
+    isHistoryVisible?: boolean;
 }
 
 type TabType = 'overview' | 'topology' | 'heatmap' | 'ai';
@@ -12,6 +13,7 @@ type TabType = 'overview' | 'topology' | 'heatmap' | 'ai';
 export const TimelineDeltaImpactCard: React.FC<TimelineDeltaImpactCardProps> = ({
     currentInstance,
     graphTimeline,
+    isHistoryVisible = false,
 }) => {
     const [isMinimized, setIsMinimized] = useState(false);
     const [activeTab, setActiveTab] = useState<TabType>('overview');
@@ -218,7 +220,7 @@ export const TimelineDeltaImpactCard: React.FC<TimelineDeltaImpactCardProps> = (
     const previousLabel = currentInstance > 0 ? `Version ${currentInstance}` : null;
 
     return (
-        <div className="absolute bottom-24 right-6 z-40 w-96 sm:w-[500px] font-sans select-none pointer-events-auto">
+        <div className={`fixed right-6 z-40 w-96 sm:w-[500px] font-sans select-none pointer-events-auto transition-all duration-500 ease-in-out ${isHistoryVisible ? 'bottom-48' : 'bottom-6'}`}>
             <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-700/60 rounded-2xl p-4 shadow-2xl text-white transition-all duration-300">
                 
                 <div className="flex items-center justify-between border-b border-slate-700/60 pb-3 mb-3">
@@ -242,7 +244,7 @@ export const TimelineDeltaImpactCard: React.FC<TimelineDeltaImpactCardProps> = (
                     <div className="space-y-3 animate-fadeIn">
                         {!prevIR ? (
                             <div className="text-[12px] text-center text-emerald-400 font-medium bg-emerald-500/10 rounded-lg py-4 border border-emerald-500/20">
-                                🚀 Initial Version Established. <br/> Drag the slider to compare versions.
+                                Initial Version Established. <br/> Drag the slider to compare versions.
                             </div>
                         ) : isLoading ? (
                             <div className="flex justify-center items-center py-6 text-sky-400 text-sm animate-pulse">

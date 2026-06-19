@@ -570,17 +570,18 @@ function App(data: any) {
                     )}
                 </div>
 
-                <TimelineDeltaImpactCard 
-                    currentInstance={currentInstance ?? 0}
-                    graphTimeline={graphTimeline}
-                />
-
                 <TrackNodeMenu
                     trackNodes={trackNodes}
                     setTrackNodes={setTrackNodes}
                     graphData={graphData}
                     graphTimeline={graphTimeline}
                     currentInstance={currentInstance ?? 0}
+                />
+
+                <TimelineDeltaImpactCard 
+                    currentInstance={currentInstance ?? 0}
+                    graphTimeline={graphTimeline}
+                    isHistoryVisible={historyPrompt.show}
                 />
 
             </ErrorBoundary>
