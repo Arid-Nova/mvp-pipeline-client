@@ -26,18 +26,43 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
             const nodesArray = ir.nodes || ir.microservices || ir.components || ir.services || [];
             let edgesArray = ir.links || ir.edges || ir.connections || ir.dependencies || [];
             
+            let dependenciesUnavailable = false;
+
             if (edgesArray.length === 0 && nodesArray.length > 0) {
                 const derivedEdges = new Set<string>();
                 const knownServices = nodesArray.map((n: any) => n.name || n.nodeName || n.id).filter(Boolean);
 
-                nodesArray.forEach((sourceNode: any) => {
-                    const sourceName = sourceNode.name || sourceNode.nodeName || sourceNode.id;
-                    if (!sourceName) return;
+                nodesArray.forEach((n: any) => {
+                    const sourceId = n.nodeName || n.name || n.id;
+                    if (!sourceId) return;
 
-                    const rawString = JSON.stringify(sourceNode);
-                    knownServices.forEach((targetName: string) => {
-                        if (sourceName !== targetName && rawString.includes(targetName)) {
-                            derivedEdges.add(`${sourceName}___${targetName}`);
+                    const containers = [
+                        ...(Array.isArray(n.controllers) ? n.controllers : []),
+                        ...(Array.isArray(n.services) ? n.services : []),
+                        ...(Array.isArray(n.components) ? n.components : []),
+                        ...(Array.isArray(n.repositories) ? n.repositories : [])
+                    ];
+
+                    containers.forEach((container: any) => {
+                        if (Array.isArray(container.methods)) {
+                            container.methods.forEach((method: any) => {
+                                if (Array.isArray(method.methodCalls)) {
+                                    method.methodCalls.forEach((call: any) => {
+                                        const callSignature = [
+                                            call.targetMicroservice,
+                                            call.targetName,
+                                            call.parameterContents, 
+                                            call.url
+                                        ].filter(Boolean).join(' ');
+
+                                        knownServices.forEach((targetId: string) => {
+                                            if (sourceId !== targetId && callSignature.includes(targetId)) {
+                                                derivedEdges.add(`${sourceId}___${targetId}`);
+                                            }
+                                        });
+                                    });
+                                }
+                            });
                         }
                     });
                 });
@@ -46,6 +71,11 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
                     const [source, target] = edgeStr.split('___');
                     return { source, target };
                 });
+
+                // If no edges could be structurally inferred, flag as unavailable
+                if (edgesArray.length === 0 && nodesArray.length > 1) {
+                    dependenciesUnavailable = true;
+                }
             }
 
             const nodes = nodesArray.length;
@@ -87,6 +117,7 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
                 hubsCount,
                 leafCount,
                 internalCount: Math.max(0, nodes - (hubsCount + leafCount)),
+                dependenciesUnavailable, 
                 rawNodes: nodesArray 
             };
         });
@@ -229,10 +260,9 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6 font-sans">
             <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={onClose}></div>
 
-            {/* Adjusted height to max-h-[85vh] so it's not needlessly tall, and optimized width */}
             <div className="relative w-full max-w-7xl max-h-[85vh] bg-slate-900 border border-slate-700 shadow-2xl rounded-xl flex flex-col overflow-hidden text-slate-200">
                 
-                {/* Header: More compact padding (p-5) and slightly larger text */}
+                {/* Header */}
                 <div className="flex flex-col sm:flex-row justify-between items-center px-6 py-4 border-b border-slate-800 bg-slate-900/80 z-10">
                     <div>
                         <h2 className="text-2xl font-bold tracking-tight text-slate-100 flex items-center gap-2.5">
@@ -240,10 +270,16 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
                             Architecture Intelligence
                         </h2>
                         <div className="flex items-center gap-3 mt-1">
-                            <p className="text-slate-400 text-sm">Analyzed {graphTimeline.length} pipeline iterations</p>
+                            <p className="text-slate-400 text-sm">Analyzed {graphTimeline.length} pipeline iterations</p>               
                             {isLoadingDeltas && (
                                 <span className="text-xs uppercase font-semibold text-orange-400/90 flex items-center gap-1.5 bg-orange-400/10 px-2 py-0.5 rounded border border-orange-400/20">
                                     <Icons.Refresh className="w-3.5 h-3.5 animate-spin" /> Fetching Deltas
+                                </span>
+                            )}
+
+                            {latest?.dependenciesUnavailable && (
+                                <span className="text-xs uppercase font-semibold text-rose-400 flex items-center gap-1.5 bg-rose-400/10 px-2 py-0.5 rounded border border-rose-400/20" title="Explicit inter-service dependencies could not be parsed from this version.">
+                                    <Icons.Alert className="w-3.5 h-3.5" /> Dependency Data Unavailable
                                 </span>
                             )}
                         </div>
