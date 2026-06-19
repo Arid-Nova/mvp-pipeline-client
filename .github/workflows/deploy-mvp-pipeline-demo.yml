@@ -1,0 +1,26 @@
+name: Deploy MVP Pipeline Demo
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Select the environment to deploy to"
+        required: true
+        type: choice
+        default: "dev"
+        options:
+          - dev
+          - prod
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
