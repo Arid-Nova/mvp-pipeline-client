@@ -75,12 +75,48 @@ const TimeSlider: React.FC<Props> = ({
         });
     };
 
+    // Extracting the unique repo, commit, and branch.
+    const getRepositories = (rawIr: any) => {
+        const uniqueRepos = new Map();
+        const addRepo = (url: string, commit: string, branch?: string) => {
+            if (url && commit) {
+                const shortCommit = commit.substring(0, 7);
+                const cleanUrl = url.split('/').pop()?.replace('.git', '') || url;
+                uniqueRepos.set(`${cleanUrl}-${commit}`, { url: cleanUrl, fullUrl: url, commit: shortCommit, branch: branch || "master" });
+            }
+        };
+
+        const ir = rawIr?.payload?.irJson || rawIr?.data?.payload?.irJson || rawIr?.systemInfo?.ir || rawIr;
+        if (!ir) return [];
+
+        if (ir.metadata) {
+            const meta = Array.isArray(ir.metadata) ? ir.metadata : [ir.metadata];
+            meta.forEach((m: any) => addRepo(m.repoUrl || m.repositoryURL, m.commitId || m.commitID, m.branch || m.branchName));
+        }
+        if (ir.commitID || ir.commitId) {
+            addRepo(ir.repositoryURL || ir.repoUrl, ir.commitID || ir.commitId, ir.branchName || ir.branch);
+        }
+        const nodesArray = ir.microservices || ir.nodes || ir.components || ir.services || [];
+        if (Array.isArray(nodesArray)) {
+            nodesArray.forEach((ms: any) => {
+                addRepo(
+                    ms.repositoryURL || ms.repoUrl || ir.repositoryURL || ir.repoUrl,
+                    ms.commitID || ms.commitId || ir.commitID || ir.commitId,
+                    ms.branchName || ms.branch || ir.branchName || ir.metadata?.branch || "master"
+                );
+            });
+        }
+        return Array.from(uniqueRepos.values());
+    };
+
     // Return null if there's no data to prevent errors.
     if (!graphTimeline || graphTimeline.length === 0) {
         return null;
     }
 
     const safeInstance = currentInstance !== undefined ? currentInstance : 0;
+    const currentIr = graphTimeline[safeInstance];
+    const repos = getRepositories(currentIr);
 
     return (
         <div 
@@ -166,20 +202,48 @@ const TimeSlider: React.FC<Props> = ({
                 />
                 
                 {/* Collapsible details container */}
-                <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isExpanded ? 'max-h-40 mt-4' : 'max-h-0'}`}>
-                    <div className="flex flex-col text-sm font-mono text-slate-300">
-                        <div className="font-semibold text-base font-sans text-white">
-                            Version {parseInt(String(safeInstance)) + 1}
+                <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isExpanded ? 'max-h-64 mt-4' : 'max-h-0'}`}>
+                    <div className="flex flex-col gap-3 font-mono text-slate-300 bg-slate-900/60 p-4 rounded-xl border border-slate-700/60 shadow-inner">
+                        <div className="flex justify-between items-center border-b border-slate-700/80 pb-3">
+                            <span className="font-bold text-lg font-sans text-white flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
+                                Version {parseInt(String(safeInstance)) + 1}
+                            </span>
+                            {currentIr && (
+                                <div className="text-xs text-slate-400 text-right flex flex-col gap-0.5">
+                                    <span>Created: <span className="text-slate-300">{formatEpoch(currentIr.metadata?.createDate || currentIr.timestamp)}</span></span>
+                                </div>
+                            )}
                         </div>
-                        {graphTimeline[safeInstance] && (
-                            <>
-                                <div>
-                                    Created: {formatEpoch(graphTimeline[safeInstance].metadata?.createDate)}
-                                </div>
-                                <div>
-                                    Modified: {formatEpoch(graphTimeline[safeInstance].metadata?.modifyDate)}
-                                </div>
-                            </>
+
+                        {repos.length > 0 ? (
+                            <div className="flex flex-col gap-2 max-h-36 overflow-y-auto custom-scrollbar pr-1">
+                                {repos.map((repo, idx) => (
+                                    <div key={idx} className="flex justify-between items-center bg-slate-800/80 px-3 py-2 rounded-lg border border-slate-700/50">
+                                        <div className="flex flex-col">
+                                            <span className="text-sky-400 text-xs font-semibold truncate max-w-[200px] sm:max-w-[300px]" title={repo.fullUrl}>
+                                                {repo.url}
+                                            </span>
+                                            <div className="flex items-center gap-1.5 text-slate-500 text-[10px] mt-0.5 uppercase tracking-wider font-bold">
+                                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <line x1="6" y1="3" x2="6" y2="15"></line>
+                                                    <circle cx="18" cy="6" r="3"></circle>
+                                                    <circle cx="6" cy="18" r="3"></circle>
+                                                    <path d="M18 9a9 9 0 0 1-9 9"></path>
+                                                </svg>
+                                                {repo.branch}
+                                            </div>
+                                        </div>
+                                        <div className="bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 px-2 py-1 rounded text-xs uppercase font-bold tracking-widest shadow-sm">
+                                            {repo.commit}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-sm text-slate-500 italic text-center py-4 bg-slate-800/30 rounded-lg border border-slate-700/30 border-dashed">
+                                No repository metadata available for this version.
+                            </div>
                         )}
                     </div>
                 </div>
