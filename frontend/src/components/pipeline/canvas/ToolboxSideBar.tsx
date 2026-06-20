@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { CardType } from '../models';
-import { useNavigate } from 'react-router-dom'; 
+import { useNavigate } from 'react-router-dom';
 import { CATEGORIES, CARD_CONFIG } from '../pipelineConfig';
 import { track, PipelineEvent } from '../../../analytics/posthog';
 
@@ -12,22 +12,81 @@ interface ToolboxSidebarProps {
     clearPipeline: () => void;
 }
 
+interface ToolboxItemTooltipProps {
+    title: string;
+    purpose: string;
+    outcome: string;
+    isOpen: boolean;
+}
+
+const ToolboxItemTooltip: React.FC<ToolboxItemTooltipProps> = ({
+                                                                   title,
+                                                                   purpose,
+                                                                   outcome,
+                                                                   isOpen
+                                                               }) => (
+    <>
+        <div className="hidden md:block absolute left-0 top-full mt-2 w-full pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50 bg-slate-950 text-slate-300 rounded-xl shadow-xl border border-slate-700 p-4">
+            <div className="text-xs font-bold text-slate-100 mb-3">
+                {title}
+            </div>
+
+            <div className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">
+                Purpose
+            </div>
+            <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                {purpose}
+            </p>
+
+            <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mt-3">
+                Expected Outcome
+            </div>
+            <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                {outcome}
+            </p>
+        </div>
+
+        {isOpen && (
+            <div className="md:hidden mt-2 bg-slate-950 text-slate-300 rounded-xl shadow-xl border border-slate-700 p-3">
+                <div className="text-xs font-bold text-slate-100 mb-2">
+                    {title}
+                </div>
+
+                <div className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">
+                    Purpose
+                </div>
+                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                    {purpose}
+                </p>
+
+                <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mt-3">
+                    Expected Outcome
+                </div>
+                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                    {outcome}
+                </p>
+            </div>
+        )}
+    </>
+);
+
 export const ToolboxSidebar: React.FC<ToolboxSidebarProps> = ({
-    expandedCategories,
-    toggleCategory,
-    addNode,
-    clearPipeline,
-    openTemplateModal
-}) => {
+                                                                  expandedCategories,
+                                                                  toggleCategory,
+                                                                  addNode,
+                                                                  clearPipeline,
+                                                                  openTemplateModal
+                                                              }) => {
     const navigate = useNavigate();
+    const [activeTooltip, setActiveTooltip] = useState<CardType | null>(null);
 
     return (
         <div className="tour-toolbox-sidebar w-72 h-full border-r border-white/10 bg-slate-900/50 flex flex-col overflow-hidden">
             <div className="p-4 border-b border-white/10 flex justify-between items-center bg-slate-900/80">
                 <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Toolbox</h2>
                 <div className="tour-clear-pipeline relative group flex items-center">
-                    <button 
-                        onClick={clearPipeline} 
+                    <button
+                        onClick={clearPipeline}
                         className="text-[10px] text-rose-400 hover:text-rose-300 active:text-rose-500 transition-all uppercase font-bold px-3 py-1.5 bg-rose-500/0 hover:bg-rose-500/10 active:bg-rose-500/20 rounded-md touch-manipulation"
                     >
                         Clear
@@ -42,7 +101,7 @@ export const ToolboxSidebar: React.FC<ToolboxSidebarProps> = ({
                 {Object.entries(CATEGORIES).map(([category, types]) => (
                     <div key={category} className="space-y-3">
                         {/* Category Header (Clickable) */}
-                        <button 
+                        <button
                             onClick={() => toggleCategory(category)}
                             className="w-full flex items-center justify-between group"
                         >
@@ -61,22 +120,52 @@ export const ToolboxSidebar: React.FC<ToolboxSidebarProps> = ({
                             <div className="grid gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
                                 {types.map(type => {
                                     const config = CARD_CONFIG[type];
+
                                     return (
-                                        <button
-                                            key={type}
-                                            onClick={() => addNode(type)}
-                                            className="w-full p-3 rounded-xl bg-slate-800/40 border border-white/5 hover:border-blue-500/50 hover:bg-slate-800 transition-all text-left group"
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <div className="text-slate-400 group-hover:text-blue-400 transition-colors">
-                                                    {React.cloneElement(config.icon, { className: 'w-5 h-5' })}
+                                        <div key={type} className="relative group">
+                                            <button
+                                                onClick={() => addNode(type)}
+                                                className="w-full p-3 rounded-xl bg-slate-800/40 border border-white/5 hover:border-blue-500/50 hover:bg-slate-800 transition-all text-left group"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className="text-slate-400 group-hover:text-blue-400 transition-colors">
+                                                        {React.cloneElement(config.icon, { className: 'w-5 h-5' })}
+                                                    </div>
+
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="text-xs font-bold text-slate-200">{config.title}</div>
+                                                        <div className="text-[9px] text-slate-500 leading-tight mt-0.5">{config.description}</div>
+                                                    </div>
+
+                                                    <span
+                                                        role="button"
+                                                        tabIndex={0}
+                                                        aria-label={`Show details for ${config.title}`}
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            setActiveTooltip(activeTooltip === type ? null : type);
+                                                        }}
+                                                        onKeyDown={(event) => {
+                                                            if (event.key === 'Enter' || event.key === ' ') {
+                                                                event.preventDefault();
+                                                                event.stopPropagation();
+                                                                setActiveTooltip(activeTooltip === type ? null : type);
+                                                            }
+                                                        }}
+                                                        className="flex md:hidden items-center justify-center w-5 h-5 rounded-full border border-slate-600 text-[10px] font-bold text-slate-400 hover:text-blue-300 hover:border-blue-400"
+                                                    >
+                                                        i
+                                                    </span>
                                                 </div>
-                                                <div>
-                                                    <div className="text-xs font-bold text-slate-200">{config.title}</div>
-                                                    <div className="text-[9px] text-slate-500 leading-tight mt-0.5">{config.description}</div>
-                                                </div>
-                                            </div>
-                                        </button>
+                                            </button>
+
+                                            <ToolboxItemTooltip
+                                                title={config.title}
+                                                purpose={config.tooltip.purpose}
+                                                outcome={config.tooltip.outcome}
+                                                isOpen={activeTooltip === type}
+                                            />
+                                        </div>
                                     );
                                 })}
                             </div>
@@ -87,7 +176,7 @@ export const ToolboxSidebar: React.FC<ToolboxSidebarProps> = ({
 
             <div className="p-4 border-t border-white/10 bg-slate-900/80 shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.3)] z-10">
                 <div className='tour-template-library'>
-                    <button 
+                    <button
                         onClick={openTemplateModal}
                         className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 hover:border-indigo-400/50 hover:bg-indigo-500/20 transition-all flex items-center justify-center gap-2 group"
                     >
