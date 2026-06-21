@@ -35,6 +35,7 @@ import NewPage from "./utils/node.js";
 // Mobile compatibility setting
 import { polyfill } from "mobile-drag-drop";
 import { TimelineDeltaImpactCard } from "./components/graph/TimelineDeltaImpactCard";
+import { ArchitectureTrendDashboard } from "./components/graph/ArchitectureTrendDasboard";
 
 setupLogger();
 setupAxios();
@@ -91,6 +92,9 @@ function App(data: any) {
 
     // Historic IR state
     const [historyPrompt, setHistoryPrompt] = useState<{ show: boolean, systemName: string }>({ show: false, systemName: '' });
+
+    // Change tracking across graph versions
+    const [isTrendDashboardOpen, setIsTrendDashboardOpen] = useState(false);
 
     // Global error Handel for mitigating all unhandled errors. 
     useEffect(() => {
@@ -579,6 +583,7 @@ function App(data: any) {
                             setCurrentInstance={setCurrentInstance}
                             setDefNodeColor={setDefNodeColor}
                             trackChanges={trackChanges}
+                            onOpenTrends={() => setIsTrendDashboardOpen(true)}
                         />
                     )}
                 </div>
@@ -591,6 +596,7 @@ function App(data: any) {
                     currentInstance={currentInstance ?? 0}
                 />
 
+                {/* Change Impact Variation on Graph */}
                 <TimelineDeltaImpactCard 
                     currentInstance={currentInstance ?? 0}
                     graphTimeline={graphTimeline}
@@ -631,6 +637,12 @@ function App(data: any) {
                 systemName={historyPrompt.systemName}
                 onDismiss={() => setHistoryPrompt({ show: false, systemName: '' })}
                 onLoad={handleLoadHistory}
+            />
+
+            <ArchitectureTrendDashboard 
+                isOpen={isTrendDashboardOpen}
+                onClose={() => setIsTrendDashboardOpen(false)}
+                graphTimeline={graphTimeline}
             />
         </>
     );
