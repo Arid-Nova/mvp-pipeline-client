@@ -6,8 +6,8 @@ import compareChanges from "../../parsers/getChanges";
 
 type Props = {
     graphRef: any;
-    search: string;
-    setSearch: React.Dispatch<React.SetStateAction<string>>;
+    search: string[];
+    setSearch: React.Dispatch<React.SetStateAction<string[]>>;
     value: number;
     setValue: React.Dispatch<React.SetStateAction<number>>;
     graphData: any;
@@ -69,7 +69,7 @@ const GraphMenu: React.FC<Props> = ({
     setIsHighLevelExpanded,
 }) => {
     return (
-        <div className="absolute top-4 left-4 z-50 flex flex-col gap-4 bg-slate-800/70 text-white rounded-xl p-4 shadow-lg backdrop-blur-none transition-all duration-300 w-1/6">
+        <div className="tour-graph-menu absolute top-4 left-4 z-50 flex flex-col gap-4 bg-slate-800/70 text-white rounded-xl p-4 shadow-lg backdrop-blur-none transition-all duration-300 w-1/6">
             {/* Header with title */}
             <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold text-white flex items-center gap-2 animated-gradient-dark">
@@ -352,6 +352,7 @@ const GraphMenu: React.FC<Props> = ({
                 setSearch={setSearch}
                 graphData={graphData}
             />
+
             <GraphButtonMenu
                 graphRef={graphRef}
                 graphData={graphData}

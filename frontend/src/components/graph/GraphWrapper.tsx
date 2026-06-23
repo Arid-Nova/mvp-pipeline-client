@@ -5,7 +5,7 @@ import Graph3D from "./Graph3D";
 type Props = {
     width: number;
     height: number;
-    search: string;
+    search: string[];
     threshold: number;
     graphRef: any;
     graphData: any;
@@ -69,7 +69,7 @@ const VisualizationOptions: React.FC<Props> = ({
     };
     
     return (
-        <div>
+        <div className="tour-3d-canvas">
             <Graph3D
                 width={width}
                 height={height}

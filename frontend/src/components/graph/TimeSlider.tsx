@@ -21,6 +21,7 @@ type Props = {
     setCurrentInstance: any;
     setDefNodeColor: any;
     trackChanges: any;
+    onOpenTrends?: () => void;
 };
 
 const TimeSlider: React.FC<Props> = ({
@@ -31,17 +32,18 @@ const TimeSlider: React.FC<Props> = ({
     setCurrentInstance,
     setDefNodeColor,
     trackChanges,
+    onOpenTrends,
 }) => {
     // Original state for the slider's value is unchanged.
-    const [value, setValue] = useState(0);
+    // const [value, setValue] = useState(0);
     
     // UI state for the expand/collapse feature.
     const [isExpanded, setIsExpanded] = useState(false);
 
     // Original handleChange function is unchanged.
     const handleChange = (e: any) => {
-        setValue(e.target.value);
-        setCurrentInstance(parseInt(e.target.value));
+        const newValue = parseInt(e.target.value);
+        setCurrentInstance(newValue);
         if (trackChanges && (e.target.value != 0)) {
             setGraphData(compareChanges(graphTimeline[e.target.value - 1], graphTimeline[e.target.value]))
         } else {
@@ -73,10 +75,48 @@ const TimeSlider: React.FC<Props> = ({
         });
     };
 
+    // Extracting the unique repo, commit, and branch.
+    const getRepositories = (rawIr: any) => {
+        const uniqueRepos = new Map();
+        const addRepo = (url: string, commit: string, branch?: string) => {
+            if (url && commit) {
+                const shortCommit = commit.substring(0, 7);
+                const cleanUrl = url.split('/').pop()?.replace('.git', '') || url;
+                uniqueRepos.set(`${cleanUrl}-${commit}`, { url: cleanUrl, fullUrl: url, commit: shortCommit, branch: branch || "master" });
+            }
+        };
+
+        const ir = rawIr?.payload?.irJson || rawIr?.data?.payload?.irJson || rawIr?.systemInfo?.ir || rawIr;
+        if (!ir) return [];
+
+        if (ir.metadata) {
+            const meta = Array.isArray(ir.metadata) ? ir.metadata : [ir.metadata];
+            meta.forEach((m: any) => addRepo(m.repoUrl || m.repositoryURL, m.commitId || m.commitID, m.branch || m.branchName));
+        }
+        if (ir.commitID || ir.commitId) {
+            addRepo(ir.repositoryURL || ir.repoUrl, ir.commitID || ir.commitId, ir.branchName || ir.branch);
+        }
+        const nodesArray = ir.microservices || ir.nodes || ir.components || ir.services || [];
+        if (Array.isArray(nodesArray)) {
+            nodesArray.forEach((ms: any) => {
+                addRepo(
+                    ms.repositoryURL || ms.repoUrl || ir.repositoryURL || ir.repoUrl,
+                    ms.commitID || ms.commitId || ir.commitID || ir.commitId,
+                    ms.branchName || ms.branch || ir.branchName || ir.metadata?.branch || "master"
+                );
+            });
+        }
+        return Array.from(uniqueRepos.values());
+    };
+
     // Return null if there's no data to prevent errors.
     if (!graphTimeline || graphTimeline.length === 0) {
         return null;
     }
+
+    const safeInstance = currentInstance !== undefined ? currentInstance : 0;
+    const currentIr = graphTimeline[safeInstance];
+    const repos = getRepositories(currentIr);
 
     return (
         <div 
@@ -84,10 +124,32 @@ const TimeSlider: React.FC<Props> = ({
             onTouchEnd={(e) => e.stopPropagation()}
             className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 w-5/6 max-w-4xl"
         >
-            <div className="bg-slate-800/70 text-white rounded-xl p-4 shadow-lg backdrop-blur-none transition-all duration-300">
+            <div className="tour-timeline-slider bg-slate-800/70 text-white rounded-xl p-4 shadow-lg backdrop-blur-none transition-all duration-300">
                 
                 {/* Header with title and collapse/expand button */}
-                <div className="relative mb-3">
+                <div className="relative mb-3 flex items-center justify-center">
+                    {onOpenTrends && (
+                        <button 
+                            onClick={(e) => { 
+                                e.stopPropagation(); 
+                                onOpenTrends(); 
+                            }}
+                            onTouchEnd={(e) => { 
+                                console.log("Trends button TOUCHED!"); 
+                                e.preventDefault(); 
+                                e.stopPropagation(); 
+                                onOpenTrends(); 
+                            }}
+                            className="absolute left-0 px-3 py-1 bg-indigo-500/20 hover:bg-indigo-500/40 text-indigo-300 border border-indigo-500/30 rounded-lg transition-colors flex items-center gap-2 text-xs font-semibold tracking-wide shadow-sm z-50 cursor-pointer pointer-events-auto"
+                            title="View Architectural Trends Dashboard"
+                        >
+                            <svg className="w-4 h-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                            </svg>
+                            <span className="hidden sm:inline pointer-events-none">Trends</span>
+                        </button>
+                    )}
+
                     <label htmlFor="steps-range" className="font-semibold text-xl animated-gradient-dark block text-center w-full">
                         Commit Timeline
                     </label>
@@ -121,7 +183,7 @@ const TimeSlider: React.FC<Props> = ({
                     type="range"
                     min="0"
                     max={graphTimeline.length - 1}
-                    value={value}
+                    value={safeInstance}
                     onChange={handleChange}
                     onClick={(e) => e.stopPropagation()}
                     onMouseDown={(e) => e.stopPropagation()}
@@ -140,23 +202,48 @@ const TimeSlider: React.FC<Props> = ({
                 />
                 
                 {/* Collapsible details container */}
-                <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isExpanded ? 'max-h-40 mt-4' : 'max-h-0'}`}>
-                    <div className="flex flex-col text-sm font-mono text-slate-300">
-                        <div className="font-semibold text-base font-sans text-white">
-                            Iteration {parseInt(String(value)) + 1}
+                <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isExpanded ? 'max-h-64 mt-4' : 'max-h-0'}`}>
+                    <div className="flex flex-col gap-3 font-mono text-slate-300 bg-slate-900/60 p-4 rounded-xl border border-slate-700/60 shadow-inner">
+                        <div className="flex justify-between items-center border-b border-slate-700/80 pb-3">
+                            <span className="font-bold text-lg font-sans text-white flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
+                                Version {parseInt(String(safeInstance)) + 1}
+                            </span>
+                            {currentIr && (
+                                <div className="text-xs text-slate-400 text-right flex flex-col gap-0.5">
+                                    <span>Created: <span className="text-slate-300">{formatEpoch(currentIr.metadata?.createDate || currentIr.timestamp)}</span></span>
+                                </div>
+                            )}
                         </div>
-                        {graphTimeline[currentInstance] && (
-                            <>
-                                {/* <div>
-                                    Commit #{graphTimeline[currentInstance].commitID.substring(0, 7)}
-                                </div> */}
-                                <div>
-                                    Created: {formatEpoch(graphTimeline[currentInstance].metadata?.createDate)}
-                                </div>
-                                <div>
-                                    Modified: {formatEpoch(graphTimeline[currentInstance].metadata?.modifyDate)}
-                                </div>
-                            </>
+
+                        {repos.length > 0 ? (
+                            <div className="flex flex-col gap-2 max-h-36 overflow-y-auto custom-scrollbar pr-1">
+                                {repos.map((repo, idx) => (
+                                    <div key={idx} className="flex justify-between items-center bg-slate-800/80 px-3 py-2 rounded-lg border border-slate-700/50">
+                                        <div className="flex flex-col">
+                                            <span className="text-sky-400 text-xs font-semibold truncate max-w-[200px] sm:max-w-[300px]" title={repo.fullUrl}>
+                                                {repo.url}
+                                            </span>
+                                            <div className="flex items-center gap-1.5 text-slate-500 text-[10px] mt-0.5 uppercase tracking-wider font-bold">
+                                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <line x1="6" y1="3" x2="6" y2="15"></line>
+                                                    <circle cx="18" cy="6" r="3"></circle>
+                                                    <circle cx="6" cy="18" r="3"></circle>
+                                                    <path d="M18 9a9 9 0 0 1-9 9"></path>
+                                                </svg>
+                                                {repo.branch}
+                                            </div>
+                                        </div>
+                                        <div className="bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 px-2 py-1 rounded text-xs uppercase font-bold tracking-widest shadow-sm">
+                                            {repo.commit}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-sm text-slate-500 italic text-center py-4 bg-slate-800/30 rounded-lg border border-slate-700/30 border-dashed">
+                                No repository metadata available for this version.
+                            </div>
                         )}
                     </div>
                 </div>

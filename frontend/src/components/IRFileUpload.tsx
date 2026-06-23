@@ -90,6 +90,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, fullscreen, onRes
   } else {
     return (
       <div className={`
+          tour-add-to-timeline
           fixed bottom-4 left-4
           z-50 w-64
           p-4 bg-slate-800/90

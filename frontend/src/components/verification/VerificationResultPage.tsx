@@ -1,9 +1,11 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { VerificationResponse } from '../../services/types';
 import getData from '../../parsers/getData'; 
+import { FormalTour } from './tour/FormalTour';
 import GraphWrapper from '../graph/GraphWrapper'; 
 import { showError } from '../../utils/notifications';
+
 
 const RoleBadge = ({ mask }: { mask: number }) => {
     let label = "Unknown";
@@ -49,7 +51,7 @@ const VerificationResultPage = () => {
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
     const [isHighLevelExpanded, setIsHighLevelExpanded] = useState(false);
     const [focusNode, setFocusNode] = useState(null);
-    const [search, setSearch] = useState("");
+    const [search, setSearch] = useState<string[]>([]);
     const [trackNodes, setTrackNodes] = useState<any[]>([]);
 
     // Process Graph Data
@@ -70,6 +72,14 @@ const VerificationResultPage = () => {
             navigate('/');
         }
     };
+
+    const [isTourRunning, setIsTourRunning] = useState(false);
+
+    useEffect(() => {
+        const handleStartTour = () => setIsTourRunning(true);
+        window.addEventListener('trigger-formal-tour', handleStartTour);
+        return () => window.removeEventListener('trigger-formal-tour', handleStartTour);
+    }, []);
 
     // Safety check if user navigates here directly without state
     if (!result) {
@@ -167,10 +177,16 @@ const VerificationResultPage = () => {
 
     return (
         <div className="min-h-screen bg-slate-900 text-slate-100 font-sans flex flex-col">
-            
+            <FormalTour run={isTourRunning} 
+                setActiveTab={setViewMode}
+                onFinish={() => setIsTourRunning(false)} 
+            />
+
             {/* Header / Navbar */}
             <div className="bg-slate-800/50 border-b border-slate-700 p-4 sticky top-0 z-50 backdrop-blur-md">
                 <div className="max-w-7xl mx-auto flex items-center justify-between">
+                    
+                    {/* LEFT SIDE: Back Button & Title */}
                     <div className="flex items-center gap-6">
                         <button 
                             onClick={(e) => {
@@ -194,37 +210,59 @@ const VerificationResultPage = () => {
                         </h1>
                     </div>
 
-                    {/* VIEW TOGGLE - Only show if UNSAT (Graph is most useful for debugging failures) */}
-                    {(!isSat || hasRegression) && (
-                        <div className="bg-slate-900/80 p-1 rounded-lg border border-slate-600 flex gap-1">
+                    {/* RIGHT SIDE: Tour Button & View Toggle Grouped Together */}
+                    <div className="flex items-center gap-4">
+                        
+                        {/* Tour Button */}
+                        <div className="relative group flex items-center">
                             <button 
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setViewMode('results');
-                                }} 
-                                onTouchEnd={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setViewMode('results');
-                                }}
-                                className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${viewMode === 'results' ? 'bg-slate-700 text-white shadow' : 'text-slate-400 hover:text-white'}`}>
-                                List View
+                                onClick={() => window.dispatchEvent(new Event('trigger-formal-tour'))}
+                                className="px-3 py-2 bg-transparent hover:bg-slate-800 border border-slate-700 text-slate-400 hover:text-white rounded-lg flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider transition-all shadow-sm"
+                            >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <circle cx="12" cy="12" r="9" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16.48 8.52l-2.072 6.215a1 1 0 01-.634.634l-6.215 2.072a1 1 0 01-1.268-1.268l2.072-6.215a1 1 0 01.634-.634l6.215-2.072a1 1 0 011.268 1.268z" />
+                                </svg>
+                                Tour
                             </button>
-                            <button 
-                                onClick={(e) => {
-                                    e.stopPropagation(); 
-                                    setViewMode('graph');
-                                }} 
-                                onTouchEnd={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setViewMode('graph');
-                                }}
-                                className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${viewMode === 'graph' ? 'bg-red-600 text-white shadow shadow-red-500/20' : 'text-slate-400 hover:text-white'}`}>
-                                3D Graph Analysis
-                            </button>
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1 text-[10px] font-mono tracking-wide bg-slate-800 border border-slate-700 text-slate-300 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none shadow-xl z-50">
+                                Feature Guide
+                            </div>
                         </div>
-                    )}
+
+                        {/* VIEW TOGGLE - Only show if UNSAT */}
+                        {(!isSat || hasRegression) && (
+                            <div className="bg-slate-900/80 p-1 rounded-lg border border-slate-600 flex gap-1">
+                                <button 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setViewMode('results');
+                                    }} 
+                                    onTouchEnd={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setViewMode('results');
+                                    }}
+                                    className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${viewMode === 'results' ? 'bg-slate-700 text-white shadow' : 'text-slate-400 hover:text-white'}`}>
+                                    List View
+                                </button>
+                                <button 
+                                    onClick={(e) => {
+                                        e.stopPropagation(); 
+                                        setViewMode('graph');
+                                    }} 
+                                    onTouchEnd={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setViewMode('graph');
+                                    }}
+                                    className={`tour-formal-graph px-4 py-1.5 text-sm font-bold rounded-md transition-all ${viewMode === 'graph' ? 'bg-red-600 text-white shadow shadow-red-500/20' : 'text-slate-400 hover:text-white'}`}>
+                                    3D Graph Analysis
+                                </button>
+                            </div>
+                        )}
+                        
+                    </div>
                 </div>
             </div>
 
@@ -237,7 +275,7 @@ const VerificationResultPage = () => {
                         
                         {/* Left Column: Logs */}
                         <div className="lg:col-span-1 flex flex-col gap-6">
-                             <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden flex flex-col h-[600px] shadow-xl">
+                             <div className="tour-formal-sidebar bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden flex flex-col h-[600px] shadow-xl">
                                 <div className="bg-slate-900/50 p-4 border-b border-slate-700">
                                     <h3 className="font-bold text-slate-300">Solver Logs</h3>
                                 </div>
@@ -252,7 +290,7 @@ const VerificationResultPage = () => {
                         </div>
 
                         {/* Right Column: Suggestions or Success */}
-                        <div className="lg:col-span-2">
+                        <div className="lg:col-span-2 tour-formal-violations">
                             {hasRegression ? (
                                 <div className="flex flex-col gap-6">
                                     <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-6 flex items-center gap-4">

@@ -62,17 +62,17 @@ const NotificationToast = ({ notification, onClose }: NotificationToastProps) =>
     };
 
     const getTitle = () => {
-        switch (notification.type) {
-            case 'error':
-                return 'Error';
-            case 'warning':
-                return 'Warning';
-            case 'success':
-                return 'Woohooooo! 🎉';
-            default:
-                return `Information`;
-        }
+    switch (notification.type) {
+        case 'error':
+            return 'Something went wrong!';
+        case 'warning':
+            return 'Heads up!';
+        case 'success':
+            return 'All set!'; 
+        default:
+            return 'Information:';
     }
+}
 
      const handleClose = () => {
         try {

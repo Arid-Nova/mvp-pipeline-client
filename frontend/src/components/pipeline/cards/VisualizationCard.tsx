@@ -9,24 +9,30 @@ interface VisualizationCardProps {
 export const VisualizationCard: React.FC<VisualizationCardProps> = ({ node }) => {
     const navigate = useNavigate();
 
+    const hasData = (node.data.timelineIRs && node.data.timelineIRs.length > 0) || 
+                    !!node.data.payload?.irJson || 
+                    !!node.data.systemInfo?.ir;
+
     const handleLaunch = () => {
+        const irArray = node.data.timelineIRs || [node.data.payload?.irJson || node.data.systemInfo?.ir];
         navigate('/graph-visualize', { 
             state: { 
-                irData: node.data.payload?.irJson, 
-                fromPipeline: true 
+                irData: irArray, 
+                fromPipeline: true,
+                overwriteTimeline: true 
             } 
         });
     };
 
     return (
         <button 
-            disabled={!node.data.payload?.irJson} 
+            disabled={!hasData}
             onClick={(e) => {
                 e.stopPropagation(); 
                 handleLaunch();
             }} 
             onTouchEnd={(e) => {
-                if (!node.data.payload?.irJson) return; 
+                if (!hasData) return;
                 e.preventDefault();
                 e.stopPropagation();
                 handleLaunch();
