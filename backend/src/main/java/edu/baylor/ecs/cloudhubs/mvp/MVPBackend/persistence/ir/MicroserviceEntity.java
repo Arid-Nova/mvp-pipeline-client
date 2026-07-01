@@ -18,12 +18,15 @@ public class MicroserviceEntity {
 
     private String name;
 
+    private String version;
+
     private byte[] payload;
 
     private Instant createdAt;
 
     public MicroserviceEntity(String name, byte[] payload) {
         this.name = name;
+        this.version = null;
         this.payload = payload;
         this.createdAt = Instant.now();
     }
