@@ -867,15 +867,45 @@ const PipelinePage: React.FC = () => {
         track(PipelineEvent.NODE_RUN_STARTED, { cardType: node.type });
 
         const updateStatus = (id: string, status: NodeData['status'], log: string, data?: any) => {
-            setNodes(prev => prev.map(n => n.id === id ? { 
-                ...n, 
-                status, 
-                logs: [...n.logs, log],
-                data: data ? { ...n.data, ...data } : n.data 
-            } : n));
+            setNodes(prev => prev.map(n => {
+                if (n.id === id) {
+                    const evaluatedData = typeof data === 'function' ? data(n.data) : data;
+                    return { 
+                        ...n, 
+                        status, 
+                        logs: [...n.logs, log],
+                        data: evaluatedData ? { ...n.data, ...evaluatedData } : n.data 
+                    };
+                }
+                return n;
+            }));
         };
 
         try {
+            if (node.type === 'VISUALIZATION') {
+                const upstreamEdges = connections.filter(c => c.target === nodeId);
+                let collectedIRs: any[] = [];
+                
+                upstreamEdges.forEach(edge => {
+                    const unode = nodes.find(n => n.id === edge.source);
+                    const ir = unode?.data?.payload?.irJson || unode?.data?.systemInfo?.ir;
+                    if (ir) {
+                        collectedIRs.push(JSON.parse(JSON.stringify(ir)));
+                    }
+                });
+
+                if (collectedIRs.length > 0) {
+                    updateStatus(nodeId, 'completed', `Stacked ${collectedIRs.length} system versions!`, {
+                        timelineIRs: collectedIRs,
+                        payload: { irJson: collectedIRs[collectedIRs.length - 1] }
+                    });
+                } else {
+                    updateStatus(nodeId, 'failed', 'No upstream IR data found.');
+                    runStatus = 'failed';
+                }
+                return; 
+            }
+
             // We need to provide the payload from the UPSTREAM node
             const upstreamConnection = connections.find(c => c.target === nodeId);
             const upstreamNode = nodes.find(n => n.id === upstreamConnection?.source);
@@ -1353,7 +1383,7 @@ const PipelinePage: React.FC = () => {
                     const actualIrJson = incomingIr || graphIrPayload?.irJson;
                     const actualSystemName = incomingSystemName || graphSystemPayload?.systemName;
 
-                    let finalIrJson = null;
+                    let finalIrJson: any = null;
                     let statusMessage = '';
 
                     if (actualIrJson) {
@@ -1384,7 +1414,13 @@ const PipelinePage: React.FC = () => {
                         irJson: finalIrJson
                     };
 
-                    updateStatus(targetNode.id, 'completed', statusMessage, { payload: vizPayload });
+                    updateStatus(targetNode.id, 'completed', statusMessage, (latestData: any) => {
+                        const existingArray = latestData?.timelineIRs || [];
+                        return {
+                            payload: vizPayload,
+                            timelineIRs: [...existingArray, JSON.parse(JSON.stringify(finalIrJson))]
+                        };
+                    });
 
                     // Old logic without historic data fetching.
                     // const irPayload = payload as PipelinePayload;

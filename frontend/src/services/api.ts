@@ -624,8 +624,17 @@ export const endUserSession = (sessionId: string) => {
     // Need to use raw fetch with `keepalive: true` here because
     // axios get cancelled by the browser when a tab closes.
     const baseUrl = process.env.REACT_APP_USER_SERVICE_URL || 'http://localhost:8100';
-    
-    fetch(`${baseUrl}/users/session/${sessionId}/end`, {
+    const url = `${baseUrl}/users/session/${sessionId}/end`;
+
+    // Trying to send the request using sendBeacon, so we skip the pre-flight request.
+    // This ensures the request is sent even after the page is closed.
+    if (navigator.sendBeacon) {
+        const success = navigator.sendBeacon(url);
+        if (success) return; 
+    }
+
+    // This is a fallback to using fetch with keepalive.
+    fetch(url, {
         method: 'POST',
         keepalive: true
     }).catch(console.error);

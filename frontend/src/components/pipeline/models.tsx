@@ -60,6 +60,7 @@ export interface NodeData {
             role: string; 
             priority: number 
         }[];
+        timelineIRs?: any[];
         componentPayload?: ComponentPayload;
         changeImpactPayload?: any;
         payload?: PipelinePayload; 

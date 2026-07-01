@@ -5,7 +5,7 @@ import Graph3D from "./Graph3D";
 type Props = {
     width: number;
     height: number;
-    search: string;
+    search: string[];
     threshold: number;
     graphRef: any;
     graphData: any;

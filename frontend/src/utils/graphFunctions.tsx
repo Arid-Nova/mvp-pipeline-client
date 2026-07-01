@@ -346,13 +346,13 @@ function resetView(graphRef: any, initCoords: any) {
 
 const getNodeOpacity = (
     node: any,
-    search: any,
+    search: string[],
     highlightNodes: Set<string>,
     focusNode: any
 ): number => {
     const FOCUS_ACTIVE_NOT_SELECTED = 0.05;
     // When the search is inactive.
-    if (search === "") {
+    if (!search || search.length === 0) {
         if (
             focusNode &&
             (focusNode.node === node.nodeName ||
@@ -375,7 +375,7 @@ const getNodeOpacity = (
             : 0.5;
     } 
     // When the search is active.
-    else if (node.nodeName.toLowerCase().includes(search.toLowerCase())) {
+    else if (search.some(term => node.nodeName.toLowerCase().includes(term.toLowerCase()))) {
         return 1.0;
     } else if (
         focusNode &&
@@ -395,7 +395,7 @@ const getNodeOpacity = (
 
 function getSpriteColor(
     node: any,
-    search: any,
+    search: string[],
     graphData: any,
     threshold: number,
     highlightNodes: any,
@@ -428,14 +428,14 @@ function getSpriteColor(
 
 function getLinkOpacity(
     link: any,
-    search: any,
+    search: string[],
     threed: any,
     focusNode: any
 ): number {
-    if (search && search !== "") {
+    if (search && search.length > 0) {
         if (
-            link.source.nodeName.toLowerCase().includes(search.toLowerCase()) ||
-            link.target.nodeName.toLowerCase().includes(search.toLowerCase())
+            search.some(term => link.source.nodeName.toLowerCase().includes(term.toLowerCase())) ||
+            search.some(term => link.target.nodeName.toLowerCase().includes(term.toLowerCase()))
         ) {
             if (threed) {
                 return 1.0;
@@ -467,7 +467,7 @@ function getLinkOpacity(
 
 function getLinkColor(
     link: any,
-    search: any,
+    search: string[],
     hoverNode: any,
     antiPattern: any,
     threed: any,
@@ -539,7 +539,7 @@ function getLinkColor(
 
 function linkColorAsSourceNodeColor(
     link: any,
-    search: any,
+    search: string[],
     threed: any,
     focusNode: any
 ) {
@@ -552,7 +552,7 @@ function linkColorAsSourceNodeColor(
 
 function getLinkWidth(
     link: any,
-    search: any,
+    search: string[],
     highlightLinks: Set<string>,
     antiPattern: boolean,
     selectedAntiPattern: string
