@@ -5,7 +5,7 @@ services:
     image: mariadb:latest
     container_name: cache_db
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-csi3335rocks}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: msGraph
     ports:
       - "3306:3306"
@@ -28,7 +28,7 @@ services:
       - "27017:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-root}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-local_mongo_root_password}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
     networks:
       - app_network
     volumes:
@@ -44,8 +44,8 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:mariadb://cache_db:3306/msGraph
       SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-csi3335rocks}
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-local_internal_service_key}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
     depends_on:
       mariadb:
         condition: service_healthy
@@ -108,7 +108,7 @@ services:
       - "9000:9000"
     environment:
       PYTHONUNBUFFERED: 1
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-local_internal_service_key}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
     networks:
       - app_network
     volumes:
@@ -136,7 +136,7 @@ services:
       - MONGO_URI=mongodb://cloudhub_mongo:27017
       - MONGO_DB=aegis
       - MONGO_USER=${MONGO_ROOT_USERNAME:-root}
-      - MONGO_PASSWORD=${MONGO_ROOT_PASSWORD:-local_mongo_root_password}
+      - MONGO_PASSWORD=${MONGO_ROOT_PASSWORD}
     networks:
       - app_network
     restart: always
@@ -152,7 +152,7 @@ services:
       - MONGO_URI=mongodb://cloudhub_mongo:27017
       - MONGO_DB=aegis
       - MONGO_USER=${MONGO_ROOT_USERNAME:-root}
-      - MONGO_PASSWORD=${MONGO_ROOT_PASSWORD:-local_mongo_root_password}
+      - MONGO_PASSWORD=${MONGO_ROOT_PASSWORD}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
       - LLM_TEMPERATURE=0.1
@@ -220,7 +220,7 @@ services:
       - "8900:8900"
     environment:
       PYTHONUNBUFFERED: 1
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-local_internal_service_key}
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
       IR_SERVICE_URL: http://cloudhub_backend:8080/ir/create
     depends_on:
       aegis_neo4j:
@@ -262,10 +262,10 @@ services:
       - MONGO_URI=mongodb://cloudhub_mongo:27017
       - MONGO_DB=aridnova_system
       - MONGO_USER=${MONGO_ROOT_USERNAME:-root}
-      - MONGO_PASSWORD=${MONGO_ROOT_PASSWORD:-local_mongo_root_password}
+      - MONGO_PASSWORD=${MONGO_ROOT_PASSWORD}
       - GITHUB_API_VERSION=2026-03-10
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-local_encryption_key_32_chars_min}
-      - INTERNAL_SERVICE_KEY=${INTERNAL_SERVICE_KEY:-local_internal_service_key}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - INTERNAL_SERVICE_KEY=${INTERNAL_SERVICE_KEY}
     networks:
       - app_network
     restart: always
