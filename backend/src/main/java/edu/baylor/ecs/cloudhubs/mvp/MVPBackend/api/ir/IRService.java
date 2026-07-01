@@ -46,6 +46,9 @@ public class IRService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    /** This method is used to either retrieve an already 
+     * existing IR by it's ID or create a new one. 
+     * By default, any new IR created will have a null version. */
     public byte[] createAndWrite(IRRequestModel irRequestModel)
             throws Exception {
         // Pre-checking if the IR already exists
@@ -65,6 +68,12 @@ public class IRService {
         return saveIR(microserviceSystem.getName(),rootNode);
     }
 
+    /** This method is used to retrieve metadata for an IR by its name.
+     * However, since the corresponding endpoint is used to check for IR history,
+     * this will only look for IRs with version numbers.
+     * IRs without version numbers are considered "drafts"
+     * and will not be returned in this check.
+     */
     public String getIRMetaByName(IRByNameRequest irRequestModel) 
             throws IllegalArgumentException {
 
@@ -75,10 +84,14 @@ public class IRService {
 
         // 2. Searching based on generic pattern
         if (getIRMetaByName(flexiblePattern)) 
-            return "We found IRs for this system!";
+            return "We found versioned IRs for this system!";
         throw new IllegalArgumentException("No microservice system found with name pattern: " + irRequestModel.getSystemName());
     }
 
+    /** This method is used to retrieve the actual IRs by its name.
+     * Consistent with the metadata retrieval, this will only return IRs with version numbers.
+     * IRs without version numbers are considered "drafts".
+     */
     public byte[] getIRsByName(IRByNameRequest irRequestModel) 
             throws IllegalArgumentException, IOException {
 
@@ -86,7 +99,7 @@ public class IRService {
         String flexiblePattern = buildFlexibleRegex(irRequestModel.getSystemName());
 
         // 2. Searching based on generic pattern
-        return getIRsByName(flexiblePattern);
+        return getIRsByName(flexiblePattern, irRequestModel.getLimit());
     }
 
     private String buildFlexibleRegex(String input) {
@@ -284,10 +297,15 @@ public class IRService {
         }
     }
 
-    private byte[] getIRsByName(String namePattern) throws IOException {
-        Pageable topFourLatest = PageRequest.of(0, 4, 
-            Sort.by(Sort.Direction.DESC, "createdAt"));
-        List<MicroserviceEntity> entities = repository.findByPayloadNameMatching(namePattern, topFourLatest);
+    private byte[] getIRsByName(String namePattern, int limit) throws IOException {
+        // Pageable topFourLatest = PageRequest.of(0, 4, 
+        //     Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        // Sorts from the most recent version to the oldest version.
+        Pageable topFewLatest = PageRequest.of(0, limit, 
+            Sort.by(Sort.Direction.DESC, "version"));
+
+        List<MicroserviceEntity> entities = repository.findByPayloadNameMatching(namePattern, topFewLatest);
     
         if (entities.isEmpty()) {
             throw new IllegalArgumentException("No systems found with name!");
@@ -295,7 +313,7 @@ public class IRService {
 
         // Reversing the order so that when we visualize in the timeline,
         // it will be from latest to oldest.
-        Collections.reverse(entities);
+        // Collections.reverse(entities);
         
         ArrayNode resultArray = objectMapper.createArrayNode();
         
