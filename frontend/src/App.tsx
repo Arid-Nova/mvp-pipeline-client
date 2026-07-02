@@ -191,40 +191,41 @@ function App(data: any) {
 
     // Handlers
     // Load the historical IRs
-    const handleLoadHistory = async () => {
+    const handleLoadHistory = async (limit: number = 4) => {
         try {
             setHistoryPrompt(prev => ({ ...prev, show: false })); 
             
             // Fetching historical IRs
-            const historyData = await fetchHistoricalIRs(historyPrompt.systemName);
+            const historyData = await fetchHistoricalIRs(historyPrompt.systemName, { limit });
             
             setGraphTimeline(prevTimeline => {
                 const currentTimeline = prevTimeline || [];
                 
                 // Creating a Set of existing commitIDs to prevent duplicates
-                const existingIds = new Set(currentTimeline.map(item => item.commitID)); 
+                //const existingIds = new Set(currentTimeline.map(item => item.commitID)); 
                 
                 // Cleaning and filtering historical items
-                const newHistoricalItems = historyData.filter(ir => {
-                    if (!ir.commitID) {
-                        ir.commitID = "unknown-" + Math.random(); 
-                    }
-                    return !existingIds.has(ir.commitID);
-                });
+                // const newHistoricalItems = historyData.filter(ir => {
+                //     if (!ir.commitID) {
+                //         ir.commitID = "unknown-" + Math.random(); 
+                //     }
+                //     return !existingIds.has(ir.commitID);
+                // });
 
-                return [...newHistoricalItems, ...currentTimeline];
+                return [...currentTimeline, ...historyData];
             });
 
-            setCurrentInstance(prevIndex => {
-                if (typeof prevIndex === 'number') {
-                    const currentTimeline = graphTimeline || [];
-                    const existingIds = new Set(currentTimeline.map(item => item.commitID));
-                    const addedCount = historyData.filter(ir => !existingIds.has(ir.commitID)).length;
+            // setCurrentInstance(prevIndex => {
+            //     if (typeof prevIndex === 'number') {
+            //         const currentTimeline = graphTimeline || [];
+            //         const existingIds = new Set(currentTimeline.map(item => item.commitID));
+            //         const addedCount = historyData.filter(ir => !existingIds.has(ir.commitID)).length;
                     
-                    return prevIndex + addedCount;
-                }
-                return prevIndex;
-            });
+            //         return prevIndex + addedCount;
+            //     }
+            //     return prevIndex;
+            // });
+            setCurrentInstance(0);
             
             showSuccess(`Successfully loaded ${historyData.length} historical records!`);
 
@@ -636,7 +637,7 @@ function App(data: any) {
                 show={historyPrompt.show}
                 systemName={historyPrompt.systemName}
                 onDismiss={() => setHistoryPrompt({ show: false, systemName: '' })}
-                onLoad={handleLoadHistory}
+                onLoad={(limit) => handleLoadHistory(limit)}
             />
 
             <ArchitectureTrendDashboard 

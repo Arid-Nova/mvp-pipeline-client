@@ -63,10 +63,10 @@ export const checkHistoricalIRs = async (systemName: string, options?: { signal?
     }
 };
 
-export const fetchHistoricalIRs = async (systemName: string, options?: { signal?: AbortSignal }): Promise<any[]> => {
+export const fetchHistoricalIRs = async (systemName: string, options?: { signal?: AbortSignal; limit?: number }): Promise<any[]> => {
     try {
         const response = await axios.get('/ir', { 
-            params: { systemName },
+            params: { systemName, limit: options?.limit },
             responseType: 'blob',
             signal: options?.signal
         });

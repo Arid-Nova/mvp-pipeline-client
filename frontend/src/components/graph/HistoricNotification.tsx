@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 interface HistoryNotificationProps {
     show: boolean;
     systemName: string;
     onDismiss: () => void;
-    onLoad: () => void;
+    onLoad: (limit: number) => void;
 }
 
 const HistoryNotification: React.FC<HistoryNotificationProps> = ({ 
@@ -13,6 +13,8 @@ const HistoryNotification: React.FC<HistoryNotificationProps> = ({
     onDismiss, 
     onLoad 
 }) => {
+    const [limit, setLimit] = useState(4);
+    
     if (!show) return null;
 
     return (
@@ -27,33 +29,47 @@ const HistoryNotification: React.FC<HistoryNotificationProps> = ({
                     <div>
                         <h4 className="text-sm font-bold text-slate-200">Historical Data Found</h4>
                         <p className="text-xs text-slate-400 mt-1">
-                            We found previous IR snapshots for <strong className="text-teal-400">{systemName}</strong> in the database. Would you like to load them into the timeline?
+                            We found previous IR snapshots for <strong className="text-teal-400">{systemName}</strong> in the database. How many do you like to load into the timeline?
                         </p>
                     </div>
                 </div>
-                <div className="flex gap-2 justify-end mt-1 text-xs font-medium">
-                    <button 
-                        onClick={onDismiss}
-                        onTouchEnd={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            onDismiss();
-                        }}
-                        className="px-3 py-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded transition-colors"
-                    >
-                        Dismiss
-                    </button>
-                    <button 
-                        onClick={onLoad}
-                        onTouchEnd={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            onLoad();
-                        }}
-                        className="px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white rounded transition-colors shadow-lg shadow-teal-900/50"
-                    >
-                        Load History
-                    </button>
+
+                <div className="flex justify-end items-center mt-1 text-xs font-medium">
+                    {/* Action Buttons */}
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={onDismiss}
+                            onTouchEnd={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onDismiss();
+                            }}
+                            className="px-3 py-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded transition-colors"
+                        >
+                            Dismiss
+                        </button>
+                        <select 
+                            id="history-limit"
+                            value={limit}
+                            onChange={(e) => setLimit(parseInt(e.target.value))}
+                            className="bg-slate-800 border border-slate-600 text-teal-400 text-xs rounded px-2 py-1.5 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 cursor-pointer transition-colors shadow-sm"
+                        >
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
+                                <option key={num} value={num}>{num} {num === 1 ? 'version' : 'versions'}</option>
+                            ))}
+                        </select>
+                        <button 
+                            onClick={() => onLoad(limit)}
+                            onTouchEnd={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onLoad(limit);
+                            }}
+                            className="px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white rounded transition-colors shadow-lg shadow-teal-900/50"
+                        >
+                            Load History
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
