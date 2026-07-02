@@ -82,6 +82,43 @@ export const fetchHistoricalIRs = async (systemName: string, options?: { signal?
     }
 };
 
+export const fetchIRVersions = async (systemName: string, options?: { signal?: AbortSignal }): Promise<any[]> => {
+    try {
+        const response = await axios.get(`/ir/versions`, { 
+            params: { systemName }, 
+            signal: options?.signal
+        });
+        return response.data;
+    } catch (error: any) {
+        if (axios.isCancel(error)) {
+            console.log("Historical IR fetch canceled by user.");
+            throw new Error("AbortError");
+        }
+        console.error("Failed to fetch versions", error);
+        showError("Failed to load historical timeline data.");
+        throw error;
+    }
+};
+
+export const fetchSpecificIRs = async (selectedIds: string[], options?: { signal?: AbortSignal }): Promise<any[]> => {
+    try {
+        const response = await axios.post(`/ir/versions`, selectedIds, {
+            responseType: 'blob',
+            signal: options?.signal
+        });
+        
+        return await decompressGzipResponse(response.data);
+    } catch (error: any) {
+        if (axios.isCancel(error)) {
+            console.log("Specific IR fetch canceled by user.");
+            throw new Error("AbortError");
+        }
+        console.error("Failed to fetch specific IRs:", error);
+        showError("Failed to load selected pipeline versions.");
+        throw error;
+    }
+};
+
 // Change impact analysis function
 export const fetchChangeImpact = async (deltaInput: any, options?: { signal?: AbortSignal }) => {
     try {

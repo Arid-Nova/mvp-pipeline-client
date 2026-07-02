@@ -8,7 +8,8 @@ import getData from "./parsers/getData";
 import { setupAxios, setupLogger } from "./utils/axiosSetup";
 
 import { checkHistoricalIRs, fetchHistoricalIRs,
-    startUserSession, endUserSession, checkEndedSessionsExists } from './services/api';
+    startUserSession, endUserSession, checkEndedSessionsExists, 
+    fetchSpecificIRs } from './services/api';
 import { setBackendSession, clearBackendSession, trackPageview } from './analytics/posthog';
 
 import NotificationToast from "./components/generic/NotificationToast";
@@ -36,6 +37,7 @@ import NewPage from "./utils/node.js";
 import { polyfill } from "mobile-drag-drop";
 import { TimelineDeltaImpactCard } from "./components/graph/TimelineDeltaImpactCard";
 import { ArchitectureTrendDashboard } from "./components/graph/ArchitectureTrendDasboard";
+import VersionSelectorModal from "./components/graph/VersionSelectorModal";
 
 setupLogger();
 setupAxios();
@@ -91,6 +93,7 @@ function App(data: any) {
     const [notification, setNotification] = useState<Notification | null>(null);
 
     // Historic IR state
+    const [isVersionModalOpen, setIsVersionModalOpen] = useState(false);
     const [historyPrompt, setHistoryPrompt] = useState<{ show: boolean, systemName: string }>({ show: false, systemName: '' });
 
     // Change tracking across graph versions
@@ -189,6 +192,13 @@ function App(data: any) {
         }
     }, [graphData, currentInstance, graphTimeline]);
 
+    // Foregrond historical IR loading handler
+    useEffect(() => {
+        const handleOpenVersionModal = () => setIsVersionModalOpen(true);
+        window.addEventListener('trigger-version-modal', handleOpenVersionModal);
+        return () => window.removeEventListener('trigger-version-modal', handleOpenVersionModal);
+    }, []);
+
     // Handlers
     // Load the historical IRs
     const handleLoadHistory = async (limit: number = 4) => {
@@ -232,6 +242,37 @@ function App(data: any) {
         } catch (error) {
             console.error(error);
             showError(`Error occurred while loading historical records!`);
+        }
+    };
+
+    const handleLoadSpecificVersions = async (selectedIds: string[]) => {
+        setIsVersionModalOpen(false); // Close the modal immediately
+        
+        try {
+            // NOTE: You will need to create this axios call in your api.ts
+            // It should POST to /ir/fetch-specific with the IDs and expect a 'blob' response
+            const newIRs = await fetchSpecificIRs(selectedIds);
+            
+            setGraphTimeline(prevTimeline => {
+                const currentTimeline = prevTimeline || [];
+                // Create a set of existing commits/versions to prevent duplicates
+                const existingIds = new Set(currentTimeline.map(item => item.commitID)); 
+                
+                const newHistoricalItems = newIRs.filter(ir => {
+                    if (!ir.commitID) ir.commitID = "unknown-" + Math.random(); 
+                    return !existingIds.has(ir.commitID);
+                });
+
+                return [...currentTimeline, ...newHistoricalItems];
+            });
+
+            // Reset to the newly loaded item (or keep existing logic)
+            setCurrentInstance(0);
+            showSuccess(`Successfully loaded ${selectedIds.length} specific versions!`);
+
+        } catch (error) {
+            console.error(error);
+            showError(`Error occurred while loading specific versions!`);
         }
     };
 
@@ -463,7 +504,7 @@ function App(data: any) {
                     selectedAntiPattern={selectedAntiPattern}
                     setSelectedAntiPattern={setSelectedAntiPattern}
                     graphData={graphData}
-                    currentInstance={currentInstance}
+                    currentInstance={currentInstance ?? 0}
                     graphTimeline={graphTimeline}
                 />
                 
@@ -477,36 +518,20 @@ function App(data: any) {
                 />
 
                 {/* 3. Helper Components */}
-                {/* Removed inline IRFileUpload here, as we have a landing page now */}
                 <Instructions />
-            
-                {/* 4. Graph Controls (Top Right) */}
-                <GraphMode
-                    value={value}
-                    setValue={setValue}
-                    antiPattern={antiPattern}
-                    setAntiPattern={setAntiPattern}
-                    selectedAntiPattern={selectedAntiPattern}
-                    setSelectedAntiPattern={setSelectedAntiPattern}
-                    graphData={graphData}
-                    currentInstance={currentInstance ?? 0}
-                    graphTimeline={graphTimeline}
-                />
 
-                <FilterBox
-                    key={`${currentInstance}-${trackChanges}`}
-                    graphData={graphData} 
-                    currentInstance={currentInstance}
-                    graphTimeline={graphTimeline}
-                    trackChanges={trackChanges}
-                ></FilterBox>
+                {/* Modal for manual version selection */}
+                <VersionSelectorModal 
+                    isOpen={isVersionModalOpen}
+                    systemName={graphData?.name || historyPrompt.systemName}
+                    onClose={() => setIsVersionModalOpen(false)}
+                    onLoadSpecificVersions={handleLoadSpecificVersions}
+                />
 
                 <IRFileUpload 
                     onFileSelect={onFileUpload} 
                     onReset={handleResetTimeline}
                 />
-
-                <Instructions />
 
                 <GraphMenu
                     graphRef={graphRef}
@@ -536,7 +561,7 @@ function App(data: any) {
                     setIsHighLevelExpanded={setIsHighLevelExpanded}
                 />
                 
-                {/* 5. The Main Graph Canvas */}
+                {/* 4. The Main Graph Canvas */}
                 <GraphWrapper
                     height={ref?.current?.clientHeight ?? 735}
                     width={ref?.current?.clientWidth ?? 1710}
@@ -563,7 +588,7 @@ function App(data: any) {
                     isHighLevelExpanded={isHighLevelExpanded}
                 />
             
-                {/* 6. Context Menus & Info Boxes */}
+                {/* 5. Context Menus & Info Boxes */}
                 <Menu trackNodes={trackNodes} setTrackNodes={setTrackNodes} />
                 <InfoBox
                     graphData={graphData}
@@ -571,7 +596,7 @@ function App(data: any) {
                     setFocusNode={setFocusNode}
                 />
 
-                {/* 7. Bottom Timeline Controls */}
+                {/* 6. Bottom Timeline Controls */}
                 <div className="flex flex-row items-center justify-center w-full">
                     {graphTimeline.length > 0 && 
                      typeof currentInstance === 'number' && 
