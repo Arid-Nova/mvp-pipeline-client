@@ -494,6 +494,16 @@ function App(data: any) {
         <div className={`max-w-full min-h-screen max-h-screen overflow-clip ${isDark ? `bg-gray-900` : `bg-gray-100`}`} ref={ref}>
             <GraphTour run={isVizTourRunning} onFinish={() => setIsVizTourRunning(false)} />
 
+            <button
+                onClick={() => navigate('/pipeline')}
+                className="absolute top-4 left-4 z-[60] flex items-center justify-start gap-3 px-4 py-2.5 bg-slate-900/80 backdrop-blur-md text-slate-300 hover:text-teal-400 rounded-lg transition-all shadow-lg text-sm font-medium tracking-wide group w-[260px] border-none outline-none"
+            >
+                <svg className="w-4 h-4 group-hover:-translate-x-1 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Back to Pipeline
+            </button>
+
             <ErrorBoundary setNotification={setNotification}>
                 {/* 1. Mode Toggle (Top Left) */}
                 <GraphMode
@@ -518,7 +528,7 @@ function App(data: any) {
                 />
 
                 {/* 3. Helper Components */}
-                <Instructions />
+                <Instructions systemName={graphData?.name || historyPrompt.systemName}/>
 
                 {/* Modal for manual version selection */}
                 <VersionSelectorModal 

@@ -29,7 +29,7 @@ const HistoryNotification: React.FC<HistoryNotificationProps> = ({
                     <div>
                         <h4 className="text-sm font-bold text-slate-200">Historical Data Found</h4>
                         <p className="text-xs text-slate-400 mt-1">
-                            We found previous IR snapshots for <strong className="text-teal-400">{systemName}</strong> in the database. How many do you like to load into the timeline?
+                            We found previously saved system snapshots for <strong className="text-teal-400">{systemName}</strong>. Do you like to load them into the timeline?
                         </p>
                     </div>
                 </div>

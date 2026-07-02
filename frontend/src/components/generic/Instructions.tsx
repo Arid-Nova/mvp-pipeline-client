@@ -1,14 +1,28 @@
 import React, { useState } from "react";
 
+interface InstructionsProps {
+    systemName?: string;
+}
+
 /**
  * An info icon that expands on hover to show graph instructions.
  */
-const Instructions: React.FC = () => {
+const Instructions: React.FC<InstructionsProps> = ({ systemName }) => {
   const [isHovered, setIsHovered] = useState(false);
 
   return (
     <div className="absolute top-4 right-4 z-50 flex flex-row items-start gap-3">
-      
+
+      { /* 0. System name */}
+      {systemName && (
+          <div className="flex items-center px-4 h-10 bg-slate-900/80 backdrop-blur-md border border-slate-700 text-slate-200 text-sm font-mono tracking-wide rounded-full shadow-lg">
+              <span className="w-2 h-2 rounded-full bg-teal-500 mr-2.5 shadow-[0_0_8px_rgba(20,184,166,0.8)]"></span>
+              <span className="truncate max-w-[200px]" title={systemName}>
+                  {systemName}
+              </span>
+          </div>
+      )}
+
       {/* 1. VERSIONS MODAL BUTTON */}
       <div className="relative group">
           <button 
