@@ -875,7 +875,7 @@ const PipelinePage: React.FC = () => {
                 });
 
                 if (collectedIRs.length > 0) {
-                    updateStatus(nodeId, 'completed', `Stacked ${collectedIRs.length} system versions!`, {
+                    updateStatus(nodeId, 'completed', `Stacked ${collectedIRs.length} snapshots!`, {
                         timelineIRs: collectedIRs,
                         payload: { irJson: collectedIRs[collectedIRs.length - 1] }
                     });

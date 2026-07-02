@@ -278,7 +278,7 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
                             )}
 
                             {latest?.dependenciesUnavailable && (
-                                <span className="text-xs uppercase font-semibold text-rose-400 flex items-center gap-1.5 bg-rose-400/10 px-2 py-0.5 rounded border border-rose-400/20" title="Explicit inter-service dependencies could not be parsed from this version.">
+                                <span className="text-xs uppercase font-semibold text-rose-400 flex items-center gap-1.5 bg-rose-400/10 px-2 py-0.5 rounded border border-rose-400/20" title="Explicit inter-service dependencies could not be parsed from this snapshot.">
                                     <Icons.Alert className="w-3.5 h-3.5" /> Dependency Data Unavailable
                                 </span>
                             )}
@@ -403,7 +403,7 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
                                 tooltip={
                                     <div className="flex flex-col gap-1.5">
                                         <span className="text-slate-200 font-semibold mb-1">Timeline Risk Drift</span>
-                                        <span>Tracks the compound risk index across pipeline versions.</span>
+                                        <span>Tracks the compound risk index across system snapshots.</span>
                                         <div className="mt-1 flex flex-col gap-1 border-t border-slate-600 pt-1.5">
                                             <span className="text-emerald-400">↘ Down: Decoupling success</span>
                                             <span className="text-rose-400">↗ Up: Accumulating technical debt</span>
@@ -428,7 +428,7 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
                                 tooltip={
                                     <div className="flex flex-col gap-1.5">
                                         <span className="text-slate-200 font-semibold mb-1">Blast Radius Tracking</span>
-                                        <span>Counts the number of services structurally disturbed in each version jump.</span>
+                                        <span>Counts the number of services structurally disturbed in each snapshot jump.</span>
                                         <span className="text-sky-300 mt-1">High spikes represent massive cross-cutting architectural changes.</span>
                                     </div>
                                 }
@@ -441,7 +441,7 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
                                 tooltip={
                                     <div className="flex flex-col gap-1.5">
                                         <span className="text-slate-200 font-semibold mb-1">Raw File Modifications</span>
-                                        <span>The total sum of files added, deleted, or modified between versions.</span>
+                                        <span>The total sum of files added, deleted, or modified between snapshots.</span>
                                         <span className="text-sky-300 mt-1">Correlate this with Impact Velocity to see if small code changes cause disproportionately large architectural ripples.</span>
                                     </div>
                                 }
@@ -537,7 +537,7 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
                                     tooltip={
                                         <div className="flex flex-col gap-1.5">
                                             <span className="text-slate-200 font-semibold mb-1">Historical Ledger</span>
-                                            <span>A raw breakdown of calculated impact telemetry for every version jump.</span>
+                                            <span>A raw breakdown of calculated impact telemetry for every snapshot jump.</span>
                                             <span className="text-sky-300 bg-sky-400/10 p-1.5 rounded mt-1 border border-sky-400/20">
                                                 Use this tabular data to identify exact commits where coupling spiked or the blast radius expanded dangerously.
                                             </span>
@@ -548,7 +548,7 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
                                         <table className="w-full text-left text-sm text-slate-300">
                                             <thead className="sticky top-0 bg-slate-800 shadow-sm z-10">
                                                 <tr className="text-slate-400 border-b border-slate-700">
-                                                    <th className="py-3 px-3 font-semibold rounded-tl-lg">Version</th>
+                                                    <th className="py-3 px-3 font-semibold rounded-tl-lg">Snapshot</th>
                                                     <th className="py-3 px-3 font-semibold">Affected Nodes</th>
                                                     <th className="py-3 px-3 font-semibold">Risk Factor</th>
                                                     <th className="py-3 px-3 font-semibold rounded-tr-lg">Coupling</th>

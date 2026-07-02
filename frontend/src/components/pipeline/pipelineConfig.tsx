@@ -153,7 +153,7 @@ export const CARD_CONFIG: Record<CardType, { title: string; color: string; icon:
     CHANGE_IMPACT: {
         title: "Change Impact",
         color: "border-orange-500 bg-orange-900/20",
-        description: "Extract the changes betwen versions",
+        description: "Extract the changes betwen snapshots",
         icon: 
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <circle cx="12" cy="12" r="2" fill="currentColor" />

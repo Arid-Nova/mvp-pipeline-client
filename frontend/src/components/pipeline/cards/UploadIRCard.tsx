@@ -131,7 +131,7 @@ export const UploadIRCard: React.FC<UploadIRCardProps> = ({ node, updateNodeData
                                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                 </svg>
-                                Search Saved Versions 
+                                Search Saved Snapshots 
                             </button>
                         </div>
                     ) : (
@@ -181,7 +181,7 @@ export const UploadIRCard: React.FC<UploadIRCardProps> = ({ node, updateNodeData
                                     ))
                                 ) : (
                                     <div className="text-[10px] text-slate-600 text-center py-4 italic">
-                                        No versions found.
+                                        No Snapshots found.
                                     </div>
                                 )}
                             </div>

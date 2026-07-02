@@ -18,7 +18,7 @@ const VersionSelectorModal: React.FC<VersionSelectorModalProps> = ({ isOpen, sys
             setIsLoading(true);
             fetchIRVersions(systemName)
                 .then(res => setVersions(res))
-                .catch(err => console.error("Failed to fetch versions!"))
+                .catch(err => console.error("Failed to fetch snapshots!"))
                 .finally(() => setIsLoading(false));
         } else {
             setVersions([]);
@@ -40,15 +40,15 @@ const VersionSelectorModal: React.FC<VersionSelectorModalProps> = ({ isOpen, sys
             <div className="bg-slate-900 border border-teal-500/50 shadow-[0_0_25px_rgba(20,184,166,0.15)] rounded-xl p-6 flex flex-col gap-4 w-full max-w-md">
                 
                 <h3 className="text-lg font-bold text-slate-200 border-b border-slate-700/50 pb-2">
-                    Select Versions for <span className="text-teal-400">{systemName}</span>
+                    Select Snapshots for <span className="text-teal-400">{systemName}</span>
                 </h3>
 
                 {isLoading ? (
-                    <div className="text-slate-400 text-sm py-4 text-center">Loading versions...</div>
+                    <div className="text-slate-400 text-sm py-4 text-center">Loading snapshots...</div>
                 ) : (
                     <div className="flex flex-col gap-2 max-h-64 overflow-y-auto custom-scrollbar pr-2">
                         {versions.length === 0 ? (
-                            <div className="text-slate-500 text-sm italic text-center">No versions found.</div>
+                            <div className="text-slate-500 text-sm italic text-center">No snapshots found.</div>
                         ) : (
                             versions.map(v => (
                                 <label key={v.id} className="flex items-center justify-between p-2 hover:bg-slate-800/50 rounded cursor-pointer transition-colors border border-transparent hover:border-slate-700/50">
@@ -59,7 +59,7 @@ const VersionSelectorModal: React.FC<VersionSelectorModalProps> = ({ isOpen, sys
                                             onChange={() => toggleSelection(v.id)}
                                             className="w-4 h-4 accent-teal-500 cursor-pointer bg-slate-800 border-slate-600 rounded"
                                         />
-                                        <span className="text-slate-300 font-mono text-sm">Version {v.version}</span>
+                                        <span className="text-slate-300 font-mono text-sm">Snapshot {v.version}</span>
                                     </div>
                                     
                                     {v.createdAt && (

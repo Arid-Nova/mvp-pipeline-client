@@ -114,7 +114,7 @@ export const fetchSpecificIRs = async (selectedIds: string[], options?: { signal
             throw new Error("AbortError");
         }
         console.error("Failed to fetch specific IRs:", error);
-        showError("Failed to load selected pipeline versions.");
+        showError("Failed to load selected snapshots.");
         throw error;
     }
 };

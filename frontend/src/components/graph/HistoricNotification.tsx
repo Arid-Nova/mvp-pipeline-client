@@ -55,7 +55,7 @@ const HistoryNotification: React.FC<HistoryNotificationProps> = ({
                             className="bg-slate-800 border border-slate-600 text-teal-400 text-xs rounded px-2 py-1.5 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 cursor-pointer transition-colors shadow-sm"
                         >
                             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
-                                <option key={num} value={num}>{num} {num === 1 ? 'version' : 'versions'}</option>
+                                <option key={num} value={num}>{num} {num === 1 ? 'snapshot' : 'snapshots'}</option>
                             ))}
                         </select>
                         <button 

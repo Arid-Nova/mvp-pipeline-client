@@ -36,7 +36,7 @@ export const GraphTour: React.FC<GraphTourProps> = ({ run, onFinish }) => {
                         
                         <ul className="list-disc pl-4 space-y-1.5 marker:text-slate-500">
                             <li><strong className="text-slate-300 font-semibold">Change theme:</strong> switch between light and dark modes.</li>
-                            <li><strong className="text-slate-300 font-semibold">Highlight changes:</strong> view differences between current and previous architecture versions.</li>
+                            <li><strong className="text-slate-300 font-semibold">Highlight changes:</strong> view differences between current and previous architecture snapshots.</li>
                             <li><strong className="text-slate-300 font-semibold">Highlight anti-patterns:</strong> toggle highlights of structural vulnerabilities.</li>
                             <li><strong className="text-slate-300 font-semibold">Adjust detail:</strong> show or hide specific types of information (show all entities or show all underlying dependencies).</li>
                             <li><strong className="text-slate-300 font-semibold">Search:</strong> find specific services or endpoints.</li>

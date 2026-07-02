@@ -123,7 +123,7 @@ export const TimelineDeltaImpactCard: React.FC<TimelineDeltaImpactCardProps> = (
                 if (isStale) return;
                 console.error("Failed to fetch change impact", err);
                 if (err.name !== "AbortError") {
-                    setError("Failed to calculate architectural impact between these versions.");
+                    setError("Failed to calculate architectural impact between these snapshots.");
                 }
             } finally {
                 if (!isStale) {
@@ -235,8 +235,8 @@ export const TimelineDeltaImpactCard: React.FC<TimelineDeltaImpactCardProps> = (
 
     if (!graphTimeline || graphTimeline.length === 0) return null;
 
-    const versionLabel = `Version ${currentInstance + 1}`;
-    const previousLabel = currentInstance > 0 ? `Version ${currentInstance}` : null;
+    const versionLabel = `Snapshot ${currentInstance + 1}`;
+    const previousLabel = currentInstance > 0 ? `Snapshot ${currentInstance}` : null;
 
     return (
         <div className={`fixed right-6 z-40 w-96 sm:w-[500px] font-sans select-none pointer-events-auto transition-all duration-500 ease-in-out ${isHistoryVisible ? 'bottom-48' : 'bottom-6'}`}>
@@ -263,7 +263,7 @@ export const TimelineDeltaImpactCard: React.FC<TimelineDeltaImpactCardProps> = (
                     <div className="space-y-3 animate-fadeIn">
                         {!prevIR ? (
                             <div className="text-[12px] text-center text-emerald-400 font-medium bg-emerald-500/10 rounded-lg py-4 border border-emerald-500/20">
-                                Initial Version Established. <br/> Drag the slider to compare versions.
+                                Initial Snapshot Established. <br/> Drag the slider to compare snapshots.
                             </div>
                         ) : isLoading ? (
                             <div className="flex justify-center items-center py-6 text-sky-400 text-sm animate-pulse">

@@ -391,7 +391,7 @@ function App(data: any) {
             if (processedData) {
                 setGraphData(processedData);
                 setCurrentInstance(overwrite ? 0 : (prev: any) => (prev !== undefined ? prev + processedArray.length : 0));
-                showSuccess(`Loaded ${processedArray.length} pipeline versions!`);
+                showSuccess(`Loaded ${processedArray.length} snapshots!`);
                 navigate('/graph-visualize', { replace: true, state: {} });
             }
         } catch (error: any) {
