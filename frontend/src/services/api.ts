@@ -119,6 +119,22 @@ export const fetchSpecificIRs = async (selectedIds: string[], options?: { signal
     }
 };
 
+export const deleteIR = async (ir_id: string, options?: { signal?: AbortSignal }): Promise<void> => {
+    try {
+        await axios.delete(`/ir/${ir_id}`, {
+            signal: options?.signal
+        });
+    } catch (error: any) {
+        if (axios.isCancel(error)) {
+            console.log("Delete IR canceled by user.");
+            throw new Error("AbortError");
+        }
+        
+        showError("Failed to delete the selected snapshot.");
+        throw error;
+    }
+};
+
 // Change impact analysis function
 export const fetchChangeImpact = async (deltaInput: any, options?: { signal?: AbortSignal }) => {
     try {

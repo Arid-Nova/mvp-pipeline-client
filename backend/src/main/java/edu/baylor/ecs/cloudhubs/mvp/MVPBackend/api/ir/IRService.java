@@ -161,6 +161,17 @@ public class IRService {
         return baos.toByteArray();
     }
 
+    /** Deletes a microservice system snapshot by its ID.
+     * @param id The ID of the snapshot to delete.
+     * @throws IllegalArgumentException if no snapshot is found with the given ID.
+     */
+    public void deleteIRById(String id) throws IllegalArgumentException {
+        if (!repository.existsById(id)) {
+            throw new IllegalArgumentException("No microservice system snapshot found with ID: " + id);
+        }
+        repository.deleteById(id);
+    }
+
     private String buildFlexibleRegex(String input) {
         if (input == null || input.trim().isEmpty()) {
             return "";

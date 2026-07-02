@@ -71,6 +71,21 @@ public class IRController {
                 .body(responseModel);
     }
 
+    @DeleteMapping("/{id}")
+    @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
+    public ResponseEntity<?> deleteIR(@PathVariable("id") String id) {
+        try {
+            irService.deleteIRById(id);
+            return ResponseEntity.ok().body("Successfully deleted IR snapshot.");
+        } catch (IllegalArgumentException e) {
+            e.printStackTrace();
+            return Errors.Response400BadRequest(e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Errors.Response500InternalServerError(e.getCause(), e.getMessage());
+        }
+    }
+
     @GetMapping("/meta")
     @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
     public ResponseEntity<?> getIRsMeta(@ModelAttribute IRByNameRequest irRequestModel) {
