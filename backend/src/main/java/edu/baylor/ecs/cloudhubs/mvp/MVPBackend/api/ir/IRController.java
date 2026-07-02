@@ -5,6 +5,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Autowired;
 
 import edu.university.ecs.lab.delta.models.SystemChange;
@@ -84,6 +88,39 @@ public class IRController {
             return Errors.Response500InternalServerError(e.getCause(), e.getMessage());
         }
         return ResponseEntity.ok(responseModel);
+    }
+
+    @GetMapping("/versions")
+    @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
+    public ResponseEntity<?> getAvailableVersions(@RequestParam("systemName") String systemName) {
+        try {
+            return ResponseEntity.ok(irService.getAvailableVersions(systemName));
+        } catch (IllegalArgumentException e) {
+            e.printStackTrace();
+            return Errors.Response400BadRequest(e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Errors.Response500InternalServerError(e.getCause(), e.getMessage());
+        }
+    }
+
+    @PostMapping("/versions")
+    @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
+    public ResponseEntity<?> fetchSpecificIRs(@RequestBody List<String> ids) {
+        byte[] responseModel;
+        try {
+            responseModel = irService.getSpecificIRs(ids);
+        } catch (IllegalArgumentException e) {
+            e.printStackTrace();
+            return Errors.Response400BadRequest(e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Errors.Response500InternalServerError(e.getCause(), e.getMessage());
+        }
+        
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_TYPE, "application/gzip")
+                .body(responseModel);
     }
 
     @PostMapping("/delta")

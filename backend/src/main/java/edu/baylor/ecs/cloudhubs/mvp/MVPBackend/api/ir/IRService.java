@@ -88,7 +88,7 @@ public class IRService {
         throw new IllegalArgumentException("No microservice system found with name pattern: " + irRequestModel.getSystemName());
     }
 
-    /** This method is used to retrieve the actual IRs by its name.
+    /** This method is used to retrieve the IRs by its name.
      * Consistent with the metadata retrieval, this will only return IRs with version numbers.
      * IRs without version numbers are considered "drafts".
      */
@@ -100,6 +100,65 @@ public class IRService {
 
         // 2. Searching based on generic pattern
         return getIRsByName(flexiblePattern, irRequestModel.getLimit());
+    }
+
+    /** The method retrieves lightweight metadata (ID and Version) for a system, 
+     * sorted natively by version.
+     */
+    public List<Map<String, Object>> getAvailableVersions(String systemName) {
+        String flexiblePattern = buildFlexibleRegex(systemName);
+        
+        Sort sort = Sort.by(Sort.Direction.DESC, "version");
+        List<MicroserviceEntity> entities = repository.findAvailableVersions(flexiblePattern, sort);
+        
+        if (entities.isEmpty()) {
+            throw new IllegalArgumentException("No versioned systems found for: " + systemName);
+        }
+
+        List<Map<String, Object>> versionsList = new ArrayList<>();
+        for (MicroserviceEntity entity : entities) {
+            Map<String, Object> versionInfo = new HashMap<>();
+            versionInfo.put("id", entity.getId());
+            versionInfo.put("version", entity.getVersion()); 
+            
+            if (entity.getCreatedAt() != null) {
+                versionInfo.put("createdAt", entity.getCreatedAt()); 
+            }
+            
+            versionsList.add(versionInfo);
+        }
+        
+        return versionsList;
+    }
+
+    /** * Retrieves full payloads for a specific list of document IDs 
+     * and zips them into an application/gzip byte array.
+     */
+    public byte[] getSpecificIRs(List<String> ids) throws IOException {
+        List<MicroserviceEntity> entities = repository.findByIds(ids);
+        
+        if (entities.isEmpty()) {
+            throw new IllegalArgumentException("No systems found with the provided IDs!");
+        }
+
+        ArrayNode resultArray = objectMapper.createArrayNode();
+        
+        for (MicroserviceEntity entity : entities) {
+            try (GZIPInputStream gis = new GZIPInputStream(new ByteArrayInputStream(entity.getPayload()))) {
+                JsonNode irJson = objectMapper.readTree(gis);
+                if (irJson.isObject()) {
+                    ((ObjectNode) irJson).put("id", entity.getId());
+                }
+                resultArray.add(irJson);
+            }
+        }
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (GZIPOutputStream gzos = new GZIPOutputStream(baos)) {
+            objectMapper.writeValue(gzos, resultArray);
+        }
+        
+        return baos.toByteArray();
     }
 
     private String buildFlexibleRegex(String input) {

@@ -9,7 +9,7 @@ interface VersionSelectorModalProps {
 }
 
 const VersionSelectorModal: React.FC<VersionSelectorModalProps> = ({ isOpen, systemName, onClose, onLoadSpecificVersions }) => {
-    const [versions, setVersions] = useState<{ id: string, version: string }[]>([]);
+    const [versions, setVersions] = useState<{ id: string, version: string, createdAt?: any }[]>([]);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [isLoading, setIsLoading] = useState(false);
 
@@ -51,14 +51,22 @@ const VersionSelectorModal: React.FC<VersionSelectorModalProps> = ({ isOpen, sys
                             <div className="text-slate-500 text-sm italic text-center">No versions found.</div>
                         ) : (
                             versions.map(v => (
-                                <label key={v.id} className="flex items-center gap-3 p-2 hover:bg-slate-800/50 rounded cursor-pointer transition-colors border border-transparent hover:border-slate-700/50">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={selectedIds.has(v.id)}
-                                        onChange={() => toggleSelection(v.id)}
-                                        className="w-4 h-4 accent-teal-500 cursor-pointer bg-slate-800 border-slate-600 rounded"
-                                    />
-                                    <span className="text-slate-300 font-mono text-sm">Version {v.version}</span>
+                                <label key={v.id} className="flex items-center justify-between p-2 hover:bg-slate-800/50 rounded cursor-pointer transition-colors border border-transparent hover:border-slate-700/50">
+                                    <div className="flex items-center gap-3">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={selectedIds.has(v.id)}
+                                            onChange={() => toggleSelection(v.id)}
+                                            className="w-4 h-4 accent-teal-500 cursor-pointer bg-slate-800 border-slate-600 rounded"
+                                        />
+                                        <span className="text-slate-300 font-mono text-sm">Version {v.version}</span>
+                                    </div>
+                                    
+                                    {v.createdAt && (
+                                        <span className="text-xs text-slate-500">
+                                            {new Date(v.createdAt).toLocaleDateString()}
+                                        </span>
+                                    )}
                                 </label>
                             ))
                         )}
