@@ -76,8 +76,8 @@ export const fetchHistoricalIRs = async (systemName: string, options?: { signal?
             console.log("Historical IR fetch canceled by user.");
             throw new Error("AbortError");
         }
-        console.error("Failed to fetch historical IRs:", error);
-        showError("Failed to load historical timeline data.");
+        // console.error("Failed to fetch historical IRs:", error);
+        showError("Failed to load historical data.");
         throw error;
     }
 };
@@ -94,8 +94,8 @@ export const fetchIRVersions = async (systemName: string, options?: { signal?: A
             console.log("Historical IR fetch canceled by user.");
             throw new Error("AbortError");
         }
-        console.error("Failed to fetch versions", error);
-        showError("Failed to load historical timeline data.");
+        // console.error("Failed to fetch versions", error);
+        showError("Failed to load historical data.");
         throw error;
     }
 };
