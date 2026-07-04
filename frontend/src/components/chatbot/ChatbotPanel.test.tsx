@@ -1,7 +1,8 @@
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import ChatbotPanel, { CitationList } from "./ChatbotPanel";
+import ChatbotPanel from "./ChatbotPanel";
 import { getChatbotHealth, refreshChatbotContext, sendChatbotQuery } from "../../services/api";
+import CitationList from "./CitationList";
 
 jest.mock("../../services/api", () => ({
     getChatbotHealth: jest.fn(),
