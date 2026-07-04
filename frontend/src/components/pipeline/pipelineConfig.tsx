@@ -10,7 +10,7 @@ export const CATEGORIES: Record<string, CardType[]> = {
     "Visualization": ['VISUALIZATION', 'FORMAL_VIZ', 'AEGIS', 'VERIFICATION_COMPARISON']
 };
 
-export const CARD_CONFIG: Record<CardType, { title: string; color: string; icon: JSX.Element; description: string; tooltip: { purpose: string; outcome: string;};}> = {
+export const CARD_CONFIG: Record<CardType, { title: string; color: string; icon: JSX.Element; description: string; tooltip: { purpose: string; outcome: string;}}> = {
     SYSTEM_INPUT: { 
         title: "System Source", 
         color: "border-blue-500 bg-blue-900/20", 
@@ -20,12 +20,12 @@ export const CARD_CONFIG: Record<CardType, { title: string; color: string; icon:
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
             </svg>,
         tooltip: {
-            purpose: "Define the Git repositories, branches, and commits that make up the system being analyzed.",
+            purpose: "Define repositories, branches, and commits that make up the system being analyzed.",
             outcome: "Provides repository information that downstream pipeline steps can use to generate and analyze artifacts."
         }
     },
     MULTI_REPO: { 
-        title: "Generate IR", 
+        title: "Generate Snapshot", 
         color: "border-blue-500 bg-blue-900/20", 
         description: "Generate IR from GIT repository",
         icon: 
@@ -33,20 +33,20 @@ export const CARD_CONFIG: Record<CardType, { title: string; color: string; icon:
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
             </svg>,
         tooltip: {
-            purpose: "Generate an Intermediate Representation (IR) from the configured source repositories.",
-            outcome: "Produces a machine-readable IR that can be used for visualization, verification, and further analysis."
+            purpose: "Generate an system snapshot from the configured sources.",
+            outcome: "Produces a machine-readable Intermediate Representation (IR) that can be used for visualization, verification, and further analysis."
         }
     },
     UPLOAD_IR: { 
-        title: "Upload IR", 
+        title: "Load Snapshot", 
         color: "border-blue-500 bg-blue-900/20", 
-        description: "Upload local JSON file",
+        description: "Directly Load an IR",
         icon: 
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
             </svg>,
         tooltip: {
-            purpose: "Import an existing IR file from your local machine instead of generating one.",
+            purpose: "Import an existing snapshot from your local machine or analysis history instead of generating one.",
             outcome: "Makes a previously generated IR available for analysis within the pipeline."
         }
     },
@@ -59,7 +59,7 @@ export const CARD_CONFIG: Record<CardType, { title: string; color: string; icon:
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
             </svg>,
         tooltip: {
-            purpose: "Extract services, components, endpoints, and related system structure from the source information.",
+            purpose: "Extract services, components, endpoints, and system topology from the source code.",
             outcome: "Produces component data that can be used for scenario generation and architecture analysis."
         }
     },
@@ -72,8 +72,8 @@ export const CARD_CONFIG: Record<CardType, { title: string; color: string; icon:
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
             </svg>,
         tooltip: {
-            purpose: "Store and expose Intermediate Representation data between pipeline steps.",
-            outcome: "Makes IR data available to connected cards without regenerating it."
+            purpose: "Store and expose snapshot data (an IR) between pipeline steps.",
+            outcome: "Makes IR data (a snapshot) available to connected cards without regenerating it."
         }
     },
     COMPONENT_HOLDER: { 
@@ -86,7 +86,7 @@ export const CARD_CONFIG: Record<CardType, { title: string; color: string; icon:
             </svg>,
         tooltip: {
             purpose: "Store extracted component and endpoint information.",
-            outcome: "Provides reusable component data for downstream analysis and scenario generation."
+            outcome: "Provides reusable component data for downstream analysis."
         }
     },
     FORMAL_VERIFY: { 
@@ -138,11 +138,11 @@ export const CARD_CONFIG: Record<CardType, { title: string; color: string; icon:
             </svg>,
         tooltip: {
             purpose: "Generate executable test cases from prepared prompts and scenarios.",
-            outcome: "Produces a test suite that can be executed against the target system."
+            outcome: "Produces a test suite that can be executed against the target (analyzed) system."
         }
     },
     VISUALIZATION: { 
-        title: "IR Visualization", 
+        title: "Snapshot Visualization", 
         color: "border-green-500 bg-green-900/20", 
         description: "Launch graph visualizer",
         icon: 
@@ -151,8 +151,8 @@ export const CARD_CONFIG: Record<CardType, { title: string; color: string; icon:
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
             </svg>,
         tooltip: {
-            purpose: "Visualize the Intermediate Representation as a graph or system model.",
-            outcome: "Provides an interactive view of relationships and system structure."
+            purpose: "Visualize the system snapshot as a service dependency graph.",
+            outcome: "Provides an interactive view of the topology and semantics of the system."
         }
     },
     AEGIS: { 
@@ -164,8 +164,8 @@ export const CARD_CONFIG: Record<CardType, { title: string; color: string; icon:
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>,
         tooltip: {
-            purpose: "Perform advanced neuro-symbolic analysis of the generated system artifacts.",
-            outcome: "Produces deeper insights and findings beyond standard verification workflows."
+            purpose: "Perform advanced neuro-symbolic analysis for latent vulnerabilities.",
+            outcome: "Produces deeper insights and findings beyond standard verification workflows, exposing, quantifying, and ranking hidden risks."
         }
     },
     FORMAL_VIZ: { 
@@ -199,11 +199,12 @@ export const CARD_CONFIG: Record<CardType, { title: string; color: string; icon:
         title: "Quick Compare",
         color: "border-sky-500 bg-sky-900/20",
         description: "Compare FV vs Scenario Inconsistencies",
-        icon:
+        icon: (
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
-            </svg>,
+            </svg>
+        ),
         tooltip: {
             purpose: "Compare formal verification results against generated security scenarios.",
             outcome: "Highlights agreements, inconsistencies, and coverage gaps between analyses."
@@ -212,7 +213,7 @@ export const CARD_CONFIG: Record<CardType, { title: string; color: string; icon:
     CHANGE_IMPACT: {
         title: "Change Impact",
         color: "border-orange-500 bg-orange-900/20",
-        description: "Extract the changes betwen versions",
+        description: "Extract the changes betwen snapshots",
         icon: 
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <circle cx="12" cy="12" r="2" fill="currentColor" />
@@ -228,12 +229,13 @@ export const CARD_CONFIG: Record<CardType, { title: string; color: string; icon:
         title: "Policy Drift",
         color: "border-rose-500 bg-rose-900/20",
         description: "Compare policy changes",
-        icon:
+        icon: (
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-            </svg>,
+            </svg>
+        ),
         tooltip: {
-            purpose: "Compare security policies across versions to detect changes in behavior or enforcement.",
+            purpose: "Compare security policies across snapshots to detect changes in behavior or enforcement.",
             outcome: "Identifies policy regressions, drift, and security-impacting modifications."
         }
     }
