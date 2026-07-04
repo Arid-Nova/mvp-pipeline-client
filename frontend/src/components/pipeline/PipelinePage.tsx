@@ -41,15 +41,15 @@ import { IRGenerationCard } from './cards/IRGenerationCard';
 import { VerificationComparisonCard } from './cards/VerificationComparisonCard';
 
 // Canvas Components
+import ChatbotPanel from '../chatbot/ChatbotPanel';
 import { FeedbackModal } from './canvas/FeedbackModal';
 import { PipelineCanvas } from './canvas/PipelineCanvas';
 import { ToolboxSidebar } from './canvas/ToolboxSideBar';
 import { PipelineHeader } from './canvas/PiplelineHeader';
 import { ChangeImpactCard } from './cards/ChangeImpactCard';
-import { SecurityRegressionCard } from './cards/SecurityRegressionCard';
-import ChatbotPanel from '../chatbot/ChatbotPanel';
-import { Notification as ToastNotification } from '../../utils/notifications';
 import NotificationToast from '../generic/NotificationToast';
+import { SecurityRegressionCard } from './cards/SecurityRegressionCard';
+import { Notification as ToastNotification } from '../../utils/notifications';
 
 // Tour Component
 import { PipelineTour } from './tour/PipelineTour';
@@ -594,6 +594,7 @@ const PipelinePage: React.FC = () => {
     const [isLinking, setIsLinking] = useState<string | null>(null);
     const [isRunning, setIsRunning] = useState(false);
     const [pipelineRunId, setPipelineRunId] = useState<string>();
+    const runCounterRef = useRef<number>(1);
 
     // Pipeline Stoppage States     
     const abortControllerRef = useRef<AbortController | null>(null);
@@ -956,11 +957,14 @@ const PipelinePage: React.FC = () => {
     };
 
     const runPipeline = async () => {
-        setPipelineRunId(`pipeline-run-${Date.now()}`);
-        setIsRunning(true);
+        // Execution ID setting for tracking multiple runs in the same session
+        const currentRun = runCounterRef.current++;
+        setPipelineRunId(`${sessionName}-run-${currentRun}`);
 
+        setIsRunning(true);
         const runStartedAt = Date.now();
         let runStatus = 'completed';
+        
         track(PipelineEvent.RUN_STARTED, {
             nodeCount: nodes.length,
             connectionCount: connections.length,
