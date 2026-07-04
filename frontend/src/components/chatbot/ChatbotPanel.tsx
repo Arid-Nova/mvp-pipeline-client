@@ -25,10 +25,11 @@ const getContextEntries = (context?: ChatbotContext): Array<{ label: string; val
         .map((entry) => ({ label: entry.label, value: entry.value }));
 };
 
-const ChatbotPanel: React.FC<ChatbotPanelProps> = ({ activeContext }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const [isContextExpanded, setIsContextExpanded] = useState(false);
+const ChatbotPanel: React.FC<ChatbotPanelProps> = ({ activeContext }) => {  
     const [input, setInput] = useState("");
+    const [isOpen, setIsOpen] = useState(false);
+    const [minSpin, setMinSpin] = useState(false);
+    // const [isContextExpanded, setIsContextExpanded] = useState(false);
     
     const contextEntries = useMemo(() => getContextEntries(activeContext), [activeContext]);
     const {
@@ -116,8 +117,30 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({ activeContext }) => {
                             </div>
                         </div>
                         
+                        {/* Right Side: Scope information since it is auto-refreshing */}
+                        {activeContext?.runId ? (
+                            <div 
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800/40 border border-white/5 shrink-0 max-w-[140px]"
+                                title={`Active Context: ${activeContext.runId}`}
+                            >
+                                <span className="relative flex h-1.5 w-1.5 shrink-0">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                                </span>
+                                <span className="text-[10px] font-mono text-slate-300 truncate tracking-wide">
+                                    {activeContext.runId}
+                                </span>
+                            </div>
+                        ) : (
+                            <div className="flex items-center px-3 py-1.5 rounded-xl bg-slate-900/50 border border-white/5 shrink-0">
+                                <span className="text-[10px] font-medium text-slate-500 tracking-wide italic">
+                                    No active run
+                                </span>
+                            </div>
+                        )}
+
                         {/* Right Side: Scope Toggle */}
-                        <button
+                        {/* <button
                             onClick={() => setIsContextExpanded(!isContextExpanded)}
                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-bold uppercase tracking-widest transition-all border shrink-0 ${
                                 isContextExpanded || contextEntries.length > 0 
@@ -134,11 +157,11 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({ activeContext }) => {
                             <svg className={`w-3.5 h-3.5 transition-transform duration-300 ml-0.5 ${isContextExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
                             </svg>
-                        </button>
+                        </button> */}
                     </div>
 
                     {/* Animated Context Drawer */}
-                    <div className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out border-b border-white/5 ${
+                    {/* <div className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out border-b border-white/5 ${
                         isContextExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0 border-transparent'
                     }`}>
                         <div className="overflow-hidden bg-black/15 w-full shadow-inner">
@@ -195,7 +218,7 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({ activeContext }) => {
                                 )}
                             </div>
                         </div>
-                    </div>
+                    </div> */}
 
                     {/* Chat Messages Area */}
                     <div className="flex-1 min-h-0 overflow-y-auto p-5 flex flex-col gap-2 custom-scrollbar bg-slate-900/50 shadow-inner">
@@ -264,17 +287,30 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({ activeContext }) => {
                                 Clear
                             </button>
                             
-                            {contextEntries.length > 0 && (
+                            {/* Manual refresh only when there was an error or the context is stale */}
+                            {(refreshError || localStaleContext) && (
                                 <button
                                     data-testid="chatbot-refresh-context"
-                                    onClick={refreshContext}
-                                    disabled={refreshLoading}
+                                    onClick={() => {
+                                        setMinSpin(true);
+                                        setTimeout(() => setMinSpin(false), 1000);
+                                        refreshContext();
+                                    }}
+                                    disabled={refreshLoading || minSpin}
                                     className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-500/80 hover:text-amber-300 hover:bg-amber-500/10 px-2.5 py-1.5 rounded-lg disabled:opacity-50 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all duration-200"
                                 >
-                                    <svg className={`w-3.5 h-3.5 ${refreshLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.212 8H18" />
-                                    </svg>
-                                    {refreshLoading ? "Syncing..." : "Sync Context"}
+                                    {(refreshLoading || minSpin) ? (
+                                        <svg className="w-3.5 h-3.5 animate-spin text-amber-400" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                    ) : (
+                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h5M20 20v-5h-5M4.64 9.36a9 9 0 0114.72 0M19.36 14.64a9 9 0 01-14.72 0" />
+                                        </svg>
+                                    )}
+                                    
+                                    {(refreshLoading || minSpin) ? "Retrying..." : "Retry Sync"}
                                 </button>
                             )}
                         </div>
