@@ -608,6 +608,7 @@ const PipelinePage: React.FC = () => {
 
     const canvasRef = useRef<HTMLDivElement>(null);
 
+    // Chatbot context state
     const chatbotContext = useMemo(() => {
         const systemInput = nodes.find((node) => node.type === "SYSTEM_INPUT");
         const irSource = nodes.find((node) => node.type === "UPLOAD_IR");

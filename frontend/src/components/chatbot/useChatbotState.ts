@@ -99,11 +99,37 @@ export const useChatbotState = (activeContext?: ChatbotContext) => {
     const context = useMemo(() => toRequestContext(activeContext), [activeContext]);
     const contextId = useMemo(() => toContextId(context), [context]);
     const lastContextIdRef = useRef(contextId);
+
     const historyMessages = useMemo(
         () => messages.slice(-HISTORY_MESSAGES).map((msg) => toHistoryMessage(msg, contextId)),
         [messages, contextId]
     );
 
+    // Refresh the chatbot context and update the state
+    const refreshContext = useCallback(async () => {
+        if (!context) {
+            setRefreshResult(null);
+            setRefreshError("No active context selected. Choose a system/IR/session before refresh.");
+            setLocalStaleContext(true);
+            return;
+        }
+
+        try {
+            setRefreshLoading(true);
+            setRefreshError(null);
+            const result = await refreshChatbotContext({ context });
+            setRefreshResult(result);
+            setLocalStaleContext(Boolean(result.staleContext));
+        } catch (requestError: any) {
+            setRefreshResult(null);
+            setRefreshError(requestError?.message || "Failed to refresh context.");
+            setLocalStaleContext(true);
+        } finally {
+            setRefreshLoading(false);
+        }
+    }, [context]);
+
+    // Automatic refresh trigger when the context changes
     useEffect(() => {
         if (lastContextIdRef.current !== contextId) {
             setMessages([]);
@@ -113,8 +139,12 @@ export const useChatbotState = (activeContext?: ChatbotContext) => {
             setRefreshError(null);
             setLocalStaleContext(false);
             lastContextIdRef.current = contextId;
+
+            if (contextId !== "no-context") {
+                refreshContext();
+            }
         }
-    }, [contextId]);
+    }, [contextId, refreshContext]);
 
     const refreshHealth = useCallback(async () => {
         try {
@@ -200,29 +230,6 @@ export const useChatbotState = (activeContext?: ChatbotContext) => {
         setError(null);
         setLastFailedQuestion(null);
     }, []);
-
-    const refreshContext = useCallback(async () => {
-        if (!context) {
-            setRefreshResult(null);
-            setRefreshError("No active context selected. Choose a system/IR/session before refresh.");
-            setLocalStaleContext(true);
-            return;
-        }
-
-        try {
-            setRefreshLoading(true);
-            setRefreshError(null);
-            const result = await refreshChatbotContext({ context });
-            setRefreshResult(result);
-            setLocalStaleContext(Boolean(result.staleContext));
-        } catch (requestError: any) {
-            setRefreshResult(null);
-            setRefreshError(requestError?.message || "Failed to refresh context.");
-            setLocalStaleContext(true);
-        } finally {
-            setRefreshLoading(false);
-        }
-    }, [context]);
 
     return {
         messages,
