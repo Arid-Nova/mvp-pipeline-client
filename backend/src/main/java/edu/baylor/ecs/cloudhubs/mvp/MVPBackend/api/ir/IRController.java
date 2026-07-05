@@ -141,6 +141,40 @@ public class IRController {
                 .body(responseModel);
     }
 
+    @GetMapping("/versions/metadata")
+    @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
+    public ResponseEntity<?> getVersionMetadata(@RequestParam("systemName") String systemName) {
+        try {
+            Map<String, Object> response = irService.getSuggestedVersions(systemName);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Errors.Response500InternalServerError(e.getCause(), e.getMessage());
+        }
+    }
+
+    @PutMapping("/versions/metadata")
+    @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
+    public ResponseEntity<?> updateVersion(
+            @RequestParam("id") String id, 
+            @RequestBody Map<String, String> requestBody) {
+        try {
+            String version = requestBody.get("version");
+            if (version == null || version.trim().isEmpty()) {
+                return Errors.Response400BadRequest("Version string is required.");
+            }
+            
+            irService.updateIRVersion(id, version);
+            return ResponseEntity.ok(Map.of("message", "Version updated successfully", "version", version));
+            
+        } catch (IllegalArgumentException e) {
+            return Errors.Response400BadRequest(e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Errors.Response500InternalServerError(e.getCause(), e.getMessage());
+        }
+    }
+
     @PostMapping("/delta")
     @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
     public ResponseEntity<?> retreiveDelta(@RequestBody DeltaRequestModel requestModel) {

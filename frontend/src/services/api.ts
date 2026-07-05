@@ -137,7 +137,7 @@ export const deleteIR = async (ir_id: string, options?: { signal?: AbortSignal }
 
 export const getSystemVersionMetadata = async (systemName: string) => {
     try {
-        const response = await axios.get('/versions/metadata', { 
+        const response = await axios.get('/ir/versions/metadata', { 
             params: { systemName } 
         });
         return response.data;
@@ -149,7 +149,7 @@ export const getSystemVersionMetadata = async (systemName: string) => {
 
 export const updateIRVersion = async (id: string, version: string) => {
     try {
-        const response = await axios.put('/versions/metadata', { version }, { 
+        const response = await axios.put('/ir/versions/metadata', { version }, { 
             params: { id } 
         });
         return response.data;

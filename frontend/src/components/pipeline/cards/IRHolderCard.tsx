@@ -90,7 +90,9 @@ export const IRHolderCard: React.FC<IRHolderCardProps> = ({ node }) => {
                                 <form 
                                     onSubmit={(e) => {
                                         e.preventDefault(); 
-                                        handleSaveVersion();
+                                        if (/^\d+\.\d+\.\d+$/.test(versionInput)) {
+                                            handleSaveVersion();
+                                        }
                                     }}
                                     className="flex items-center gap-2"
                                 >
@@ -98,9 +100,18 @@ export const IRHolderCard: React.FC<IRHolderCardProps> = ({ node }) => {
                                         type="text" 
                                         list={datalistId}
                                         value={versionInput}
-                                        onChange={(e) => setVersionInput(e.target.value)}
+                                        onChange={(e) => {
+                                            const filteredValue = e.target.value.replace(/[^0-9.]/g, '');
+                                            setVersionInput(filteredValue);
+                                        }}
                                         disabled={isLoadingSuggestion || isSaving}
-                                        className="bg-slate-800 border border-slate-600 text-xs text-white rounded px-2 py-1 min-w-0 flex-1 outline-none focus:border-yellow-500 transition-colors disabled:opacity-50"
+                                        pattern="^\d+\.\d+\.\d+$"
+                                        title="Must be strictly numbers and dots (e.g. 1.0.0)"
+                                        className={`bg-slate-800 border text-xs text-white rounded px-2 py-1 min-w-0 flex-1 outline-none transition-colors disabled:opacity-50 ${
+                                            versionInput && !/^\d+\.\d+\.\d+$/.test(versionInput)
+                                                ? 'border-red-500/50 focus:border-red-500'
+                                                : 'border-slate-600 focus:border-yellow-500'
+                                        }`}
                                         placeholder="e.g. 1.0.0"
                                     />
                                     
@@ -113,7 +124,8 @@ export const IRHolderCard: React.FC<IRHolderCardProps> = ({ node }) => {
 
                                     <button
                                         type="submit"
-                                        disabled={isLoadingSuggestion || isSaving || !versionInput}
+                                        // Disabling the button unless it matches the 3-part number format
+                                        disabled={isLoadingSuggestion || isSaving || !/^\d+\.\d+\.\d+$/.test(versionInput)}
                                         title="Save Version"
                                         className="flex items-center justify-center w-7 h-7 text-amber-500 hover:text-amber-400 hover:bg-amber-500/10 rounded transition-colors disabled:opacity-50 shrink-0 outline-none"
                                     >

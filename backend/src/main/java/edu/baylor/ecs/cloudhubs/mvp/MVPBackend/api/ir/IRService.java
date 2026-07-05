@@ -161,15 +161,73 @@ public class IRService {
         return baos.toByteArray();
     }
 
-    /** Deletes a microservice system snapshot by its ID.
-     * @param id The ID of the snapshot to delete.
-     * @throws IllegalArgumentException if no snapshot is found with the given ID.
-     */
+    /** Deletes a microservice system snapshot by its ID. */
     public void deleteIRById(String id) throws IllegalArgumentException {
         if (!repository.existsById(id)) {
             throw new IllegalArgumentException("No microservice system snapshot found with ID: " + id);
         }
         repository.deleteById(id);
+    }
+
+    public Map<String, Object> getSuggestedVersions(String systemName) {
+        List<MicroserviceEntity> history = repository.findAvailableVersions(
+            systemName, 
+            Sort.by(Sort.Direction.DESC, "version") 
+        );
+
+        String latestVersion = "0.0.0";
+
+        if (history != null && !history.isEmpty()) {
+            latestVersion = history.get(0).getVersion();
+        }
+
+        List<String> suggestions;
+        if ("0.0.0".equals(latestVersion)) {
+            suggestions = Arrays.asList("1.0.0", "0.1.0");
+        } else {
+            suggestions = generateNextSemanticVersions(latestVersion);
+        }
+
+        return Map.of(
+            "systemName", systemName,
+            "latestVersion", "0.0.0".equals(latestVersion) ? null : latestVersion,
+            "suggestedVersions", suggestions
+        );
+    }
+
+    public void updateIRVersion(String id, String version) throws Exception {
+        // 1. Version validaiton
+        if (version == null || !version.matches("^\\d+\\.\\d+\\.\\d+$")) {
+            throw new IllegalArgumentException("Invalid version format. Must be strictly numbers and dots (e.g., '1.0.0').");
+        }
+
+        // 2. IR ID validation
+        MicroserviceEntity entity = repository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("IR with ID " + id + " not found."));
+
+        // 3. Check if the new version is still valid
+        // If we are to cross check with branch commit dates and other factors.
+
+        entity.setVersion(version);
+
+        // 4. Updating the version inside the compressed payload
+        try (GZIPInputStream gis = new GZIPInputStream(new ByteArrayInputStream(entity.getPayload()))) {
+            JsonNode irJson = objectMapper.readTree(gis);
+            
+            if (irJson.isObject()) {
+                ((ObjectNode) irJson).put("version", version);
+            }
+
+            // Re-compress the updated JSON
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            try (GZIPOutputStream gzos = new GZIPOutputStream(baos)) {
+                objectMapper.writeValue(gzos, irJson);
+            }
+            entity.setPayload(baos.toByteArray());
+        }
+
+        // 5. Update the database
+        repository.save(entity);
     }
 
     private String buildFlexibleRegex(String input) {
@@ -407,5 +465,46 @@ public class IRService {
 
     private boolean getIRMetaByName(String namePattern) {
         return repository.existsByPayloadName(namePattern);
+    }
+
+    // Helper methods for semantic versioning
+    private List<String> generateNextSemanticVersions(String currentVersion) {
+        try {
+            String[] parts = currentVersion.split("\\.");
+            
+            if (parts.length >= 3) {
+                int major = Integer.parseInt(parts[0]);
+                int minor = Integer.parseInt(parts[1]);
+                int patch = Integer.parseInt(parts[2]);
+                
+                return Arrays.asList(
+                    String.format("%d.%d.%d", major, minor, patch + 1), // Patch bump
+                    String.format("%d.%d.%d", major, minor + 1, 0),     // Minor bump
+                    String.format("%d.%d.%d", major + 1, 0, 0)          // Major bump
+                );
+            }
+        } catch (Exception e) {
+            log.warn("Failed to parse semantic version: {}", currentVersion);
+        }
+        
+        return Arrays.asList(currentVersion + ".1", "1.0.0");
+    }
+
+    private boolean isHigherVersion(String v1, String v2) {
+        try {
+            String[] p1 = v1.toLowerCase().replace("v", "").split("\\.");
+            String[] p2 = v2.toLowerCase().replace("v", "").split("\\.");
+            
+            for (int i = 0; i < Math.min(p1.length, p2.length); i++) {
+                int num1 = Integer.parseInt(p1[i]);
+                int num2 = Integer.parseInt(p2[i]);
+                if (num1 != num2) {
+                    return num1 > num2;
+                }
+            }
+            return p1.length > p2.length;
+        } catch (Exception e) {
+            return false; 
+        }
     }
 }
