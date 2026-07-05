@@ -135,6 +135,30 @@ export const deleteIR = async (ir_id: string, options?: { signal?: AbortSignal }
     }
 };
 
+export const getSystemVersionMetadata = async (systemName: string) => {
+    try {
+        const response = await axios.get('/versions/metadata', { 
+            params: { systemName } 
+        });
+        return response.data;
+    } catch {
+        showError("Failed to fetch version suggestions.");
+        return null;
+    }
+};
+
+export const updateIRVersion = async (id: string, version: string) => {
+    try {
+        const response = await axios.put('/versions/metadata', { version }, { 
+            params: { id } 
+        });
+        return response.data;
+    } catch (error) {
+        showError("Failed to save the version.");
+        throw error;
+    }
+};
+
 // Change impact analysis function
 export const fetchChangeImpact = async (deltaInput: any, options?: { signal?: AbortSignal }) => {
     try {

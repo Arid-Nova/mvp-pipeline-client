@@ -105,6 +105,9 @@ public class IRController {
         return ResponseEntity.ok(responseModel);
     }
 
+    // Get /versions/metadata to retreive what versions with created dates available.
+    // Update /versions to set a specific version to a already existing IR snapshot.
+
     @GetMapping("/versions")
     @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
     public ResponseEntity<?> getAvailableVersions(@RequestParam("systemName") String systemName) {

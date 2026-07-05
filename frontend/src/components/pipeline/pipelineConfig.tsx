@@ -142,7 +142,7 @@ export const CARD_CONFIG: Record<CardType, { title: string; color: string; icon:
         }
     },
     VISUALIZATION: { 
-        title: "Snapshot Visualization", 
+        title: "System Visualization", 
         color: "border-green-500 bg-green-900/20", 
         description: "Launch graph visualizer",
         icon: 
