@@ -11,7 +11,7 @@ const Instructions: React.FC<InstructionsProps> = ({ systemName }) => {
   const [isHovered, setIsHovered] = useState(false);
 
   return (
-    <div className="absolute top-4 right-4 z-50 flex flex-row items-start gap-3">
+    <div className="tour-graph-options absolute top-4 right-4 z-50 flex flex-row items-start gap-3">
 
       { /* 0. System name */}
       {systemName && (

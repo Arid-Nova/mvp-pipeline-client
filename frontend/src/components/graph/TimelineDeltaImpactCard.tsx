@@ -239,7 +239,7 @@ export const TimelineDeltaImpactCard: React.FC<TimelineDeltaImpactCardProps> = (
     const previousLabel = currentInstance > 0 ? `Snapshot ${currentInstance}` : null;
 
     return (
-        <div className={`fixed right-6 z-40 w-96 sm:w-[500px] font-sans select-none pointer-events-auto transition-all duration-500 ease-in-out ${isHistoryVisible ? 'bottom-48' : 'bottom-6'}`}>
+        <div className={`tour-change-impact fixed right-6 z-40 w-96 sm:w-[500px] font-sans select-none pointer-events-auto transition-all duration-500 ease-in-out ${isHistoryVisible ? 'bottom-48' : 'bottom-6'}`}>
             <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-700/60 rounded-2xl p-4 shadow-2xl text-white transition-all duration-300">
                 
                 <div className="flex items-center justify-between border-b border-slate-700/60 pb-3 mb-3">
