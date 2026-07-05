@@ -57,7 +57,7 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({ activeContext }) => {
                 {!isOpen && (
                     <div className="absolute right-full mr-4 pointer-events-none opacity-0 group-hover:opacity-100 group-hover:-translate-x-1 translate-x-1 transition-all duration-300 ease-out w-max max-w-[220px]">
                         <div className="bg-slate-800/90 backdrop-blur-md text-slate-200 text-[11.5px] leading-relaxed font-medium px-4 py-2.5 rounded-xl border border-white/10 shadow-xl shadow-black/20">
-                            Ask the assistant anything about the system architecture!
+                            Ask the live AI assistant anything about the system architecture!
                             
                             <div className="absolute top-1/2 -right-1 -translate-y-1/2 border-[5px] border-transparent border-l-white/10" />
                             <div className="absolute top-1/2 -right-[3px] -translate-y-1/2 border-[5px] border-transparent border-l-slate-800/90" />
@@ -223,14 +223,20 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({ activeContext }) => {
                     {/* Chat Messages Area */}
                     <div className="flex-1 min-h-0 overflow-y-auto p-5 flex flex-col gap-2 custom-scrollbar bg-slate-900/50 shadow-inner">
                         {messages.length === 0 ? (
-                            <div className="h-full flex flex-col items-center justify-center text-center p-6 opacity-60 space-y-4">
-                                <div className="w-12 h-12 rounded-full bg-slate-800/30 border border-slate-700/50 flex items-center justify-center text-slate-500">
-                                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-4">
+                                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700/50 shadow-[0_0_20px_rgba(34,211,238,0.05)] flex items-center justify-center text-cyan-500/70 mb-1">
+                                    <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                                     </svg>
                                 </div>
-                                <div className="text-[13px] text-slate-400 leading-relaxed">
-                                    Ask a question about your current system context. Responses are grounded in available evidence.
+                                
+                                <div className="text-2xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-600 to-blue-400">
+                                    Hi there!
+                                </div>
+                                
+                                <div className="text-[13px] text-slate-400 leading-relaxed max-w-[240px]">
+                                    Ask me any question about your system. <br/>
+                                    <span className="text-slate-500">Responses are grounded in your latest analysis results.</span>
                                 </div>
                             </div>
                         ) : (
