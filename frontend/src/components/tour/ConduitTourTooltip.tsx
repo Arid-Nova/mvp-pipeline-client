@@ -34,7 +34,10 @@ export const ConduitTourTooltip = ({
             </button>
 
             {/* Content Injection */}
-            <div className="text-slate-200 relative z-10">
+            <div 
+                key={index}
+                className="text-slate-200 relative z-10 animate-in fade-in slide-in-from-right-2 duration-300 ease-out fill-mode-both"
+            >
                 {step.content}
             </div>
             
@@ -52,19 +55,26 @@ export const ConduitTourTooltip = ({
                     )}
                     
                     {/* Animated Pill Progress Indicator */}
-                    <div className="flex gap-1.5 items-center">
-                        {Array.from({ length: size }).map((_, i) => (
-                            <div 
-                                key={i} 
-                                className={`h-1.5 rounded-full transition-all duration-500 ${
-                                    i === index 
-                                        ? 'w-5 bg-gradient-to-r from-teal-400 to-emerald-400 shadow-[0_0_10px_rgba(45,212,191,0.5)]' 
-                                        : i < index 
-                                            ? 'w-1.5 bg-slate-500' 
-                                            : 'w-1.5 bg-slate-800'
-                                }`} 
-                            />
-                        ))}
+                    <div className="relative w-[68px] h-2 overflow-hidden flex items-center">
+                        <div 
+                            className="flex gap-1.5 absolute transition-transform duration-500 ease-out"
+                            style={{ 
+                                transform: `translateX(-${Math.max(0, Math.min(index - 2, size - 5)) * 12}px)` 
+                            }}
+                        >
+                            {Array.from({ length: size }).map((_, i) => (
+                                <div 
+                                    key={i} 
+                                    className={`h-1.5 rounded-full transition-all duration-500 shrink-0 ${
+                                        i === index 
+                                            ? 'w-5 bg-gradient-to-r from-teal-400 to-emerald-400 shadow-[0_0_10px_rgba(45,212,191,0.5)]' 
+                                            : i < index 
+                                                ? 'w-1.5 bg-slate-500' 
+                                                : 'w-1.5 bg-slate-800'
+                                    }`} 
+                                />
+                            ))}
+                        </div>
                     </div>
                 </div>
 
