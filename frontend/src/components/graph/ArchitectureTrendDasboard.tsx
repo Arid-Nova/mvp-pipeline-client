@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { fetchChangeImpact } from '../../services/api';
+import { countAntiPatterns } from './IRAnalysisHelper';
 
 interface ArchitectureTrendDashboardProps {
     isOpen: boolean;
@@ -7,7 +8,10 @@ interface ArchitectureTrendDashboardProps {
     graphTimeline: Array<any>;
 }
 
-type TabType = 'overview' | 'impact' | 'coupling' | 'forecasting' | 'composition';
+type TabType = 'overview' | 'impact' | 'coupling' | 'forecasting' | 'antipatterns' | 'composition';
+
+// Anti-pattern color palette
+const AP_COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#a855f7', '#ec4899', '#14b8a6', '#6366f1'];
 
 export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProps> = ({ isOpen, onClose, graphTimeline }) => {
     const [activeTab, setActiveTab] = useState<TabType>('overview');
@@ -107,6 +111,9 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
                 });
             }
 
+            const apCounts = countAntiPatterns(ir);
+            const totalAntiPatterns = Object.values(apCounts).reduce((acc: number, val: any) => acc + (val as number), 0);
+
             return {
                 version: `V${index + 1}`,
                 commit: (ir.commitID || ir.commitId || rawIr.commitID || `synth-${index}`).substring(0, 7),
@@ -118,10 +125,22 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
                 leafCount,
                 internalCount: Math.max(0, nodes - (hubsCount + leafCount)),
                 dependenciesUnavailable, 
-                rawNodes: nodesArray 
+                rawNodes: nodesArray,
+                antiPatterns: apCounts, 
+                totalAntiPatterns       
             };
         });
     }, [graphTimeline]);
+
+    const uniqueAntiPatterns = useMemo(() => {
+        const keys = new Set<string>();
+        computedMetrics.forEach(m => {
+            if (m.antiPatterns) {
+                Object.keys(m.antiPatterns).forEach(k => keys.add(k));
+            }
+        });
+        return Array.from(keys);
+    }, [computedMetrics]);
 
     // 2. BATCH FETCH OF CHANGE IMPACT API
     useEffect(() => {
@@ -220,14 +239,22 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
 
     // 3. COMBINE METRICS
     const fullMetrics = useMemo(() => {
-        return computedMetrics.map((m, i) => ({
-            ...m,
-            deltaLabel: i === 0 ? 'Baseline' : `V${i} → V${i+1}`,
-            affected: deltaMetrics[i]?.affected || 0,
-            fileChanges: deltaMetrics[i]?.changes || 0,
-            riskScore: Number((m.coupling * (deltaMetrics[i]?.affected || 1)).toFixed(2))
-        }));
-    }, [computedMetrics, deltaMetrics]);
+        return computedMetrics.map((m, i) => {
+            const flattenedAps: Record<string, number> = {};
+            uniqueAntiPatterns.forEach(k => {
+                flattenedAps[k] = m.antiPatterns[k] || 0;
+            });
+
+            return {
+                ...m,
+                ...flattenedAps,
+                deltaLabel: i === 0 ? 'Baseline' : `V${i} → V${i+1}`,
+                affected: deltaMetrics[i]?.affected || 0,
+                fileChanges: deltaMetrics[i]?.changes || 0,
+                riskScore: Number((m.coupling * (deltaMetrics[i]?.affected || 1)).toFixed(2))
+            };
+        });
+    }, [computedMetrics, deltaMetrics, uniqueAntiPatterns]);
 
     // 4. PREDICTIVE FORECASTING
     const forecastData = useMemo(() => {
@@ -286,7 +313,7 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
                     </div>
                     
                     <div className="flex bg-slate-800 p-1 rounded-lg border border-slate-700/50 shadow-inner">
-                        {(['overview', 'impact', 'coupling', 'forecasting', 'composition'] as TabType[]).map((tab) => (
+                        {(['overview', 'impact', 'coupling', 'forecasting', 'antipatterns', 'composition'] as TabType[]).map((tab) => (
                             <button 
                                 key={tab} 
                                 onClick={() => setActiveTab(tab)} 
@@ -490,6 +517,59 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
                         >
                             <div className="h-64"><SVGForecastLineChart data={forecastData} /></div>
                         </ChartCard>
+                    )}
+
+                    {activeTab === 'antipatterns' && (
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            <ChartCard 
+                                title="Anti-Pattern Occurrences"
+                                tooltip={
+                                    <div className="flex flex-col gap-1.5">
+                                        <span className="text-slate-200 font-semibold mb-1">Architectural Deprecations</span>
+                                        <span>Tracks the presence of distinct architectural anti-patterns (e.g., Shared DB, God Service) across system evolution.</span>
+                                    </div>
+                                }
+                                action={
+                                    <div className="flex flex-wrap gap-2 text-[10px] font-bold text-slate-400">
+                                        {uniqueAntiPatterns.map((ap, idx) => (
+                                            <div key={ap} className="flex items-center gap-1">
+                                                <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: AP_COLORS[idx % AP_COLORS.length] }}></div> 
+                                                {ap.replace(/_/g, ' ')}
+                                            </div>
+                                        ))}
+                                    </div>
+                                }
+                            >
+                                {uniqueAntiPatterns.length > 0 ? (
+                                    <SVGAreaChart 
+                                        data={fullMetrics} 
+                                        keys={uniqueAntiPatterns} 
+                                        colors={uniqueAntiPatterns.map((_, i) => AP_COLORS[i % AP_COLORS.length])} 
+                                    />
+                                ) : (
+                                    <div className="flex items-center justify-center h-full text-slate-500 text-sm">
+                                        No anti-patterns detected in this timeline.
+                                    </div>
+                                )}
+                            </ChartCard>
+
+                            <ChartCard 
+                                title="Total Technical Debt (Anti-Pattern Density)"
+                                tooltip={
+                                    <div className="flex flex-col gap-1.5">
+                                        <span className="text-slate-200 font-semibold mb-1">Overall Debt Trajectory</span>
+                                        <span>Sum of all detected anti-patterns per snapshot. A rising line indicates architectural decay.</span>
+                                    </div>
+                                }
+                                action={
+                                    <div className="flex gap-4 text-xs font-bold text-slate-400">
+                                        <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-red-500"></div> Total Smells</div>
+                                    </div>
+                                }
+                            >
+                                <SVGLineChart data={fullMetrics} dataKey="totalAntiPatterns" color="#ef4444" fill="#ef444410" />
+                            </ChartCard>
+                        </div>
                     )}
 
                     {activeTab === 'composition' && (

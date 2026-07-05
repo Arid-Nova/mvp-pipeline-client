@@ -489,22 +489,4 @@ public class IRService {
         
         return Arrays.asList(currentVersion + ".1", "1.0.0");
     }
-
-    private boolean isHigherVersion(String v1, String v2) {
-        try {
-            String[] p1 = v1.toLowerCase().replace("v", "").split("\\.");
-            String[] p2 = v2.toLowerCase().replace("v", "").split("\\.");
-            
-            for (int i = 0; i < Math.min(p1.length, p2.length); i++) {
-                int num1 = Integer.parseInt(p1[i]);
-                int num2 = Integer.parseInt(p2[i]);
-                if (num1 != num2) {
-                    return num1 > num2;
-                }
-            }
-            return p1.length > p2.length;
-        } catch (Exception e) {
-            return false; 
-        }
-    }
 }
