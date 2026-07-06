@@ -46,6 +46,7 @@ import { PipelineCanvas } from './canvas/PipelineCanvas';
 import { ToolboxSidebar } from './canvas/ToolboxSideBar';
 import { PipelineHeader } from './canvas/PiplelineHeader';
 import { ChangeImpactCard } from './cards/ChangeImpactCard';
+import { DemoWarningModal } from './canvas/DemoWarningModal';
 import { SecurityRegressionCard } from './cards/SecurityRegressionCard';
 import { Notification as ToastNotification } from '../../utils/notifications';
 import NotificationToast from '../generic/NotificationToast';
@@ -67,6 +68,9 @@ let inMemoryPipelineCache: {
 const PipelinePage: React.FC = () => {
     // Pipeline Tour State
     const [runTour, setRunTour] = useState(false);
+
+    // Demo Warning State 
+    const [showDemoWarning, setShowDemoWarning] = useState(false);
 
     // Zoom and Pan State
     const [scale, setScale] = useState(1);
@@ -210,6 +214,38 @@ const PipelinePage: React.FC = () => {
         }
     };
 
+    // Demo Warning 
+    useEffect(() => {
+        const checkWarning = () => {
+            const isDemo = process.env.REACT_APP_IS_DEMO_VERSION === 'true';
+            const alreadyShown = sessionStorage.getItem('demo_warning_shown') === 'true';
+            if (isDemo && !alreadyShown) {
+                setShowDemoWarning(true);
+            }
+        };
+
+        if (sessionStorage.getItem('trigger_pipeline_tour') === 'true') {
+            setRunTour(true);
+        } else {
+            checkWarning();
+        }
+
+        const handleTriggerTour = () => {
+            setShowDemoWarning(false); 
+            setRunTour(true);
+        };
+
+        window.addEventListener('trigger-pipeline-tour', handleTriggerTour);
+        return () => {
+            window.removeEventListener('trigger-pipeline-tour', handleTriggerTour);
+        };
+    }, []);
+
+    const handleWarningClose = () => {
+        setShowDemoWarning(false);
+        sessionStorage.setItem('demo_warning_shown', 'true');
+    };
+
     // Tour Trigger from App
     useEffect(() => {
         if (sessionStorage.getItem('trigger_pipeline_tour') === 'true') {
@@ -232,6 +268,12 @@ const PipelinePage: React.FC = () => {
 
         document.body.style.pointerEvents = 'auto';
         document.body.style.overflow = 'auto';
+
+        const isDemo = process.env.REACT_APP_IS_DEMO_VERSION === 'true';
+        const alreadyShown = sessionStorage.getItem('demo_warning_shown') === 'true';
+        if (isDemo && !alreadyShown) {
+            setShowDemoWarning(true);
+        }
     };
 
     // Feedback from the user
@@ -1795,7 +1837,7 @@ const PipelinePage: React.FC = () => {
             />
 
             {runTour && <PipelineTour run={runTour} onFinish={handleTourFinish} />}
-            
+
             {/* Header */}
             <PipelineHeader 
                 isLinking={isLinking}
@@ -1867,6 +1909,12 @@ const PipelinePage: React.FC = () => {
                     isOpen={isTemplateLibraryOpen}
                     onClose={() => setIsTemplateLibraryOpen(false)}
                     onSelectTemplate={applyTemplate}
+                />
+
+                {/* Demo Warning Modal */}
+                <DemoWarningModal 
+                    isOpen={showDemoWarning} 
+                    onClose={handleWarningClose} 
                 />
             </div>
         </div>

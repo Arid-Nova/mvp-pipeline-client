@@ -63,6 +63,7 @@ services:
         - REACT_APP_INTERNAL_SERVICE_KEY=${INTERNAL_SERVICE_KEY}
         - REACT_APP_PUBLIC_POSTHOG_KEY=${PUBLIC_POSTHOG_KEY}
         - REACT_APP_PUBLIC_POSTHOG_HOST=${PUBLIC_POSTHOG_HOST:-https://us.i.posthog.com}
+        - REACT_APP_IS_DEMO_VERSION=true
     container_name: cloudhub_frontend
     ports:
       - "3000:3000"
