@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { fetchChangeImpact } from '../../services/api';
 import { countAntiPatterns } from './IRAnalysisHelper';
+import { FullMetric, SnapshotMetric } from '../../utils/types';
 
 interface ArchitectureTrendDashboardProps {
     isOpen: boolean;
@@ -21,7 +22,7 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
     const [isLoadingDeltas, setIsLoadingDeltas] = useState(false);
 
     // 1. IR EXTRACTION
-    const computedMetrics = useMemo(() => {
+    const computedMetrics: SnapshotMetric[] = useMemo(() => {
         if (!graphTimeline || graphTimeline.length === 0) return [];
 
         return graphTimeline.map((rawIr, index) => {
@@ -116,7 +117,7 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
 
             return {
                 version: `V${index + 1}`,
-                commit: (ir.commitID || ir.commitId || rawIr.commitID || `synth-${index}`).substring(0, 7),
+                id: ir.id || ir.ir_id || `snapshot-${index + 1}`,
                 nodes,
                 edges,
                 coupling,
@@ -166,13 +167,17 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
                 const ir = rawIr?.payload?.irJson || rawIr?.data?.payload?.irJson || rawIr?.systemInfo?.ir || rawIr;
                 if (!ir) return [];
 
+                // Following condition would be redundant for new IR scehema after 1.1.0.
                 if (ir.metadata) {
                     const meta = Array.isArray(ir.metadata) ? ir.metadata : [ir.metadata];
                     meta.forEach((m: any) => addRepo(m.repoUrl || m.repositoryURL, m.commitId || m.commitID, m.branch || m.branchName));
                 } 
+
+                // Following condition would be redundant for new IR scehema after 1.1.0.
                 if (ir.commitID || ir.commitId) {
                     addRepo(ir.repositoryURL || ir.repoUrl, ir.commitID || ir.commitId, ir.branchName || ir.branch);
                 }
+
                 const nodesArray = ir.microservices || ir.nodes || ir.components || ir.services || [];
                 if (Array.isArray(nodesArray)) {
                     nodesArray.forEach((ms: any) => {
@@ -238,7 +243,7 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
     }, [isOpen, graphTimeline]);
 
     // 3. COMBINE METRICS
-    const fullMetrics = useMemo(() => {
+    const fullMetrics: FullMetric[] = useMemo(() => {
         return computedMetrics.map((m, i) => {
             const flattenedAps: Record<string, number> = {};
             uniqueAntiPatterns.forEach(k => {
@@ -619,7 +624,7 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
                                             <span className="text-slate-200 font-semibold mb-1">Historical Ledger</span>
                                             <span>A raw breakdown of calculated impact telemetry for every snapshot jump.</span>
                                             <span className="text-sky-300 bg-sky-400/10 p-1.5 rounded mt-1 border border-sky-400/20">
-                                                Use this tabular data to identify exact commits where coupling spiked or the blast radius expanded dangerously.
+                                                Use this tabular data to identify exact snapshots where coupling spiked or the blast radius expanded dangerously.
                                             </span>
                                         </div>
                                     }

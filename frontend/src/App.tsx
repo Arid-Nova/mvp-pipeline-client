@@ -65,7 +65,6 @@ function App(data: any) {
     // Graph Data State
     // const [graphData, setGraphData] = useState<{ graphName: string; nodes: { nodeName: any; nodeType: string; }[]; links: any[]; gitCommitId: any; } | null>(null);
     const [graphData, setGraphData] = useState<any>(null);
-    const [graphName, setGraphName] = useState("test");
     const [graphTimeline, setGraphTimeline] = useState<any[]>([]);
     const [currentInstance, setCurrentInstance] = useState<number | undefined>(undefined);
     const [trackChanges, setTrackChanges] = useState(true);
@@ -76,13 +75,13 @@ function App(data: any) {
     const [is3d, setIs3d] = useState(true);
     const [isDark, setIsDark] = useState(true);
     const [isMobile, setIsMobile] = useState(false);
-    const [color, setColor] = useState("dark-default");
+    const [color] = useState("dark-default");
     const [defNodeColor, setDefNodeColor] = useState(false);
     
     // Anti-Pattern State
     const [antiPattern, setAntiPattern] = useState(false);
     const [selectedAntiPattern, setSelectedAntiPattern] = useState("none");
-    const [max, setMax] = useState(6);
+    const [max] = useState(6);
     
     // Expansion states
     const [expandedNodes, setExpandedNodes] = useState(new Set<string>());
@@ -192,13 +191,6 @@ function App(data: any) {
         }
     }, [graphData, currentInstance, graphTimeline]);
 
-    // Foregrond historical IR loading handler
-    useEffect(() => {
-        const handleOpenVersionModal = () => setIsVersionModalOpen(true);
-        window.addEventListener('trigger-version-modal', handleOpenVersionModal);
-        return () => window.removeEventListener('trigger-version-modal', handleOpenVersionModal);
-    }, []);
-
     // Handlers
     // Load the historical IRs
     const handleLoadHistory = async (limit: number = 4) => {
@@ -211,25 +203,22 @@ function App(data: any) {
             setGraphTimeline(prevTimeline => {
                 const currentTimeline = prevTimeline || [];
                 
-                // Creating a Set of existing commitIDs to prevent duplicates
-                //const existingIds = new Set(currentTimeline.map(item => item.commitID)); 
+                // Creating a Set of existing ir IDs to prevent duplicates
+                const existingIds = new Set(currentTimeline.map(item => item.id)); 
                 
                 // Cleaning and filtering historical items
-                // const newHistoricalItems = historyData.filter(ir => {
-                //     if (!ir.commitID) {
-                //         ir.commitID = "unknown-" + Math.random(); 
-                //     }
-                //     return !existingIds.has(ir.commitID);
-                // });
+                const newHistoricalItems = historyData.filter(ir => {
+                    return !existingIds.has(ir.id);
+                });
 
-                return [...currentTimeline, ...historyData];
+                return [...currentTimeline, ...newHistoricalItems];
             });
 
             // setCurrentInstance(prevIndex => {
             //     if (typeof prevIndex === 'number') {
             //         const currentTimeline = graphTimeline || [];
-            //         const existingIds = new Set(currentTimeline.map(item => item.commitID));
-            //         const addedCount = historyData.filter(ir => !existingIds.has(ir.commitID)).length;
+            //         const existingIds = new Set(currentTimeline.map(item => item.id));
+            //         const addedCount = historyData.filter(ir => !existingIds.has(ir.id)).length;
                     
             //         return prevIndex + addedCount;
             //     }
@@ -255,12 +244,10 @@ function App(data: any) {
             
             setGraphTimeline(prevTimeline => {
                 const currentTimeline = prevTimeline || [];
-                // Create a set of existing commits/versions to prevent duplicates
-                const existingIds = new Set(currentTimeline.map(item => item.commitID)); 
+                const existingIds = new Set(currentTimeline.map(item => item.id)); 
                 
                 const newHistoricalItems = newIRs.filter(ir => {
-                    if (!ir.commitID) ir.commitID = "unknown-" + Math.random(); 
-                    return !existingIds.has(ir.commitID);
+                    return !existingIds.has(ir.id);
                 });
 
                 return [...currentTimeline, ...newHistoricalItems];
@@ -331,7 +318,6 @@ function App(data: any) {
         trackPageview(location.pathname);
     }, [location.pathname]);
 
-
     // IR uploading handle
     useEffect(() => {
         if (location.state && location.state.irData) {
@@ -346,38 +332,13 @@ function App(data: any) {
 
     const handleMultipleIRsLoaded = (irArray: any[], overwrite: boolean = true) => {
         try {
-            // Fallback hash generation (this is less likely to be used in practise).
-            const generateHash = (str: string) => {
-                let hash = 0;
-                for (let i = 0; i < str.length; i++) {
-                    const char = str.charCodeAt(i);
-                    hash = ((hash << 5) - hash) + char;
-                    hash &= hash; 
-                }
-                return Math.abs(hash).toString(16); 
-            };
-
-            const processedArray = irArray.map((irJson, index) => {
-                const safeIr = JSON.parse(JSON.stringify(irJson)); 
-                
-                if (!safeIr.commitID && !safeIr.commitId && !safeIr.metadata?.[0]?.commitId) {
-                    const stableString = safeIr.name || "pipeline-run";
-                    const stableHash = generateHash(JSON.stringify(safeIr));
-
-                    // Also added an `alt-` prefix to indicate it's a fallback commit ID
-                    safeIr.commitID = `alt-${stableString}-${stableHash}-${index}`;
-                }
-                return safeIr;
-            });
-
             if (overwrite) {
-                setGraphTimeline(processedArray);
+                setGraphTimeline(irArray);
             } else {
                 setGraphTimeline((prev: any) => {
                     const newTimeline = [...prev];
-                    processedArray.forEach((ir: any) => {
-                        const commit = ir.commitID || ir.commitId || ir.metadata?.[0]?.commitId;
-                        if (!newTimeline.some((item: any) => (item.commitID || item.commitId || item.metadata?.[0]?.commitId) === commit)) {
+                    irArray.forEach((ir: any) => {
+                        if (!newTimeline.some((item: any) => item.id === ir.id)) {
                             newTimeline.push(ir);
                         }
                     });
@@ -385,13 +346,13 @@ function App(data: any) {
                 });
             }
 
-            const firstIR = processedArray[0];
-            const processedData = getData(firstIR, undefined);
+            const firstIR = irArray[0];
+            const processedData = getData(firstIR);
             
             if (processedData) {
                 setGraphData(processedData);
-                setCurrentInstance(overwrite ? 0 : (prev: any) => (prev !== undefined ? prev + processedArray.length : 0));
-                showSuccess(`Loaded ${processedArray.length} snapshots!`);
+                setCurrentInstance(overwrite ? 0 : (prev: any) => (prev !== undefined ? prev + irArray.length : 0));
+                showSuccess(`Loaded ${irArray.length} snapshots!`);
                 navigate('/graph-visualize', { replace: true, state: {} });
             }
         } catch (error: any) {
@@ -402,20 +363,15 @@ function App(data: any) {
     // Manually uploading a IR (not from history)
     const handleIRLoaded = (irJson: any, overwrite: boolean = true) => {
         try {
-            if (!irJson.commitID) {
-                console.warn("Missing commitID in IR Data, generating fallback.");
-                irJson.commitID = "unknown-" + new Date().getTime(); 
-            }
-
             // Process the raw IR JSON into Graph Data
-            const processedData = getData(irJson, undefined);
+            const processedData = getData(irJson);
         
             if (processedData) {
                 setGraphData(processedData);
                 setGraphTimeline(prev => {
                     if (overwrite) return [irJson];
 
-                    const exists = prev.some(item => item.commitID === irJson.commitID);
+                    const exists = prev.some(item => item.id === irJson.id);
                     if (exists) return prev;
                     return [...prev, irJson];
                 });
@@ -457,7 +413,7 @@ function App(data: any) {
             setGraphTimeline([currentIR]);
             setCurrentInstance(0);
             
-            const processedData = getData(currentIR, undefined);
+            const processedData = getData(currentIR);
             if (processedData) {
                 setGraphData(processedData);
             }
@@ -528,7 +484,10 @@ function App(data: any) {
                 />
 
                 {/* 3. Helper Components */}
-                <Instructions systemName={graphData?.name || historyPrompt.systemName}/>
+                <Instructions 
+                    systemName={graphData?.name || historyPrompt.systemName}
+                    onOpenVersionsModal={() => setIsVersionModalOpen(true)}
+                />
 
                 {/* Modal for manual version selection */}
                 <VersionSelectorModal 

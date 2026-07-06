@@ -2,12 +2,13 @@ import React, { useState } from "react";
 
 interface InstructionsProps {
     systemName?: string;
+    onOpenVersionsModal?: () => void;
 }
 
 /**
  * An info icon that expands on hover to show graph instructions.
  */
-const Instructions: React.FC<InstructionsProps> = ({ systemName }) => {
+const Instructions: React.FC<InstructionsProps> = ({ systemName, onOpenVersionsModal }) => {
   const [isHovered, setIsHovered] = useState(false);
 
   return (
@@ -26,7 +27,11 @@ const Instructions: React.FC<InstructionsProps> = ({ systemName }) => {
       {/* 1. VERSIONS MODAL BUTTON */}
       <div className="relative group">
           <button 
-              onClick={() => window.dispatchEvent(new Event('trigger-version-modal'))}
+              onClick={() => {
+                  if (onOpenVersionsModal) {
+                      onOpenVersionsModal();
+                  }
+              }}
               className="w-10 h-10 flex-shrink-0 bg-slate-900/80 backdrop-blur-md border border-slate-700 text-slate-300 hover:bg-teal-500 hover:text-white hover:border-teal-400 rounded-full flex items-center justify-center transition-all shadow-lg"
               title="Load Specific Snapshots"
           >

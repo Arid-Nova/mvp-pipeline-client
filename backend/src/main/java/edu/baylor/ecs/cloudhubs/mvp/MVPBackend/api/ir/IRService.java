@@ -171,7 +171,7 @@ public class IRService {
 
     public Map<String, Object> getSuggestedVersions(String systemName) {
         List<MicroserviceEntity> history = repository.findAvailableVersions(
-            systemName, 
+            buildFlexibleRegex(systemName), 
             Sort.by(Sort.Direction.DESC, "version") 
         );
 
