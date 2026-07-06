@@ -992,7 +992,7 @@ const PipelinePage: React.FC = () => {
                         updateStatus(node.id, 'failed', 'No File Uploaded');
                         continue;
                     }
-                    // For uploaded files, we default the metadata if not present
+                    // For uploaded files, we default the metadata if not present (handled in Upload IR card)
                     payload = {
                         irJson: node.data.payload.irJson,
                         metadata: node.data.payload.metadata || [{
@@ -1050,6 +1050,25 @@ const PipelinePage: React.FC = () => {
                 if (targetNode.type === 'MULTI_REPO') {
                     if (payload.type !== 'SYSTEM_PAYLOAD') throw new Error("Expected System Source");
                     const sysPayload = payload as SystemPayload;
+
+                    // 1. Check if we already have a generated IR for this exact repository set
+                    const existingPayload = targetNode.data.payload as PipelinePayload | undefined;
+
+                    const isCached = existingPayload?.irJson && existingPayload?.metadata && 
+                        sysPayload.repositories.length === existingPayload.metadata.length &&
+                        sysPayload.repositories.every(currentRepo => 
+                            existingPayload.metadata!.some(cachedRepo => 
+                                (currentRepo.repoUrl || "") === cachedRepo.repoUrl &&
+                                (currentRepo.branch || "master") === cachedRepo.branch &&
+                                (currentRepo.commitId || "HEAD") === cachedRepo.commitId
+                            )
+                        );
+
+                    if (isCached) {
+                        updateStatus(targetNode.id, 'completed', 'Using cached IR...', { payload: existingPayload });
+                        await processNextNodes(targetNode.id, existingPayload, updateStatus, options);
+                        continue; 
+                    }
 
                     const input: RepositoryInput = {
                         systemName: sysPayload.systemName,
