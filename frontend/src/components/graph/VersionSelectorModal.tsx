@@ -136,7 +136,7 @@ const VersionSelectorModal: React.FC<VersionSelectorModalProps> = ({ isOpen, sys
                                             {v.description && (
                                                 <div className="absolute left-0 bottom-full mb-2 hidden group-hover/tooltip:block w-56 p-2 bg-slate-950 border border-slate-700 text-[11px] text-slate-300 rounded shadow-2xl z-50 pointer-events-none break-words animate-in fade-in slide-in-from-bottom-1 duration-150">
                                                     <p className="font-bold text-[9px] uppercase tracking-wider text-slate-500 mb-1">
-                                                        Snapshot Info:
+                                                        Info:
                                                     </p>
                                                     {v.description}
                                                 </div>
