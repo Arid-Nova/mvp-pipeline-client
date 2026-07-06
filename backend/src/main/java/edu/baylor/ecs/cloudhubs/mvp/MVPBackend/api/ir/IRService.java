@@ -195,7 +195,7 @@ public class IRService {
         );
     }
 
-    public void updateIRVersion(String id, String version) throws Exception {
+    public void updateIRVersion(String id, String version, String description) throws Exception {
         // 1. Version validaiton
         if (version == null || !version.matches("^\\d+\\.\\d+\\.\\d+$")) {
             throw new IllegalArgumentException("Invalid version format. Must be strictly numbers and dots (e.g., '1.0.0').");
@@ -209,6 +209,7 @@ public class IRService {
         // If we are to cross check with branch commit dates and other factors.
 
         entity.setVersion(version);
+        entity.setDescription(description);
 
         // 4. Updating the version inside the compressed payload
         try (GZIPInputStream gis = new GZIPInputStream(new ByteArrayInputStream(entity.getPayload()))) {

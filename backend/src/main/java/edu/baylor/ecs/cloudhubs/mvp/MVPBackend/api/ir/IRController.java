@@ -157,11 +157,12 @@ public class IRController {
             @RequestBody Map<String, String> requestBody) {
         try {
             String version = requestBody.get("version");
+            String description = requestBody.get("description");
             if (version == null || version.trim().isEmpty()) {
                 return Errors.Response400BadRequest("Version string is required.");
             }
             
-            irService.updateIRVersion(id, version);
+            irService.updateIRVersion(id, version, description);
             return ResponseEntity.ok(Map.of("message", "Version updated successfully", "version", version));
             
         } catch (IllegalArgumentException e) {

@@ -9,7 +9,7 @@ interface VersionSelectorModalProps {
 }
 
 const VersionSelectorModal: React.FC<VersionSelectorModalProps> = ({ isOpen, systemName, onClose, onLoadSpecificVersions }) => {
-    const [versions, setVersions] = useState<{ id: string, version: string, createdAt?: any }[]>([]);
+    const [versions, setVersions] = useState<{ id: string, version: string, createdAt?: any, description?: string; }[]>([]);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [isLoading, setIsLoading] = useState(false);
 
@@ -122,9 +122,26 @@ const VersionSelectorModal: React.FC<VersionSelectorModalProps> = ({ isOpen, sys
                                             className="w-4 h-4 accent-teal-500 cursor-pointer bg-slate-800 border-slate-600 rounded"
                                             disabled={isDeletingId === v.id || deleteConfirmId !== null}
                                         />
-                                        <span className={`font-mono text-sm ${isDeletingId === v.id ? 'text-slate-500 line-through' : 'text-slate-300'}`}>
-                                            Snapshot {v.version}
-                                        </span>
+                                        <div className="relative group/tooltip flex items-center">
+                                            <span className={`font-mono text-sm transition-all ${
+                                                isDeletingId === v.id 
+                                                    ? 'text-slate-500 line-through'
+                                                    : v.description 
+                                                        ? 'text-teal-400 font-medium border-b border-dashed border-teal-400/60 cursor-help pb-0.5' 
+                                                        : 'text-slate-300'
+                                            }`}>
+                                                Snapshot {v.version}
+                                            </span>
+                                            
+                                            {v.description && (
+                                                <div className="absolute left-0 bottom-full mb-2 hidden group-hover/tooltip:block w-56 p-2 bg-slate-950 border border-slate-700 text-[11px] text-slate-300 rounded shadow-2xl z-50 pointer-events-none break-words animate-in fade-in slide-in-from-bottom-1 duration-150">
+                                                    <p className="font-bold text-[9px] uppercase tracking-wider text-slate-500 mb-1">
+                                                        Snapshot Info:
+                                                    </p>
+                                                    {v.description}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                     
                                     <div className="flex items-center gap-4">

@@ -20,7 +20,7 @@ public interface MicroserviceIRRepository
     boolean existsByPayloadName(String namePattern);
 
     @Query(value = "{ 'name': { $regex: ?0, $options: 'i' }, 'version': { $exists: true, $ne: null } }", 
-       fields = "{ 'version': 1, 'id': 1, 'createdAt': 1 }", 
+       fields = "{ 'version': 1, 'id': 1, 'createdAt': 1, 'description': 1 }", 
        collation = "{ 'locale': 'en', 'numericOrdering': true }")
     List<MicroserviceEntity> findAvailableVersions(String namePattern, Sort sort);
 

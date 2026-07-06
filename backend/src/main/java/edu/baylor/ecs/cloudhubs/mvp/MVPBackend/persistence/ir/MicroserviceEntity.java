@@ -24,10 +24,13 @@ public class MicroserviceEntity {
 
     private Instant createdAt;
 
+    private String description;
+
     public MicroserviceEntity(String name, byte[] payload) {
         this.name = name;
         this.version = null;
         this.payload = payload;
+        this.description = null;
         this.createdAt = Instant.now();
     }
 

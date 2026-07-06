@@ -147,9 +147,9 @@ export const getSystemVersionMetadata = async (systemName: string) => {
     }
 };
 
-export const updateIRVersion = async (id: string, version: string) => {
+export const updateIRVersion = async (id: string, version: string, description?: string) => {
     try {
-        const response = await axios.put('/ir/versions/metadata', { version }, { 
+        const response = await axios.put('/ir/versions/metadata', { version, description }, { 
             params: { id } 
         });
         return response.data;
