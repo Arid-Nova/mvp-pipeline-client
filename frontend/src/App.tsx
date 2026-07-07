@@ -634,7 +634,7 @@ function App(data: any) {
                 onLoad={(limit) => handleLoadHistory(limit)}
             />
 
-            <ArchitectureTrendDashboard 
+            <ArchitectureTrendDashboard
                 isOpen={isTrendDashboardOpen}
                 onClose={() => setIsTrendDashboardOpen(false)}
                 graphTimeline={graphTimeline}

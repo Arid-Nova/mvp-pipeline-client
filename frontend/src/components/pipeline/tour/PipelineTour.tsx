@@ -304,6 +304,36 @@ export const PipelineTour: React.FC<PipelineTourProps> = ({ run, onFinish }) => 
             blockTargetInteraction: false
         },
         {
+            target: '[data-testid="chatbot-toggle"]', 
+            content: (
+                <div>
+                    <h3 className="text-[13px] font-bold text-white uppercase tracking-wide mb-3 flex items-center gap-2">
+                        <svg className="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                        </svg>
+                        Context-Aware AI Assistant
+                    </h3>
+                    
+                    <p className="text-[13px] text-slate-400 leading-relaxed mb-3">
+                        Have questions about your architecture, evaluation metrics, or analysis results? Or want to understand them in simple terms? Your AI assistant, is just a click away.
+                    </p>
+                    
+                    <div className="bg-cyan-500/10 border border-cyan-500/20 rounded-lg p-2.5 mt-2 flex gap-2 items-start">
+                        <span className="relative flex h-2 w-2 shrink-0 mt-1">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
+                        </span>
+                        <p className="text-[11px] text-cyan-300/90 leading-relaxed">
+                            <span className="font-bold text-cyan-400 uppercase tracking-wider">Auto-Synced:</span> The assistant automatically tracks your active pipeline runs behind the scenes. It always knows exactly what data you are looking at!
+                        </p>
+                    </div>
+                </div>
+            ),
+            placement: 'top-end', 
+            skipBeacon: true,     
+            blockTargetInteraction: false
+        },
+        {
             target: '.tour-template-library',
             content: (
                 <div className="text-left flex flex-col gap-3">

@@ -1,13 +1,15 @@
 import axios, { 
     VERIFY_API, COMPONENT_API, VECTOR_API, 
     ANALYSIS_API, TEST_API, AEGIS_API, REPO_API, 
-    USER_API, EXECUTOR_API
+    USER_API, EXECUTOR_API, CHATBOT_API
 } from '../utils/axiosSetup';
 import { showError } from '../utils/notifications';
 import {
     RepositoryInput, VerificationInput, VerificationResponse,
     OrgImportResponse, SessionPageResponse, ChangeImpactInsight,
     RepoMetadata, CommitPageResponse,
+    ChatbotQueryRequest, ChatbotResponse, ChatbotHealthResponse,
+    ChatbotContextRefreshRequest, ChatbotContextRefreshResponse,
     UserFeedback,
 } from './types';
 import { PromptItem } from '../components/pipeline/models';
@@ -557,6 +559,59 @@ export const checkGitHubTokenStatus = async (options?: { signal?: AbortSignal })
     }
 };
 
+const normalizeChatbotError = (error: any): string => {
+    const backendMessage =
+        (typeof error?.response?.data?.message === "string" && error.response.data.message.trim())
+            ? error.response.data.message.trim()
+            : (typeof error?.response?.data === "string" && error.response.data.trim())
+                ? error.response.data.trim()
+                : "";
+
+    if (error?.response?.status === 503) {
+        return backendMessage || "Chatbot runtime is currently unavailable. Please ensure the local model runtime is running.";
+    }
+    if (error?.response?.status === 400) {
+        return backendMessage || "Invalid chatbot request. Please check your question and context.";
+    }
+    if (!error?.response) {
+        return "Network error while contacting chatbot backend.";
+    }
+    return backendMessage || "Chatbot request failed.";
+};
+
+export const getChatbotHealth = async (): Promise<ChatbotHealthResponse> => {
+    try {
+        const response = await CHATBOT_API.get('/chatbot/health');
+        return response.data;
+    } catch (error: any) {
+        const msg = normalizeChatbotError(error);
+        showError(msg);
+        throw new Error(msg);
+    }
+};
+
+export const sendChatbotQuery = async (request: ChatbotQueryRequest): Promise<ChatbotResponse> => {
+    try {
+        const response = await CHATBOT_API.post('/chatbot/query', request);
+        return response.data;
+    } catch (error: any) {
+        const msg = normalizeChatbotError(error);
+        showError(msg);
+        throw new Error(msg);
+    }
+};
+
+export const refreshChatbotContext = async (request: ChatbotContextRefreshRequest): Promise<ChatbotContextRefreshResponse> => {
+    try {
+        const response = await CHATBOT_API.post('/chatbot/context/refresh', request);
+        return response.data;
+    } catch (error: any) {
+        const msg = normalizeChatbotError(error);
+        showError(msg);
+        throw new Error(msg);
+    }
+};
+
 // Change Impact Analysis
 export const generateChangeImpactInsights = async (payload: ChangeImpactInsight, options?: { signal?: AbortSignal }) => {
     const jsonString = JSON.stringify(payload);
@@ -582,7 +637,6 @@ export const generateChangeImpactInsights = async (payload: ChangeImpactInsight,
         throw new Error(error.response?.data?.detail || "API error generating impact insights");
     }
 };
-
 // Test Executor Proxy Service 
 export const executeTest = async (language: string, payload: { command?: string; code?: string }) => {
     try {

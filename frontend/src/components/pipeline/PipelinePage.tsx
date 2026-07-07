@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { 
     fetchIRFromRepo, 
     verifySystem, 
@@ -41,15 +41,16 @@ import { IRGenerationCard } from './cards/IRGenerationCard';
 import { VerificationComparisonCard } from './cards/VerificationComparisonCard';
 
 // Canvas Components
+import ChatbotPanel from '../chatbot/ChatbotPanel';
 import { FeedbackModal } from './canvas/FeedbackModal';
 import { PipelineCanvas } from './canvas/PipelineCanvas';
 import { ToolboxSidebar } from './canvas/ToolboxSideBar';
 import { PipelineHeader } from './canvas/PiplelineHeader';
 import { ChangeImpactCard } from './cards/ChangeImpactCard';
+import NotificationToast from '../generic/NotificationToast';
 import { DemoWarningModal } from './canvas/DemoWarningModal';
 import { SecurityRegressionCard } from './cards/SecurityRegressionCard';
 import { Notification as ToastNotification } from '../../utils/notifications';
-import NotificationToast from '../generic/NotificationToast';
 
 // Tour Component
 import { PipelineTour } from './tour/PipelineTour';
@@ -634,11 +635,12 @@ const PipelinePage: React.FC = () => {
     // Pipeline Execution States
     const [isLinking, setIsLinking] = useState<string | null>(null);
     const [isRunning, setIsRunning] = useState(false);
+    const [pipelineRunId, setPipelineRunId] = useState<string>();
+    const runCounterRef = useRef<number>(1);
 
     // Pipeline Stoppage States     
     const abortControllerRef = useRef<AbortController | null>(null);
     const killSwitchRef = useRef<boolean>(false);
-
     // Dragging state
     const [dragNodeId, setDragNodeId] = useState<string | null>(null);
     const [touchDragNodeId, setTouchDragNodeId] = useState<string | null>(null);
@@ -648,6 +650,26 @@ const PipelinePage: React.FC = () => {
     const pinchDistanceRef = useRef<number | null>(null);
 
     const canvasRef = useRef<HTMLDivElement>(null);
+
+    // Chatbot context state
+    const chatbotContext = useMemo(() => {
+        const systemInput = nodes.find((node) => node.type === "SYSTEM_INPUT");
+        const irSource = nodes.find((node) => node.type === "UPLOAD_IR");
+        const irHolder = nodes.find((node) => node.type === "IR_HOLDER");
+        const componentHolder = nodes.find((node) => node.type === "COMPONENT_HOLDER");
+        const systemName = systemInput?.data?.systemName || irSource?.data?.payload?.systemName;
+        const commitId = irSource?.data?.payload?.metadata?.[0]?.commitId;
+        const irId = irSource?.data?.payload?.irJson?.id || irHolder?.data?.payload?.irJson?.id;
+        const indexId = componentHolder?.data?.componentPayload?.id;
+
+        return {
+            systemName,
+            irId,
+            indexId,
+            runId: pipelineRunId,
+            commitId
+        };
+    }, [nodes, pipelineRunId]);
 
     // --- Actions ---
     const addNode = (type: CardType) => {
@@ -977,10 +999,14 @@ const PipelinePage: React.FC = () => {
     };
 
     const runPipeline = async () => {
-        setIsRunning(true);
+        // Execution ID setting for tracking multiple runs in the same session
+        const currentRun = runCounterRef.current++;
+        setPipelineRunId(`${sessionName}-run-${currentRun}`);
 
+        setIsRunning(true);
         const runStartedAt = Date.now();
         let runStatus = 'completed';
+        
         track(PipelineEvent.RUN_STARTED, {
             nodeCount: nodes.length,
             connectionCount: connections.length,
@@ -1917,6 +1943,7 @@ const PipelinePage: React.FC = () => {
                     onClose={handleWarningClose} 
                 />
             </div>
+            <ChatbotPanel activeContext={chatbotContext} />
         </div>
     );
 };

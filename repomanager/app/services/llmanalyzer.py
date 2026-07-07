@@ -4,10 +4,15 @@ from openai import AsyncOpenAI
 
 class LLMAnalyzer():
     def __init__(self):
-        self.model_name = os.getenv("OPENAI_API_MODEL")
-        self.client = AsyncOpenAI(
-            api_key=os.getenv("OPENAI_API_KEY"),
-            base_url=os.getenv("OPENAI_BASE_URL"))
+        self.model_name = os.getenv("OPENAI_API_MODEL", "gpt-4o-mini")
+        api_key = os.getenv("OPENAI_API_KEY", "").strip()
+        base_url = os.getenv("OPENAI_BASE_URL", "").strip()
+        self.client = None
+        if api_key:
+            client_kwargs = {"api_key": api_key}
+            if base_url:
+                client_kwargs["base_url"] = base_url
+            self.client = AsyncOpenAI(**client_kwargs)
         self.temperature = float(os.getenv("LLM_TEMPERATURE", 0.1))
 
     async def analyze_repos_with_llm(self, org_name: str, condensed_repos: list) -> dict:
@@ -48,6 +53,8 @@ class LLMAnalyzer():
         """
         
         try:
+            if self.client is None:
+                raise RuntimeError("OPENAI_API_KEY is not configured.")
             response = await self.client.chat.completions.create(
                     model=self.model_name,
                     messages=[
