@@ -146,7 +146,7 @@ const TimeSlider: React.FC<Props> = ({
                                 onOpenTrends(); 
                             }}
                             onTouchEnd={(e) => { 
-                                console.log("Trends button TOUCHED!"); 
+                                // console.log("Trends button TOUCHED!"); 
                                 e.preventDefault(); 
                                 e.stopPropagation(); 
                                 onOpenTrends(); 
@@ -218,7 +218,7 @@ const TimeSlider: React.FC<Props> = ({
                         <div className="flex justify-between items-center border-b border-slate-700/80 pb-3">
                             <span className="font-bold text-lg font-sans text-white flex items-center gap-2">
                                 <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
-                                Snapshot {displayVersion}
+                                Snapshot v{displayVersion}
                             </span>
                             {currentIr && (
                                 <div className="text-xs text-slate-400 text-right flex flex-col gap-0.5">

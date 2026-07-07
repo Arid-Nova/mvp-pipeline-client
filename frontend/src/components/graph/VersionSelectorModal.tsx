@@ -136,8 +136,8 @@ const VersionSelectorModal: React.FC<VersionSelectorModalProps> = ({ isOpen, sys
                                             {v.description && (
                                                 <div className={`absolute left-0 hidden group-hover/tooltip:block w-56 p-2 bg-slate-950 border border-slate-700 text-[11px] text-slate-300 rounded shadow-2xl z-[100] pointer-events-none break-words animate-in fade-in duration-150 ${
                                                     index === 0 
-                                                        ? 'top-full mt-2 slide-in-from-top-1' 
-                                                        : 'bottom-full mb-2 slide-in-from-bottom-1'
+                                                        ? 'top-full mt-2 slide-in-from-top-1'       
+                                                        : 'bottom-full mb-2 slide-in-from-bottom-1' 
                                                 }`}>
                                                     <p className="font-bold text-[9px] uppercase tracking-wider text-slate-500 mb-1">
                                                         Info:
