@@ -24,11 +24,11 @@ export const IRHolderCard: React.FC<IRHolderCardProps> = ({ node }) => {
         setSavedVersion(irJson?.version || null);
     }, [irJson?.id, irJson?.ir_id]); 
 
-    const handleSaveVersion = async (version: string) => {
+    const handleSaveVersion = async (version: string, description?: string) => {
         setIsSaving(true);
         try {
             const id = irJson?.id || irJson?.ir_id || node.id;
-            await updateIRVersion(id, version);
+            await updateIRVersion(id, version, description);
             setSavedVersion(version);
         
             if (irJson) irJson.version = version;
