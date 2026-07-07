@@ -110,7 +110,7 @@ export const PIPELINE_TEMPLATES: PipelineTemplate[] = [
     {
         id: 'policy-drift-comparison',
         name: 'Policy Drift Comparison',
-        description: 'Compare the unified authorization policies between two different versions (authorization policy drift) of a microservices system.',
+        description: 'Compare the unified authorization policies between two different snapshots (authorization policy drift) of a microservices system.',
         icon: (
             <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 9h16m0 0l-4-4m4 4l-4 4M20 15H4m0 0l4-4m-4 4l4 4" />
@@ -160,7 +160,7 @@ export const PIPELINE_TEMPLATES: PipelineTemplate[] = [
     {
         id: 'change-impact-analysis',
         name: 'Change Impact Analysis',
-        description: 'Analyze the architectural and security impact of changes between two versions of a microservices system.',
+        description: 'Analyze the architectural and security impact of changes between two snapshots of a microservices system.',
         icon: (
             <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 14a9 9 0 0118 0" />
@@ -169,12 +169,12 @@ export const PIPELINE_TEMPLATES: PipelineTemplate[] = [
         ),
         gif: 'changeimpact.gif',
         nodes: [
-            // Track 1 (Version 1)
+            // Track 1 (Snapshot 1)
             { tempId: 'sys1', type: 'SYSTEM_INPUT', x: 100, y: 50 },
             { tempId: 'repo', type: 'MULTI_REPO', x: 450, y: 50 },
             { tempId: 'up_ir', type: 'IR_HOLDER', x: 800, y: 50 },
             
-            // Track 2 (Version 2)
+            // Track 2 (Snapshot 2)
             // Positioned right under IR_HOLDER so the wiring to Change Impact is neat
             { tempId: 'sys2', type: 'SYSTEM_INPUT', x: 800, y: 250 },
             

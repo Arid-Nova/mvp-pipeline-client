@@ -46,6 +46,7 @@ import { PipelineCanvas } from './canvas/PipelineCanvas';
 import { ToolboxSidebar } from './canvas/ToolboxSideBar';
 import { PipelineHeader } from './canvas/PiplelineHeader';
 import { ChangeImpactCard } from './cards/ChangeImpactCard';
+import { DemoWarningModal } from './canvas/DemoWarningModal';
 import { SecurityRegressionCard } from './cards/SecurityRegressionCard';
 import { Notification as ToastNotification } from '../../utils/notifications';
 import NotificationToast from '../generic/NotificationToast';
@@ -67,6 +68,9 @@ let inMemoryPipelineCache: {
 const PipelinePage: React.FC = () => {
     // Pipeline Tour State
     const [runTour, setRunTour] = useState(false);
+
+    // Demo Warning State 
+    const [showDemoWarning, setShowDemoWarning] = useState(false);
 
     // Zoom and Pan State
     const [scale, setScale] = useState(1);
@@ -210,6 +214,38 @@ const PipelinePage: React.FC = () => {
         }
     };
 
+    // Demo Warning 
+    useEffect(() => {
+        const checkWarning = () => {
+            const isDemo = process.env.REACT_APP_IS_DEMO_VERSION === 'true';
+            const alreadyShown = sessionStorage.getItem('demo_warning_shown') === 'true';
+            if (isDemo && !alreadyShown) {
+                setShowDemoWarning(true);
+            }
+        };
+
+        if (sessionStorage.getItem('trigger_pipeline_tour') === 'true') {
+            setRunTour(true);
+        } else {
+            checkWarning();
+        }
+
+        const handleTriggerTour = () => {
+            setShowDemoWarning(false); 
+            setRunTour(true);
+        };
+
+        window.addEventListener('trigger-pipeline-tour', handleTriggerTour);
+        return () => {
+            window.removeEventListener('trigger-pipeline-tour', handleTriggerTour);
+        };
+    }, []);
+
+    const handleWarningClose = () => {
+        setShowDemoWarning(false);
+        sessionStorage.setItem('demo_warning_shown', 'true');
+    };
+
     // Tour Trigger from App
     useEffect(() => {
         if (sessionStorage.getItem('trigger_pipeline_tour') === 'true') {
@@ -232,6 +268,12 @@ const PipelinePage: React.FC = () => {
 
         document.body.style.pointerEvents = 'auto';
         document.body.style.overflow = 'auto';
+
+        const isDemo = process.env.REACT_APP_IS_DEMO_VERSION === 'true';
+        const alreadyShown = sessionStorage.getItem('demo_warning_shown') === 'true';
+        if (isDemo && !alreadyShown) {
+            setShowDemoWarning(true);
+        }
     };
 
     // Feedback from the user
@@ -875,7 +917,7 @@ const PipelinePage: React.FC = () => {
                 });
 
                 if (collectedIRs.length > 0) {
-                    updateStatus(nodeId, 'completed', `Stacked ${collectedIRs.length} system versions!`, {
+                    updateStatus(nodeId, 'completed', `Stacked ${collectedIRs.length} snapshots!`, {
                         timelineIRs: collectedIRs,
                         payload: { irJson: collectedIRs[collectedIRs.length - 1] }
                     });
@@ -992,7 +1034,7 @@ const PipelinePage: React.FC = () => {
                         updateStatus(node.id, 'failed', 'No File Uploaded');
                         continue;
                     }
-                    // For uploaded files, we default the metadata if not present
+                    // For uploaded files, we default the metadata if not present (handled in Upload IR card)
                     payload = {
                         irJson: node.data.payload.irJson,
                         metadata: node.data.payload.metadata || [{
@@ -1050,6 +1092,25 @@ const PipelinePage: React.FC = () => {
                 if (targetNode.type === 'MULTI_REPO') {
                     if (payload.type !== 'SYSTEM_PAYLOAD') throw new Error("Expected System Source");
                     const sysPayload = payload as SystemPayload;
+
+                    // 1. Check if we already have a generated IR for this exact repository set
+                    const existingPayload = targetNode.data.payload as PipelinePayload | undefined;
+
+                    const isCached = existingPayload?.irJson && existingPayload?.metadata && 
+                        sysPayload.repositories.length === existingPayload.metadata.length &&
+                        sysPayload.repositories.every(currentRepo => 
+                            existingPayload.metadata!.some(cachedRepo => 
+                                (currentRepo.repoUrl || "") === cachedRepo.repoUrl &&
+                                (currentRepo.branch || "master") === cachedRepo.branch &&
+                                (currentRepo.commitId || "HEAD") === cachedRepo.commitId
+                            )
+                        );
+
+                    if (isCached) {
+                        updateStatus(targetNode.id, 'completed', 'Using cached IR...', { payload: existingPayload });
+                        await processNextNodes(targetNode.id, existingPayload, updateStatus, options);
+                        continue; 
+                    }
 
                     const input: RepositoryInput = {
                         systemName: sysPayload.systemName,
@@ -1776,7 +1837,7 @@ const PipelinePage: React.FC = () => {
             />
 
             {runTour && <PipelineTour run={runTour} onFinish={handleTourFinish} />}
-            
+
             {/* Header */}
             <PipelineHeader 
                 isLinking={isLinking}
@@ -1848,6 +1909,12 @@ const PipelinePage: React.FC = () => {
                     isOpen={isTemplateLibraryOpen}
                     onClose={() => setIsTemplateLibraryOpen(false)}
                     onSelectTemplate={applyTemplate}
+                />
+
+                {/* Demo Warning Modal */}
+                <DemoWarningModal 
+                    isOpen={showDemoWarning} 
+                    onClose={handleWarningClose} 
                 />
             </div>
         </div>

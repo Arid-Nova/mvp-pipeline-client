@@ -63,10 +63,10 @@ export const checkHistoricalIRs = async (systemName: string, options?: { signal?
     }
 };
 
-export const fetchHistoricalIRs = async (systemName: string, options?: { signal?: AbortSignal }): Promise<any[]> => {
+export const fetchHistoricalIRs = async (systemName: string, options?: { signal?: AbortSignal; limit?: number }): Promise<any[]> => {
     try {
         const response = await axios.get('/ir', { 
-            params: { systemName },
+            params: { systemName, limit: options?.limit },
             responseType: 'blob',
             signal: options?.signal
         });
@@ -76,8 +76,85 @@ export const fetchHistoricalIRs = async (systemName: string, options?: { signal?
             console.log("Historical IR fetch canceled by user.");
             throw new Error("AbortError");
         }
-        console.error("Failed to fetch historical IRs:", error);
-        showError("Failed to load historical timeline data.");
+        // console.error("Failed to fetch historical IRs:", error);
+        showError("Failed to load historical data.");
+        throw error;
+    }
+};
+
+export const fetchIRVersions = async (systemName: string, options?: { signal?: AbortSignal }): Promise<any[]> => {
+    try {
+        const response = await axios.get(`/ir/versions`, { 
+            params: { systemName }, 
+            signal: options?.signal
+        });
+        return response.data;
+    } catch (error: any) {
+        if (axios.isCancel(error)) {
+            console.log("Historical IR fetch canceled by user.");
+            throw new Error("AbortError");
+        }
+        // console.error("Failed to fetch versions", error);
+        showError("Failed to load historical data.");
+        throw error;
+    }
+};
+
+export const fetchSpecificIRs = async (selectedIds: string[], options?: { signal?: AbortSignal }): Promise<any[]> => {
+    try {
+        const response = await axios.post(`/ir/versions`, selectedIds, {
+            responseType: 'blob',
+            signal: options?.signal
+        });
+        
+        return await decompressGzipResponse(response.data);
+    } catch (error: any) {
+        if (axios.isCancel(error)) {
+            console.log("Specific IR fetch canceled by user.");
+            throw new Error("AbortError");
+        }
+        console.error("Failed to fetch specific IRs:", error);
+        showError("Failed to load selected snapshots.");
+        throw error;
+    }
+};
+
+export const deleteIR = async (ir_id: string, options?: { signal?: AbortSignal }): Promise<void> => {
+    try {
+        await axios.delete(`/ir/${ir_id}`, {
+            signal: options?.signal
+        });
+    } catch (error: any) {
+        if (axios.isCancel(error)) {
+            console.log("Delete IR canceled by user.");
+            throw new Error("AbortError");
+        }
+        
+        showError("Failed to delete the selected snapshot.");
+        throw error;
+    }
+};
+
+export const getSystemVersionMetadata = async (systemName: string) => {
+    try {
+        const response = await axios.get('/ir/versions/metadata', { 
+            params: { systemName } 
+        });
+        return response.data;
+    } catch {
+        showError("Failed to fetch version suggestions.");
+        return null;
+    }
+};
+
+export const updateIRVersion = async (id: string, version: string, description?: string) => {
+    try {
+        const response = await axios.put('/ir/versions/metadata', { version, description }, { 
+            params: { id } 
+        });
+        return response.data;
+    } catch (error) {
+        showError("Failed to save the version.");
         throw error;
     }
 };

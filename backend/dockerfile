@@ -6,12 +6,12 @@ WORKDIR /app
 # Copy the pom.xml and install dependencies
 COPY pom.xml .
 
-COPY cimet-extract-lib-1.2.0.jar /tmp/
+COPY cimet-extract-lib-1.2.1.jar /tmp/
 RUN mvn install:install-file \
-    -Dfile=/tmp/cimet-extract-lib-1.2.0.jar \
+    -Dfile=/tmp/cimet-extract-lib-1.2.1.jar \
     -DgroupId=edu.university.ecs.lab \
     -DartifactId=cimet-extract-lib \
-    -Dversion=1.2.0 \
+    -Dversion=1.2.1 \
     -Dpackaging=jar
 
 RUN mvn dependency:go-offline
