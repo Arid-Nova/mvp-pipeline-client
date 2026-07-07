@@ -109,7 +109,7 @@ const VersionSelectorModal: React.FC<VersionSelectorModalProps> = ({ isOpen, sys
                         {versions.length === 0 ? (
                             <div className="text-slate-500 text-sm italic text-center">No snapshots found.</div>
                         ) : (
-                            versions.map(v => (
+                            versions.map((v, index) => (
                                 <label 
                                     key={v.id} 
                                     className="group flex items-center justify-between p-2 hover:bg-slate-800/50 rounded cursor-pointer transition-colors border border-transparent hover:border-slate-700/50"
@@ -134,7 +134,11 @@ const VersionSelectorModal: React.FC<VersionSelectorModalProps> = ({ isOpen, sys
                                             </span>
                                             
                                             {v.description && (
-                                                <div className="absolute left-0 bottom-full mb-2 hidden group-hover/tooltip:block w-56 p-2 bg-slate-950 border border-slate-700 text-[11px] text-slate-300 rounded shadow-2xl z-50 pointer-events-none break-words animate-in fade-in slide-in-from-bottom-1 duration-150">
+                                                <div className={`absolute left-0 hidden group-hover/tooltip:block w-56 p-2 bg-slate-950 border border-slate-700 text-[11px] text-slate-300 rounded shadow-2xl z-[100] pointer-events-none break-words animate-in fade-in duration-150 ${
+                                                    index === 0 
+                                                        ? 'top-full mt-2 slide-in-from-top-1' 
+                                                        : 'bottom-full mb-2 slide-in-from-bottom-1'
+                                                }`}>
                                                     <p className="font-bold text-[9px] uppercase tracking-wider text-slate-500 mb-1">
                                                         Info:
                                                     </p>
