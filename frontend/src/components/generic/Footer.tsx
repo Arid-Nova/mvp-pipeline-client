@@ -8,22 +8,22 @@ const Footer: React.FC = () => {
       <div className="relative flex items-center justify-between text-sm hidden md:flex">
         {/* Left section */}
         <div className="flex items-center space-x-4">
-          <span>© {currentYear} CloudHubs at University of Arizona. All rights reserved.</span>
+          <span>© {currentYear} AridNova Technologies. All rights reserved.</span>
         </div>
 
         {/* Center section: Users */}
         <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center space-x-5">
           <span className="font-bold text-purple-100 uppercase tracking-widest text-[10px] mr-1">Users</span>
-          <a href="/docs" className="hover:text-blue-200 transition-colors cursor-pointer">
+          <a href="https://aridnova.net/docs" className="hover:text-blue-200 transition-colors cursor-pointer">
             Documentation
           </a>
-          <a href="/privacy" className="hover:text-blue-200 transition-colors cursor-pointer">
+          <a href="https://aridnova.net/privacy" className="hover:text-blue-200 transition-colors cursor-pointer">
             Privacy Policy
           </a>
-          <a href="/terms" className="hover:text-blue-200 transition-colors cursor-pointer">
+          <a href="https://aridnova.net/terms" className="hover:text-blue-200 transition-colors cursor-pointer">
             Terms of Service
           </a>
-          <a href="/support" className="hover:text-blue-200 transition-colors cursor-pointer">
+          <a href="https://aridnova.net/support" className="hover:text-blue-200 transition-colors cursor-pointer">
             Support
           </a>
         </div>
@@ -32,23 +32,23 @@ const Footer: React.FC = () => {
         <div className="flex items-center space-x-5">
           <span className="font-bold text-purple-100 uppercase tracking-widest text-[10px] mr-1">Developers</span>
           
-          {/* Trello Link */}
+          {/* Task Board Link */}
           <a
-            href="https://trello.com/b/Uv6vuZr2/aridnova"
+            href="https://github.com/orgs/Arid-Nova/projects/2/views/2"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 hover:text-blue-200 transition-colors"
-            title="Developer Trello Board"
+            title="Developer Task Board"
           >
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
               <path d="M19.333 0H4.667C2.09 0 0 2.09 0 4.667v14.666C0 21.91 2.09 24 4.667 24h14.666C21.91 24 24 21.91 24 19.333V4.667C24 2.09 21.91 0 19.333 0zM10.667 17.6c0 .59-.477 1.067-1.067 1.067H4.267C3.677 18.667 3.2 18.19 3.2 17.6V4.267C3.2 3.677 3.677 3.2 4.267 3.2h5.333c.59 0 1.067.477 1.067 1.067v13.333zm10.133-5.333c0 .59-.477 1.067-1.067 1.067h-5.333c-.59 0-1.067-.477-1.067-1.067V4.267c0-.59.477-1.067 1.067-1.067h5.333c.59 0 1.067.477 1.067 1.067v8z"/>
             </svg>
-            <span className="sr-only">Trello</span>
+            <span className="sr-only">GitHub Board</span>
           </a>
 
           {/* GitHub Link */}
           <a
-            href="https://github.com/UACloudVision/mvp-pipeline-client"
+            href="https://github.com/Arid-Nova"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 hover:text-blue-200 transition-colors"
@@ -73,10 +73,10 @@ const Footer: React.FC = () => {
         <div className="flex flex-col items-center space-y-2">
           <span className="font-bold text-purple-100 uppercase tracking-widest text-[10px]">Users</span>
           <div className="flex justify-center space-x-4">
-            <a href="/docs" className="hover:text-blue-200 transition-colors">Docs</a>
-            <a href="/privacy" className="hover:text-blue-200 transition-colors">Privacy</a>
-            <a href="/terms" className="hover:text-blue-200 transition-colors">Terms</a>
-            <a href="/support" className="hover:text-blue-200 transition-colors">Support</a>
+            <a href="https://aridnova.net/docs" className="hover:text-blue-200 transition-colors">Docs</a>
+            <a href="https://aridnova.net/privacy" className="hover:text-blue-200 transition-colors">Privacy</a>
+            <a href="https://aridnova.net/terms" className="hover:text-blue-200 transition-colors">Terms</a>
+            <a href="https://aridnova.net/support" className="hover:text-blue-200 transition-colors">Support</a>
           </div>
         </div>
 
@@ -84,10 +84,10 @@ const Footer: React.FC = () => {
         <div className="flex flex-col items-center space-y-2 pt-2 border-t border-purple-300/50">
           <span className="font-bold text-purple-100 uppercase tracking-widest text-[10px]">Developers</span>
           <div className="flex justify-center space-x-6">
-            <a href="https://trello.com/b/Uv6vuZr2/aridnova" target="_blank" rel="noopener noreferrer" className="hover:text-blue-200 transition-colors flex items-center gap-1">
-              Trello
+            <a href="https://github.com/orgs/Arid-Nova/projects/2/views/2" target="_blank" rel="noopener noreferrer" className="hover:text-blue-200 transition-colors flex items-center gap-1">
+              Task Board
             </a>
-            <a href="https://github.com/UACloudVision/mvp-pipeline-client" target="_blank" rel="noopener noreferrer" className="hover:text-blue-200 transition-colors flex items-center gap-1">
+            <a href="https://github.com/Arid-Nova" target="_blank" rel="noopener noreferrer" className="hover:text-blue-200 transition-colors flex items-center gap-1">
               GitHub
             </a>
           </div>
