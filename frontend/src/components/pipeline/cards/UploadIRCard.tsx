@@ -14,7 +14,7 @@ export const UploadIRCard: React.FC<UploadIRCardProps> = ({ node, updateNodeData
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearching, setIsSearching] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
-    const [versions, setVersions] = useState<{ id: string, version: string, createdAt?: any }[]>([]);
+    const [versions, setVersions] = useState<{ id: string, version: string, createdAt?: any, description?: string }[]>([]);
 
     // IR deletion states
     const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
@@ -121,7 +121,7 @@ export const UploadIRCard: React.FC<UploadIRCardProps> = ({ node, updateNodeData
         }
 
         if (versions.length > 0) {
-            return versions.map(v => (
+            return versions.map((v, index) => (
                 <div
                     key={v.id}
                     role="button"
@@ -136,11 +136,32 @@ export const UploadIRCard: React.FC<UploadIRCardProps> = ({ node, updateNodeData
                     className="flex justify-between items-center p-1.5 hover:bg-slate-800 rounded cursor-pointer transition-all group"
                 >
                     <div className="flex flex-col">
-                        <span className={`text-[11px] font-mono ${isDeletingId === v.id ? 'text-slate-500 line-through' : 'text-slate-300 group-hover:text-teal-300'}`}>
-                            v{v.version}
-                        </span>
+                        <div className="relative group/tooltip flex items-center w-max">
+                            <span className={`text-[11px] font-mono transition-all ${
+                                isDeletingId === v.id 
+                                    ? 'text-slate-500 line-through' 
+                                    : v.description 
+                                        ? 'text-teal-400 font-medium border-b border-dashed border-teal-400/60 cursor-help pb-0.5' 
+                                        : 'text-slate-300 group-hover:text-teal-300'
+                            }`}>
+                                v{v.version}
+                            </span>
+
+                            {v.description && (
+                                <div className={`absolute left-0 hidden group-hover/tooltip:block w-44 p-2 bg-slate-950 border border-slate-700 text-[10px] text-slate-300 rounded shadow-2xl z-[50] pointer-events-none break-words animate-in fade-in duration-150 ${
+                                    index === 0 
+                                        ? 'top-full mt-1 slide-in-from-top-1' 
+                                        : 'bottom-full mb-1 slide-in-from-bottom-1'
+                                }`}>
+                                    <p className="font-bold text-[8px] uppercase tracking-wider text-slate-500 mb-0.5">
+                                        Info:
+                                    </p>
+                                    {v.description}
+                                </div>
+                            )}
+                        </div>
                         {v.createdAt && (
-                            <span className="text-[9px] text-slate-500">
+                            <span className="text-[9px] text-slate-500 mt-0.5">
                                 {new Date(v.createdAt).toLocaleDateString()}
                             </span>
                         )}

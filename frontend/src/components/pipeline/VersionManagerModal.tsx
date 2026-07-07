@@ -14,15 +14,16 @@ export const VersionManagerModal: React.FC<VersionManagerModalProps> = ({ isOpen
     
     const [versionInput, setVersionInput] = useState('');
     const [descriptionInput, setDescriptionInput] = useState('');
-    const [suggestedVersions, setSuggestedVersions] = useState<string[]>([]);
     const [isLoadingSuggestion, setIsLoadingSuggestion] = useState(false);
+
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [suggestedVersions, setSuggestedVersions] = useState<string[]>([]);
     
     const [allHistoryData, setAllHistoryData] = useState<any[]>([]);
     const [historyPage, setHistoryPage] = useState(0);
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
     
     const ITEMS_PER_PAGE = 5;
-    const datalistId = "modal-version-suggestions";
 
     useEffect(() => {
         if (!isOpen) {
@@ -48,7 +49,7 @@ export const VersionManagerModal: React.FC<VersionManagerModalProps> = ({ isOpen
                     setHistoryPage(0);
                 }
             } catch (error) {
-                console.error(error);
+                // console.error(error);
             } finally {
                 setIsLoadingHistory(false);
             }
@@ -95,38 +96,77 @@ export const VersionManagerModal: React.FC<VersionManagerModalProps> = ({ isOpen
                 
                 <div className="p-4 flex flex-col gap-4">
                     {step === 'input' ? (
-                        /* VERSION ENTRY INPUT VIEW */
                         <form onSubmit={handleNextStep} className="flex flex-col gap-2">
                             <label className="text-[10px] uppercase text-amber-500 font-bold tracking-wider">
                                 Assign New Version
                             </label>
-                            <div className="flex items-center gap-2">
-                                <input 
-                                    type="text" 
-                                    list={datalistId}
-                                    value={versionInput}
-                                    onChange={(e) => setVersionInput(e.target.value.replace(/[^0-9.]/g, ''))}
-                                    disabled={isLoadingSuggestion || isSaving}
-                                    pattern="^\d+\.\d+\.\d+$"
-                                    title="Must be strictly numbers and dots (e.g. 1.0.0)"
-                                    className={`bg-slate-800 border text-sm text-white rounded px-3 h-9 min-w-0 flex-1 outline-none transition-colors disabled:opacity-50 ${
-                                        versionInput && !/^\d+\.\d+\.\d+$/.test(versionInput)
-                                            ? 'border-red-500/50 focus:border-red-500'
-                                            : 'border-slate-600 focus:border-yellow-500'
-                                    }`}
-                                    placeholder={isLoadingSuggestion ? "Loading suggestions..." : "e.g. 1.0.0"}
-                                />
-                                <datalist id={datalistId}>
-                                    {suggestedVersions.map((v) => <option key={v} value={v} />)}
-                                </datalist>
+                            
+                            <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-2 relative">
+                                    <div className="relative flex-1">
+                                        <input 
+                                            type="text" 
+                                            value={versionInput}
+                                            onChange={(e) => setVersionInput(e.target.value.replace(/[^0-9.]/g, ''))}
+                                            onFocus={() => setShowSuggestions(true)}
+                                            onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                                            disabled={isLoadingSuggestion || isSaving}
+                                            className={`bg-slate-800 border text-sm text-white rounded pl-3 pr-7 h-9 min-w-0 w-full outline-none transition-all disabled:opacity-50 ${
+                                                versionInput.length > 0 && !/^\d+\.\d+\.\d+$/.test(versionInput)
+                                                    ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500' 
+                                                    : 'border-slate-600 focus:border-amber-500'
+                                            }`}
+                                            placeholder={isLoadingSuggestion ? "Loading suggestions..." : "e.g. 1.0.0"}
+                                        />
 
-                                <button
-                                    type="submit"
-                                    disabled={isLoadingSuggestion || isSaving || !/^\d+\.\d+\.\d+$/.test(versionInput)}
-                                    className="bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold px-3 h-9 rounded transition-colors disabled:opacity-50 outline-none flex items-center justify-center w-16"
-                                >
-                                    Save
-                                </button>
+                                        {!isLoadingSuggestion && suggestedVersions.length > 0 && (
+                                            <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                                                <svg className={`w-3 h-3 transition-transform duration-200 ${showSuggestions ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                                                </svg>
+                                            </div>
+                                        )}
+
+                                        {showSuggestions && suggestedVersions.length > 0 && (
+                                            <div className="absolute left-0 right-0 top-full mt-1 bg-slate-950 border border-slate-700 rounded-md shadow-2xl z-[150] max-h-36 overflow-y-auto custom-scrollbar divide-y divide-slate-800/50">
+                                                <div className="text-[8px] uppercase text-slate-500 font-bold tracking-wider p-1.5 bg-slate-900/60 select-none">
+                                                    Suggested Options
+                                                </div>
+                                                {suggestedVersions.map((v) => (
+                                                    <button
+                                                        key={v}
+                                                        type="button"
+                                                        onMouseDown={() => setVersionInput(v)}
+                                                        className={`w-full text-left px-2.5 py-1.5 text-xs transition-colors block ${
+                                                            versionInput === v 
+                                                                ? 'bg-amber-500/10 text-amber-400 font-medium' 
+                                                                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                                                        }`}
+                                                    >
+                                                        v{v}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <button
+                                        type="submit"
+                                        disabled={isLoadingSuggestion || isSaving || !/^\d+\.\d+\.\d+$/.test(versionInput)}
+                                        className="bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold px-3 h-9 rounded transition-colors disabled:opacity-50 outline-none flex items-center justify-center w-16 shrink-0"
+                                    >
+                                        Save
+                                    </button>
+                                </div>
+
+                                {versionInput.length > 0 && !/^\d+\.\d+\.\d+$/.test(versionInput) && (
+                                    <div className="flex items-center gap-1 mt-0.5 text-red-400 animate-in fade-in slide-in-from-top-1 duration-200">
+                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                        </svg>
+                                        <span className="text-[10px] font-medium">Must be e.g., 1.0.0</span>
+                                    </div>
+                                )}
                             </div>
                         </form>
                     ) : (
