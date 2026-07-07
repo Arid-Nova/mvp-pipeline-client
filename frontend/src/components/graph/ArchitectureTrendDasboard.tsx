@@ -27,6 +27,11 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
 
         return graphTimeline.map((rawIr, index) => {
             const ir = rawIr?.payload?.irJson || rawIr?.data?.payload?.irJson || rawIr?.systemInfo?.ir || rawIr;
+
+            const rawVersion = ir?.version || rawIr?.version
+            const displayVersion = rawVersion 
+                ? (String(rawVersion).toLowerCase().startsWith('v') ? rawVersion : `v${rawVersion}`) 
+                : `Snapshot ${index + 1}`;
             
             const nodesArray = ir.nodes || ir.microservices || ir.components || ir.services || [];
             let edgesArray = ir.links || ir.edges || ir.connections || ir.dependencies || [];
@@ -116,7 +121,7 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
             const totalAntiPatterns = Object.values(apCounts).reduce((acc: number, val: any) => acc + (val as number), 0);
 
             return {
-                version: `V${index + 1}`,
+                version: displayVersion,
                 id: ir.id || ir.ir_id || `snapshot-${index + 1}`,
                 nodes,
                 edges,
@@ -250,10 +255,12 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
                 flattenedAps[k] = m.antiPatterns[k] || 0;
             });
 
+            const prevVersion = i > 0 ? computedMetrics[i - 1].version : '';
+
             return {
                 ...m,
                 ...flattenedAps,
-                deltaLabel: i === 0 ? 'Baseline' : `V${i} → V${i+1}`,
+                deltaLabel: i === 0 ? 'Baseline' : `${prevVersion} → ${m.version}`,
                 affected: deltaMetrics[i]?.affected || 0,
                 fileChanges: deltaMetrics[i]?.changes || 0,
                 riskScore: Number((m.coupling * (deltaMetrics[i]?.affected || 1)).toFixed(2))
@@ -275,11 +282,19 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
             const intercept = (sumY - slope * sumX) / n;
 
             for (let i = 0; i < 3; i++) {
-                projectedValues.push({ version: `V${n + i + 1} (F)`, value: Math.max(0, slope * (n + i) + intercept), isForecast: true });
+                projectedValues.push({ 
+                    version: `Forecast +${i + 1}`, 
+                    value: Math.max(0, slope * (n + i) + intercept), 
+                    isForecast: true 
+                });
             }
         }
         return [
-            ...fullMetrics.map(m => ({ version: m.version, value: m[selectedMetric] || 0, isForecast: false })),
+            ...fullMetrics.map(m => ({ 
+                version: m.version, 
+                value: m[selectedMetric] || 0, 
+                isForecast: false 
+            })),
             ...projectedValues
         ];
     }, [fullMetrics, selectedMetric]);
