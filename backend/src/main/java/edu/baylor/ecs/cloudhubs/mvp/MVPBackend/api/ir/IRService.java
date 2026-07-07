@@ -121,6 +121,7 @@ public class IRService {
             Map<String, Object> versionInfo = new HashMap<>();
             versionInfo.put("id", entity.getId());
             versionInfo.put("version", entity.getVersion()); 
+            versionInfo.put("description", entity.getDescription());
             
             if (entity.getCreatedAt() != null) {
                 versionInfo.put("createdAt", entity.getCreatedAt()); 
