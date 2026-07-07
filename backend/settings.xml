@@ -1,0 +1,12 @@
+<!-- Put this inside:
+In Windows: C:\Users\YourUser\.m2\
+Mac:  ~/.m2/settings.xml-->
+
+<settings>
+  <servers>
+    <server>
+      <id>github</id> <username>YOUR_GITHUB_USERNAME</username>
+      <password>ghp_YOUR_PERSONAL_ACCESS_TOKEN</password>
+    </server>
+  </servers>
+</settings>
