@@ -223,6 +223,16 @@ services:
       PYTHONUNBUFFERED: 1
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
       IR_SERVICE_URL: http://cloudhub_backend:8080/ir/create
+      LLM_PROVIDER: openai
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_ENDPOINT: ${OPENAI_BASE_URL}
+      LLM_MODEL: gpt-4o-mini
+      MONGO_URI: ${MONGO_URI}
+      MONGO_DB_NAME: aegis
+      MONGO_COLLECTION_NAME: opinionVectors
+      NEO4J_URI: ${NEO4J_URI}
+      NEO4J_USERNAME: ${NEO4J_USERNAME}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD}
     depends_on:
       aegis_neo4j:
         condition: service_healthy
@@ -236,9 +246,15 @@ services:
     container_name: aegis_dashboard
     command: flask run --host=0.0.0.0 --port=5600
     environment:
-      - FLASK_APP=frontend.py
-      - FLASK_DEBUG=1
-      - PYTHONUNBUFFERED=1
+      FLASK_APP: frontend.py
+      FLASK_DEBUG: 1
+      PYTHONUNBUFFERED: 1
+      MONGO_URI: ${MONGO_URI}
+      MONGO_DB_NAME: aegis
+      MONGO_COLLECTION_NAME: opinionVectors
+      NEO4J_URI: ${NEO4J_URI}
+      NEO4J_USERNAME: ${NEO4J_USERNAME}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD}
     ports:
       - "5600:5600"
     depends_on:
