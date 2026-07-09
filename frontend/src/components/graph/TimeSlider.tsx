@@ -118,6 +118,17 @@ const TimeSlider: React.FC<Props> = ({
     const currentIr = graphTimeline[safeInstance];
     const repos = getRepositories(currentIr);
 
+    const extractVersion = (rawIr: any) => {
+        const ir = rawIr?.payload?.irJson || rawIr?.data?.payload?.irJson || rawIr?.systemInfo?.ir || rawIr;
+        return ir?.version || rawIr?.version;
+    };
+
+    const useStringVersions = graphTimeline.every(item => !!extractVersion(item));
+
+    const displayVersion = useStringVersions 
+        ? extractVersion(currentIr) 
+        : parseInt(String(safeInstance)) + 1;
+
     return (
         <div 
             onClick={(e) => e.stopPropagation()}
@@ -135,7 +146,7 @@ const TimeSlider: React.FC<Props> = ({
                                 onOpenTrends(); 
                             }}
                             onTouchEnd={(e) => { 
-                                console.log("Trends button TOUCHED!"); 
+                                // console.log("Trends button TOUCHED!"); 
                                 e.preventDefault(); 
                                 e.stopPropagation(); 
                                 onOpenTrends(); 
@@ -151,7 +162,7 @@ const TimeSlider: React.FC<Props> = ({
                     )}
 
                     <label htmlFor="steps-range" className="font-semibold text-xl animated-gradient-dark block text-center w-full">
-                        Commit Timeline
+                        Snapshot Timeline
                     </label>
                     <button 
                         onClick={(e) => {
@@ -207,7 +218,7 @@ const TimeSlider: React.FC<Props> = ({
                         <div className="flex justify-between items-center border-b border-slate-700/80 pb-3">
                             <span className="font-bold text-lg font-sans text-white flex items-center gap-2">
                                 <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
-                                Version {parseInt(String(safeInstance)) + 1}
+                                Snapshot v{displayVersion}
                             </span>
                             {currentIr && (
                                 <div className="text-xs text-slate-400 text-right flex flex-col gap-0.5">
@@ -242,7 +253,7 @@ const TimeSlider: React.FC<Props> = ({
                             </div>
                         ) : (
                             <div className="text-sm text-slate-500 italic text-center py-4 bg-slate-800/30 rounded-lg border border-slate-700/30 border-dashed">
-                                No repository metadata available for this version.
+                                No repository metadata available for this snapshot.
                             </div>
                         )}
                     </div>

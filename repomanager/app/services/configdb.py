@@ -3,19 +3,25 @@ import base64
 import hashlib
 from Crypto.Cipher import AES
 from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo.errors import PyMongoError
 
 class ConfigDatabase:
-    def __init__(self, uri=None, db_name=None, username=None, password=None):
+    def __init__(self, uri=None, db_name=None, username=None, password=None, auth_source=None):
         self.uri = uri or os.getenv("MONGO_URI", "mongodb://cloudhub_mongo:27017")
         self.db_name = db_name or os.getenv("MONGO_DB")
         self.username = username or os.getenv("MONGO_USER")
         self.password = password or os.getenv("MONGO_PASSWORD")
+        self.auth_source = auth_source or os.getenv("MONGO_AUTH_SOURCE", "admin")
         
-        self.client = AsyncIOMotorClient(
-            host=self.uri,
-            username=self.username,
-            password=self.password
-        )
+        client_options = {"host": self.uri}
+        if self.username and self.password:
+            client_options.update({
+                "username": self.username,
+                "password": self.password,
+                "authSource": self.auth_source
+            })
+
+        self.client = AsyncIOMotorClient(**client_options)
         self.db = self.client[self.db_name]
         self.collection = self.db["settings"]
 
@@ -38,7 +44,12 @@ class ConfigDatabase:
         )
 
     async def get_token(self) -> str:
-        doc = await self.collection.find_one({"key": "github_token"})
+        try:
+            doc = await self.collection.find_one({"key": "github_token"})
+        except PyMongoError as e:
+            print(f"Failed to read GitHub token from MongoDB: {e}", flush=True)
+            return None
+
         if not doc or not doc.get("value"):
             return None
 

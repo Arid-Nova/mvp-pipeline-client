@@ -8,5 +8,6 @@ import lombok.Setter;
 public class IRByNameRequest {
 
     public String systemName;
-    
+
+    public int limit = 4;
 }

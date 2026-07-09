@@ -26,25 +26,23 @@ class AnalysisFacade:
     # Orchestrates the entire Aegis pipeline.
     # This acts as the main entry point and Facade.
 
-    def __init__(self, config: Dict[str, Any]):
-        self.config = config
-        
+    def __init__(self):        
         # 1. Initialize core services
         # ("Initializing Aegis services...")
         # Initializing the graph database.
         self.neo4j_service = Neo4jService(
-            uri=config['NEO4J']['uri'],
-            user=config['NEO4J']['username'],
-            password=config['NEO4J']['password']
+            uri = os.getenv('NEO4J_URI'),
+            user = os.getenv('NEO4J_USERNAME'),
+            password = os.getenv('NEO4J_PASSWORD')
         )
 
         # Initializing the mongo database.
         self.mongo_service = MongoService(
-            uri=config['MONGO']['uri'],
-            db_name=config['MONGO']['db_name']
+            uri = os.getenv('MONGO_URI'),
+            db_name = os.getenv('MONGO_DB_NAME')
         )
 
-        self.ir_endpoint = config['IR']['url']
+        self.ir_endpoint = os.getenv('IR_SERVICE_URL')
         
         # 2. Initialize graph loader
         self.graph_loader = GraphLoader(self.neo4j_service)
@@ -54,14 +52,6 @@ class AnalysisFacade:
 
         # 4. Initializing call graph extracting.
         self.traversal_service = GraphTraversalService(self.neo4j_service)
-        
-        self.llm_config = config['LLM']
-        if self.llm_config['provider'] == 'openai':
-            if not 'api_key' in self.llm_config:
-                # Securely get API key from environment
-                self.llm_config['api_key'] = os.getenv("API_KEY")
-                if not self.llm_config['api_key']:   
-                    raise ValueError("OPENAI_API_KEY environment variable not set.")
         
         # 5. Initialize calculus modules
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -74,7 +64,7 @@ class AnalysisFacade:
 
     def get_latent_vulnerabilities(self, ir_id: str, analyzed_paths: List[ExecutionPath]) -> List[Dict[str, Any]]:
         if getattr(self, 'neuro_analyzer', None) is None:
-            self.neuro_analyzer = NeuroAnalyzer(None, None, self.llm_config)
+            self.neuro_analyzer = NeuroAnalyzer(None, None)
         
         results = self.neuro_analyzer.analyse_latent_vulnerabilities(analyzed_paths)
         self.update_results_with_vulnerabilities(ir_id, results)
@@ -115,7 +105,7 @@ class AnalysisFacade:
         start_time = time.perf_counter()
 
         # Checking if analysis has already been performed.
-        existing = self.mongo_service.find(self.config['MONGO']['collection_name'], {
+        existing = self.mongo_service.find(os.getenv('MONGO_COLLECTION_NAME'), {
             "irID": payload['ir_id']
         })
 
@@ -139,7 +129,7 @@ class AnalysisFacade:
         # print(f"\nFound {len(execution_paths)} execution paths to analyze.")
         
         analyzed_paths = []
-        self.neuro_analyzer = NeuroAnalyzer(self.code_fetcher, self.traversal_service, self.llm_config)
+        self.neuro_analyzer = NeuroAnalyzer(self.code_fetcher, self.traversal_service)
         # total_paths = len(execution_paths)
 
         # 1. Worker function for a single path
@@ -212,7 +202,7 @@ class AnalysisFacade:
     def update_results_with_vulnerabilities(self, ir_id: str, vulnerabilities: List[Dict[str, Any]]):
         # Updates the existing analysis results with the newly found latent vulnerabilities.
         try:
-            existing = self.mongo_service.find(self.config['MONGO']['collection_name'], {
+            existing = self.mongo_service.find(os.getenv('MONGO_COLLECTION_NAME'), {
                 "irID": ir_id
             })
 
@@ -228,7 +218,7 @@ class AnalysisFacade:
             existing_result['vulnerabilities'] = compressed_vulns
 
             self.mongo_service.update(
-                self.config['MONGO']['collection_name'], 
+                os.getenv('MONGO_COLLECTION_NAME'), 
                 {"_id": existing_result['_id']}, existing_result)
             print(f"Successfully updated vulnerabilities for IR ID '{ir_id}'.")
             return True
@@ -240,7 +230,7 @@ class AnalysisFacade:
     def save_results_to_db(self, results_dict: Dict[str, Any]):
         # Saves the final "Opinion Vector" to MongoDB.
         try:
-            result_id = self.mongo_service.insert(self.config['MONGO']['collection_name'], results_dict)
+            result_id = self.mongo_service.insert(os.getenv('MONGO_COLLECTION_NAME'), results_dict)
             if result_id:
                 print(f"\nSuccessfully saved Opinion Vector to MongoDB with ID: {result_id}")
             else:

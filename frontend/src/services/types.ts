@@ -53,6 +53,94 @@ export interface OrgImportResponse {
     suggestedRepos: RepoData[];
 }
 
+// Chatbot API schema
+export interface ChatbotContext {
+    systemName?: string;
+    irId?: string;
+    indexId?: string;
+    runId?: string;
+    commitId?: string;
+    selectedService?: string;
+    selectedEndpoint?: string;
+}
+
+export interface ChatbotContextRefreshRequest {
+    context?: ChatbotContext;
+}
+
+export interface ChatbotContextRefreshResponse {
+    success: boolean;
+    refreshedArtifactCountsByType: Record<string, number>;
+    unavailableProviders: string[];
+    refreshedAt: string;
+    refreshVersion: string;
+    message: string;
+    staleContext: boolean;
+}
+
+export interface ChatbotMessage {
+    role: string;
+    content: string;
+}
+
+export interface ChatbotQueryRequest {
+    question: string;
+    context?: ChatbotContext;
+    conversationId?: string;
+    messages?: ChatbotMessage[];
+}
+
+export interface CitationItem {
+    artifactType: string;
+    artifactId: string;
+    artifactName: string;
+    locationHint: string;
+    version: string;
+    summary: string;
+    sourcePath?: string;
+    sourceEndpoint?: string;
+    serviceName?: string;
+    entityName?: string;
+    endpointPath?: string;
+    commitId?: string;
+    timestamp?: string;
+}
+
+export type ChatbotConfidence = "HIGH" | "MEDIUM" | "LOW" | "INSUFFICIENT_EVIDENCE";
+export type ChatbotFlag =
+    | "partial"
+    | "insufficient_evidence"
+    | "stale_context"
+    | "truncated_context"
+    | "citation_validation_failed"
+    | "model_unavailable";
+
+export interface ChatbotResponse {
+    answer: string;
+    citations: CitationItem[];
+    confidence: ChatbotConfidence;
+    flags: ChatbotFlag[];
+    requestId: string;
+    processingTimeMs: number;
+    model: string;
+    provider: string;
+    confidenceRationale?: string;
+    confidenceReasons?: string[];
+    traceMetadata?: Record<string, unknown>;
+}
+
+export type ChatbotHealthStatus = "healthy" | "degraded" | "unavailable";
+
+export interface ChatbotHealthResponse {
+    status: ChatbotHealthStatus;
+    provider: string;
+    model: string;
+    baseUrl: string;
+    message: string;
+    checkedAt: string;
+    latencyMs: number | null;
+}
+
 // Session Management Types
 export interface SessionSummary {
     id: string;
