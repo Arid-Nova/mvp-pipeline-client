@@ -67,7 +67,6 @@ public class IRController {
     }
 
     @DeleteMapping("/{id}")
-    @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
     public ResponseEntity<?> deleteIR(@PathVariable("id") String id) {
         try {
             irService.deleteIRById(id);
@@ -100,7 +99,6 @@ public class IRController {
     }
 
     @GetMapping("/versions")
-    @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
     public ResponseEntity<?> getAvailableVersions(@RequestParam("systemName") String systemName) {
         try {
             return ResponseEntity.ok(irService.getAvailableVersions(systemName));
@@ -114,7 +112,6 @@ public class IRController {
     }
 
     @PostMapping("/versions")
-    @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
     public ResponseEntity<?> fetchSpecificIRs(@RequestBody List<String> ids) {
         byte[] responseModel;
         try {
@@ -133,7 +130,6 @@ public class IRController {
     }
 
     @GetMapping("/versions/metadata")
-    @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
     public ResponseEntity<?> getVersionMetadata(@RequestParam("systemName") String systemName) {
         try {
             Map<String, Object> response = irService.getSuggestedVersions(systemName);
@@ -145,7 +141,6 @@ public class IRController {
     }
 
     @PutMapping("/versions/metadata")
-    @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
     public ResponseEntity<?> updateVersion(
             @RequestParam("id") String id, 
             @RequestBody Map<String, String> requestBody) {

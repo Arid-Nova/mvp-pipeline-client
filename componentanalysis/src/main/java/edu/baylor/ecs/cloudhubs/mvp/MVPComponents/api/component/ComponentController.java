@@ -15,17 +15,11 @@ import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.persistence.request.IRRequestM
 @RestController
 @RequiredArgsConstructor(onConstructor = @__(@Autowired))
 @RequestMapping("/component")
-@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
 public class ComponentController {
 
     protected final ComponentService componentService;
 
     @PostMapping("/create")
-    @CrossOrigin(
-            origins = {"http://localhost:3000", "http://localhost:8080"},
-            maxAge = 3600,
-            allowedHeaders = "*"
-    )
     public ResponseEntity<?> createIndexedComponenets(@RequestBody IRRequestModel irRequestModel) {
         JsonNode responseModel;
         try {
@@ -44,11 +38,6 @@ public class ComponentController {
     }
 
     @GetMapping("/{id}")
-    @CrossOrigin(
-            origins = {"http://localhost:3000", "http://localhost:8080"},
-            maxAge = 3600,
-            allowedHeaders = "*"
-    )
     public ResponseEntity<?> getComponent(@PathVariable String id) {
         try {
             byte[] response = componentService.getComponentById(id);
@@ -64,11 +53,6 @@ public class ComponentController {
     }
 
     @GetMapping("/endpoints/{id}")
-    @CrossOrigin(
-            origins = {"http://localhost:3000", "http://localhost:8080"},
-            maxAge = 3600,
-            allowedHeaders = "*"
-    )
     public ResponseEntity<?> getEndpoints(@PathVariable String id) {
         try {
             byte[] response = componentService.getEndpointsById(id);
