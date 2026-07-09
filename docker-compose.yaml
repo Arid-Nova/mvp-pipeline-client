@@ -47,6 +47,7 @@ services:
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
+      CORS_ALLOWED_ORIGINS: https://toolkit.aridnova.net,https://aridnova.net,https://www.aridnova.net,http://localhost:3000,http://localhost:8080
     depends_on:
       mariadb:
         condition: service_healthy
@@ -69,6 +70,7 @@ services:
       CHATBOT_MAX_TOKENS: ${CHATBOT_MAX_TOKENS:-1024}
       CHATBOT_TEMPERATURE: ${CHATBOT_TEMPERATURE:-0.2}
       CHATBOT_STRICT_EVIDENCE_ONLY: "false"
+      CORS_ALLOWED_ORIGINS: https://toolkit.aridnova.net,https://aridnova.net,https://www.aridnova.net,http://localhost:3000,http://localhost:8080
     networks:
       - app_network
     restart: always
@@ -122,7 +124,9 @@ services:
       dockerfile: Dockerfile
     container_name: cloudhub_components
     ports:
-      - "8060:8060" 
+      - "8060:8060"
+    environment:
+      CORS_ALLOWED_ORIGINS: https://toolkit.aridnova.net,https://aridnova.net,https://www.aridnova.net,http://localhost:3000,http://localhost:8080
     networks:
       - app_network
     restart: always

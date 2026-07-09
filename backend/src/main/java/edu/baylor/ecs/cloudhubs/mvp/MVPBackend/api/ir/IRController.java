@@ -27,10 +27,6 @@ public class IRController {
     protected final DeltaService deltaService;
 
     @PostMapping("/create")
-    @CrossOrigin(origins = {
-        "http://localhost:3000", "http://localhost:8080",
-        "http://localhost:8900", "http://localhost:9000"
-    }, maxAge = 3600, allowedHeaders = "*")
     public ResponseEntity<?> createIR(@RequestBody IRRequestModel irRequestModel) {
         byte[] responseModel;
         try {
@@ -51,7 +47,6 @@ public class IRController {
     }
 
     @GetMapping
-    @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
     public ResponseEntity<?> getIRs(@ModelAttribute IRByNameRequest irRequestModel) {
         byte[] responseModel;
         try {
@@ -72,7 +67,6 @@ public class IRController {
     }
 
     @DeleteMapping("/{id}")
-    @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
     public ResponseEntity<?> deleteIR(@PathVariable("id") String id) {
         try {
             irService.deleteIRById(id);
@@ -87,7 +81,6 @@ public class IRController {
     }
 
     @GetMapping("/meta")
-    @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
     public ResponseEntity<?> getIRsMeta(@ModelAttribute IRByNameRequest irRequestModel) {
         String responseModel;
         try {
@@ -106,7 +99,6 @@ public class IRController {
     }
 
     @GetMapping("/versions")
-    @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
     public ResponseEntity<?> getAvailableVersions(@RequestParam("systemName") String systemName) {
         try {
             return ResponseEntity.ok(irService.getAvailableVersions(systemName));
@@ -120,7 +112,6 @@ public class IRController {
     }
 
     @PostMapping("/versions")
-    @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
     public ResponseEntity<?> fetchSpecificIRs(@RequestBody List<String> ids) {
         byte[] responseModel;
         try {
@@ -139,7 +130,6 @@ public class IRController {
     }
 
     @GetMapping("/versions/metadata")
-    @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
     public ResponseEntity<?> getVersionMetadata(@RequestParam("systemName") String systemName) {
         try {
             Map<String, Object> response = irService.getSuggestedVersions(systemName);
@@ -151,7 +141,6 @@ public class IRController {
     }
 
     @PutMapping("/versions/metadata")
-    @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
     public ResponseEntity<?> updateVersion(
             @RequestParam("id") String id, 
             @RequestBody Map<String, String> requestBody) {
@@ -174,7 +163,6 @@ public class IRController {
     }
 
     @PostMapping("/delta")
-    @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"}, maxAge = 3600, allowedHeaders = "*")
     public ResponseEntity<?> retreiveDelta(@RequestBody DeltaRequestModel requestModel) {
         byte[] responseModel;
         try {
