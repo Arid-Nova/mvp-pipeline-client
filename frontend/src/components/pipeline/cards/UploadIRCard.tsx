@@ -236,9 +236,9 @@ export const UploadIRCard: React.FC<UploadIRCardProps> = ({ node, updateNodeData
                                     const text = await f.text();
                                     const json = JSON.parse(text);
                                     updateNodeData(node.id, {
-                                        payload: { 
-                                            irJson: json, 
-                                            systemName: f.name,
+                                        payload: {
+                                            irJson: json,
+                                            systemName: json.name || f.name,
                                             metadata: extractIRMetadata(json, json.id)
                                         }
                                     });

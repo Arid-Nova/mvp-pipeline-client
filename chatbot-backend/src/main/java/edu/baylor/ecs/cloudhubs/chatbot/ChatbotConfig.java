@@ -21,6 +21,8 @@ public class ChatbotConfig {
     @NotBlank(message = "chatbot.base-url is required. Set CHATBOT_BASE_URL (example: http://ollama:11434).")
     private String baseUrl;
 
+    private String backendBaseUrl;
+
     @Positive(message = "chatbot.timeout-ms must be positive. Set CHATBOT_TIMEOUT_MS to a value like 30000.")
     private int timeoutMs;
 
@@ -69,6 +71,14 @@ public class ChatbotConfig {
 
     public void setBaseUrl(String baseUrl) {
         this.baseUrl = baseUrl;
+    }
+
+    public String getBackendBaseUrl() {
+        return backendBaseUrl;
+    }
+
+    public void setBackendBaseUrl(String backendBaseUrl) {
+        this.backendBaseUrl = backendBaseUrl;
     }
 
     public int getTimeoutMs() {
