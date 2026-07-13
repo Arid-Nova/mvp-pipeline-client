@@ -661,13 +661,17 @@ const PipelinePage: React.FC = () => {
         const commitId = irSource?.data?.payload?.metadata?.[0]?.commitId;
         const irId = irSource?.data?.payload?.irJson?.id || irHolder?.data?.payload?.irJson?.id;
         const indexId = componentHolder?.data?.componentPayload?.id;
+        // Send the IR content the frontend already holds so the chatbot can answer even when
+        // the IR was never persisted server-side (e.g. a locally uploaded snapshot).
+        const irPayload = irSource?.data?.payload?.irJson || irHolder?.data?.payload?.irJson;
 
         return {
             systemName,
             irId,
             indexId,
             runId: pipelineRunId,
-            commitId
+            commitId,
+            irPayload
         };
     }, [nodes, pipelineRunId]);
 

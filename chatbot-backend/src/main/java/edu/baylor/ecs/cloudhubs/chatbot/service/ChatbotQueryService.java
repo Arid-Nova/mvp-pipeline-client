@@ -101,7 +101,10 @@ public class ChatbotQueryService {
         }
 
         if (isMicroserviceCountQuestion(request.getQuestion())) {
-            List<String> services = uniqueMicroserviceNames(evidenceItems);
+            // Count from the full ranked pool, not the context-budgeted subset: a count never
+            // gets sent to the LLM, so the budget's item cap (sized for prompt/context limits)
+            // must not silently undercount services present in the retrieved evidence.
+            List<String> services = uniqueMicroserviceNames(retrieval.getRankedEvidence());
             if (!services.isEmpty()) {
                 response.setAnswer("The system has " + services.size() + " microservices in the active IR evidence: "
                     + String.join(", ", services) + ".");
