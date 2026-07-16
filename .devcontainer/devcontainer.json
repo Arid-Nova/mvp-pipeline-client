@@ -1,18 +1,27 @@
 {
-  "name": "AridNova MVP Pipeline Client",
-  "build": {
-    "dockerfile": "Dockerfile"
-  },
+  "name": "Backend Dev",
+  "dockerComposeFile": [
+    "docker-compose.yml"
+  ],
+  "service": "app",
+  "workspaceFolder": "/workspaces",
+  "overrideCommand": true,
   "features": {
-    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "moby": false
+    },
+    "ghcr.io/devcontainers/features/git:1": {
+      "ppa": false
+    },
+    "ghcr.io/devcontainers/features/git-lfs:1": {
+      "autoPull": true
+    },
+    "ghcr.io/devcontainers-extra/features/zsh-plugins:0": {},
+    "ghcr.io/stu-bell/devcontainer-features/open-code:0": {}
   },
   "customizations": {
     "vscode": {
-      "extensions": [
-        "vscjava.vscode-java-pack",
-        "redhat.java",
-        "vmware.vscode-spring-boot"
-      ]
+      "extensions": []
     }
   }
 }
