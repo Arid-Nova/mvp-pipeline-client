@@ -5,7 +5,15 @@
   ],
   "service": "app",
   "workspaceFolder": "/workspaces",
+  "remoteUser": "root",
   "overrideCommand": true,
+  "containerEnv": {
+    "GH_CONFIG_DIR": "/home/vscode/.github-auth"
+  },
+  "mounts": [
+    "source=github-cli-auth,target=/home/vscode/.config/gh,type=volume"
+  ],
+  "postAttachCommand": "bash .devcontainer/script/on-attach.sh",
   "features": {
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
       "moby": false
@@ -17,7 +25,8 @@
       "autoPull": true
     },
     "ghcr.io/devcontainers-extra/features/zsh-plugins:0": {},
-    "ghcr.io/stu-bell/devcontainer-features/open-code:0": {}
+    "ghcr.io/stu-bell/devcontainer-features/open-code:0": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
   },
   "customizations": {
     "vscode": {
