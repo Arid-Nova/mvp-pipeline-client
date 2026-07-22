@@ -327,16 +327,15 @@ services:
     restart: always
 
   slm-backend:
-    build: ./slm-backend
-    container_name: slm_backend
-    profiles:
-      - local-llm
+    build: 
+      context: ./slm-backend
+      dockerfile: Dockerfile
+    container_name: cloudhub_slmbackend
     ports:
       - "8071:8071"
     networks:
       - app_network
-    depends_on:
-      - ollama
+    restart: always
 
 volumes:
   mariadb_data:

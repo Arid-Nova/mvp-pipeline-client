@@ -1,6 +1,5 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.core.compression import GzipRequestMiddleware
 
 from app.core.config import settings
 from app.api.endpoints import router as api_router
@@ -13,8 +12,6 @@ app = FastAPI(
 origins = [
     "http://localhost:3000"
 ]
-
-app.add_middleware(GzipRequestMiddleware)
 
 app.add_middleware(
     CORSMiddleware,

@@ -728,8 +728,9 @@ export const summarizePipelineResults = async (nodes: NodeData[], connections: C
         };
 
         const compressedBlob = await compressData(rawPayload);
+        const arrayBuffer = await compressedBlob.arrayBuffer();
 
-        const response = await SLMBACKEND_API.post('/summaries', compressedBlob, {
+        const response = await SLMBACKEND_API.post('/summaries', arrayBuffer, {
             headers: {
                 'Content-Type': 'application/json',
                 'Content-Encoding': 'gzip' 
