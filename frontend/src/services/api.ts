@@ -1,7 +1,8 @@
 import axios, { 
     VERIFY_API, COMPONENT_API, VECTOR_API, 
     ANALYSIS_API, TEST_API, AEGIS_API, REPO_API, 
-    USER_API, EXECUTOR_API, CHATBOT_API
+    USER_API, EXECUTOR_API, CHATBOT_API,
+    SLMBACKEND_API
 } from '../utils/axiosSetup';
 import { showError } from '../utils/notifications';
 import {
@@ -12,8 +13,9 @@ import {
     ChatbotContextRefreshRequest, ChatbotContextRefreshResponse,
     UserFeedback,
 } from './types';
-import { PromptItem } from '../components/pipeline/models';
+import { PromptItem, NodeData, Connection } from '../components/pipeline/models';
 import { decompressPayload, decompressGzipResponse } from '../utils/decompress';
+import { compressData } from '../utils/compress'
 
 // IR generation and retrieval functions
 export const fetchIRFromRepo = async (input: RepositoryInput, options?: { signal?: AbortSignal }) => {
@@ -716,3 +718,27 @@ export const endUserSession = (sessionId: string) => {
         keepalive: true
     }).catch(console.error);
 }
+
+// Chain-of-Thought Summarizer
+export const summarizePipelineResults = async (nodes: NodeData[], connections: Connection[]) => {
+    try {
+        const rawPayload = {
+            nodes: nodes,
+            connections: connections
+        };
+
+        const compressedBlob = await compressData(rawPayload);
+
+        const response = await SLMBACKEND_API.post('/summaries', compressedBlob, {
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Encoding': 'gzip' 
+            }
+        });
+
+        return response.data;
+    } catch (error) {
+        console.error("Failed to summarize pipeline results:", error);
+        throw error;
+    }
+};

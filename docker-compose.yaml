@@ -92,6 +92,7 @@ services:
         - REACT_APP_CHATBOT_SERVICE_URL=http://localhost:8081
         - REACT_APP_USER_SERVICE_URL=http://localhost:8100
         - REACT_APP_EXEC_SERVICE_URL=http://localhost:8010
+        - REACT_APP_SLMBACKEND_SERVICE_URL=http://localhost:8071
         - REACT_APP_INTERNAL_SERVICE_KEY=${INTERNAL_SERVICE_KEY}
         - REACT_APP_PUBLIC_POSTHOG_KEY=${PUBLIC_POSTHOG_KEY}
         - REACT_APP_PUBLIC_POSTHOG_HOST=${PUBLIC_POSTHOG_HOST:-https://us.i.posthog.com}
@@ -324,6 +325,18 @@ services:
     networks:
       - app_network
     restart: always
+
+  slm-backend:
+    build: ./slm-backend
+    container_name: slm_backend
+    profiles:
+      - local-llm
+    ports:
+      - "8071:8071"
+    networks:
+      - app_network
+    depends_on:
+      - ollama
 
 volumes:
   mariadb_data:
