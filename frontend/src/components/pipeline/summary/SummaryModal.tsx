@@ -101,31 +101,53 @@ export const SummaryModal: React.FC<SummaryModalProps> = ({
                                 Synthesizing non-linear execution paths...
                             </p>
                         </div>
-                    ) : summarySteps.length === 0 ? (
-                        <p className="text-center text-xs text-slate-500 py-8">No summary data available for this execution run.</p>
                     ) : (
-                        summarySteps.map((step, index) => (
-                            <div key={index} className="flex gap-4 border-l-2 border-teal-500/40 pl-4 relative ml-2">
-                                {/* Timeline Dot */}
-                                <div className="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-slate-900 border-2 border-teal-400 shadow-[0_0_8px_rgba(20,184,166,0.6)]"></div>
+                        <>
+                            {summarySteps.length === 0 ? (
+                                <p className="text-center text-xs text-slate-500 py-8">No summary data available for this execution run.</p>
+                            ) : (
+                                summarySteps.map((step, index) => (
+                                    <div key={index} className="flex gap-4 border-l-2 border-teal-500/40 pl-4 relative ml-2">
+                                        {/* Timeline Dot */}
+                                        <div className="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-slate-900 border-2 border-teal-400 shadow-[0_0_8px_rgba(20,184,166,0.6)]"></div>
+                                        
+                                        <div className="w-full">
+                                            {/* Branch Tag */}
+                                            <div className="text-[10px] font-bold text-teal-400 tracking-wider uppercase mb-1">
+                                                {step.branchNames && step.branchNames.length > 0 
+                                                    ? `Path: ${step.branchNames.join(' ⭢ ')}` 
+                                                    : `Step ${index + 1}`}
+                                            </div>
+                                            
+                                            <h4 className="font-semibold text-slate-200 text-sm">{step.title}</h4>
+                                            
+                                            {/* Content Card */}
+                                            <div className="text-xs text-slate-300 mt-2 leading-relaxed bg-slate-950/60 p-3.5 rounded-lg border border-slate-800/80">
+                                                {step.description}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+
+                            {/* Chatbot Callout - Now guaranteed to show whether steps exist or not */}
+                            <div className="flex gap-4 border-l-2 border-dashed border-slate-700 pl-4 relative ml-2 mt-8 pt-2">
+                                <div className="absolute -left-[9px] top-3 w-4 h-4 rounded-full bg-slate-900 border-2 border-slate-600"></div>
                                 
                                 <div className="w-full">
-                                    {/* Branch Tag */}
-                                    <div className="text-[10px] font-bold text-teal-400 tracking-wider uppercase mb-1">
-                                        {step.branchNames && step.branchNames.length > 0 
-                                            ? `Path: ${step.branchNames.join(' ⭢ ')}` 
-                                            : `Step ${index + 1}`}
-                                    </div>
+                                    <h4 className="font-semibold text-slate-400 text-sm flex items-center gap-2">
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                        </svg>
+                                        Have more specific questions?
+                                    </h4>
                                     
-                                    <h4 className="font-semibold text-slate-200 text-sm">{step.title}</h4>
-                                    
-                                    {/* Content Card */}
-                                    <div className="text-xs text-slate-300 mt-2 leading-relaxed bg-slate-950/60 p-3.5 rounded-lg border border-slate-800/80">
-                                        {step.description}
+                                    <div className="text-xs text-slate-400 mt-2 leading-relaxed bg-slate-900/50 p-3.5 rounded-lg border border-slate-800/50 border-dashed">
+                                        This summary provides a high-level overview of the pipeline execution. For deep dives into specific payloads, node metrics, or code contexts, open the <strong className="text-teal-500">chatbot</strong> panel and ask directly!
                                     </div>
                                 </div>
                             </div>
-                        ))
+                        </>
                     )}
                 </div>
 
