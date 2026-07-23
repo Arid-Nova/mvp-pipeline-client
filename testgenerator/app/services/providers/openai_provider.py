@@ -3,11 +3,12 @@ from .base import LLMProvider
 import os
 
 class OpenAIProvider(LLMProvider):
-    def __init__(self, model_name: str):
+    def __init__(self, model_name: str, llm_uri: str = None, llm_token: str = None):
         self.model_name = model_name
         self.client = AsyncOpenAI(
-            api_key=os.getenv("OPENAI_API_KEY"),
-            base_url=os.getenv("OPENAI_BASE_URL"))
+            api_key=llm_token or os.getenv("OPENAI_API_KEY"),
+            base_url=llm_uri or os.getenv("OPENAI_BASE_URL")
+        )
         self.temperature = float(os.getenv("LLM_TEMPERATURE", 0.2))
 
     async def generate_test(self, prompt: str) -> str:

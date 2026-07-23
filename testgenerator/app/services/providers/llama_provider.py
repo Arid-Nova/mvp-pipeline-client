@@ -3,9 +3,12 @@ from .base import LLMProvider
 import os
 
 class LlamaProvider(LLMProvider):
-    def __init__(self, model_name: str):
+    def __init__(self, model_name: str, llm_uri: str = None, llm_token: str = None):
         self.model_name = "llama3-70b-8192" if model_name == "llama-3-70b" else model_name
-        self.client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
+        self.client = AsyncGroq(
+            api_key=llm_token or os.getenv("GROQ_API_KEY"),
+            base_url=llm_uri or None
+        )
         self.temperature = float(os.getenv("LLM_TEMPERATURE", 0.2))
         self.max_tokens = int(os.getenv("MAX_TOKENS", 4000))
 

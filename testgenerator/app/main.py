@@ -36,7 +36,7 @@ async def process_single_prompt(provider, item) -> TestSuiteItem:
 async def generate_testsuites(request: TestGenerationRequest):
     try:
         # 1. Instantiate the correct provider using the Factory
-        provider = LLMFactory.get_provider(request.llm_model)
+        provider = LLMFactory.get_provider(request.llm_model, request.llm_uri, request.llm_token)
         
         # 2. Creating asynchronous tasks for all prompts
         tasks = [process_single_prompt(provider, item) for item in request.prompts]
