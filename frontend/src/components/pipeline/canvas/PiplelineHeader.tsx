@@ -189,6 +189,19 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
     const [currentPage, setCurrentPage] = useState(0);
     const [totalPages, setTotalPages] = useState(1);
 
+    // LLM Configuration States
+    const [llmProvider, setLlmProvider] = useState<'internal' | 'local' | 'external'>(() => {
+        return (localStorage.getItem('llm_provider') as 'internal' | 'local' | 'external') || 'internal';
+    });
+    const [llmUri, setLlmUri] = useState(() => localStorage.getItem('llm_uri') || '');
+    const [llmToken, setLlmToken] = useState(() => localStorage.getItem('llm_token') || '');
+
+    const handleSaveLlmConfig = () => {
+        localStorage.setItem('llm_provider', llmProvider);
+        localStorage.setItem('llm_uri', llmUri);
+        localStorage.setItem('llm_token', llmToken);
+    };
+
     // Session Hadlers
     const handleQuickSave = async () => {
         setIsSaving(true);
@@ -469,6 +482,66 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                                         className="flex-1 py-1.5 bg-purple-600 hover:bg-purple-500 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors shadow-md"
                                     >
                                         Set Token
+                                    </button>
+                                </div>
+                                
+                                {/* LLM Configuration */}
+                                <div className="flex items-center gap-2 border-b border-slate-700 pb-2">
+                                    <svg className="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    </svg>
+                                    <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">LLM Configuration</h3>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Select Provider</label>
+                                    <div className="flex flex-col gap-1.5">
+                                        {[
+                                            { value: 'internal', label: 'Internal SLM', desc: 'Use built-in secure model' },
+                                            { value: 'local', label: 'Local LLM', desc: 'Model running on this machine' },
+                                            { value: 'external', label: 'External LLM', desc: 'Cloud-based API (e.g. OpenAI)' },
+                                        ].map(option => (
+                                            <button
+                                                key={option.value}
+                                                onClick={() => setLlmProvider(option.value as 'internal' | 'local' | 'external')}
+                                                className={`w-full text-left px-3 py-2 rounded-md border text-[10px] transition-all ${
+                                                    llmProvider === option.value
+                                                        ? 'bg-cyan-500/10 border-cyan-500/50 text-cyan-300'
+                                                        : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'
+                                                }`}
+                                            >
+                                                <span className="font-bold uppercase tracking-wider">{option.label}</span>
+                                                <span className="block text-slate-500 mt-0.5">{option.desc}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {llmProvider !== 'internal' && (
+                                        <div className="space-y-1.5 pt-1">
+                                            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">URI</label>
+                                            <input
+                                                type="text"
+                                                placeholder="https://api.example.com/v1"
+                                                value={llmUri}
+                                                onChange={(e) => setLlmUri(e.target.value)}
+                                                className="w-full text-xs bg-slate-900 border border-slate-700 rounded-md p-2 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 outline-none text-slate-200 font-mono shadow-inner transition-all"
+                                            />
+                                            <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Access Token</label>
+                                            <input
+                                                type="password"
+                                                placeholder="sk-xxxxxxxxxxxxxxxxxxxx"
+                                                value={llmToken}
+                                                onChange={(e) => setLlmToken(e.target.value)}
+                                                className="w-full text-xs bg-slate-900 border border-slate-700 rounded-md p-2 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 outline-none text-slate-200 font-mono shadow-inner transition-all"
+                                            />
+                                        </div>
+                                    )}
+
+                                    <button
+                                        onClick={handleSaveLlmConfig}
+                                        className="w-full py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors shadow-md mt-1"
+                                    >
+                                        Save Configuration
                                     </button>
                                 </div>
 
