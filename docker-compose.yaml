@@ -165,7 +165,8 @@ services:
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
       # gpt-5 models reject any temperature other than the default 1
       - LLM_TEMPERATURE=1
-      - OPENAI_API_MODEL=gpt-4o-mini
+      # Azure deployment name, not a model id — see OPENAI_API_MODEL in .env.example
+      - OPENAI_API_MODEL=${OPENAI_API_MODEL:-gpt-4o-mini}
     networks:
       - app_network
     restart: always
@@ -290,7 +291,8 @@ services:
       # gpt-5 models reject any temperature other than the default 1
       - LLM_TEMPERATURE=1
       - MAX_TOKENS=10000
-      - OPENAI_API_MODEL=gpt-4o-mini
+      # Azure deployment name, not a model id — see OPENAI_API_MODEL in .env.example
+      - OPENAI_API_MODEL=${OPENAI_API_MODEL:-gpt-4o-mini}
       - MONGO_URI=mongodb://cloudhub_mongo:27017
       - MONGO_DB=aridnova_system
       - MONGO_USER=${MONGO_ROOT_USERNAME:-root}
