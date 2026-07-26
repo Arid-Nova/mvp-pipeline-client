@@ -47,6 +47,9 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mariadb://cache_db:3306/msGraph
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      # Overrides the hardcoded uri in application.yml, whose password does not
+      # match the credential the mongo container is actually started with.
+      SPRING_DATA_MONGODB_URI: ${SPRING_DATA_MONGODB_URI:-mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD}@cloudhub_mongo:27017/aegis?authSource=${MONGO_AUTH_SOURCE:-admin}}
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:8080}
     depends_on:
@@ -128,6 +131,9 @@ services:
     ports:
       - "8060:8060"
     environment:
+      # Overrides the hardcoded uri in application.yml, whose password does not
+      # match the credential the mongo container is actually started with.
+      SPRING_DATA_MONGODB_URI: ${SPRING_DATA_MONGODB_URI:-mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD}@cloudhub_mongo:27017/aegis?authSource=${MONGO_AUTH_SOURCE:-admin}}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:8080}
     networks:
       - app_network
