@@ -163,7 +163,8 @@ services:
       - MONGO_PASSWORD=${MONGO_ROOT_PASSWORD}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
-      - LLM_TEMPERATURE=0.1
+      # gpt-5 models reject any temperature other than the default 1
+      - LLM_TEMPERATURE=1
       - OPENAI_API_MODEL=gpt-4o-mini
     networks:
       - app_network
@@ -181,7 +182,8 @@ services:
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
-      - LLM_TEMPERATURE=0.3
+      # gpt-5 models reject any temperature other than the default 1
+      - LLM_TEMPERATURE=1
       - MAX_TOKENS=10000
     networks:
       - app_network
@@ -285,7 +287,8 @@ services:
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
-      - LLM_TEMPERATURE=0.1
+      # gpt-5 models reject any temperature other than the default 1
+      - LLM_TEMPERATURE=1
       - MAX_TOKENS=10000
       - OPENAI_API_MODEL=gpt-4o-mini
       - MONGO_URI=mongodb://cloudhub_mongo:27017

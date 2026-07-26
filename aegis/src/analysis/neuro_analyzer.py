@@ -342,8 +342,8 @@ class OpenAILLMService(BaseLLMService):
                     messages=[
                         {"role": "system", "content": self._get_vulnarability_prompt()},
                         {"role": "user", "content": f"Here is the DATA JSON to analyze:\n{input_json_str}"}
-                    ],
-                    temperature=0.1
+                    ]
+                    # no temperature: gpt-5 models reject any value other than the default 1
                 )
                 
                 raw_output = response.choices[0].message.content.strip()
