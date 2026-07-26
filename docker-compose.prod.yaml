@@ -21,6 +21,16 @@ services:
 
   chatbot:
     ports: !reset []
+    # The chatbot is deliberately local-only — scripts/validate-chatbot-local-only.sh
+    # fails the build if its provider default moves off OLLAMA or if a cloud
+    # credential appears in its path, so it must not be repointed at Azure OpenAI.
+    # That makes it dependent on the ollama service, which is itself behind the
+    # local-llm profile. Put chatbot in the same profile so neither starts by
+    # accident in prod and leaves the UI calling a service that always fails.
+    # To enable on the VM (needs CPU headroom and a model pull):
+    #   docker compose --profile local-llm up -d ollama chatbot
+    profiles:
+      - local-llm
 
   verifier:
     ports: !reset []
