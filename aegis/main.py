@@ -62,9 +62,9 @@ class AnalysisFacade:
         self.config_loader = ConfigLoader()
         # print("Initialization complete.")
 
-    def get_latent_vulnerabilities(self, ir_id: str, analyzed_paths: List[ExecutionPath]) -> List[Dict[str, Any]]:
+    def get_latent_vulnerabilities(self, ir_id: str, analyzed_paths: List[ExecutionPath], llm_uri: str = None, llm_token: str = None) -> List[Dict[str, Any]]:
         if getattr(self, 'neuro_analyzer', None) is None:
-            self.neuro_analyzer = NeuroAnalyzer(None, None)
+            self.neuro_analyzer = NeuroAnalyzer(None, None, llm_uri=llm_uri, llm_token=llm_token)
         
         results = self.neuro_analyzer.analyse_latent_vulnerabilities(analyzed_paths)
         self.update_results_with_vulnerabilities(ir_id, results)
@@ -99,7 +99,8 @@ class AnalysisFacade:
             print(f"Error parsing IR data: {e}")
             raise
 
-    def run_analysis(self, payload: Dict[str, Any], max_workers: int = 3) -> List[ExecutionPath]:
+    #def run_analysis(self, payload: Dict[str, Any], max_workers: int = 3) -> List[ExecutionPath]:
+    def run_analysis(self, payload: Dict[str, Any], max_workers: int = 3, llm_uri: str = None, llm_token: str = None) -> List[ExecutionPath]:
         # Executes the end-to-end analysis pipeline.
         print("\nStarting AEGIS analysis!")
         start_time = time.perf_counter()
@@ -129,7 +130,8 @@ class AnalysisFacade:
         # print(f"\nFound {len(execution_paths)} execution paths to analyze.")
         
         analyzed_paths = []
-        self.neuro_analyzer = NeuroAnalyzer(self.code_fetcher, self.traversal_service)
+        #self.neuro_analyzer = NeuroAnalyzer(self.code_fetcher, self.traversal_service)
+        self.neuro_analyzer = NeuroAnalyzer(self.code_fetcher, self.traversal_service, llm_uri=llm_uri, llm_token=llm_token)
         # total_paths = len(execution_paths)
 
         # 1. Worker function for a single path
