@@ -39,13 +39,41 @@ class CoTSummarizerService:
         
         self.chain = self.prompt | self.llm | self.parser
 
-    async def summarize(self, nodes: list, connections: list) -> list:
-        result = await self.chain.ainvoke({
+    # async def summarize(self, nodes: list, connections: list) -> list:
+    #     result = await self.chain.ainvoke({
+    #         "nodes": json.dumps(nodes),
+    #         "connections": json.dumps(connections),
+    #         "format_instructions": self.parser.get_format_instructions()
+    #     })
+        
+    #     return result.get("steps", [])
+    async def summarize(self, nodes: list, connections: list, use_external_slm: bool = None, external_api_base: str = None, external_api_key: str = None) -> list:
+        # Override settings if provided from frontend
+        if use_external_slm is not None:
+            if use_external_slm and external_api_base and external_api_key:
+                llm = ChatOpenAI(
+                    base_url=external_api_base,
+                    api_key=external_api_key,
+                    model=settings.external_model_name,
+                    temperature=settings.temperature,
+                    model_kwargs={"response_format": {"type": "json_object"}}
+                )
+            else:
+                llm = ChatOllama(
+                    base_url=settings.ollama_base_url,
+                    model=settings.model_name,
+                    temperature=settings.temperature,
+                    format="json"
+                )
+            chain = self.prompt | llm | self.parser
+        else:
+            chain = self.chain
+
+        result = await chain.ainvoke({
             "nodes": json.dumps(nodes),
             "connections": json.dumps(connections),
             "format_instructions": self.parser.get_format_instructions()
         })
-        
         return result.get("steps", [])
 
 summarizer_service = CoTSummarizerService()

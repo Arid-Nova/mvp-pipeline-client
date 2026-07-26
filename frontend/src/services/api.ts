@@ -722,11 +722,20 @@ export const endUserSession = (sessionId: string) => {
 // Chain-of-Thought Summarizer
 export const summarizePipelineResults = async (nodes: NodeData[], connections: Connection[]) => {
     try {
+        // const rawPayload = {
+        //     nodes: nodes,
+        //     connections: connections
+        // };
+
+        const llmProvider = localStorage.getItem('llm_provider') || 'internal';
         const rawPayload = {
             nodes: nodes,
-            connections: connections
+            connections: connections,
+            use_external_slm: llmProvider !== 'internal',
+            external_api_base: localStorage.getItem('llm_uri') || '',
+            external_api_key: localStorage.getItem('llm_token') || ''
         };
-
+        
         const compressedBlob = await compressData(rawPayload);
         const arrayBuffer = await compressedBlob.arrayBuffer();
 
