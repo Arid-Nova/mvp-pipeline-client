@@ -172,7 +172,7 @@ services:
       # gpt-5 models reject any temperature other than the default 1
       - LLM_TEMPERATURE=1
       # Azure deployment name, not a model id — see OPENAI_API_MODEL in .env.example
-      - OPENAI_API_MODEL=${OPENAI_API_MODEL:-gpt-4o-mini}
+      - OPENAI_API_MODEL=${OPENAI_API_MODEL:-gpt-5-mini}
     networks:
       - app_network
     restart: always
@@ -243,7 +243,7 @@ services:
       LLM_PROVIDER: openai
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENAI_ENDPOINT: ${OPENAI_BASE_URL}
-      LLM_MODEL: ${OPENAI_API_MODEL:-gpt-4o-mini}
+      LLM_MODEL: ${OPENAI_API_MODEL:-gpt-5-mini}
       # aegis's MongoService takes only a URI, so credentials must be embedded here
       # (other services pass MONGO_USER/MONGO_PASSWORD separately).
       MONGO_URI: ${MONGO_URI:-mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD}@cloudhub_mongo:27017/?authSource=${MONGO_AUTH_SOURCE:-admin}}
@@ -298,7 +298,7 @@ services:
       - LLM_TEMPERATURE=1
       - MAX_TOKENS=10000
       # Azure deployment name, not a model id — see OPENAI_API_MODEL in .env.example
-      - OPENAI_API_MODEL=${OPENAI_API_MODEL:-gpt-4o-mini}
+      - OPENAI_API_MODEL=${OPENAI_API_MODEL:-gpt-5-mini}
       - MONGO_URI=mongodb://cloudhub_mongo:27017
       - MONGO_DB=aridnova_system
       - MONGO_USER=${MONGO_ROOT_USERNAME:-root}

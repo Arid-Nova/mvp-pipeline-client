@@ -1398,7 +1398,7 @@ const PipelinePage: React.FC = () => {
                         throw new Error("No prompts available. Please generate prompts first.");
                     }
 
-                    const selectedLlm = targetNode.data.selectedLlm || 'gpt-4o-mini'; 
+                    const selectedLlm = targetNode.data.selectedLlm || 'gpt-5-mini'; 
                     updateStatus(targetNode.id, 'running', `Sending ${prompts.length} prompts to ${selectedLlm}...`);
 
                     const data = await generateTestSuites(selectedLlm, prompts, { signal: options?.signal }); // Assumes { status: "success", tests: [...] }
