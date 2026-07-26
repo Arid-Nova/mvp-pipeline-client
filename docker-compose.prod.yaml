@@ -19,6 +19,9 @@ services:
   backend:
     ports: !reset []
 
+  chatbot:
+    ports: !reset []
+
   verifier:
     ports: !reset []
 

@@ -2,6 +2,7 @@ from datetime import time
 import json
 from random import random
 import re
+import os
 import openai as oai
 import concurrent.futures
 from abc import ABC, abstractmethod
@@ -451,18 +452,23 @@ class HuggingFaceLLMService(BaseLLMService):
 
 class LLMFactory:
     # The Factory class for creating LLM service instances.
-    def create_llm_service(self, config: Dict[str, Any]) -> BaseLLMService:
-        provider = config.get("provider", "").lower()
+    def create_llm_service(self) -> BaseLLMService:
+        provider = (os.getenv('LLM_PROVIDER')).lower()
         
         if provider == "openai":
-            api_key = config.get("api_key")
-            endpoint = config.get("endpoint")
+            api_key = os.getenv('OPENAI_API_KEY')
+            endpoint = os.getenv('OPENAI_ENDPOINT')
+            model = os.getenv('LLM_MODEL')
+            if not model:
+                model = "gpt-4o-mini"
             if not api_key:
-                raise ValueError("OpenAI provider requires 'api_key' in config")
-            return OpenAILLMService(api_key, endpoint=endpoint, model=config.get("model", "gpt-4o-mini"))
+                raise ValueError("OpenAI provider requires 'api_key'")
+            return OpenAILLMService(api_key, endpoint=endpoint, model=model)
         
         elif provider == "meta":
-            model_name = config.get("model", "meta-llama/Llama-2-7b-chat-hf")
+            model_name = os.getenv('LLM_MODEL')
+            if not model_name:
+                model_name = "meta-llama/Llama-2-7b-chat-hf"
             return HuggingFaceLLMService(model_name)
         
         else:
@@ -471,11 +477,11 @@ class LLMFactory:
 # The Neuro-Centric Analyzer Class.
 class NeuroAnalyzer:
     # Orchestrates the neuro-centric analysis for an execution path.
-    def __init__(self, code_fetcher: CodeFetcher, traverser: GraphTraversalService, llm_config: Dict[str, Any]):
+    def __init__(self, code_fetcher: CodeFetcher, traverser: GraphTraversalService):
         self.traverser = traverser
         self.code_fetcher = code_fetcher
         # Use the factory to create the LLM service
-        self.llm_service = LLMFactory().create_llm_service(llm_config)
+        self.llm_service = LLMFactory().create_llm_service()
     
     def analyse_latent_vulnerabilities(self, analyzed_paths: List[ExecutionPath]) -> List[Dict[str, Any]]:
        return self.llm_service.analyse_latent_vulnerabilities(analyzed_paths)

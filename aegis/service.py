@@ -25,11 +25,10 @@ async def lifespan(app: FastAPI):
     
     global facade
     print("Initializing Aegis Analysis Engine...")
-    
-    config_dict = {s: dict(config.items(s)) for s in config.sections()}
-    
+
+    # Allow explicit env override for runtime flexibility in containers.
     try:
-        facade = AnalysisFacade(config_dict)
+        facade = AnalysisFacade()
         print("Aegis Engine initialized successfully.")
     except Exception as e:
         import traceback

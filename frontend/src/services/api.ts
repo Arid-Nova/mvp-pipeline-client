@@ -1,13 +1,15 @@
 import axios, { 
     VERIFY_API, COMPONENT_API, VECTOR_API, 
     ANALYSIS_API, TEST_API, AEGIS_API, REPO_API, 
-    USER_API, EXECUTOR_API
+    USER_API, EXECUTOR_API, CHATBOT_API
 } from '../utils/axiosSetup';
 import { showError } from '../utils/notifications';
 import {
     RepositoryInput, VerificationInput, VerificationResponse,
     OrgImportResponse, SessionPageResponse, ChangeImpactInsight,
     RepoMetadata, CommitPageResponse,
+    ChatbotQueryRequest, ChatbotResponse, ChatbotHealthResponse,
+    ChatbotContextRefreshRequest, ChatbotContextRefreshResponse,
     UserFeedback,
 } from './types';
 import { PromptItem } from '../components/pipeline/models';
@@ -63,10 +65,10 @@ export const checkHistoricalIRs = async (systemName: string, options?: { signal?
     }
 };
 
-export const fetchHistoricalIRs = async (systemName: string, options?: { signal?: AbortSignal }): Promise<any[]> => {
+export const fetchHistoricalIRs = async (systemName: string, options?: { signal?: AbortSignal; limit?: number }): Promise<any[]> => {
     try {
         const response = await axios.get('/ir', { 
-            params: { systemName },
+            params: { systemName, limit: options?.limit },
             responseType: 'blob',
             signal: options?.signal
         });
@@ -76,8 +78,85 @@ export const fetchHistoricalIRs = async (systemName: string, options?: { signal?
             console.log("Historical IR fetch canceled by user.");
             throw new Error("AbortError");
         }
-        console.error("Failed to fetch historical IRs:", error);
-        showError("Failed to load historical timeline data.");
+        // console.error("Failed to fetch historical IRs:", error);
+        showError("Failed to load historical data.");
+        throw error;
+    }
+};
+
+export const fetchIRVersions = async (systemName: string, options?: { signal?: AbortSignal }): Promise<any[]> => {
+    try {
+        const response = await axios.get(`/ir/versions`, { 
+            params: { systemName }, 
+            signal: options?.signal
+        });
+        return response.data;
+    } catch (error: any) {
+        if (axios.isCancel(error)) {
+            console.log("Historical IR fetch canceled by user.");
+            throw new Error("AbortError");
+        }
+        // console.error("Failed to fetch versions", error);
+        showError("Failed to load historical data.");
+        throw error;
+    }
+};
+
+export const fetchSpecificIRs = async (selectedIds: string[], options?: { signal?: AbortSignal }): Promise<any[]> => {
+    try {
+        const response = await axios.post(`/ir/versions`, selectedIds, {
+            responseType: 'blob',
+            signal: options?.signal
+        });
+        
+        return await decompressGzipResponse(response.data);
+    } catch (error: any) {
+        if (axios.isCancel(error)) {
+            console.log("Specific IR fetch canceled by user.");
+            throw new Error("AbortError");
+        }
+        console.error("Failed to fetch specific IRs:", error);
+        showError("Failed to load selected snapshots.");
+        throw error;
+    }
+};
+
+export const deleteIR = async (ir_id: string, options?: { signal?: AbortSignal }): Promise<void> => {
+    try {
+        await axios.delete(`/ir/${ir_id}`, {
+            signal: options?.signal
+        });
+    } catch (error: any) {
+        if (axios.isCancel(error)) {
+            console.log("Delete IR canceled by user.");
+            throw new Error("AbortError");
+        }
+        
+        showError("Failed to delete the selected snapshot.");
+        throw error;
+    }
+};
+
+export const getSystemVersionMetadata = async (systemName: string) => {
+    try {
+        const response = await axios.get('/ir/versions/metadata', { 
+            params: { systemName } 
+        });
+        return response.data;
+    } catch {
+        showError("Failed to fetch version suggestions.");
+        return null;
+    }
+};
+
+export const updateIRVersion = async (id: string, version: string, description?: string) => {
+    try {
+        const response = await axios.put('/ir/versions/metadata', { version, description }, { 
+            params: { id } 
+        });
+        return response.data;
+    } catch (error) {
+        showError("Failed to save the version.");
         throw error;
     }
 };
@@ -480,6 +559,59 @@ export const checkGitHubTokenStatus = async (options?: { signal?: AbortSignal })
     }
 };
 
+const normalizeChatbotError = (error: any): string => {
+    const backendMessage =
+        (typeof error?.response?.data?.message === "string" && error.response.data.message.trim())
+            ? error.response.data.message.trim()
+            : (typeof error?.response?.data === "string" && error.response.data.trim())
+                ? error.response.data.trim()
+                : "";
+
+    if (error?.response?.status === 503) {
+        return backendMessage || "Chatbot runtime is currently unavailable. Please ensure the local model runtime is running.";
+    }
+    if (error?.response?.status === 400) {
+        return backendMessage || "Invalid chatbot request. Please check your question and context.";
+    }
+    if (!error?.response) {
+        return "Network error while contacting chatbot backend.";
+    }
+    return backendMessage || "Chatbot request failed.";
+};
+
+export const getChatbotHealth = async (): Promise<ChatbotHealthResponse> => {
+    try {
+        const response = await CHATBOT_API.get('/chatbot/health');
+        return response.data;
+    } catch (error: any) {
+        const msg = normalizeChatbotError(error);
+        showError(msg);
+        throw new Error(msg);
+    }
+};
+
+export const sendChatbotQuery = async (request: ChatbotQueryRequest): Promise<ChatbotResponse> => {
+    try {
+        const response = await CHATBOT_API.post('/chatbot/query', request);
+        return response.data;
+    } catch (error: any) {
+        const msg = normalizeChatbotError(error);
+        showError(msg);
+        throw new Error(msg);
+    }
+};
+
+export const refreshChatbotContext = async (request: ChatbotContextRefreshRequest): Promise<ChatbotContextRefreshResponse> => {
+    try {
+        const response = await CHATBOT_API.post('/chatbot/context/refresh', request);
+        return response.data;
+    } catch (error: any) {
+        const msg = normalizeChatbotError(error);
+        showError(msg);
+        throw new Error(msg);
+    }
+};
+
 // Change Impact Analysis
 export const generateChangeImpactInsights = async (payload: ChangeImpactInsight, options?: { signal?: AbortSignal }) => {
     const jsonString = JSON.stringify(payload);
@@ -505,7 +637,6 @@ export const generateChangeImpactInsights = async (payload: ChangeImpactInsight,
         throw new Error(error.response?.data?.detail || "API error generating impact insights");
     }
 };
-
 // Test Executor Proxy Service 
 export const executeTest = async (language: string, payload: { command?: string; code?: string }) => {
     try {

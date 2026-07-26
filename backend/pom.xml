@@ -14,10 +14,20 @@
 	<packaging>war</packaging>
 	<name>MVPBackend</name>
 	<description>Backend for MicroserviceVisualizationPlatform</description>
+
 	<properties>
 		<java.version>21</java.version>
 		<lombok.version>1.18.30</lombok.version>
 	</properties>
+
+	<repositories>
+        <repository>
+            <id>github</id>
+            <name>CIMET Packages</name>
+            <url>https://maven.pkg.github.com/arid-nova/mvp-cimet-extraction-library</url>
+        </repository>
+    </repositories>
+
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -68,7 +78,7 @@
 		<dependency>
 			<groupId>edu.university.ecs.lab</groupId>
 			<artifactId>cimet-extract-lib</artifactId>
-			<version>1.2.0</version>
+			<version>1.2.1</version>
 		</dependency>
 		<dependency>
 			<groupId>com.fasterxml.jackson.core</groupId>
@@ -78,6 +88,7 @@
 		<dependency>
 			<groupId>com.fasterxml.jackson.datatype</groupId>
 			<artifactId>jackson-datatype-json-org</artifactId>
+			<version>2.15.2</version>
 		</dependency>
     </dependencies>
 

@@ -8,7 +8,8 @@ import getData from "./parsers/getData";
 import { setupAxios, setupLogger } from "./utils/axiosSetup";
 
 import { checkHistoricalIRs, fetchHistoricalIRs,
-    startUserSession, endUserSession, checkEndedSessionsExists } from './services/api';
+    startUserSession, endUserSession, checkEndedSessionsExists, 
+    fetchSpecificIRs } from './services/api';
 import { setBackendSession, clearBackendSession, trackPageview } from './analytics/posthog';
 
 import NotificationToast from "./components/generic/NotificationToast";
@@ -36,6 +37,7 @@ import NewPage from "./utils/node.js";
 import { polyfill } from "mobile-drag-drop";
 import { TimelineDeltaImpactCard } from "./components/graph/TimelineDeltaImpactCard";
 import { ArchitectureTrendDashboard } from "./components/graph/ArchitectureTrendDasboard";
+import VersionSelectorModal from "./components/graph/VersionSelectorModal";
 
 setupLogger();
 setupAxios();
@@ -63,7 +65,6 @@ function App(data: any) {
     // Graph Data State
     // const [graphData, setGraphData] = useState<{ graphName: string; nodes: { nodeName: any; nodeType: string; }[]; links: any[]; gitCommitId: any; } | null>(null);
     const [graphData, setGraphData] = useState<any>(null);
-    const [graphName, setGraphName] = useState("test");
     const [graphTimeline, setGraphTimeline] = useState<any[]>([]);
     const [currentInstance, setCurrentInstance] = useState<number | undefined>(undefined);
     const [trackChanges, setTrackChanges] = useState(true);
@@ -74,13 +75,13 @@ function App(data: any) {
     const [is3d, setIs3d] = useState(true);
     const [isDark, setIsDark] = useState(true);
     const [isMobile, setIsMobile] = useState(false);
-    const [color, setColor] = useState("dark-default");
+    const [color] = useState("dark-default");
     const [defNodeColor, setDefNodeColor] = useState(false);
     
     // Anti-Pattern State
     const [antiPattern, setAntiPattern] = useState(false);
     const [selectedAntiPattern, setSelectedAntiPattern] = useState("none");
-    const [max, setMax] = useState(6);
+    const [max] = useState(6);
     
     // Expansion states
     const [expandedNodes, setExpandedNodes] = useState(new Set<string>());
@@ -91,6 +92,7 @@ function App(data: any) {
     const [notification, setNotification] = useState<Notification | null>(null);
 
     // Historic IR state
+    const [isVersionModalOpen, setIsVersionModalOpen] = useState(false);
     const [historyPrompt, setHistoryPrompt] = useState<{ show: boolean, systemName: string }>({ show: false, systemName: '' });
 
     // Change tracking across graph versions
@@ -191,46 +193,73 @@ function App(data: any) {
 
     // Handlers
     // Load the historical IRs
-    const handleLoadHistory = async () => {
+    const handleLoadHistory = async (limit: number = 4) => {
         try {
             setHistoryPrompt(prev => ({ ...prev, show: false })); 
             
             // Fetching historical IRs
-            const historyData = await fetchHistoricalIRs(historyPrompt.systemName);
+            const historyData = await fetchHistoricalIRs(historyPrompt.systemName, { limit });
             
             setGraphTimeline(prevTimeline => {
                 const currentTimeline = prevTimeline || [];
                 
-                // Creating a Set of existing commitIDs to prevent duplicates
-                const existingIds = new Set(currentTimeline.map(item => item.commitID)); 
+                // Creating a Set of existing ir IDs to prevent duplicates
+                const existingIds = new Set(currentTimeline.map(item => item.id)); 
                 
                 // Cleaning and filtering historical items
                 const newHistoricalItems = historyData.filter(ir => {
-                    if (!ir.commitID) {
-                        ir.commitID = "unknown-" + Math.random(); 
-                    }
-                    return !existingIds.has(ir.commitID);
+                    return !existingIds.has(ir.id);
                 });
 
-                return [...newHistoricalItems, ...currentTimeline];
+                return [...currentTimeline, ...newHistoricalItems];
             });
 
-            setCurrentInstance(prevIndex => {
-                if (typeof prevIndex === 'number') {
-                    const currentTimeline = graphTimeline || [];
-                    const existingIds = new Set(currentTimeline.map(item => item.commitID));
-                    const addedCount = historyData.filter(ir => !existingIds.has(ir.commitID)).length;
+            // setCurrentInstance(prevIndex => {
+            //     if (typeof prevIndex === 'number') {
+            //         const currentTimeline = graphTimeline || [];
+            //         const existingIds = new Set(currentTimeline.map(item => item.id));
+            //         const addedCount = historyData.filter(ir => !existingIds.has(ir.id)).length;
                     
-                    return prevIndex + addedCount;
-                }
-                return prevIndex;
-            });
+            //         return prevIndex + addedCount;
+            //     }
+            //     return prevIndex;
+            // });
+            setCurrentInstance(0);
             
             showSuccess(`Successfully loaded ${historyData.length} historical records!`);
 
         } catch (error) {
             console.error(error);
             showError(`Error occurred while loading historical records!`);
+        }
+    };
+
+    const handleLoadSpecificVersions = async (selectedIds: string[]) => {
+        setIsVersionModalOpen(false); // Close the modal immediately
+        
+        try {
+            // NOTE: You will need to create this axios call in your api.ts
+            // It should POST to /ir/fetch-specific with the IDs and expect a 'blob' response
+            const newIRs = await fetchSpecificIRs(selectedIds);
+            
+            setGraphTimeline(prevTimeline => {
+                const currentTimeline = prevTimeline || [];
+                const existingIds = new Set(currentTimeline.map(item => item.id)); 
+                
+                const newHistoricalItems = newIRs.filter(ir => {
+                    return !existingIds.has(ir.id);
+                });
+
+                return [...currentTimeline, ...newHistoricalItems];
+            });
+
+            // Reset to the newly loaded item (or keep existing logic)
+            setCurrentInstance(0);
+            showSuccess(`Successfully loaded ${selectedIds.length} specific versions!`);
+
+        } catch (error) {
+            console.error(error);
+            showError(`Error occurred while loading specific versions!`);
         }
     };
 
@@ -289,7 +318,6 @@ function App(data: any) {
         trackPageview(location.pathname);
     }, [location.pathname]);
 
-
     // IR uploading handle
     useEffect(() => {
         if (location.state && location.state.irData) {
@@ -304,38 +332,13 @@ function App(data: any) {
 
     const handleMultipleIRsLoaded = (irArray: any[], overwrite: boolean = true) => {
         try {
-            // Fallback hash generation (this is less likely to be used in practise).
-            const generateHash = (str: string) => {
-                let hash = 0;
-                for (let i = 0; i < str.length; i++) {
-                    const char = str.charCodeAt(i);
-                    hash = ((hash << 5) - hash) + char;
-                    hash &= hash; 
-                }
-                return Math.abs(hash).toString(16); 
-            };
-
-            const processedArray = irArray.map((irJson, index) => {
-                const safeIr = JSON.parse(JSON.stringify(irJson)); 
-                
-                if (!safeIr.commitID && !safeIr.commitId && !safeIr.metadata?.[0]?.commitId) {
-                    const stableString = safeIr.name || "pipeline-run";
-                    const stableHash = generateHash(JSON.stringify(safeIr));
-
-                    // Also added an `alt-` prefix to indicate it's a fallback commit ID
-                    safeIr.commitID = `alt-${stableString}-${stableHash}-${index}`;
-                }
-                return safeIr;
-            });
-
             if (overwrite) {
-                setGraphTimeline(processedArray);
+                setGraphTimeline(irArray);
             } else {
                 setGraphTimeline((prev: any) => {
                     const newTimeline = [...prev];
-                    processedArray.forEach((ir: any) => {
-                        const commit = ir.commitID || ir.commitId || ir.metadata?.[0]?.commitId;
-                        if (!newTimeline.some((item: any) => (item.commitID || item.commitId || item.metadata?.[0]?.commitId) === commit)) {
+                    irArray.forEach((ir: any) => {
+                        if (!newTimeline.some((item: any) => item.id === ir.id)) {
                             newTimeline.push(ir);
                         }
                     });
@@ -343,13 +346,13 @@ function App(data: any) {
                 });
             }
 
-            const firstIR = processedArray[0];
-            const processedData = getData(firstIR, undefined);
+            const firstIR = irArray[0];
+            const processedData = getData(firstIR);
             
             if (processedData) {
                 setGraphData(processedData);
-                setCurrentInstance(overwrite ? 0 : (prev: any) => (prev !== undefined ? prev + processedArray.length : 0));
-                showSuccess(`Loaded ${processedArray.length} pipeline versions!`);
+                setCurrentInstance(overwrite ? 0 : (prev: any) => (prev !== undefined ? prev + irArray.length : 0));
+                showSuccess(`Loaded ${irArray.length} snapshots!`);
                 navigate('/graph-visualize', { replace: true, state: {} });
             }
         } catch (error: any) {
@@ -360,20 +363,15 @@ function App(data: any) {
     // Manually uploading a IR (not from history)
     const handleIRLoaded = (irJson: any, overwrite: boolean = true) => {
         try {
-            if (!irJson.commitID) {
-                console.warn("Missing commitID in IR Data, generating fallback.");
-                irJson.commitID = "unknown-" + new Date().getTime(); 
-            }
-
             // Process the raw IR JSON into Graph Data
-            const processedData = getData(irJson, undefined);
+            const processedData = getData(irJson);
         
             if (processedData) {
                 setGraphData(processedData);
                 setGraphTimeline(prev => {
                     if (overwrite) return [irJson];
 
-                    const exists = prev.some(item => item.commitID === irJson.commitID);
+                    const exists = prev.some(item => item.id === irJson.id);
                     if (exists) return prev;
                     return [...prev, irJson];
                 });
@@ -415,7 +413,7 @@ function App(data: any) {
             setGraphTimeline([currentIR]);
             setCurrentInstance(0);
             
-            const processedData = getData(currentIR, undefined);
+            const processedData = getData(currentIR);
             if (processedData) {
                 setGraphData(processedData);
             }
@@ -452,6 +450,16 @@ function App(data: any) {
         <div className={`max-w-full min-h-screen max-h-screen overflow-clip ${isDark ? `bg-gray-900` : `bg-gray-100`}`} ref={ref}>
             <GraphTour run={isVizTourRunning} onFinish={() => setIsVizTourRunning(false)} />
 
+            <button
+                onClick={() => navigate('/pipeline')}
+                className="absolute top-4 left-4 z-[60] flex items-center justify-start gap-3 px-4 py-2.5 bg-slate-900/80 backdrop-blur-md text-slate-300 hover:text-teal-400 rounded-lg transition-all shadow-lg text-sm font-medium tracking-wide group w-[260px] border-none outline-none"
+            >
+                <svg className="w-4 h-4 group-hover:-translate-x-1 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Back to Pipeline
+            </button>
+
             <ErrorBoundary setNotification={setNotification}>
                 {/* 1. Mode Toggle (Top Left) */}
                 <GraphMode
@@ -462,7 +470,7 @@ function App(data: any) {
                     selectedAntiPattern={selectedAntiPattern}
                     setSelectedAntiPattern={setSelectedAntiPattern}
                     graphData={graphData}
-                    currentInstance={currentInstance}
+                    currentInstance={currentInstance ?? 0}
                     graphTimeline={graphTimeline}
                 />
                 
@@ -476,36 +484,23 @@ function App(data: any) {
                 />
 
                 {/* 3. Helper Components */}
-                {/* Removed inline IRFileUpload here, as we have a landing page now */}
-                <Instructions />
-            
-                {/* 4. Graph Controls (Top Right) */}
-                <GraphMode
-                    value={value}
-                    setValue={setValue}
-                    antiPattern={antiPattern}
-                    setAntiPattern={setAntiPattern}
-                    selectedAntiPattern={selectedAntiPattern}
-                    setSelectedAntiPattern={setSelectedAntiPattern}
-                    graphData={graphData}
-                    currentInstance={currentInstance ?? 0}
-                    graphTimeline={graphTimeline}
+                <Instructions 
+                    systemName={graphData?.name || historyPrompt.systemName}
+                    onOpenVersionsModal={() => setIsVersionModalOpen(true)}
                 />
 
-                <FilterBox
-                    key={`${currentInstance}-${trackChanges}`}
-                    graphData={graphData} 
-                    currentInstance={currentInstance}
-                    graphTimeline={graphTimeline}
-                    trackChanges={trackChanges}
-                ></FilterBox>
+                {/* Modal for manual version selection */}
+                <VersionSelectorModal 
+                    isOpen={isVersionModalOpen}
+                    systemName={graphData?.name || historyPrompt.systemName}
+                    onClose={() => setIsVersionModalOpen(false)}
+                    onLoadSpecificVersions={handleLoadSpecificVersions}
+                />
 
                 <IRFileUpload 
                     onFileSelect={onFileUpload} 
                     onReset={handleResetTimeline}
                 />
-
-                <Instructions />
 
                 <GraphMenu
                     graphRef={graphRef}
@@ -535,7 +530,7 @@ function App(data: any) {
                     setIsHighLevelExpanded={setIsHighLevelExpanded}
                 />
                 
-                {/* 5. The Main Graph Canvas */}
+                {/* 4. The Main Graph Canvas */}
                 <GraphWrapper
                     height={ref?.current?.clientHeight ?? 735}
                     width={ref?.current?.clientWidth ?? 1710}
@@ -562,7 +557,7 @@ function App(data: any) {
                     isHighLevelExpanded={isHighLevelExpanded}
                 />
             
-                {/* 6. Context Menus & Info Boxes */}
+                {/* 5. Context Menus & Info Boxes */}
                 <Menu trackNodes={trackNodes} setTrackNodes={setTrackNodes} />
                 <InfoBox
                     graphData={graphData}
@@ -570,7 +565,7 @@ function App(data: any) {
                     setFocusNode={setFocusNode}
                 />
 
-                {/* 7. Bottom Timeline Controls */}
+                {/* 6. Bottom Timeline Controls */}
                 <div className="flex flex-row items-center justify-center w-full">
                     {graphTimeline.length > 0 && 
                      typeof currentInstance === 'number' && 
@@ -636,10 +631,10 @@ function App(data: any) {
                 show={historyPrompt.show}
                 systemName={historyPrompt.systemName}
                 onDismiss={() => setHistoryPrompt({ show: false, systemName: '' })}
-                onLoad={handleLoadHistory}
+                onLoad={(limit) => handleLoadHistory(limit)}
             />
 
-            <ArchitectureTrendDashboard 
+            <ArchitectureTrendDashboard
                 isOpen={isTrendDashboardOpen}
                 onClose={() => setIsTrendDashboardOpen(false)}
                 graphTimeline={graphTimeline}

@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { CardType } from '../models';
 import { useNavigate } from 'react-router-dom'; 
+import { ToolboxItemTooltip } from './ToolboxItemTooltip';
 import { CATEGORIES, CARD_CONFIG } from '../pipelineConfig';
 import { track, PipelineEvent } from '../../../analytics/posthog';
 
@@ -20,6 +21,11 @@ export const ToolboxSidebar: React.FC<ToolboxSidebarProps> = ({
     openTemplateModal
 }) => {
     const navigate = useNavigate();
+
+    // Tooltip state management
+    const [activeTooltip, setActiveTooltip] = useState<CardType | null>(null);
+    const activeTooltipConfig = activeTooltip ? CARD_CONFIG[activeTooltip] : null;
+    const [tooltipPosition, setTooltipPosition] = useState<{ top: number; left: number } | null>(null);
 
     return (
         <div className="tour-toolbox-sidebar w-72 h-full border-r border-white/10 bg-slate-900/50 flex flex-col overflow-hidden">
@@ -65,6 +71,17 @@ export const ToolboxSidebar: React.FC<ToolboxSidebarProps> = ({
                                         <button
                                             key={type}
                                             onClick={() => addNode(type)}
+                                            onMouseEnter={(e) => {
+                                                const rect = e.currentTarget.getBoundingClientRect();
+                                                setActiveTooltip(type);
+                                                setTooltipPosition({
+                                                    top: rect.top - 8, 
+                                                    left: rect.right + 12 
+                                                });
+                                            }}
+                                            onMouseLeave={() => {
+                                                setActiveTooltip(null);
+                                            }}
                                             className="w-full p-3 rounded-xl bg-slate-800/40 border border-white/5 hover:border-blue-500/50 hover:bg-slate-800 transition-all text-left group"
                                         >
                                             <div className="flex items-center gap-3">
@@ -118,6 +135,14 @@ export const ToolboxSidebar: React.FC<ToolboxSidebarProps> = ({
                     </button>
                 </div>
             </div>
+
+            <ToolboxItemTooltip
+                isOpen={activeTooltip !== null && tooltipPosition !== null}
+                title={activeTooltipConfig?.title || ''}
+                purpose={activeTooltipConfig?.tooltip.purpose || 'Purpose details unavailable.'}
+                outcome={activeTooltipConfig?.tooltip.outcome || 'Expected outcome unavailable.'}
+                position={tooltipPosition || { top: 0, left: 0 }}
+            />
         </div>
     );
 };

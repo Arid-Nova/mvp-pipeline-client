@@ -1,5 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { fetchChangeImpact } from '../../services/api';
+import { countAntiPatterns } from './IRAnalysisHelper';
+import { FullMetric, SnapshotMetric } from '../../utils/types';
 
 interface ArchitectureTrendDashboardProps {
     isOpen: boolean;
@@ -7,7 +9,10 @@ interface ArchitectureTrendDashboardProps {
     graphTimeline: Array<any>;
 }
 
-type TabType = 'overview' | 'impact' | 'coupling' | 'forecasting' | 'composition';
+type TabType = 'overview' | 'impact' | 'coupling' | 'forecasting' | 'antipatterns' | 'composition';
+
+// Anti-pattern color palette
+const AP_COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#a855f7', '#ec4899', '#14b8a6', '#6366f1'];
 
 export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProps> = ({ isOpen, onClose, graphTimeline }) => {
     const [activeTab, setActiveTab] = useState<TabType>('overview');
@@ -17,11 +22,16 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
     const [isLoadingDeltas, setIsLoadingDeltas] = useState(false);
 
     // 1. IR EXTRACTION
-    const computedMetrics = useMemo(() => {
+    const computedMetrics: SnapshotMetric[] = useMemo(() => {
         if (!graphTimeline || graphTimeline.length === 0) return [];
 
         return graphTimeline.map((rawIr, index) => {
             const ir = rawIr?.payload?.irJson || rawIr?.data?.payload?.irJson || rawIr?.systemInfo?.ir || rawIr;
+
+            const rawVersion = ir?.version || rawIr?.version
+            const displayVersion = rawVersion 
+                ? (String(rawVersion).toLowerCase().startsWith('v') ? rawVersion : `v${rawVersion}`) 
+                : `Snapshot ${index + 1}`;
             
             const nodesArray = ir.nodes || ir.microservices || ir.components || ir.services || [];
             let edgesArray = ir.links || ir.edges || ir.connections || ir.dependencies || [];
@@ -107,9 +117,12 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
                 });
             }
 
+            const apCounts = countAntiPatterns(ir);
+            const totalAntiPatterns = Object.values(apCounts).reduce((acc: number, val: any) => acc + (val as number), 0);
+
             return {
-                version: `V${index + 1}`,
-                commit: (ir.commitID || ir.commitId || rawIr.commitID || `synth-${index}`).substring(0, 7),
+                version: displayVersion,
+                id: ir.id || ir.ir_id || `snapshot-${index + 1}`,
                 nodes,
                 edges,
                 coupling,
@@ -118,10 +131,22 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
                 leafCount,
                 internalCount: Math.max(0, nodes - (hubsCount + leafCount)),
                 dependenciesUnavailable, 
-                rawNodes: nodesArray 
+                rawNodes: nodesArray,
+                antiPatterns: apCounts, 
+                totalAntiPatterns       
             };
         });
     }, [graphTimeline]);
+
+    const uniqueAntiPatterns = useMemo(() => {
+        const keys = new Set<string>();
+        computedMetrics.forEach(m => {
+            if (m.antiPatterns) {
+                Object.keys(m.antiPatterns).forEach(k => keys.add(k));
+            }
+        });
+        return Array.from(keys);
+    }, [computedMetrics]);
 
     // 2. BATCH FETCH OF CHANGE IMPACT API
     useEffect(() => {
@@ -147,13 +172,17 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
                 const ir = rawIr?.payload?.irJson || rawIr?.data?.payload?.irJson || rawIr?.systemInfo?.ir || rawIr;
                 if (!ir) return [];
 
+                // Following condition would be redundant for new IR scehema after 1.1.0.
                 if (ir.metadata) {
                     const meta = Array.isArray(ir.metadata) ? ir.metadata : [ir.metadata];
                     meta.forEach((m: any) => addRepo(m.repoUrl || m.repositoryURL, m.commitId || m.commitID, m.branch || m.branchName));
                 } 
+
+                // Following condition would be redundant for new IR scehema after 1.1.0.
                 if (ir.commitID || ir.commitId) {
                     addRepo(ir.repositoryURL || ir.repoUrl, ir.commitID || ir.commitId, ir.branchName || ir.branch);
                 }
+
                 const nodesArray = ir.microservices || ir.nodes || ir.components || ir.services || [];
                 if (Array.isArray(nodesArray)) {
                     nodesArray.forEach((ms: any) => {
@@ -219,15 +248,25 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
     }, [isOpen, graphTimeline]);
 
     // 3. COMBINE METRICS
-    const fullMetrics = useMemo(() => {
-        return computedMetrics.map((m, i) => ({
-            ...m,
-            deltaLabel: i === 0 ? 'Baseline' : `V${i} → V${i+1}`,
-            affected: deltaMetrics[i]?.affected || 0,
-            fileChanges: deltaMetrics[i]?.changes || 0,
-            riskScore: Number((m.coupling * (deltaMetrics[i]?.affected || 1)).toFixed(2))
-        }));
-    }, [computedMetrics, deltaMetrics]);
+    const fullMetrics: FullMetric[] = useMemo(() => {
+        return computedMetrics.map((m, i) => {
+            const flattenedAps: Record<string, number> = {};
+            uniqueAntiPatterns.forEach(k => {
+                flattenedAps[k] = m.antiPatterns[k] || 0;
+            });
+
+            const prevVersion = i > 0 ? computedMetrics[i - 1].version : '';
+
+            return {
+                ...m,
+                ...flattenedAps,
+                deltaLabel: i === 0 ? 'Baseline' : `${prevVersion} → ${m.version}`,
+                affected: deltaMetrics[i]?.affected || 0,
+                fileChanges: deltaMetrics[i]?.changes || 0,
+                riskScore: Number((m.coupling * (deltaMetrics[i]?.affected || 1)).toFixed(2))
+            };
+        });
+    }, [computedMetrics, deltaMetrics, uniqueAntiPatterns]);
 
     // 4. PREDICTIVE FORECASTING
     const forecastData = useMemo(() => {
@@ -243,11 +282,19 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
             const intercept = (sumY - slope * sumX) / n;
 
             for (let i = 0; i < 3; i++) {
-                projectedValues.push({ version: `V${n + i + 1} (F)`, value: Math.max(0, slope * (n + i) + intercept), isForecast: true });
+                projectedValues.push({ 
+                    version: `Forecast +${i + 1}`, 
+                    value: Math.max(0, slope * (n + i) + intercept), 
+                    isForecast: true 
+                });
             }
         }
         return [
-            ...fullMetrics.map(m => ({ version: m.version, value: m[selectedMetric] || 0, isForecast: false })),
+            ...fullMetrics.map(m => ({ 
+                version: m.version, 
+                value: m[selectedMetric] || 0, 
+                isForecast: false 
+            })),
             ...projectedValues
         ];
     }, [fullMetrics, selectedMetric]);
@@ -278,7 +325,7 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
                             )}
 
                             {latest?.dependenciesUnavailable && (
-                                <span className="text-xs uppercase font-semibold text-rose-400 flex items-center gap-1.5 bg-rose-400/10 px-2 py-0.5 rounded border border-rose-400/20" title="Explicit inter-service dependencies could not be parsed from this version.">
+                                <span className="text-xs uppercase font-semibold text-rose-400 flex items-center gap-1.5 bg-rose-400/10 px-2 py-0.5 rounded border border-rose-400/20" title="Explicit inter-service dependencies could not be parsed from this snapshot.">
                                     <Icons.Alert className="w-3.5 h-3.5" /> Dependency Data Unavailable
                                 </span>
                             )}
@@ -286,7 +333,7 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
                     </div>
                     
                     <div className="flex bg-slate-800 p-1 rounded-lg border border-slate-700/50 shadow-inner">
-                        {(['overview', 'impact', 'coupling', 'forecasting', 'composition'] as TabType[]).map((tab) => (
+                        {(['overview', 'impact', 'coupling', 'forecasting', 'antipatterns', 'composition'] as TabType[]).map((tab) => (
                             <button 
                                 key={tab} 
                                 onClick={() => setActiveTab(tab)} 
@@ -403,7 +450,7 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
                                 tooltip={
                                     <div className="flex flex-col gap-1.5">
                                         <span className="text-slate-200 font-semibold mb-1">Timeline Risk Drift</span>
-                                        <span>Tracks the compound risk index across pipeline versions.</span>
+                                        <span>Tracks the compound risk index across system snapshots.</span>
                                         <div className="mt-1 flex flex-col gap-1 border-t border-slate-600 pt-1.5">
                                             <span className="text-emerald-400">↘ Down: Decoupling success</span>
                                             <span className="text-rose-400">↗ Up: Accumulating technical debt</span>
@@ -428,7 +475,7 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
                                 tooltip={
                                     <div className="flex flex-col gap-1.5">
                                         <span className="text-slate-200 font-semibold mb-1">Blast Radius Tracking</span>
-                                        <span>Counts the number of services structurally disturbed in each version jump.</span>
+                                        <span>Counts the number of services structurally disturbed in each snapshot jump.</span>
                                         <span className="text-sky-300 mt-1">High spikes represent massive cross-cutting architectural changes.</span>
                                     </div>
                                 }
@@ -441,7 +488,7 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
                                 tooltip={
                                     <div className="flex flex-col gap-1.5">
                                         <span className="text-slate-200 font-semibold mb-1">Raw File Modifications</span>
-                                        <span>The total sum of files added, deleted, or modified between versions.</span>
+                                        <span>The total sum of files added, deleted, or modified between snapshots.</span>
                                         <span className="text-sky-300 mt-1">Correlate this with Impact Velocity to see if small code changes cause disproportionately large architectural ripples.</span>
                                     </div>
                                 }
@@ -492,6 +539,59 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
                         </ChartCard>
                     )}
 
+                    {activeTab === 'antipatterns' && (
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            <ChartCard 
+                                title="Anti-Pattern Occurrences"
+                                tooltip={
+                                    <div className="flex flex-col gap-1.5">
+                                        <span className="text-slate-200 font-semibold mb-1">Architectural Deprecations</span>
+                                        <span>Tracks the presence of distinct architectural anti-patterns (e.g., Shared DB, God Service) across system evolution.</span>
+                                    </div>
+                                }
+                                action={
+                                    <div className="flex flex-wrap gap-2 text-[10px] font-bold text-slate-400">
+                                        {uniqueAntiPatterns.map((ap, idx) => (
+                                            <div key={ap} className="flex items-center gap-1">
+                                                <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: AP_COLORS[idx % AP_COLORS.length] }}></div> 
+                                                {ap.replace(/_/g, ' ')}
+                                            </div>
+                                        ))}
+                                    </div>
+                                }
+                            >
+                                {uniqueAntiPatterns.length > 0 ? (
+                                    <SVGAreaChart 
+                                        data={fullMetrics} 
+                                        keys={uniqueAntiPatterns} 
+                                        colors={uniqueAntiPatterns.map((_, i) => AP_COLORS[i % AP_COLORS.length])} 
+                                    />
+                                ) : (
+                                    <div className="flex items-center justify-center h-full text-slate-500 text-sm">
+                                        No anti-patterns detected in this timeline.
+                                    </div>
+                                )}
+                            </ChartCard>
+
+                            <ChartCard 
+                                title="Total Technical Debt (Anti-Pattern Density)"
+                                tooltip={
+                                    <div className="flex flex-col gap-1.5">
+                                        <span className="text-slate-200 font-semibold mb-1">Overall Debt Trajectory</span>
+                                        <span>Sum of all detected anti-patterns per snapshot. A rising line indicates architectural decay.</span>
+                                    </div>
+                                }
+                                action={
+                                    <div className="flex gap-4 text-xs font-bold text-slate-400">
+                                        <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-red-500"></div> Total Smells</div>
+                                    </div>
+                                }
+                            >
+                                <SVGLineChart data={fullMetrics} dataKey="totalAntiPatterns" color="#ef4444" fill="#ef444410" />
+                            </ChartCard>
+                        </div>
+                    )}
+
                     {activeTab === 'composition' && (
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                             <div className="lg:col-span-1 flex flex-col h-full">
@@ -537,9 +637,9 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
                                     tooltip={
                                         <div className="flex flex-col gap-1.5">
                                             <span className="text-slate-200 font-semibold mb-1">Historical Ledger</span>
-                                            <span>A raw breakdown of calculated impact telemetry for every version jump.</span>
+                                            <span>A raw breakdown of calculated impact telemetry for every snapshot jump.</span>
                                             <span className="text-sky-300 bg-sky-400/10 p-1.5 rounded mt-1 border border-sky-400/20">
-                                                Use this tabular data to identify exact commits where coupling spiked or the blast radius expanded dangerously.
+                                                Use this tabular data to identify exact snapshots where coupling spiked or the blast radius expanded dangerously.
                                             </span>
                                         </div>
                                     }
@@ -548,7 +648,7 @@ export const ArchitectureTrendDashboard: React.FC<ArchitectureTrendDashboardProp
                                         <table className="w-full text-left text-sm text-slate-300">
                                             <thead className="sticky top-0 bg-slate-800 shadow-sm z-10">
                                                 <tr className="text-slate-400 border-b border-slate-700">
-                                                    <th className="py-3 px-3 font-semibold rounded-tl-lg">Version</th>
+                                                    <th className="py-3 px-3 font-semibold rounded-tl-lg">Snapshot</th>
                                                     <th className="py-3 px-3 font-semibold">Affected Nodes</th>
                                                     <th className="py-3 px-3 font-semibold">Risk Factor</th>
                                                     <th className="py-3 px-3 font-semibold rounded-tr-lg">Coupling</th>

@@ -10,6 +10,12 @@ services:
       MYSQL_DATABASE: msGraph
     ports:
       - "3306:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 20s
     volumes:
       - mariadb_data:/var/lib/mysql
     networks:
@@ -44,7 +50,29 @@ services:
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:8080}
     depends_on:
-      - mariadb
+      mariadb:
+        condition: service_healthy
+    networks:
+      - app_network
+    restart: always
+
+  chatbot:
+    build:
+      context: ./chatbot-backend
+      dockerfile: Dockerfile
+    container_name: cloudhub_chatbot
+    ports:
+      - "8081:8081"
+    environment:
+      CHATBOT_PROVIDER: OLLAMA
+      CHATBOT_MODEL: llama3.2
+      CHATBOT_BASE_URL: http://ollama:11434
+      CHATBOT_BACKEND_BASE_URL: http://backend:8080
+      CHATBOT_TIMEOUT_MS: ${CHATBOT_TIMEOUT_MS:-240000}
+      CHATBOT_MAX_TOKENS: ${CHATBOT_MAX_TOKENS:-1024}
+      CHATBOT_TEMPERATURE: ${CHATBOT_TEMPERATURE:-0.2}
+      CHATBOT_STRICT_EVIDENCE_ONLY: "false"
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:8080}
     networks:
       - app_network
     restart: always
@@ -56,6 +84,8 @@ services:
       args:
         # Leave empty for local dev (bundle calls http://localhost:<port> directly).
         # Set to "true" in the prod override so the bundle uses /api/<service> paths.
+        # The per-service REACT_APP_*_SERVICE_URL args are gone: axiosSetup derives
+        # every base URL from this one flag.
         REACT_APP_USE_PROXY: ${REACT_APP_USE_PROXY:-}
         # Baked into the bundle so api.ts can send X-Internal-Service-Auth on
         # calls to the repo/user services.
@@ -63,6 +93,7 @@ services:
         # PostHog analytics keys, baked into the bundle at build time.
         REACT_APP_PUBLIC_POSTHOG_KEY: ${PUBLIC_POSTHOG_KEY}
         REACT_APP_PUBLIC_POSTHOG_HOST: ${PUBLIC_POSTHOG_HOST:-https://us.i.posthog.com}
+        REACT_APP_IS_DEMO_VERSION: ${REACT_APP_IS_DEMO_VERSION:-true}
     container_name: cloudhub_frontend
     ports:
       - "3000:3000"
@@ -130,8 +161,8 @@ services:
       - MONGO_DB=aegis
       - MONGO_USER=${MONGO_ROOT_USERNAME:-root}
       - MONGO_PASSWORD=${MONGO_ROOT_PASSWORD}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - OPENAI_BASE_URL=${OPENAI_BASE_URL}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
       - LLM_TEMPERATURE=0.1
       - OPENAI_API_MODEL=gpt-4o-mini
     networks:
@@ -146,10 +177,10 @@ services:
     ports:
       - "8030:8030" 
     environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - OPENAI_BASE_URL=${OPENAI_BASE_URL}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - GROQ_API_KEY=${GROQ_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
       - LLM_TEMPERATURE=0.3
       - MAX_TOKENS=10000
     networks:
@@ -174,7 +205,7 @@ services:
       - "7474:7474" 
       - "7687:7687" 
     environment:
-      - NEO4J_AUTH=${NEO4J_USERNAME:-neo4j}/${NEO4J_PASSWORD}
+      - NEO4J_AUTH=${NEO4J_USERNAME:-neo4j}/${NEO4J_PASSWORD:-local_neo4j_password}
       - NEO4J_dbms_memory_pagecache_size=512M
     networks:
       - app_network
@@ -199,7 +230,19 @@ services:
     environment:
       PYTHONUNBUFFERED: 1
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
-      BACKEND_IR_URL: ${BACKEND_IR_URL:-http://backend:8080/ir/create}
+      IR_SERVICE_URL: ${BACKEND_IR_URL:-http://backend:8080/ir/create}
+      LLM_PROVIDER: openai
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_ENDPOINT: ${OPENAI_BASE_URL}
+      LLM_MODEL: ${OPENAI_API_MODEL:-gpt-4o-mini}
+      # aegis's MongoService takes only a URI, so credentials must be embedded here
+      # (other services pass MONGO_USER/MONGO_PASSWORD separately).
+      MONGO_URI: ${MONGO_URI:-mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD}@cloudhub_mongo:27017/?authSource=${MONGO_AUTH_SOURCE:-admin}}
+      MONGO_DB_NAME: aegis
+      MONGO_COLLECTION_NAME: opinionVectors
+      NEO4J_URI: ${NEO4J_URI:-bolt://aegis_neo4j:7687}
+      NEO4J_USERNAME: ${NEO4J_USERNAME}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD}
     depends_on:
       aegis_neo4j:
         condition: service_healthy
@@ -214,10 +257,15 @@ services:
     container_name: aegis_dashboard
     command: flask run --host=0.0.0.0 --port=5600
     environment:
-      - FLASK_APP=frontend.py
-      - FLASK_DEBUG=1
-      - PYTHONUNBUFFERED=1
-      - BACKEND_IR_URL=${BACKEND_IR_URL:-http://backend:8080/ir/create}
+      FLASK_APP: frontend.py
+      FLASK_DEBUG: 1
+      PYTHONUNBUFFERED: 1
+      MONGO_URI: ${MONGO_URI:-mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD}@cloudhub_mongo:27017/?authSource=${MONGO_AUTH_SOURCE:-admin}}
+      MONGO_DB_NAME: aegis
+      MONGO_COLLECTION_NAME: opinionVectors
+      NEO4J_URI: ${NEO4J_URI:-bolt://aegis_neo4j:7687}
+      NEO4J_USERNAME: ${NEO4J_USERNAME}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD}
     ports:
       - "5600:5600"
     depends_on:
@@ -235,8 +283,8 @@ services:
     ports:
       - "8020:8020" 
     environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - OPENAI_BASE_URL=${OPENAI_BASE_URL}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
       - LLM_TEMPERATURE=0.1
       - MAX_TOKENS=10000
       - OPENAI_API_MODEL=gpt-4o-mini
@@ -247,9 +295,23 @@ services:
       - GITHUB_API_VERSION=2026-03-10
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - INTERNAL_SERVICE_KEY=${INTERNAL_SERVICE_KEY}
+      - MONGO_AUTH_SOURCE=${MONGO_AUTH_SOURCE:-admin}
     networks:
       - app_network
     restart: always
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: cloudhub_ollama
+    profiles:
+      - local-llm
+    ports:
+      - "11434:11434"
+    networks:
+      - app_network
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
 
   usermanager :
     build:
@@ -274,6 +336,7 @@ volumes:
   verifier_cache:
   neo4j_data:
   mongo_data:
+  ollama_data:
 
 networks:
   app_network:

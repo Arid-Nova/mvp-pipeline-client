@@ -10,3 +10,8 @@ mock
 __pycache__/
 *.py[cod]
 *$py.class
+*.class
+chatbot-backend/target
+
+# macOS
+.DS_Store

@@ -18,10 +18,10 @@ type ButtonProps = {
 const GraphButton: React.FC<ButtonProps> = ({ onClick, ...props }) => {
     return (
         <button
-            className={`rounded-xl px-4 py-2 text-center text-base font-semibold transition-all duration-200
-            bg-slate-800/70 border border-slate-700
-            text-white hover:bg-slate-700 hover:border-slate-600
-            focus:outline-none focus:ring-2 focus:ring-indigo-500`}
+            className={`rounded-lg px-3 py-2 text-center text-sm font-medium tracking-wide transition-all duration-200
+            bg-slate-800/40 border border-slate-700/50
+            text-slate-300 hover:bg-slate-700/60 hover:text-teal-400 hover:border-teal-500/30
+            focus:outline-none focus:ring-2 focus:ring-teal-500/40 flex items-center justify-center w-full`}
             onClick={(e) => {
                 e.stopPropagation();
                 onClick(e);

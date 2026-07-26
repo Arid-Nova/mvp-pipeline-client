@@ -1,15 +1,52 @@
 import React, { useState } from "react";
 
+interface InstructionsProps {
+    systemName?: string;
+    onOpenVersionsModal?: () => void;
+}
+
 /**
  * An info icon that expands on hover to show graph instructions.
  */
-const Instructions: React.FC = () => {
+const Instructions: React.FC<InstructionsProps> = ({ systemName, onOpenVersionsModal }) => {
   const [isHovered, setIsHovered] = useState(false);
 
   return (
-    <div className="absolute top-4 right-4 z-50 flex flex-row items-start gap-3">
-      
-      {/* 1. TOUR BUTTON */}
+    <div className="tour-graph-options absolute top-4 right-4 z-50 flex flex-row items-start gap-3">
+
+      { /* 0. System name */}
+      {systemName && (
+          <div className="flex items-center px-4 h-10 bg-slate-900/80 backdrop-blur-md border border-slate-700 text-slate-200 text-sm font-mono tracking-wide rounded-full shadow-lg">
+              <span className="w-2 h-2 rounded-full bg-teal-500 mr-2.5 shadow-[0_0_8px_rgba(20,184,166,0.8)]"></span>
+              <span className="truncate max-w-[200px]" title={systemName}>
+                  {systemName}
+              </span>
+          </div>
+      )}
+
+      {/* 1. VERSIONS MODAL BUTTON */}
+      <div className="relative group">
+          <button 
+              onClick={() => {
+                  if (onOpenVersionsModal) {
+                      onOpenVersionsModal();
+                  }
+              }}
+              className="w-10 h-10 flex-shrink-0 bg-slate-900/80 backdrop-blur-md border border-slate-700 text-slate-300 hover:bg-teal-500 hover:text-white hover:border-teal-400 rounded-full flex items-center justify-center transition-all shadow-lg"
+              title="Load Specific Snapshots"
+          >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8 M3 3v5h5" />
+              </svg>
+          </button>
+          
+          {/* Tooltip */}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1 text-[10px] font-mono tracking-wide bg-slate-800 border border-slate-700 text-slate-300 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none shadow-xl">
+              Load Historic Snapshots
+          </div>
+      </div>
+
+      {/* 2. TOUR BUTTON */}
       <div className="relative group">
           <button 
               onClick={() => window.dispatchEvent(new Event('trigger-viz-tour'))}
@@ -28,7 +65,7 @@ const Instructions: React.FC = () => {
           </div>
       </div>
 
-      {/* 2. INSTRUCTIONS HOVER */}
+      {/* 3. INSTRUCTIONS HOVER */}
       <div 
         className="relative"
         onMouseEnter={() => setIsHovered(true)}

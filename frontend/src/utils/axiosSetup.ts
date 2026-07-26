@@ -19,6 +19,7 @@ export const EXECUTOR_API = axios.create({ baseURL: serviceURL('executor', 8010)
 export const AEGIS_API = axios.create({ baseURL: serviceURL('aegis', 8900) });
 export const REPO_API = axios.create({ baseURL: serviceURL('repo', 8020) });
 export const USER_API = axios.create({ baseURL: serviceURL('user', 8100) });
+export const CHATBOT_API = axios.create({ baseURL: serviceURL('chatbot', 8081) });
 
 // Base URL for the aegis Flask dashboard (HTML UI). Used by code that does
 // window.open / window.location for the /visualize view.
@@ -87,7 +88,7 @@ const applyInterceptors = (instance: AxiosInstance) => {
     );
 };
 
-[axios, VERIFY_API, COMPONENT_API, VECTOR_API, ANALYSIS_API, TEST_API, EXECUTOR_API, AEGIS_API, REPO_API, USER_API].forEach(applyInterceptors);
+[axios, VERIFY_API, COMPONENT_API, VECTOR_API, ANALYSIS_API, TEST_API, EXECUTOR_API, AEGIS_API, REPO_API, USER_API, CHATBOT_API].forEach(applyInterceptors);
 
 export const setupAxios = () => {
     axios.defaults.baseURL = serviceURL('backend', 8080);

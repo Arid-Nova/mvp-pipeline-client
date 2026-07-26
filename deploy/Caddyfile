@@ -17,6 +17,7 @@
 #   /api/aegis/*            -> aegis_api :8900
 #   /api/repo/*             -> repohandler :8020
 #   /api/user/*             -> usermanager :8100
+#   /api/chatbot/*          -> chatbot :8081
 #   /aegis-ui/*             -> aegis_dashboard :5600 (Flask UI, served as HTML)
 
 {$DEMO_DOMAIN} {
@@ -56,6 +57,9 @@
 	}
 	handle_path /api/user/* {
 		reverse_proxy usermanager:8100
+	}
+	handle_path /api/chatbot/* {
+		reverse_proxy chatbot:8081
 	}
 	handle_path /aegis-ui/* {
 		reverse_proxy aegis_dashboard:5600

@@ -206,14 +206,10 @@ def visualize():
     ir_id = request.args.get('id')
     if not ir_id:
         return render_template('notfound.html')
-
-    config = configparser.ConfigParser()
-    config.read('config.ini')
-    config_dict = {s: dict(config.items(s)) for s in config.sections()}
     
     mongo_service = MongoService(
-        uri=config_dict['MONGO']['uri'],
-        db_name=config_dict['MONGO']['db_name']
+        uri=os.getenv('MONGO_URI'),
+        db_name=os.getenv('MONGO_DB_NAME')
     )
     
     try:
@@ -221,7 +217,7 @@ def visualize():
         mongo_query['irID'] = ir_id
 
         existing = mongo_service.find(
-            config_dict['MONGO']['collection_name'], 
+            os.getenv('MONGO_COLLECTION_NAME'), 
             mongo_query)
         
         if existing:
@@ -232,14 +228,10 @@ def visualize():
         return render_template('errorpage.html')
 
 @app.route('/api/results')
-def get_results():
-    config = configparser.ConfigParser()
-    config.read('config.ini')
-    config_dict = {s: dict(config.items(s)) for s in config.sections()}
-    
+def get_results(): 
     mongo_service = MongoService(
-        uri=config_dict['MONGO']['uri'],
-        db_name=config_dict['MONGO']['db_name']
+        uri=os.getenv('MONGO_URI'),
+        db_name=os.getenv('MONGO_DB_NAME')
     )
 
     try:
@@ -250,7 +242,7 @@ def get_results():
             mongo_query['irID'] = ir_id
 
         existing = mongo_service.find(
-            config_dict['MONGO']['collection_name'], 
+            os.getenv('MONGO_COLLECTION_NAME'), 
             mongo_query)
         
         if existing:
@@ -284,14 +276,10 @@ def get_results():
 
 @app.route('/api/callgraph/<path:endpoint_id>')
 def get_callgraph(endpoint_id):
-    config = configparser.ConfigParser()
-    config.read('config.ini')
-    config_dict = {s: dict(config.items(s)) for s in config.sections()}
-
     neo4j_service = Neo4jService(
-            uri=config_dict['NEO4J']['uri'],
-            user=config_dict['NEO4J']['username'],
-            password=config_dict['NEO4J']['password']
+            uri=os.getenv('NEO4J_URI'),
+            user=os.getenv('NEO4J_USERNAME'),
+            password=os.getenv('NEO4J_PASSWORD')
         )
     
     cypher_query = """
