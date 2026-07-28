@@ -99,45 +99,60 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({ activeContext }) => {
                     >
                     {/* Header */}
                     <div className="px-5 py-4 border-b border-white/5 bg-transparent shrink-0 w-full flex items-center justify-between">
-                        
+
                         {/* Left Side: Icon, Title, and Status */}
                         <div className="flex items-center gap-3.5 min-w-0">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 flex items-center justify-center shrink-0 shadow-sm">
-                                <svg className="w-5 h-5 text-cyan-400 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 flex items-center justify-center shrink-0 shadow-sm">
+                                <svg className="w-5 h-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
                                 </svg>
                             </div>
                             
-                            {/* Title & Status */}
-                            <div className="flex flex-col gap-1 min-w-0">
-                                <h2 className="text-[14px] font-bold text-slate-100 tracking-wide truncate leading-none mt-0.5 flex items-center gap-1.5">
-                                    AI Assistant
-                                </h2>
-                                <RuntimeStatus health={health} loading={healthLoading} error={healthError} />
+                            {/* Title & Info Stack */}
+                            <div className="flex flex-col justify-center min-w-0 gap-0.5">
+                                <div className="flex items-center gap-2">
+                                    <h2 className="text-[14px] font-semibold text-slate-100 tracking-wide truncate leading-none">
+                                        AI Assistant
+                                    </h2>
+                                    {/* Status pill now sits cleanly next to the title */}
+                                    <RuntimeStatus health={health} loading={healthLoading} error={healthError} />
+                                </div>
+                                
+                                {/* Clean Subtitle for Provider/Model */}
+                                <div className="text-[11px] text-slate-400 flex items-center gap-1.5 truncate mt-0.5">
+                                    {health ? (
+                                        <>
+                                            <span>{health.provider}</span>
+                                            <span className="text-slate-600 text-[8px]">●</span>
+                                            <span className="font-mono text-slate-300">{health.model}</span>
+                                        </>
+                                    ) : (
+                                        <span>Ready to assist</span>
+                                    )}
+                                </div>
                             </div>
                         </div>
                         
                         {/* Right Side: Scope information since it is auto-refreshing */}
-                        {activeContext?.runId ? (
+                        {/* {activeContext?.runId ? (
                             <div 
-                                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800/40 border border-white/5 shrink-0 max-w-[140px]"
+                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800/40 border border-slate-700/50 shrink-0 max-w-[140px] transition-colors hover:bg-slate-800/60"
                                 title={`Active Context: ${activeContext.runId}`}
                             >
-                                <span className="relative flex h-1.5 w-1.5 shrink-0">
-                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-                                </span>
-                                <span className="text-[10px] font-mono text-slate-300 truncate tracking-wide">
+                                <svg className="w-3.5 h-3.5 text-cyan-500/70 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                </svg>
+                                <span className="text-[11px] font-mono text-slate-300 truncate tracking-wide">
                                     {activeContext.runId}
                                 </span>
                             </div>
                         ) : (
-                            <div className="flex items-center px-3 py-1.5 rounded-xl bg-slate-900/50 border border-white/5 shrink-0">
-                                <span className="text-[10px] font-medium text-slate-500 tracking-wide italic">
+                            <div className="flex items-center px-3 py-1.5 shrink-0">
+                                <span className="text-[11px] text-slate-500 tracking-wide italic">
                                     No active run
                                 </span>
                             </div>
-                        )}
+                        )} */}
 
                         {/* Right Side: Scope Toggle */}
                         {/* <button
