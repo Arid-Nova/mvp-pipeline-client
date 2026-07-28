@@ -92,7 +92,7 @@ class ChatbotConfigBindingTest {
         contextRunner
             .withPropertyValues(
                 "chatbot.provider=OPENAI_COMPATIBLE",
-                "chatbot.model=gpt-4o-mini",
+                "chatbot.model=gpt-5-mini",
                 "chatbot.base-url=http://localhost:8000/v1",
                 "chatbot.timeout-ms=0",
                 "chatbot.max-tokens=-1",

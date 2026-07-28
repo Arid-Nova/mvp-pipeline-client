@@ -16,6 +16,9 @@ SERVICES=(
   "aridnova-toolkit-aegis_api"
   "aridnova-toolkit-aegis_dashboard" 
   "aridnova-toolkit-repohandler" 
+  "aridnova-toolkit-chatbot"
+  "aridnova-toolkit-slm-backend"
+  "aridnova-toolkit-usermanager"
 )
 
 echo "Starting tag and push process for Docker Hub repo: $DOCKER_HUB_USER/$REPO_NAME"

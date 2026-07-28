@@ -164,7 +164,7 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
       - LLM_TEMPERATURE=0.1
-      - OPENAI_API_MODEL=gpt-4o-mini
+      - OPENAI_API_MODEL=gpt-5-mini
     networks:
       - app_network
     restart: always
@@ -233,7 +233,7 @@ services:
       LLM_PROVIDER: openai
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENAI_ENDPOINT: ${OPENAI_BASE_URL}
-      LLM_MODEL: gpt-4o-mini
+      LLM_MODEL: gpt-5-mini
       MONGO_URI: ${MONGO_URI}
       MONGO_DB_NAME: aegis
       MONGO_COLLECTION_NAME: opinionVectors
@@ -282,7 +282,7 @@ services:
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
       - LLM_TEMPERATURE=0.1
       - MAX_TOKENS=10000
-      - OPENAI_API_MODEL=gpt-4o-mini
+      - OPENAI_API_MODEL=gpt-5-mini
       - MONGO_URI=mongodb://cloudhub_mongo:27017
       - MONGO_DB=aridnova_system
       - MONGO_USER=${MONGO_ROOT_USERNAME:-root}

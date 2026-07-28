@@ -26,7 +26,7 @@ class ChatbotApplicationPropertiesMappingTest {
         contextRunner
             .withSystemProperties(
                 "CHATBOT_PROVIDER=OPENAI_COMPATIBLE",
-                "CHATBOT_MODEL=gpt-4o-mini",
+                "CHATBOT_MODEL=gpt-5-mini",
                 "CHATBOT_BASE_URL=http://localhost:8000/v1",
                 "CHATBOT_TIMEOUT_MS=45000",
                 "CHATBOT_MAX_TOKENS=2048",
@@ -39,7 +39,7 @@ class ChatbotApplicationPropertiesMappingTest {
                 assertThat(context).hasNotFailed();
                 ChatbotConfig config = context.getBean(ChatbotConfig.class);
                 assertThat(config.getProvider()).isEqualTo(ChatbotConfig.Provider.OPENAI_COMPATIBLE);
-                assertThat(config.getModel()).isEqualTo("gpt-4o-mini");
+                assertThat(config.getModel()).isEqualTo("gpt-5-mini");
                 assertThat(config.getBaseUrl()).isEqualTo("http://localhost:8000/v1");
                 assertThat(config.getTimeoutMs()).isEqualTo(45000);
                 assertThat(config.getMaxTokens()).isEqualTo(2048);

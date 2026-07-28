@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     external_api_base: str = "" 
     external_api_key: str = ""
     external_model_name: str = "gpt-4o-mini"
+    external_model_name: str = "gpt-5-mini"
+    external_model_api_version: str = "2024-10-21"
 
     class Config:
         env_file = ".env"
