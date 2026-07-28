@@ -3,6 +3,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     api_title: str = "SLM CoT Backend"
     api_version: str = "1.0.0"
+    semaphores: int = 2
     
     # Internal Ollama Config
     ollama_base_url: str = "http://cloudhub_ollama:11434"
@@ -15,7 +16,6 @@ class Settings(BaseSettings):
     # External SLM Config 
     external_api_base: str = "" 
     external_api_key: str = ""
-    external_model_name: str = "gpt-4o-mini"
     external_model_name: str = "gpt-5-mini"
     external_model_api_version: str = "2024-10-21"
 

@@ -1,4 +1,5 @@
 import json
+import random
 import asyncio
 
 from langchain_ollama import ChatOllama
@@ -9,7 +10,7 @@ from langchain_core.output_parsers import JsonOutputParser
 from ..core.config import settings
 from ..models.schemas import PipelineSummaryResponse
 
-def __minify_graph_payload(obj, depth=0):
+def minify_graph_payload(obj, depth=0):
     KEYS_TO_DROP = {
         "x", "y", "position", "positionAbsolute", "selected", "dragging", 
         "width", "height", "style", "isExpanded", 
@@ -62,12 +63,12 @@ def __minify_graph_payload(obj, depth=0):
                 cleaned[k] = "[Max Depth Reached]"
                 continue
 
-            cleaned[k] = __minify_graph_payload(v, depth + 1)
+            cleaned[k] = minify_graph_payload(v, depth + 1)
             
         return cleaned
         
     elif isinstance(obj, list):
-        return [__minify_graph_payload(item, depth + 1) for item in obj]
+        return [minify_graph_payload(item, depth + 1) for item in obj]
         
     elif isinstance(obj, str):
         if len(obj) > 500:
@@ -85,7 +86,7 @@ class CoTSummarizerService:
                 "api_key": settings.external_api_key,
                 "azure_deployment": settings.external_model_name,
                 "api_version": settings.external_model_api_version,
-                "max_retries": 5, # Increased retries
+                "max_retries": 5, 
                 "model_kwargs": {"response_format": {"type": "json_object"}}
             }
             
@@ -96,6 +97,7 @@ class CoTSummarizerService:
                 azure_kwargs["temperature"] = settings.temperature
                 
             self.llm = AzureChatOpenAI(**azure_kwargs)
+            self.semaphore = asyncio.Semaphore(settings.semaphores)
         else:
             self.llm = ChatOllama(
                 base_url=settings.ollama_base_url,
@@ -103,6 +105,7 @@ class CoTSummarizerService:
                 temperature=settings.temperature,
                 format="json"
             )
+            self.semaphore = asyncio.Semaphore(5)
         
         self.pipeline_parser = JsonOutputParser(pydantic_object=PipelineSummaryResponse)
         
@@ -132,48 +135,46 @@ class CoTSummarizerService:
         self.pipeline_chain = self.pipeline_prompt | self.llm | self.pipeline_parser
 
     async def _summarize_single_node(self, node: dict) -> dict:
-        minified_node = __minify_graph_payload(node)
+        minified_node = minify_graph_payload(node)
         
-        max_attempts = 5
+        max_attempts = 6
         base_wait_time = 5 
 
-        for attempt in range(max_attempts):
-            try:
-                result = await self.node_chain.ainvoke({
-                    "node_data": json.dumps(minified_node)
-                })
-                
-                summary_text = result.get("summary", "No insights extracted.")
-                
-                return {
-                    "type": node.get("type"),
-                    "summary": summary_text
-                }
-                
-            except Exception as e:
-                error_msg = str(e).lower()
-                if "429" in error_msg or "rate_limit" in error_msg or "too_many_requests" in error_msg:
-                    if attempt == max_attempts - 1:
-                        print(f"Failed to summarize node {node.get('id')} after {max_attempts} attempts.")
-                        raise e 
+        async with self.semaphore:
+            for attempt in range(max_attempts):
+                try:
+                    result = await self.node_chain.ainvoke({
+                        "node_data": json.dumps(minified_node)
+                    })
                     
-                    # Exponential backoff: waits 5s, then 10s, then 20s, etc.
-                    wait_time = base_wait_time * (2 ** attempt)
-                    print(f"[Rate Limit Hit] Waiting {wait_time} seconds before attempt {attempt + 2}...")
-                    await asyncio.sleep(wait_time)
-                else:
-                    raise e
+                    summary_text = result.get("summary", "No insights extracted.")
+                    
+                    return {
+                        "type": node.get("type"),
+                        "summary": summary_text
+                    }
+                    
+                except Exception as e:
+                    error_msg = str(e).lower()
+                    if "429" in error_msg or "rate_limit" in error_msg or "too_many_requests" in error_msg:
+                        if attempt == max_attempts - 1:
+                            print(f"Failed to summarize node {node.get('id')} after {max_attempts} attempts.")
+                            raise e 
+                        
+                        # Exponential backoff with jitter to avoid thundering herd 
+                        base_wait = base_wait_time * (2 ** attempt)
+                        jitter = random.uniform(0.5, 3.5) 
+                        wait_time = base_wait + jitter
+
+                        print(f"[Rate Limit Hit] Waiting {wait_time} seconds before attempt {attempt + 2}...")
+                        await asyncio.sleep(wait_time)
+                    else:
+                        raise e
 
     async def summarize(self, nodes: list, connections: list) -> list:
-        summarized_nodes = []
-        
         # Phase 1: Map with pacing
-        for i, node in enumerate(nodes):
-            lite_node = await self._summarize_single_node(node)
-            summarized_nodes.append(lite_node)
-            
-            if i < len(nodes) - 1:
-                await asyncio.sleep(5)
+        tasks = [self._summarize_single_node(node) for node in nodes]
+        summarized_nodes = await asyncio.gather(*tasks)
 
         # Phase 2: Reduce
         result = await self.pipeline_chain.ainvoke({
