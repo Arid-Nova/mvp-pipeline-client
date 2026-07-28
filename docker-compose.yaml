@@ -35,21 +35,42 @@ services:
     volumes:
       - mongo_data:/data/db
 
+  # Shared LRU cache for CIMET partial IRs (issue mvp-cimet-extraction-library#14).
+  # maxmemory + allkeys-lru makes Redis evict least-recently-used partial IRs,
+  # replacing the unbounded PART_*.json files previously written to disk.
+  cimet_redis:
+    image: redis:7-alpine
+    container_name: cimet_redis
+    command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - app_network
+    restart: always
+
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: cloudhub_backend
     ports:
-      - "8080:8080" 
+      - "8080:8080"
     environment:
       SPRING_DATASOURCE_URL: jdbc:mariadb://cache_db:3306/msGraph
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
       CORS_ALLOWED_ORIGINS: https://toolkit.aridnova.net,https://aridnova.net,https://www.aridnova.net,http://localhost:3000,http://localhost:8080
+      # CIMET partial IR cache (cimet-extract-lib >= 1.3.0); older versions ignore these.
+      CIMET_CACHE: redis
+      CIMET_REDIS_URI: redis://cimet_redis:6379
     depends_on:
       mariadb:
+        condition: service_healthy
+      cimet_redis:
         condition: service_healthy
     networks:
       - app_network
@@ -128,6 +149,12 @@ services:
       - "8060:8060"
     environment:
       CORS_ALLOWED_ORIGINS: https://toolkit.aridnova.net,https://aridnova.net,https://www.aridnova.net,http://localhost:3000,http://localhost:8080
+      # CIMET partial IR cache (cimet-extract-lib >= 1.3.0); older versions ignore these.
+      CIMET_CACHE: redis
+      CIMET_REDIS_URI: redis://cimet_redis:6379
+    depends_on:
+      cimet_redis:
+        condition: service_healthy
     networks:
       - app_network
     restart: always
