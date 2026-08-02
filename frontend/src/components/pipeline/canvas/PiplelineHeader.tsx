@@ -195,11 +195,14 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
     });
     const [llmUri, setLlmUri] = useState(() => localStorage.getItem('llm_uri') || '');
     const [llmToken, setLlmToken] = useState(() => localStorage.getItem('llm_token') || '');
+    const [llmSaved, setLlmSaved] = useState(false);
 
     const handleSaveLlmConfig = () => {
         localStorage.setItem('llm_provider', llmProvider);
         localStorage.setItem('llm_uri', llmUri);
         localStorage.setItem('llm_token', llmToken);
+        setLlmSaved(true);
+        setTimeout(() => setLlmSaved(false), 3000);
     };
 
     // Session Hadlers
@@ -543,6 +546,11 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
                                     >
                                         Save Configuration
                                     </button>
+                                    {llmSaved && (
+                                        <p className="text-[10px] text-cyan-400 text-center mt-1 animate-pulse">
+                                            ✓ Configuration saved!
+                                        </p>
+                                    )}
                                 </div>
 
                                 <div className="flex items-center gap-2 border-b border-slate-700 pb-2">

@@ -373,9 +373,18 @@ export const generateScenarios = async (indexId: string|undefined, vectorsId: st
 
 export const generateTestSuites = async (selectedLlm: string, prompts: PromptItem[] | undefined, options?: { signal?: AbortSignal }) => {
     try {
+        // const response = await TEST_API.post('/testsuites/generate', { 
+        //     llm_model: selectedLlm,
+        //     prompts: prompts 
+        // }, {
+        //     signal: options?.signal 
+        // });
+        const llmProvider = localStorage.getItem('llm_provider') || 'internal';
         const response = await TEST_API.post('/testsuites/generate', { 
             llm_model: selectedLlm,
-            prompts: prompts 
+            prompts: prompts,
+            llm_uri: llmProvider !== 'internal' ? localStorage.getItem('llm_uri') : null,
+            llm_token: llmProvider !== 'internal' ? localStorage.getItem('llm_token') : null
         }, {
             signal: options?.signal 
         });
@@ -416,9 +425,19 @@ export const generatePrompts = async (selectedIds: string[], targetLanguage: str
 // Aegis introspection functions 
 export const analyzeAegis = async (enginePayload: any, options?: { signal?: AbortSignal }) => {
     try {
-        const response = await AEGIS_API.post('/analyze', enginePayload, {
+        // const response = await AEGIS_API.post('/analyze', enginePayload, {
+        //     signal: options?.signal 
+        // });
+        const llmProvider = localStorage.getItem('llm_provider') || 'internal';
+        const enrichedPayload = {
+            ...enginePayload,
+            llm_uri: llmProvider !== 'internal' ? localStorage.getItem('llm_uri') : null,
+            llm_token: llmProvider !== 'internal' ? localStorage.getItem('llm_token') : null
+        };
+        const response = await AEGIS_API.post('/analyze', enrichedPayload, {
             signal: options?.signal 
         });
+        
         return response.data;
     } catch (error: any) {
         if (axios.isCancel(error)) {
