@@ -11,11 +11,11 @@ class Settings(BaseSettings):
     temperature: float = 0.1
     
     # Toggle switch
-    use_external_slm: bool = True
+    use_external_slm: bool = False
     
     # External SLM Config 
-    external_api_base: str = "" 
-    external_api_key: str = ""
+    external_api_base: str = "https://aridnova-openai.openai.azure.com/" 
+    external_api_key: str = "<key-optional>"
     external_model_name: str = "gpt-5-mini"
     external_model_api_version: str = "2024-10-21"
 
