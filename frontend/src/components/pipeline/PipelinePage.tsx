@@ -11,7 +11,8 @@ import {
     fetchChangeImpact,
     saveSession,
     loadSession,
-    recordUserFeedback
+    recordUserFeedback,
+    summarizePipelineResults
 } from '../../services/api';
 import { canonicalizeGithubUrl } from '../../utils/githubUrl';
 import { track, PipelineEvent } from '../../analytics/posthog';
@@ -56,6 +57,11 @@ import { Notification as ToastNotification } from '../../utils/notifications';
 import { PipelineTour } from './tour/PipelineTour';
 import { TemplateLibraryModal } from './canvas/TemplateLibraryModal';
 
+// CoT Summary Components 
+import { SummaryStep, SummaryModal } from './summary/SummaryModal';
+import { SummaryPrompt } from './summary/SummaryPrompt'
+
+// Utilities
 import { decompressPayload } from '../../utils/decompress';
 
 // In-browser cache to avoid data resetting
@@ -88,6 +94,12 @@ const PipelinePage: React.FC = () => {
 
     // Feedback State
     const [showFeedback, setShowFeedback] = useState(false);
+
+    // Summary States
+    const [showSummaryPrompt, setShowSummaryPrompt] = useState(false);
+    const [showSummaryModal, setShowSummaryModal] = useState(false);
+    const [isSummarizing, setIsSummarizing] = useState(false);
+    const [summarySteps, setSummarySteps] = useState<SummaryStep[]>([]);
 
     // History States (Undo/Redo)
     const [history, setHistory] = useState<{nodes: NodeData[], connections: Connection[]}[]>([{ nodes: [], connections: [] }]);
@@ -900,6 +912,23 @@ const PipelinePage: React.FC = () => {
         track(PipelineEvent.LINK_DELETED);
     };
 
+    // -- Chain of Thought Summaries Logic ---
+    const handleAcceptSummary = async () => {
+        setShowSummaryPrompt(false);
+        setShowSummaryModal(true);
+        setIsSummarizing(true);
+        
+        try {
+            const response = await summarizePipelineResults(nodes, connections);
+            setSummarySteps(response.steps);
+        } catch {
+            // console.error("Failed to generate pipeline summary:", error);
+            setIsSummarizing(false);
+        } finally {
+            setIsSummarizing(false);
+        }
+    };
+
     // --- Execution Logic ---
     const runFromNode = async (nodeId: string) => {
         const node = nodes.find(n => n.id === nodeId);
@@ -1095,6 +1124,11 @@ const PipelinePage: React.FC = () => {
                 status: runStatus,
                 durationMs: Date.now() - runStartedAt,
             });
+
+            // Triggering the summary prompt only when 'completed', not otherwise.
+            if (runStatus === 'completed') {
+                setShowSummaryPrompt(true);
+            }
         }
     };
 
@@ -1398,7 +1432,7 @@ const PipelinePage: React.FC = () => {
                         throw new Error("No prompts available. Please generate prompts first.");
                     }
 
-                    const selectedLlm = targetNode.data.selectedLlm || 'gpt-4o-mini'; 
+                    const selectedLlm = targetNode.data.selectedLlm || 'gpt-5-mini'; 
                     updateStatus(targetNode.id, 'running', `Sending ${prompts.length} prompts to ${selectedLlm}...`);
 
                     const data = await generateTestSuites(selectedLlm, prompts, { signal: options?.signal }); // Assumes { status: "success", tests: [...] }
@@ -1947,6 +1981,20 @@ const PipelinePage: React.FC = () => {
                     onClose={handleWarningClose} 
                 />
             </div>
+
+            <SummaryPrompt 
+                isOpen={showSummaryPrompt} 
+                onDismiss={() => setShowSummaryPrompt(false)} 
+                onAccept={handleAcceptSummary} 
+            />
+            
+            <SummaryModal 
+                isOpen={showSummaryModal} 
+                onClose={() => setShowSummaryModal(false)} 
+                isSummarizing={isSummarizing} 
+                summarySteps={summarySteps} 
+            />
+
             <ChatbotPanel activeContext={chatbotContext} />
         </div>
     );

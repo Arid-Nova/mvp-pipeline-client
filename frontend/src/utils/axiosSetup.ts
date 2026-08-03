@@ -14,6 +14,7 @@ export const REPO_API = axios.create({ baseURL: process.env.REACT_APP_REPO_SERVI
 export const EXECUTOR_API = axios.create({ baseURL: process.env.REACT_APP_EXEC_SERVICE_URL || 'http://localhost:8010'});
 export const USER_API = axios.create({ baseURL: process.env.REACT_APP_USER_SERVICE_URL || 'http://localhost:8100'});
 export const CHATBOT_API = axios.create({ baseURL: process.env.REACT_APP_CHATBOT_SERVICE_URL || 'http://localhost:8081'});
+export const SLMBACKEND_API = axios.create({ baseURL: process.env.REACT_APP_SLMBACKEND_SERVICE_URL || 'http://localhost:8071'});
 
 // Helper function for logging
 const applyInterceptors = (instance: AxiosInstance) => {

@@ -20,7 +20,7 @@ export const TestGenerateCard: React.FC<TestGenerateCardProps> = ({ node, nodes,
     const availablePrompts = promptNode?.data.promptPayload?.prompts?.length || 0;
     const targetLanguage = promptNode?.data.language || 'java'; 
     const hasTests = !!node.data.testSuitePayload;
-    const selectedLlm = node.data.selectedLlm || 'gpt-4o-mini';
+    const selectedLlm = node.data.selectedLlm || 'gpt-5-mini';
 
     // Helper to update dropdown state locally
     const handleLlmChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -48,8 +48,8 @@ export const TestGenerateCard: React.FC<TestGenerateCardProps> = ({ node, nodes,
                         disabled={node.status === 'running'}
                         className="w-full appearance-none bg-slate-900/80 border border-slate-700 hover:border-slate-500 rounded-lg py-2 pl-3 pr-8 text-xs font-medium text-slate-200 outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all cursor-pointer shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        <option value="gpt-4o-mini">OpenAI GPT-4o-mini</option>
-                        <option value="gpt-4-turbo">OpenAI GPT-4 Turbo</option>
+                        <option value="gpt-5-mini">OpenAI GPT-5-mini</option>
+                        <option value="gpt-5-turbo">OpenAI GPT-5 Turbo</option>
                         <option value="claude-3-5-sonnet">Anthropic Claude 3.5 Sonnet</option>
                         <option value="claude-3-opus">Anthropic Claude 3 Opus</option>
                         <option value="llama-3-70b">Meta Llama 3 70B</option>

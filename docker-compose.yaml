@@ -92,6 +92,7 @@ services:
         - REACT_APP_CHATBOT_SERVICE_URL=http://localhost:8081
         - REACT_APP_USER_SERVICE_URL=http://localhost:8100
         - REACT_APP_EXEC_SERVICE_URL=http://localhost:8010
+        - REACT_APP_SLMBACKEND_SERVICE_URL=http://localhost:8071
         - REACT_APP_INTERNAL_SERVICE_KEY=${INTERNAL_SERVICE_KEY}
         - REACT_APP_PUBLIC_POSTHOG_KEY=${PUBLIC_POSTHOG_KEY}
         - REACT_APP_PUBLIC_POSTHOG_HOST=${PUBLIC_POSTHOG_HOST:-https://us.i.posthog.com}
@@ -163,7 +164,7 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
       - LLM_TEMPERATURE=0.1
-      - OPENAI_API_MODEL=gpt-4o-mini
+      - OPENAI_API_MODEL=gpt-5-mini
     networks:
       - app_network
     restart: always
@@ -232,7 +233,7 @@ services:
       LLM_PROVIDER: openai
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENAI_ENDPOINT: ${OPENAI_BASE_URL}
-      LLM_MODEL: gpt-4o-mini
+      LLM_MODEL: gpt-5-mini
       MONGO_URI: ${MONGO_URI}
       MONGO_DB_NAME: aegis
       MONGO_COLLECTION_NAME: opinionVectors
@@ -281,7 +282,7 @@ services:
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
       - LLM_TEMPERATURE=0.1
       - MAX_TOKENS=10000
-      - OPENAI_API_MODEL=gpt-4o-mini
+      - OPENAI_API_MODEL=gpt-5-mini
       - MONGO_URI=mongodb://cloudhub_mongo:27017
       - MONGO_DB=aridnova_system
       - MONGO_USER=${MONGO_ROOT_USERNAME:-root}
@@ -321,6 +322,17 @@ services:
       - MONGO_PASSWORD=${MONGO_ROOT_PASSWORD}
       - INTERNAL_SERVICE_KEY=${INTERNAL_SERVICE_KEY}
       - LANDING_ORIGINS=${LANDING_ORIGINS:-}
+    networks:
+      - app_network
+    restart: always
+
+  slm-backend:
+    build: 
+      context: ./slm-backend
+      dockerfile: Dockerfile
+    container_name: cloudhub_slmbackend
+    ports:
+      - "8071:8071"
     networks:
       - app_network
     restart: always

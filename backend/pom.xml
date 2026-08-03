@@ -20,13 +20,21 @@
 		<lombok.version>1.18.30</lombok.version>
 	</properties>
 
-	<repositories>
+	<!-- CIMET package is available either via GitHub or JitPack -->
+	<!-- <repositories>
         <repository>
             <id>github</id>
             <name>CIMET Packages</name>
             <url>https://maven.pkg.github.com/arid-nova/mvp-cimet-extraction-library</url>
         </repository>
-    </repositories>
+    </repositories> -->
+
+	<repositories>
+		<repository>
+		    <id>jitpack.io</id>
+		    <url>https://jitpack.io</url>
+		</repository>
+	</repositories>
 
 	<dependencies>
 		<dependency>
@@ -76,11 +84,6 @@
 			<version>3.1.3</version>
 		</dependency>
 		<dependency>
-			<groupId>edu.university.ecs.lab</groupId>
-			<artifactId>cimet-extract-lib</artifactId>
-			<version>1.2.1</version>
-		</dependency>
-		<dependency>
 			<groupId>com.fasterxml.jackson.core</groupId>
 			<artifactId>jackson-databind</artifactId>
 			<scope>compile</scope>
@@ -89,6 +92,20 @@
 			<groupId>com.fasterxml.jackson.datatype</groupId>
 			<artifactId>jackson-datatype-json-org</artifactId>
 			<version>2.15.2</version>
+		</dependency>
+		
+		<!-- GitHub Dependency -->
+		<!-- <dependency>
+			<groupId>edu.university.ecs.lab</groupId>
+			<artifactId>cimet-extract-lib</artifactId>
+			<version>1.2.1</version>
+		</dependency> -->
+
+		<!-- Jitack Dependency -->
+		<dependency>
+	    	<groupId>com.github.Arid-Nova</groupId>
+			<artifactId>mvp-cimet-extraction-library</artifactId>
+			<version>v1.2.1</version>
 		</dependency>
     </dependencies>
 
