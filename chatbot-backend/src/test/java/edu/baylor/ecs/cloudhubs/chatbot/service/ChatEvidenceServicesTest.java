@@ -170,7 +170,9 @@ class ChatEvidenceServicesTest {
             new ChatbotResponse(),
             false
         );
-        pre.setAnswer("Recommendation: prioritize observing billing-service dependencies [E6].");
+        // The model is asked to cite the record's positional label (E1 = first/only evidence
+        // item passed here), not its raw artifactId ("E6") - see StringUtils.evidenceLabel.
+        pre.setAnswer("Recommendation: prioritize observing billing-service dependencies [E1].");
         pre.setCitations(List.of(new CitationItem("DEPENDENCY", "E6", "billing-service", "links[1]", "c1", "edge")));
 
         ChatbotResponse post = evidenceGuardrailService.enforcePostGeneration(
@@ -181,8 +183,38 @@ class ChatEvidenceServicesTest {
             false
         );
 
-        assertThat(post.getFlags()).doesNotContain(ChatbotFlag.INSUFFICIENT_EVIDENCE);
+        assertThat(post.getFlags()).doesNotContain(ChatbotFlag.INSUFFICIENT_EVIDENCE, ChatbotFlag.CITATION_VALIDATION_FAILED);
+        assertThat(post.getConfidence()).isNotEqualTo(ChatbotConfidence.LOW);
         assertThat(post.getCitations()).hasSize(1);
-        assertThat(post.getAnswer()).contains("Recommendation");
+        assertThat(post.getAnswer()).contains("Recommendation").contains("[E1]");
+    }
+
+    @Test
+    void citationIsValidatedByPositionalLabelNotByRealArtifactId() {
+        // Regression test for the bug where every well-evidenced answer was forced to LOW
+        // confidence: the prompt told the model to cite "[E1]"-style markers, but validation
+        // compared them against real artifactId strings like "ir:v1:endpoint:...", which never
+        // match, so every citation looked invalid. See StringUtils.evidenceLabel.
+        EvidenceItem evidence = new EvidenceItem();
+        evidence.setArtifactType(EvidenceArtifactType.ENDPOINT);
+        evidence.setArtifactId("ir:v1:endpoint:order-service:GET:/orders");
+
+        ChatbotResponse response = new ChatbotResponse();
+        response.setAnswer("Answer: order-service exposes GET /orders [E1].");
+        response.setCitations(List.of(new CitationItem(
+            "ENDPOINT", "ir:v1:endpoint:order-service:GET:/orders", "order-service", "controllers[0].methods[0]", "v1", "GET /orders"
+        )));
+
+        ChatbotResponse guarded = evidenceGuardrailService.enforcePostGeneration(
+            "What endpoint does order-service expose?",
+            QuestionIntent.ENDPOINT_LOOKUP,
+            List.of(evidence),
+            response,
+            false
+        );
+
+        assertThat(guarded.getFlags()).doesNotContain(ChatbotFlag.CITATION_VALIDATION_FAILED);
+        assertThat(guarded.getAnswer()).contains("[E1]").doesNotContain("[citation_removed]");
+        assertThat(guarded.getCitations()).hasSize(1);
     }
 }
