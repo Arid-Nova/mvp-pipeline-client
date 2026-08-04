@@ -307,6 +307,8 @@ services:
     depends_on:
       aegis_neo4j:
         condition: service_healthy
+      mongodb:        
+        condition: service_healthy
     networks:
       - app_network
     healthcheck:
@@ -430,9 +432,9 @@ services:
     networks:
       - app_network
     restart: always
-    depends_on:
-      ollama:
-        condition: service_healthy
+    # depends_on:
+    #   ollama:
+    #     condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8071/health"]
       interval: 15s      
