@@ -25,7 +25,7 @@ app.include_router(api_router)
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "service": "slm-backend"}
+    return {"status": "ok", "service": "slm-backend", "description": "SLM Backend is running."}
 
 # if __name__ == "__main__":
 #     import uvicorn
