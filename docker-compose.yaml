@@ -49,13 +49,16 @@ services:
     ports:
       - "8080:8080" 
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mariadb://cache_db:3306/msGraph
-      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_URL: ${MYSQL_URL}
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_ROOT_USERNAME:-root}
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      SPRING_DATA_MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD}@cloudhub_mongo:27017/aegis?authSource=${MONGO_AUTH_SOURCE:-admin}
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
       CORS_ALLOWED_ORIGINS: https://toolkit.aridnova.net,https://aridnova.net,https://www.aridnova.net,http://localhost:3000,http://localhost:8080
     depends_on:
       mariadb:
+        condition: service_healthy
+      mongodb:
         condition: service_healthy
     networks:
       - app_network
@@ -147,6 +150,9 @@ services:
       - app_network
     volumes:
       - verifier_cache:/tmp/ms_verifier_cache
+    depends_on:
+      mongodb:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
       interval: 15s      
@@ -163,9 +169,13 @@ services:
       - "8060:8060"
     environment:
       CORS_ALLOWED_ORIGINS: https://toolkit.aridnova.net,https://aridnova.net,https://www.aridnova.net,http://localhost:3000,http://localhost:8080
+      SPRING_DATA_MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD}@cloudhub_mongo:27017/aegis?authSource=${MONGO_AUTH_SOURCE:-admin}
     networks:
       - app_network
     restart: always
+    depends_on:
+      mongodb:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8060/actuator/health/liveness || exit 1"]
       interval: 15s
@@ -372,6 +382,9 @@ services:
     networks:
       - app_network
     restart: always
+    depends_on:
+      mongodb:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8020/health"]
       interval: 15s      
@@ -415,6 +428,9 @@ services:
     networks:
       - app_network
     restart: always
+    depends_on:
+      mongodb:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8100/health"]
       interval: 15s      

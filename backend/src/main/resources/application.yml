@@ -1,12 +1,12 @@
 spring:
   data:
     mongodb:
-      uri: mongodb://root:aeGis2026Rocks@cloudhub_mongo:27017/aegis?authSource=admin
+      uri: ${SPRING_DATA_MONGODB_URI}
 
   datasource:
-    url: jdbc:mariadb://cache_db:3306/msGraph
-    username: root
-    password: csi3335rocks
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
     driver-class-name: org.mariadb.jdbc.Driver
 
   servlet:
