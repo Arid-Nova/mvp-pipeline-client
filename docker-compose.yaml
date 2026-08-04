@@ -80,30 +80,30 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      args:
-        - REACT_APP_IR_SERVICE_URL=http://localhost:8080
-        - REACT_APP_VERIFY_SERVICE_URL=http://localhost:9000
-        - REACT_APP_COMPONENT_SERVICE_URL=http://localhost:8060
-        - REACT_APP_VECTOR_SERVICE_URL=http://localhost:8050
-        - REACT_APP_ANALYSIS_SERVICE_URL=http://localhost:8040
-        - REACT_APP_TEST_SERVICE_URL=http://localhost:8030
-        - REACT_APP_AEGIS_SERVICE_URL=http://localhost:8900
-        - REACT_APP_REPO_SERVICE_URL=http://localhost:8020
-        - REACT_APP_CHATBOT_SERVICE_URL=http://localhost:8081
-        - REACT_APP_USER_SERVICE_URL=http://localhost:8100
-        - REACT_APP_EXEC_SERVICE_URL=http://localhost:8010
-        - REACT_APP_SLMBACKEND_SERVICE_URL=http://localhost:8071
-        - REACT_APP_INTERNAL_SERVICE_KEY=${INTERNAL_SERVICE_KEY}
-        - REACT_APP_PUBLIC_POSTHOG_KEY=${PUBLIC_POSTHOG_KEY}
-        - REACT_APP_PUBLIC_POSTHOG_HOST=${PUBLIC_POSTHOG_HOST:-https://us.i.posthog.com}
-        - REACT_APP_IS_DEMO_VERSION=true
+      target: development
     container_name: cloudhub_frontend
     ports:
       - "3000:3000"
     networks:
       - app_network
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=development
+      - REACT_APP_IR_SERVICE_URL=http://localhost:8080
+      - REACT_APP_VERIFY_SERVICE_URL=http://localhost:9000
+      - REACT_APP_COMPONENT_SERVICE_URL=http://localhost:8060
+      - REACT_APP_VECTOR_SERVICE_URL=http://localhost:8050
+      - REACT_APP_ANALYSIS_SERVICE_URL=http://localhost:8040
+      - REACT_APP_TEST_SERVICE_URL=http://localhost:8030
+      - REACT_APP_AEGIS_SERVICE_URL=http://localhost:8900
+      - REACT_APP_REPO_SERVICE_URL=http://localhost:8020
+      - REACT_APP_CHATBOT_SERVICE_URL=http://localhost:8081
+      - REACT_APP_USER_SERVICE_URL=http://localhost:8100
+      - REACT_APP_EXEC_SERVICE_URL=http://localhost:8010
+      - REACT_APP_SLMBACKEND_SERVICE_URL=http://localhost:8071
+      - REACT_APP_INTERNAL_SERVICE_KEY=${INTERNAL_SERVICE_KEY}
+      - REACT_APP_PUBLIC_POSTHOG_KEY=${PUBLIC_POSTHOG_KEY}
+      - REACT_APP_PUBLIC_POSTHOG_HOST=${PUBLIC_POSTHOG_HOST:-https://us.i.posthog.com}
+      - REACT_APP_IS_DEMO_VERSION=true
 
   verifier:
     build:
