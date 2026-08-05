@@ -53,7 +53,7 @@ services:
       SPRING_DATASOURCE_URL: ${MYSQL_URL}
       SPRING_DATASOURCE_USERNAME: ${MYSQL_ROOT_USERNAME:-root}
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      SPRING_DATA_MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD}@cloudhub_mongo:27017/aridnova?authSource=${MONGO_AUTH_SOURCE:-admin}
+      SPRING_DATA_MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD}@cloudhub_mongo:27017/aridnova-core?authSource=${MONGO_AUTH_SOURCE:-admin}
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
       CORS_ALLOWED_ORIGINS: https://toolkit.aridnova.net,https://aridnova.net,https://www.aridnova.net,http://localhost:3000,http://localhost:8080
     depends_on:
@@ -170,7 +170,7 @@ services:
       - "8060:8060"
     environment:
       CORS_ALLOWED_ORIGINS: https://toolkit.aridnova.net,https://aridnova.net,https://www.aridnova.net,http://localhost:3000,http://localhost:8080
-      SPRING_DATA_MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD}@cloudhub_mongo:27017/aridnova?authSource=${MONGO_AUTH_SOURCE:-admin}
+      SPRING_DATA_MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD}@cloudhub_mongo:27017/aridnova-testing?authSource=${MONGO_AUTH_SOURCE:-admin}
     networks:
       - app_network
     restart: always
@@ -193,7 +193,7 @@ services:
       - "8050:8050" 
     environment:
       - MONGO_URI=mongodb://cloudhub_mongo:27017
-      - MONGO_DB=aridnova
+      - MONGO_DB=aridnova-testing
       - MONGO_USER=${MONGO_ROOT_USERNAME:-root}
       - MONGO_PASSWORD=${MONGO_ROOT_PASSWORD}
     networks:
@@ -218,7 +218,7 @@ services:
       - "8040:8040" 
     environment:
       - MONGO_URI=mongodb://cloudhub_mongo:27017
-      - MONGO_DB=aridnova
+      - MONGO_DB=aridnova-testing
       - MONGO_USER=${MONGO_ROOT_USERNAME:-root}
       - MONGO_PASSWORD=${MONGO_ROOT_PASSWORD}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
@@ -316,7 +316,7 @@ services:
       OPENAI_ENDPOINT: ${OPENAI_BASE_URL}
       LLM_MODEL: gpt-5-mini
       MONGO_URI: ${MONGO_URI}
-      MONGO_DB_NAME: aegis
+      MONGO_DB_NAME: aridnova-aegis
       MONGO_COLLECTION_NAME: opinionVectors
       NEO4J_URI: ${NEO4J_URI}
       NEO4J_USERNAME: ${NEO4J_USERNAME}
@@ -346,7 +346,7 @@ services:
       FLASK_DEBUG: 1
       PYTHONUNBUFFERED: 1
       MONGO_URI: ${MONGO_URI}
-      MONGO_DB_NAME: aegis
+      MONGO_DB_NAME: aridnova-aegis
       MONGO_COLLECTION_NAME: opinionVectors
       NEO4J_URI: ${NEO4J_URI}
       NEO4J_USERNAME: ${NEO4J_USERNAME}
@@ -379,7 +379,7 @@ services:
       - MAX_TOKENS=10000
       - OPENAI_API_MODEL=gpt-5-mini
       - MONGO_URI=mongodb://cloudhub_mongo:27017
-      - MONGO_DB=aridnova_system
+      - MONGO_DB=repo-management
       - MONGO_USER=${MONGO_ROOT_USERNAME:-root}
       - MONGO_PASSWORD=${MONGO_ROOT_PASSWORD}
       - MONGO_AUTH_SOURCE=${MONGO_AUTH_SOURCE:-admin}
@@ -427,7 +427,7 @@ services:
       - "8100:8100" 
     environment:
       - MONGO_URI=mongodb://cloudhub_mongo:27017
-      - MONGO_DB=aridnova_system
+      - MONGO_DB=aridnova-system
       - MONGO_USER=${MONGO_ROOT_USERNAME:-root}
       - MONGO_PASSWORD=${MONGO_ROOT_PASSWORD}
       - INTERNAL_SERVICE_KEY=${INTERNAL_SERVICE_KEY}
