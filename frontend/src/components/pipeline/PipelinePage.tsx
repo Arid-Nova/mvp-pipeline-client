@@ -63,6 +63,7 @@ import { SummaryPrompt } from './summary/SummaryPrompt'
 
 // Utilities
 import { decompressPayload } from '../../utils/decompress';
+import { ExportModal } from './export/ExportModal';
 
 // In-browser cache to avoid data resetting
 let inMemoryPipelineCache: { 
@@ -118,6 +119,9 @@ const PipelinePage: React.FC = () => {
 
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
     const lastSavedStateRef = useRef<string>('');
+
+    // Export Modal State (should be a saved session to export)
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
     useEffect(() => {
         lastSavedStateRef.current = JSON.stringify({ nodes, connections });
@@ -1918,7 +1922,8 @@ const PipelinePage: React.FC = () => {
                 onUndo={handleUndo}
                 onRedo={handleRedo}
                 canUndo={historyIndex > 0}
-                canRedo={historyIndex < history.length - 1}      
+                canRedo={historyIndex < history.length - 1}
+                onExportClick={() => setIsExportModalOpen(true)}      
             />
             
             <div className="flex flex-1 overflow-hidden">
@@ -1996,6 +2001,15 @@ const PipelinePage: React.FC = () => {
             />
 
             <ChatbotPanel activeContext={chatbotContext} />
+
+            <ExportModal 
+                isOpen={isExportModalOpen}
+                onClose={() => setIsExportModalOpen(false)}
+                sessionId={sessionId}
+                sessionName={sessionName}
+                hasUnsavedChanges={hasUnsavedChanges}
+                onSaveRequested={() => handleSaveSession(sessionName)}
+            />
         </div>
     );
 };
