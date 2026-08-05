@@ -65,7 +65,7 @@ services:
       - app_network
     restart: always
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health/liveness || exit 1"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -95,7 +95,7 @@ services:
     #     condition: service_healthy
     restart: always
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8081/actuator/health/liveness || exit 1"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8081/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -178,7 +178,7 @@ services:
       mongodb:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8060/actuator/health/liveness || exit 1"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8060/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 3
