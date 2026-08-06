@@ -54,6 +54,10 @@ async def generate_testsuites(request: TestGenerationRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
+@app.get("/health")
+def health_check():
+    return {"status": "ok", "service": "test-generator", "description": "Test Generator Service is running."}
+
 # if __name__ == "__main__":
 #     import uvicorn
 #     # Run on port 8030 as requested

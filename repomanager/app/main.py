@@ -103,6 +103,10 @@ async def check_github_token_status():
     token = await config_db_service.get_token()
     return {"hasToken": token is not None}
 
+@app.get("/health")
+def health_check():
+    return {"status": "ok", "service": "repo-manager", "description": "Repo Manager is running."}
+
 # if __name__ == "__main__":
 #     import uvicorn
 #     # Run on port 8020 as requested

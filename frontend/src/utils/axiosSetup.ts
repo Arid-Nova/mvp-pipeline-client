@@ -1,20 +1,21 @@
 import axios, { AxiosInstance } from 'axios';
 import Logger from "js-logger";
+import { env } from '../config';
 
 export const controller = new AbortController();
 
 // Service configurations
-export const VERIFY_API = axios.create({ baseURL: process.env.REACT_APP_VERIFY_SERVICE_URL || 'http://localhost:9000' });
-export const COMPONENT_API = axios.create({ baseURL: process.env.REACT_APP_COMPONENT_SERVICE_URL || 'http://localhost:8060' });
-export const VECTOR_API = axios.create({ baseURL: process.env.REACT_APP_VECTOR_SERVICE_URL || 'http://localhost:8050' });
-export const ANALYSIS_API = axios.create({ baseURL: process.env.REACT_APP_ANALYSIS_SERVICE_URL || 'http://localhost:8040' });
-export const TEST_API = axios.create({ baseURL: process.env.REACT_APP_TEST_SERVICE_URL || 'http://localhost:8030' });
-export const AEGIS_API = axios.create({ baseURL: process.env.REACT_APP_AEGIS_SERVICE_URL || 'http://localhost:8900' });
-export const REPO_API = axios.create({ baseURL: process.env.REACT_APP_REPO_SERVICE_URL || 'http://localhost:8020'});
-export const EXECUTOR_API = axios.create({ baseURL: process.env.REACT_APP_EXEC_SERVICE_URL || 'http://localhost:8010'});
-export const USER_API = axios.create({ baseURL: process.env.REACT_APP_USER_SERVICE_URL || 'http://localhost:8100'});
-export const CHATBOT_API = axios.create({ baseURL: process.env.REACT_APP_CHATBOT_SERVICE_URL || 'http://localhost:8081'});
-export const SLMBACKEND_API = axios.create({ baseURL: process.env.REACT_APP_SLMBACKEND_SERVICE_URL || 'http://localhost:8071'});
+export const VERIFY_API = axios.create({ baseURL: env.VERIFY_SERVICE_URL || 'http://localhost:9000' });
+export const COMPONENT_API = axios.create({ baseURL: env.COMPONENT_SERVICE_URL || 'http://localhost:8060' });
+export const VECTOR_API = axios.create({ baseURL: env.VECTOR_SERVICE_URL || 'http://localhost:8050' });
+export const ANALYSIS_API = axios.create({ baseURL: env.ANALYSIS_SERVICE_URL || 'http://localhost:8040' });
+export const TEST_API = axios.create({ baseURL: env.TEST_SERVICE_URL || 'http://localhost:8030' });
+export const AEGIS_API = axios.create({ baseURL: env.AEGIS_SERVICE_URL || 'http://localhost:8900' });
+export const REPO_API = axios.create({ baseURL: env.REPO_SERVICE_URL || 'http://localhost:8020'});
+export const EXECUTOR_API = axios.create({ baseURL: env.EXEC_SERVICE_URL || 'http://localhost:8010'});
+export const USER_API = axios.create({ baseURL: env.USER_SERVICE_URL || 'http://localhost:8100'});
+export const CHATBOT_API = axios.create({ baseURL: env.CHATBOT_SERVICE_URL || 'http://localhost:8081'});
+export const SLMBACKEND_API = axios.create({ baseURL: env.SLMBACKEND_SERVICE_URL || 'http://localhost:8071'});
 
 // Helper function for logging
 const applyInterceptors = (instance: AxiosInstance) => {
@@ -76,7 +77,7 @@ const applyInterceptors = (instance: AxiosInstance) => {
 [axios, VERIFY_API, COMPONENT_API, VECTOR_API, ANALYSIS_API, TEST_API, AEGIS_API, REPO_API, USER_API, EXECUTOR_API, CHATBOT_API].forEach(applyInterceptors);
 
 export const setupAxios = () => {
-    axios.defaults.baseURL = process.env.IR_SERVICE_URL || 'http://localhost:8080';
+    axios.defaults.baseURL = env.IR_SERVICE_URL || 'http://localhost:8080';
     axios.defaults.headers.common["Content-Type"] = "application/json";
 };
 

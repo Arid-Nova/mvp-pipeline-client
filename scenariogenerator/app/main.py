@@ -131,6 +131,10 @@ async def get_change_impact_insights(request: Request):
 app.include_router(router)
 app.include_router(analysis_router)
 
+@app.get("/health")
+def health_check():
+    return {"status": "ok", "service": "scenario-generator", "description": "Scenario Generator is running."}
+
 # if __name__ == '__main__':
 #     import uvicorn
 #     uvicorn.run("main:app", host="0.0.0.0", port=8040, reload=True)
