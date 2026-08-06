@@ -36,8 +36,8 @@ def verify(request: VerificationRequest, background_tasks: BackgroundTasks):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/health")
-def health():
-    return {"status": "OK"}
+def health_check():
+    return {"status": "ok", "service": "formal-method", "description": "Formal Method Service is running."}
 
 # Use for local testing
 # if __name__ == "__main__":

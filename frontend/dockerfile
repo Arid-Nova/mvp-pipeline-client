@@ -1,5 +1,4 @@
-# Use Node.js 18 image as the base image
-FROM node:18-alpine
+FROM node:18-alpine AS base
 
 # Set the working directory inside the container
 WORKDIR /app
@@ -13,41 +12,22 @@ RUN npm install
 # Copy the entire React project to the working directory
 COPY . .
 
-# Setting Environment Variables
-ARG REACT_APP_IR_SERVICE_URL
-ARG REACT_APP_VERIFY_SERVICE_URL
-ARG REACT_APP_COMPONENT_SERVICE_URL
-ARG REACT_APP_VECTOR_SERVICE_URL
-ARG REACT_APP_ANALYSIS_SERVICE_URL
-ARG REACT_APP_TEST_SERVICE_URL
-ARG REACT_APP_AEGIS_SERVICE_URL
-ARG REACT_APP_REPO_SERVICE_URL
-ARG REACT_APP_CHATBOT_SERVICE_URL
-ARG REACT_APP_USER_SERVICE_URL
-ARG REACT_APP_EXEC_SERVICE_URL
-ARG REACT_APP_INTERNAL_SERVICE_KEY
-ARG REACT_APP_PUBLIC_POSTHOG_KEY
-ARG REACT_APP_PUBLIC_POSTHOG_HOST
-ARG REACT_APP_IS_DEMO_VERSION
+# Making the env.sh script executable
+RUN chmod +x env.sh
 
-ENV REACT_APP_IR_SERVICE_URL=$REACT_APP_IR_SERVICE_URL
-ENV REACT_APP_VERIFY_SERVICE_URL=$REACT_APP_VERIFY_SERVICE_URL
-ENV REACT_APP_COMPONENT_SERVICE_URL=$REACT_APP_COMPONENT_SERVICE_URL
-ENV REACT_APP_VECTOR_SERVICE_URL=$REACT_APP_VECTOR_SERVICE_URL
-ENV REACT_APP_ANALYSIS_SERVICE_URL=$REACT_APP_ANALYSIS_SERVICE_URL
-ENV REACT_APP_TEST_SERVICE_URL=$REACT_APP_TEST_SERVICE_URL
-ENV REACT_APP_AEGIS_SERVICE_URL=$REACT_APP_AEGIS_SERVICE_URL
-ENV REACT_APP_REPO_SERVICE_URL=$REACT_APP_REPO_SERVICE_URL
-ENV REACT_APP_CHATBOT_SERVICE_URL=$REACT_APP_CHATBOT_SERVICE_URL
-ENV REACT_APP_USER_SERVICE_URL=$REACT_APP_USER_SERVICE_URL
-ENV REACT_APP_EXEC_SERVICE_URL=$REACT_APP_EXEC_SERVICE_URL
-ENV REACT_APP_INTERNAL_SERVICE_KEY=$REACT_APP_INTERNAL_SERVICE_KEY
-ENV REACT_APP_PUBLIC_POSTHOG_KEY=$REACT_APP_PUBLIC_POSTHOG_KEY
-ENV REACT_APP_PUBLIC_POSTHOG_HOST=$REACT_APP_PUBLIC_POSTHOG_HOST
-ENV REACT_APP_IS_DEMO_VERSION=$REACT_APP_IS_DEMO_VERSION
+# -------------------------
+# Builder stage (for CI/CD)
+# -------------------------
+FROM base AS builder
 
-# Build the React application
 RUN npm run build
+
+# -----------------------------------
+# Local build stage (for development)
+# -----------------------------------
+FROM builder AS development
+
+ENV NODE_ENV=development
 
 # Install http-server to serve the static files
 RUN npm install -g http-server
@@ -55,5 +35,24 @@ RUN npm install -g http-server
 # Expose the port the app will run on
 EXPOSE 3000
 
+ENTRYPOINT ["./env.sh"]
+
 # Serve the build folder using http-server
 CMD ["http-server", "build", "-p", "3000"]
+
+# ---------------------------------------
+# Production build stage (for deployment)
+# ---------------------------------------
+
+FROM nginx:alpine AS production
+
+ENV NODE_ENV=production
+
+COPY --from=builder /app/build /usr/share/nginx/html
+
+COPY --from=builder /app/env.sh /docker-entrypoint.d/env.sh
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
+
