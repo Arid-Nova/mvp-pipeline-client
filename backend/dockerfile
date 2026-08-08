@@ -6,15 +6,18 @@ WORKDIR /app
 # Copy the pom.xml and install dependencies
 COPY pom.xml .
 
-COPY cimet-extract-lib-1.2.1.jar /tmp/
-RUN mvn install:install-file \
-    -Dfile=/tmp/cimet-extract-lib-1.2.1.jar \
-    -DgroupId=edu.university.ecs.lab \
-    -DartifactId=cimet-extract-lib \
-    -Dversion=1.2.1 \
-    -Dpackaging=jar
+# Following was used to manualy add the CIMET dependency to environemnt 
+# CIMET is not published in GitHub and JitPack.
+# Hence, this step is not longer needed.
+# COPY cimet-extract-lib-1.2.1.jar /tmp/
+# RUN mvn install:install-file \
+#     -Dfile=/tmp/cimet-extract-lib-1.2.1.jar \
+#     -DgroupId=edu.university.ecs.lab \
+#     -DartifactId=cimet-extract-lib \
+#     -Dversion=1.2.1 \
+#     -Dpackaging=jar
 
-RUN mvn dependency:go-offline
+# RUN mvn dependency:go-offline
 
 # Copy the source code and build the application
 COPY src ./src

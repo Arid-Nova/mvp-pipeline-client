@@ -4,6 +4,7 @@ import axios, {
     USER_API, EXECUTOR_API, CHATBOT_API,
     SLMBACKEND_API
 } from '../utils/axiosSetup';
+import { env } from '../config';
 import { showError } from '../utils/notifications';
 import {
     RepositoryInput, VerificationInput, VerificationResponse,
@@ -523,7 +524,7 @@ export const saveGitHubToken = async (token: string, options?: { signal?: AbortS
         const response = await REPO_API.post('/settings/github-token', { github_token: token }, {
             signal: options?.signal,
             headers: {
-                'X-Internal-Service-Auth': process.env.REACT_APP_INTERNAL_SERVICE_KEY
+                'X-Internal-Service-Auth': env.INTERNAL_SERVICE_KEY
             } 
         });
         return response.data;
@@ -544,7 +545,7 @@ export const deleteGitHubToken = async (options?: { signal?: AbortSignal }) => {
         const response = await REPO_API.delete('/settings/github-token', {
             signal: options?.signal,
             headers: {
-                'X-Internal-Service-Auth': process.env.REACT_APP_INTERNAL_SERVICE_KEY
+                'X-Internal-Service-Auth': env.INTERNAL_SERVICE_KEY
             } 
         });
         return response.data;
@@ -565,7 +566,7 @@ export const checkGitHubTokenStatus = async (options?: { signal?: AbortSignal })
         const response = await REPO_API.get('/settings/github-token/status', {
             signal: options?.signal,
             headers: {
-                'X-Internal-Service-Auth': process.env.REACT_APP_INTERNAL_SERVICE_KEY
+                'X-Internal-Service-Auth': env.INTERNAL_SERVICE_KEY
             } 
         });
         return response.data.hasToken;
@@ -677,7 +678,7 @@ export const recordUserFeedback = async (payload: UserFeedback) => {
     try {
         const response = await USER_API.post('/users/feedback', payload, {
             headers: {
-                'X-Internal-Service-Auth': process.env.REACT_APP_INTERNAL_SERVICE_KEY
+                'X-Internal-Service-Auth': env.INTERNAL_SERVICE_KEY
             }
         });
         return response.data;
@@ -694,7 +695,7 @@ export const startUserSession = async (browserInfo: string, resolution: string) 
             screen_resolution: resolution
         }, {
             headers: {
-                'X-Internal-Service-Auth': process.env.REACT_APP_INTERNAL_SERVICE_KEY
+                'X-Internal-Service-Auth': env.INTERNAL_SERVICE_KEY
             }
         });
         return response.data.session_id;
@@ -708,7 +709,7 @@ export const checkEndedSessionsExists = async (): Promise<boolean> => {
     try {
         const response = await USER_API.get('/users/sessions', {
             headers: {
-                'X-Internal-Service-Auth': process.env.REACT_APP_INTERNAL_SERVICE_KEY
+                'X-Internal-Service-Auth': env.INTERNAL_SERVICE_KEY
             }
         });
         return response.data.has_ended_sessions;
@@ -721,7 +722,7 @@ export const checkEndedSessionsExists = async (): Promise<boolean> => {
 export const endUserSession = (sessionId: string) => {
     // Need to use raw fetch with `keepalive: true` here because
     // axios get cancelled by the browser when a tab closes.
-    const baseUrl = process.env.REACT_APP_USER_SERVICE_URL || 'http://localhost:8100';
+    const baseUrl = env.USER_SERVICE_URL || 'http://localhost:8100';
     const url = `${baseUrl}/users/session/${sessionId}/end`;
 
     // Trying to send the request using sendBeacon, so we skip the pre-flight request.

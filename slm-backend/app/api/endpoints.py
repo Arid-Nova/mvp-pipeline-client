@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
-from app.models.schemas import PipelineSummaryRequest, PipelineSummaryResponse
-from app.services.summerizer_cot import summarizer_service
+from ..models.schemas import PipelineSummaryRequest, PipelineSummaryResponse
+from ..services.summerizer_cot import summarizer_service
 import traceback
 
 import gzip

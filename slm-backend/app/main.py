@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.core.config import settings
-from app.api.endpoints import router as api_router
+from .core.config import settings
+from .api.endpoints import router as api_router
 
 app = FastAPI(
     title=settings.api_title,
@@ -25,4 +25,9 @@ app.include_router(api_router)
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "service": "slm-backend"}
+    return {"status": "ok", "service": "slm-backend", "description": "SLM Backend is running."}
+
+# if __name__ == "__main__":
+#     import uvicorn
+#     # Run on port 8071 as requested
+#     uvicorn.run(app, host="127.0.0.1", port=8071)

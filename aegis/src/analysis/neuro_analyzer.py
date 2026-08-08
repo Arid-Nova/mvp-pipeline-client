@@ -31,7 +31,7 @@ class BaseLLMService(ABC):
 
 # Concrete LLM Implementations (Concrete Products)
 class OpenAILLMService(BaseLLMService):
-    def __init__(self, api_key: str, endpoint: str, model: str = 'gpt-4o-mini'):
+    def __init__(self, api_key: str, endpoint: str, model: str = 'gpt-5-mini'):
         self.client = oai.OpenAI(base_url=f"{endpoint}", api_key=api_key)
         self.model = model
         # print("Using OpenAI LLM Service")
@@ -472,7 +472,7 @@ class LLMFactory:
             endpoint = llm_uri or os.getenv('OPENAI_ENDPOINT')
             model = os.getenv('LLM_MODEL')
             if not model:
-                model = "gpt-4o-mini"
+                model = "gpt-5-mini"
             if not api_key:
                 raise ValueError("OpenAI provider requires 'api_key'")
             return OpenAILLMService(api_key, endpoint=endpoint, model=model)

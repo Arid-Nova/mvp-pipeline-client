@@ -16,7 +16,7 @@ class DataService:
     def __init__(self, uri: str = None, db_name: str = None, username: str = None, password: str = None):
         
         uri = uri or os.getenv("MONGO_URI", "mongodb://localhost:27017/")
-        db_name = db_name or os.getenv("MONGO_DB", "aegis")
+        db_name = db_name or os.getenv("MONGO_DB", "aridnova-testing")
         username = username or os.getenv("MONGO_USER", "root")
         password = password or os.getenv("MONGO_PASSWORD")
         

@@ -113,3 +113,7 @@ async def capture_demographics(req: DemographicsRequest, request: Request):
     )
 
     return {"message": "Captured", **result}
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok", "service": "user-service", "description": "User Service is running."}

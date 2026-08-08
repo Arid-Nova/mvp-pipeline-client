@@ -32,6 +32,7 @@ class OpenAIProvider(LLMProvider):
                 kwargs["temperature"] = self.temperature
 
             response = await self.client.chat.completions.create(**kwargs)
+            
             return response.choices[0].message.content.strip()
         except Exception as e:
             return f"Error generating test: {str(e)}"
