@@ -374,12 +374,6 @@ export const generateScenarios = async (indexId: string|undefined, vectorsId: st
 
 export const generateTestSuites = async (selectedLlm: string, prompts: PromptItem[] | undefined, options?: { signal?: AbortSignal }) => {
     try {
-        // const response = await TEST_API.post('/testsuites/generate', { 
-        //     llm_model: selectedLlm,
-        //     prompts: prompts 
-        // }, {
-        //     signal: options?.signal 
-        // });
         const llmProvider = localStorage.getItem('llm_provider') || 'internal';
         const response = await TEST_API.post('/testsuites/generate', { 
             llm_model: selectedLlm,
@@ -742,11 +736,6 @@ export const endUserSession = (sessionId: string) => {
 // Chain-of-Thought Summarizer
 export const summarizePipelineResults = async (nodes: NodeData[], connections: Connection[]) => {
     try {
-        // const rawPayload = {
-        //     nodes: nodes,
-        //     connections: connections
-        // };
-
         const llmProvider = localStorage.getItem('llm_provider') || 'internal';
         const rawPayload = {
             nodes: nodes,

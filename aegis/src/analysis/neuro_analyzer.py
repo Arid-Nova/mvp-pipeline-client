@@ -452,18 +452,6 @@ class HuggingFaceLLMService(BaseLLMService):
 
 class LLMFactory:
     # The Factory class for creating LLM service instances.
-    # def create_llm_service(self) -> BaseLLMService:
-    #     provider = (os.getenv('LLM_PROVIDER')).lower()
-        
-    #     if provider == "openai":
-    #         api_key = os.getenv('OPENAI_API_KEY')
-    #         endpoint = os.getenv('OPENAI_ENDPOINT')
-    #         model = os.getenv('LLM_MODEL')
-    #         if not model:
-    #             model = "gpt-4o-mini"
-    #         if not api_key:
-    #             raise ValueError("OpenAI provider requires 'api_key'")
-    #         return OpenAILLMService(api_key, endpoint=endpoint, model=model)
     def create_llm_service(self, llm_uri: str = None, llm_token: str = None) -> BaseLLMService:
         provider = (os.getenv('LLM_PROVIDER')).lower()
         
@@ -489,11 +477,6 @@ class LLMFactory:
 # The Neuro-Centric Analyzer Class.
 class NeuroAnalyzer:
     # Orchestrates the neuro-centric analysis for an execution path.
-    # def __init__(self, code_fetcher: CodeFetcher, traverser: GraphTraversalService):
-    #     self.traverser = traverser
-    #     self.code_fetcher = code_fetcher
-    #     # Use the factory to create the LLM service
-    #     self.llm_service = LLMFactory().create_llm_service()
     
     def __init__(self, code_fetcher: CodeFetcher, traverser: GraphTraversalService, llm_uri: str = None, llm_token: str = None):
         self.traverser = traverser

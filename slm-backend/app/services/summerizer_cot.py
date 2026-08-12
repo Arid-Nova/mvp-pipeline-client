@@ -171,36 +171,36 @@ class CoTSummarizerService:
                     else:
                         raise e
 
-async def summarize(self, nodes: list, connections: list, use_external_slm: bool = None, external_api_base: str = None, external_api_key: str = None) -> list:
-    # Override LLM if provided from frontend
-    if use_external_slm is not None:
-        if use_external_slm and external_api_base and external_api_key:
-            llm = ChatOpenAI(
-                base_url=external_api_base,
-                api_key=external_api_key,
-                model=settings.external_model_name,
-                temperature=settings.temperature,
-                model_kwargs={"response_format": {"type": "json_object"}}
-            )
-        else:
-            llm = ChatOllama(
-                base_url=settings.ollama_base_url,
-                model=settings.model_name,
-                temperature=settings.temperature,
-                format="json"
-            )
-        self.pipeline_chain = self.prompt | llm | self.pipeline_parser
+    async def summarize(self, nodes: list, connections: list, use_external_slm: bool = None, external_api_base: str = None, external_api_key: str = None) -> list:
+        # Override LLM if provided from frontend
+        if use_external_slm is not None:
+            if use_external_slm and external_api_base and external_api_key:
+                llm = ChatOpenAI(
+                    base_url=external_api_base,
+                    api_key=external_api_key,
+                    model=settings.external_model_name,
+                    temperature=settings.temperature,
+                    model_kwargs={"response_format": {"type": "json_object"}}
+                )
+            else:
+                llm = ChatOllama(
+                    base_url=settings.ollama_base_url,
+                    model=settings.model_name,
+                    temperature=settings.temperature,
+                    format="json"
+                )
+            self.pipeline_chain = self.pipeline_prompt | llm | self.pipeline_parser
 
-    # Phase 1: Map with pacing
-    tasks = [self._summarize_single_node(node) for node in nodes]
-    summarized_nodes = await asyncio.gather(*tasks)
+        # Phase 1: Map with pacing
+        tasks = [self._summarize_single_node(node) for node in nodes]
+        summarized_nodes = await asyncio.gather(*tasks)
 
-    # Phase 2: Reduce
-    result = await self.pipeline_chain.ainvoke({
-        "nodes": json.dumps(summarized_nodes),
-        "connections": json.dumps(connections),
-        "format_instructions": self.pipeline_parser.get_format_instructions()
-    })
-    return result.get("steps", [])
+        # Phase 2: Reduce
+        result = await self.pipeline_chain.ainvoke({
+            "nodes": json.dumps(summarized_nodes),
+            "connections": json.dumps(connections),
+            "format_instructions": self.pipeline_parser.get_format_instructions()
+        })
+        return result.get("steps", [])
 
 summarizer_service = CoTSummarizerService()

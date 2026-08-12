@@ -74,7 +74,6 @@ async def analyze_endpoint(payload: Dict[str, Any]):
     try:
         # Run the analysis using your existing logic
         print("[INFO] Starting introspection!")
-        #results = facade.run_analysis(payload)
         llm_uri = payload.get('llm_uri', None)
         llm_token = payload.get('llm_token', None)
         results = facade.run_analysis(payload, llm_uri=llm_uri, llm_token=llm_token)
