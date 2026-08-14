@@ -7,7 +7,7 @@ class OllamaProvider(LLMProvider):
         self.model_name = model_name
         self.client = AsyncOpenAI(
             api_key="ollama",
-            base_url="http://cloudhub_ollama:11434/v1",
+            base_url = "http://cloudhub_ollama:11434/v1",
             http_client=httpx.AsyncClient()
         )
 
