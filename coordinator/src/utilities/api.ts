@@ -1,5 +1,7 @@
 import axios from 'axios';
 import zlib from 'node:zlib';
+
+import { API_URLS } from './uris';
 import { decompressPayload } from './utils'
 
 export const api = {

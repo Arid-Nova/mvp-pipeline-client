@@ -2,7 +2,7 @@ import express, { Application } from 'express';
 import coordinatorRoutes from './routes';
 
 const app: Application = express();
-const PORT = process.env.PORT || 8124;
+const PORT = process.env.PORT || 3124;
 
 app.use(express.json());
 app.use('/coordinator', coordinatorRoutes);

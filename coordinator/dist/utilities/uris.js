@@ -1,4 +1,7 @@
-export const API_URLS = {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.API_URLS = void 0;
+exports.API_URLS = {
     SESSION: process.env.SESSION_API_URL || 'http://localhost:8080',
     IR: process.env.IR_API_URL || 'http://localhost:8080',
     COMPONENT: process.env.COMPONENT_API_URL || 'http://localhost:8060',

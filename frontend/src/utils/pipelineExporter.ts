@@ -1,6 +1,7 @@
+import { env } from '../config';
+
 export type ExportTarget = 'github-actions' | 'jenkins' | 'aws-codebuild' | 'gitlab-ci';
 export type ExportMode = 'session-runner' | 'expanded-steps';
-import { env } from '../config';
 
 export const exportSessionPipelineConfig = (
     sessionId: string,
