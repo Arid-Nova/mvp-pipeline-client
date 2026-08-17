@@ -8,6 +8,7 @@ import edu.baylor.ecs.cloudhubs.chatbot.model.EvidenceArtifactType;
 import edu.baylor.ecs.cloudhubs.chatbot.model.EvidenceItem;
 import edu.baylor.ecs.cloudhubs.chatbot.model.MissingEvidence;
 import edu.baylor.ecs.cloudhubs.chatbot.retrieval.model.QuestionIntent;
+import edu.baylor.ecs.cloudhubs.chatbot.util.StringUtils;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -86,14 +87,22 @@ public class EvidenceGuardrailService {
             return safeResponse;
         }
 
-        Set<String> validCitationIds = new LinkedHashSet<>();
-        for (EvidenceItem item : safeEvidence) {
+        // Two distinct ID spaces: the model is asked to cite the short positional label shown in
+        // the prompt (e.g. [E1]), never the raw artifactId, since long punctuation-heavy real IDs
+        // (ir:v1:service:order-service) are unreliable for local models to reproduce verbatim.
+        // validArtifactIds still uses the real IDs because it filters response.getCitations(),
+        // which is built directly from EvidenceItem.getArtifactId() (see EvidenceCitationMapper).
+        Set<String> validCitationLabels = new LinkedHashSet<>();
+        Set<String> validArtifactIds = new LinkedHashSet<>();
+        for (int i = 0; i < safeEvidence.size(); i++) {
+            EvidenceItem item = safeEvidence.get(i);
+            validCitationLabels.add(StringUtils.evidenceLabel(i));
             if (hasValue(item.getArtifactId())) {
-                validCitationIds.add(item.getArtifactId());
+                validArtifactIds.add(item.getArtifactId());
             }
         }
 
-        boolean invalidCitationFound = sanitizeUnknownCitationIds(safeResponse, validCitationIds);
+        boolean invalidCitationFound = sanitizeUnknownCitationIds(safeResponse, validCitationLabels);
         if (invalidCitationFound) {
             addFlagIfMissing(safeResponse, ChatbotFlag.CITATION_VALIDATION_FAILED);
             safeResponse.setConfidence(ChatbotConfidence.LOW);
@@ -107,7 +116,7 @@ public class EvidenceGuardrailService {
             return safeResponse;
         }
 
-        List<CitationItem> filtered = filterToValidCitations(safeResponse.getCitations(), validCitationIds);
+        List<CitationItem> filtered = filterToValidCitations(safeResponse.getCitations(), validArtifactIds);
         if (filtered.size() != safeResponse.getCitations().size()) {
             safeResponse.setCitations(filtered);
             addFlagIfMissing(safeResponse, ChatbotFlag.CITATION_VALIDATION_FAILED);

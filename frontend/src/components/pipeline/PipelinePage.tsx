@@ -21,6 +21,7 @@ import { RepositoryInput, VerificationInput } from '../../services/types';
 import { CardType, SystemPayload, ComponentPayload, PipelinePayload, NodeData, Connection, ScenarioPayload} from './models';
 
 // Configuration and Constants
+import { env } from '../../config';
 import {CATEGORIES, VALID_CONNECTIONS} from './pipelineConfig'
 import sessionDictionary from '../../utils/sessionDictionary.json';
 
@@ -234,7 +235,7 @@ const PipelinePage: React.FC = () => {
     // Demo Warning 
     useEffect(() => {
         const checkWarning = () => {
-            const isDemo = process.env.REACT_APP_IS_DEMO_VERSION === 'true';
+            const isDemo = env.IS_DEMO_VERSION === 'true';
             const alreadyShown = sessionStorage.getItem('demo_warning_shown') === 'true';
             if (isDemo && !alreadyShown) {
                 setShowDemoWarning(true);
@@ -286,7 +287,7 @@ const PipelinePage: React.FC = () => {
         document.body.style.pointerEvents = 'auto';
         document.body.style.overflow = 'auto';
 
-        const isDemo = process.env.REACT_APP_IS_DEMO_VERSION === 'true';
+        const isDemo = env.IS_DEMO_VERSION === 'true';
         const alreadyShown = sessionStorage.getItem('demo_warning_shown') === 'true';
         if (isDemo && !alreadyShown) {
             setShowDemoWarning(true);

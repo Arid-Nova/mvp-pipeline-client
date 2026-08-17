@@ -216,6 +216,10 @@ async def get_stats(request: GeneratedOutputData):
 
 app.include_router(router)
 
+@app.get("/health")
+def health_check():
+    return {"status": "ok", "service": "vector-generator", "description": "Auth-Role Vector Generator API is running."}
+
 # Only for local testing, not for production deployment
 # if __name__ == '__main__':
 #     import uvicorn

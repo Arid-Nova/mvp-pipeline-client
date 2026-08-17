@@ -40,6 +40,10 @@ except Exception as e:
 def index():
     return render_template('index.html')
 
+@app.route('/health')
+def health_check():
+    return {"status": "ok", "service": "aegis-dashboard", "description": "Aegis dashboard service is running"}, 200
+
 @app.route('/ahp')
 def ahp_startup():
     if 'negative_weights' not in session:

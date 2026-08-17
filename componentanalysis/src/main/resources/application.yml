@@ -1,8 +1,19 @@
 spring:
   data:
     mongodb:
-      uri: mongodb://root:aeGis2026Rocks@cloudhub_mongo:27017/aegis?authSource=admin
+      uri: ${SPRING_DATA_MONGODB_URI}
 
 app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:8080}
+
+management:
+  endpoints:
+    web:
+      base-path: "/"
+      exposure:
+        include: "health"
+  endpoint:
+    health:
+      probes:
+        enabled: true

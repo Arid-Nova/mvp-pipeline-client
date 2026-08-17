@@ -16,6 +16,7 @@ import edu.baylor.ecs.cloudhubs.chatbot.runtime.LocalLlmClient;
 import edu.baylor.ecs.cloudhubs.chatbot.runtime.LocalLlmException;
 import edu.baylor.ecs.cloudhubs.chatbot.runtime.model.LocalLlmFailureCode;
 import edu.baylor.ecs.cloudhubs.chatbot.runtime.model.LocalLlmResult;
+import edu.baylor.ecs.cloudhubs.chatbot.util.StringUtils;
 import edu.baylor.ecs.cloudhubs.chatbot.ChatbotConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -264,23 +265,28 @@ public class ChatbotQueryService {
         if (evidenceItems == null || evidenceItems.isEmpty()) {
             return List.of();
         }
-        return evidenceItems.stream()
-            .map(item -> {
-                PromptEvidenceItem promptItem = new PromptEvidenceItem(
-                    item.getArtifactId(),
-                    item.getArtifactTypeValue(),
-                    item.getArtifactId(),
-                    item.getArtifactVersion(),
-                    item.getLocationHint(),
-                    item.getEntityName(),
-                    item.getServiceName(),
-                    item.getEndpointPath(),
-                    item.getContent()
-                );
-                promptItem.setAntiPatternMarkers(extractAntiPatternMarkers(item));
-                return promptItem;
-            })
-            .toList();
+        List<PromptEvidenceItem> promptItems = new ArrayList<>(evidenceItems.size());
+        for (int i = 0; i < evidenceItems.size(); i++) {
+            EvidenceItem item = evidenceItems.get(i);
+            // The model is asked to cite this positional label (e.g. [E1]), not the raw
+            // artifactId: real artifact IDs are long and punctuation-heavy, which local models
+            // reliably fail to reproduce verbatim, so EvidenceGuardrailService validates
+            // citations against these same positional labels rather than artifactId strings.
+            PromptEvidenceItem promptItem = new PromptEvidenceItem(
+                StringUtils.evidenceLabel(i),
+                item.getArtifactTypeValue(),
+                item.getArtifactId(),
+                item.getArtifactVersion(),
+                item.getLocationHint(),
+                item.getEntityName(),
+                item.getServiceName(),
+                item.getEndpointPath(),
+                item.getContent()
+            );
+            promptItem.setAntiPatternMarkers(extractAntiPatternMarkers(item));
+            promptItems.add(promptItem);
+        }
+        return promptItems;
     }
 
     private String extractAntiPatternMarkers(EvidenceItem item) {
