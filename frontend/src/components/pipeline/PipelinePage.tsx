@@ -1707,7 +1707,7 @@ const PipelinePage: React.FC = () => {
                         const baseNode = liveNodes.find(n => (n.type === 'MULTI_REPO' || n.type === 'IR_HOLDER') 
                             && connections.some(c => c.source === n.id && c.target === targetNode.id));
                         
-                            const targetInputNode = liveNodes.find(n => n.type === 'SYSTEM_INPUT' 
+                        const targetInputNode = liveNodes.find(n => n.type === 'SYSTEM_INPUT' 
                             && connections.some(c => c.source === n.id && c.target === targetNode.id));
 
                         if (!baseNode || !targetInputNode) {
