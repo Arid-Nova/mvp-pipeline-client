@@ -1,6 +1,5 @@
-import axios from 'axios';
-import { api } from './api';
-import { decompressPayload } from './utils'
+import { api } from './utilities/api';
+import { decompressPayload } from './utilities/utils'
 
 export class PipelineCoordinator {
     private nodesMap: Map<string, any> = new Map();
