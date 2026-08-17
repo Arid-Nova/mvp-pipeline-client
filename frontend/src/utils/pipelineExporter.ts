@@ -27,7 +27,7 @@ export const exportSessionPipelineConfig = (
                     steps:
                     - name: Trigger AridNova Pipeline Session
                         run: |
-                        curl -X POST "${baseUrl}/sessions/${sessionId}/execute" \\
+                        curl -X POST "${baseUrl}/coordinator/execute/${sessionId}" \\
                             -H "Authorization: Bearer \${{ secrets.ARIDNOVA_API_KEY }}" \\
                             -H "Content-Type: application/json"
                 `;
@@ -46,7 +46,7 @@ export const exportSessionPipelineConfig = (
                         stage('Execute AridNova Session') {
                             steps {
                                 sh '''
-                                    curl -X POST "${baseUrl}/sessions/${sessionId}/execute" \\
+                                    curl -X POST "${baseUrl}/coordinator/execute/${sessionId}" \\
                                     -H "Authorization: Bearer \${ARIDNOVA_API_KEY}" \\
                                     -H "Content-Type: application/json"
                                 '''
@@ -70,7 +70,7 @@ export const exportSessionPipelineConfig = (
                 build:
                     commands:
                     - echo "Triggering AridNova Session ${sessionId}..."
-                    - curl -X POST "$ARIDNOVA_API_URL/sessions/${sessionId}/execute" -H "Authorization: Bearer $ARIDNOVA_API_KEY"
+                    - curl -X POST "$ARIDNOVA_API_URL/coordinator/execute/${sessionId}" -H "Authorization: Bearer $ARIDNOVA_API_KEY" -H "Content-Type: application/json"
                 `;
 
         case 'gitlab-ci':
@@ -82,7 +82,7 @@ export const exportSessionPipelineConfig = (
                 stage: analysis
                 image: curlimages/curl:latest
                 script:
-                    - curl -X POST "$ARIDNOVA_API_URL/sessions/${sessionId}/execute" -H "Authorization: Bearer $ARIDNOVA_API_KEY"
+                    - curl -X POST "$ARIDNOVA_API_URL/coordinator/execute/${sessionId}" -H "Authorization: Bearer $ARIDNOVA_API_KEY" -H "Content-Type: application/json"
                 `;
 
         default:
