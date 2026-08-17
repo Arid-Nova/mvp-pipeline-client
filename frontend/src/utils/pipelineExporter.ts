@@ -1,5 +1,6 @@
 export type ExportTarget = 'github-actions' | 'jenkins' | 'aws-codebuild' | 'gitlab-ci';
 export type ExportMode = 'session-runner' | 'expanded-steps';
+import { env } from '../config';
 
 export const exportSessionPipelineConfig = (
     sessionId: string,
@@ -7,7 +8,7 @@ export const exportSessionPipelineConfig = (
     target: ExportTarget
 ): string => {
     const pipelineTitle = sessionName || 'AridNova-Pipeline';
-    const baseUrl = process.env.REACT_APP_ARIDNOVA_API_URL || 'https://api.aridnova.net';
+    const baseUrl = env.ARIDNOVA_API_URL || 'https://api.aridnova.net';
 
     switch (target) {
         case 'github-actions':
@@ -38,7 +39,7 @@ export const exportSessionPipelineConfig = (
                     
                     environment {
                         ARIDNOVA_API_KEY = credentials('aridnova-api-key')
-                        ARIDNOVA_API_URL = 'https://api.aridnova.net'
+                        ARIDNOVA_API_URL = '${baseUrl}'
                     }
 
                     stages {
@@ -63,7 +64,7 @@ export const exportSessionPipelineConfig = (
                 secrets-manager:
                     ARIDNOVA_API_KEY: "aridnova/api:key"
                 variables:
-                    ARIDNOVA_API_URL: "https://api.aridnova.net"
+                    ARIDNOVA_API_URL: "${baseUrl}"
 
                 phases:
                 build:
