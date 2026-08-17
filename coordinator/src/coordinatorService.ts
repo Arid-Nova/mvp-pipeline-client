@@ -19,6 +19,7 @@ export class PipelineCoordinator {
             (canvasData.nodes || []).forEach((node: any) => {
                 this.nodesMap.set(node.id, { ...node, status: 'idle', logs: [] });
             });
+            console.log(`Session ${this.sessionId} loaded with ${this.nodesMap.size} nodes and ${this.connections.length} connections.`);
 
             return true;
         } catch (error) {
@@ -124,7 +125,7 @@ export class PipelineCoordinator {
                     const irResponse = await api.fetchIR(input);
                     
                     const nextPayload = {
-                        irJson: irResponse.data,
+                        irJson: irResponse,
                         systemName: payload.systemName,
                         metadata: payload.repositories
                     };
@@ -133,7 +134,7 @@ export class PipelineCoordinator {
                     await this.processNextNodes(targetNode.id, nextPayload);
                 }
                 
-                if (targetNode.type === 'COMPONENT_GENERATE') {
+                else if (targetNode.type === 'COMPONENT_GENERATE') {
                     const rolesToProcess = targetNode.data.rolePriorities || [{ role: 'ROLE_ADMIN', priority: 1 }, { role: 'ROLE_USER', priority: 10 }];
                     const rolePriorityMap: Record<string, number> = {};
                     rolesToProcess.forEach((r: any) => { if (r.role) rolePriorityMap[r.role] = r.priority; });
@@ -173,7 +174,7 @@ export class PipelineCoordinator {
                     await this.processNextNodes(targetNode.id, nextPayload);
                 }
                 
-                if (targetNode.type === 'COMPONENT_HOLDER') {
+                else if (targetNode.type === 'COMPONENT_HOLDER') {
                     const rawJson = payload.irJson;
 
                     // Safely extract the data based on the sample.json structure
@@ -195,7 +196,7 @@ export class PipelineCoordinator {
                     await this.processNextNodes(targetNode.id, payload);
                 }
 
-                if (targetNode.type === 'IR_HOLDER') {
+                else if (targetNode.type === 'IR_HOLDER') {
                     if (!payload.irJson) throw new Error("Invalid input: Expected IR JSON");
 
                     this.updateStatus(targetNode.id, 'completed', 'IR Stored.', { payload: payload });
@@ -205,7 +206,7 @@ export class PipelineCoordinator {
                 // TODO: Need to update this block to actually run the generated tests.
                 // Currently, these are manually run by the user. 
                 // The user is expected to set AuthTokens and the staging target.
-                if (targetNode.type === 'TEST_EXECUTOR') {
+                else if (targetNode.type === 'TEST_EXECUTOR') {
                     const generatedTests = payload?.testSuitePayload?.tests;
 
                     if (!generatedTests || generatedTests.length === 0) {
@@ -223,7 +224,7 @@ export class PipelineCoordinator {
                     );
                 } 
 
-                if (targetNode.type === 'FORMAL_VERIFY') {
+                else if (targetNode.type === 'FORMAL_VERIFY') {
                     const input = {
                         systemName: payload.systemName,
                         repos: payload.metadata.map((repo: any) => ({
@@ -237,10 +238,10 @@ export class PipelineCoordinator {
                     this.updateStatus(targetNode.id, 'running', 'Verifying...');
                     const result = await api.verifySystem(input);
                     
-                    this.updateStatus(targetNode.id, 'completed', 'Verification Done.', { verificationResult: result.data });
+                    this.updateStatus(targetNode.id, 'completed', 'Verification Done.', { verificationResult: result });
                     
                     const downstreamPackage = {
-                        result: result.data,
+                        result: result,
                         systemInfo: { systemName: payload.systemName, ir: payload.irJson }
                     };
                     await this.processNextNodes(targetNode.id, downstreamPackage); 
@@ -341,7 +342,7 @@ export class PipelineCoordinator {
                     await this.processNextNodes(targetNode.id, { ...payload, scenarioPayload });
                 }
 
-                if (targetNode.type === 'TEST_GENERATE') {
+                else if (targetNode.type === 'TEST_GENERATE') {
                     const nodesArray = Array.from(this.nodesMap.values());
 
                     // Find upstream prompt node
@@ -368,7 +369,7 @@ export class PipelineCoordinator {
                     await this.processNextNodes(targetNode.id, { ...payload, testSuitePayload: data });
                 }
 
-                if (targetNode.type === 'PROMPT_GENERATE') {
+                else if (targetNode.type === 'PROMPT_GENERATE') {
                     const nodesArray = Array.from(this.nodesMap.values());
 
                     const scenarioNode = nodesArray.find(n => 
@@ -402,7 +403,7 @@ export class PipelineCoordinator {
                     await this.processNextNodes(targetNode.id, { ...payload, promptPayload: data });
                 }
 
-                if (targetNode.type === 'AEGIS') {
+                else if (targetNode.type === 'AEGIS') {
                     if (!payload.irJson) throw new Error("Invalid input: Expected IR JSON");
 
                     this.updateStatus(targetNode.id, 'running', 'Analyzing in Background...');
@@ -430,7 +431,7 @@ export class PipelineCoordinator {
                     });
                 }
                 
-                if (targetNode.type === 'VERIFICATION_COMPARISON') {
+                else if (targetNode.type === 'VERIFICATION_COMPARISON') {
                     const nodesArray = Array.from(this.nodesMap.values());
 
                     const verifyNode = nodesArray.find(n => 
@@ -486,7 +487,7 @@ export class PipelineCoordinator {
                     }
                 }
                 
-                if (targetNode.type === 'CHANGE_IMPACT') {
+                else if (targetNode.type === 'CHANGE_IMPACT') {
                     const baseNode = Array.from(this.nodesMap.values()).find(n => 
                         (n.type === 'MULTI_REPO' || n.type === 'IR_HOLDER') && 
                         this.connections.some(c => c.source === n.id && c.target === targetNode.id)
@@ -547,7 +548,7 @@ export class PipelineCoordinator {
                     await this.processNextNodes(targetNode.id, { ...payload, changeImpactPayload: result });
                 }
 
-                if (targetNode.type === 'SECURITY_REGRESSION') {
+                else if (targetNode.type === 'SECURITY_REGRESSION') {
                     const nodesArray = Array.from(this.nodesMap.values());
 
                     const fvNodes = nodesArray.filter(n => 
