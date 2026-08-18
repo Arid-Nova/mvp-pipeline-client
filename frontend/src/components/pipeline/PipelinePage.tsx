@@ -1204,6 +1204,7 @@ const PipelinePage: React.FC = () => {
                     updateStatus(targetNode.id, 'completed', 'IR generated.', { payload: nextPayload });
                     await processNextNodes(targetNode.id, nextPayload, updateStatus, options);
                 }
+
                 else if (targetNode.type === 'COMPONENT_GENERATE') {
                     if (payload.type !== 'SYSTEM_PAYLOAD') throw new Error("Expected System Source");
                     const sysPayload = payload as SystemPayload;
@@ -1249,6 +1250,7 @@ const PipelinePage: React.FC = () => {
                     updateStatus(targetNode.id, 'completed', 'Components generated.', { payload: nextPayload });
                     await processNextNodes(targetNode.id, nextPayload, updateStatus, options);
                 }
+
                 else if (targetNode.type === 'COMPONENT_HOLDER') {
                     // Type Guard: Expects payload from COMPONENT_GENERATE
                     const incomingPayload = payload as PipelinePayload;
@@ -1276,7 +1278,7 @@ const PipelinePage: React.FC = () => {
                     await processNextNodes(targetNode.id, incomingPayload, updateStatus, options);
                 }
 
-                if (targetNode.type === 'IR_HOLDER') {
+                else if (targetNode.type === 'IR_HOLDER') {
                     // Type Guard: Expects IR
                     const irPayload = payload as PipelinePayload;
                     if (!irPayload.irJson) throw new Error("Invalid input: Expected IR JSON");
@@ -1284,7 +1286,8 @@ const PipelinePage: React.FC = () => {
                     updateStatus(targetNode.id, 'completed', 'IR Stored.', { payload: irPayload });
                     await processNextNodes(targetNode.id, irPayload, updateStatus, options);
                 } 
-                if (targetNode.type === 'TEST_EXECUTOR') {
+
+                else if (targetNode.type === 'TEST_EXECUTOR') {
                     const generatedTests = payload?.testSuitePayload?.tests;
 
                     if (!generatedTests || generatedTests.length === 0) {
@@ -1301,6 +1304,7 @@ const PipelinePage: React.FC = () => {
                         }
                     );
                 } 
+
                 else if (targetNode.type === 'FORMAL_VERIFY') {
                     // Type Guard: Expects IR
                     const irPayload = payload as PipelinePayload;
@@ -1334,6 +1338,7 @@ const PipelinePage: React.FC = () => {
                     // PASS RESULT DOWNSTREAM
                     await processNextNodes(targetNode.id, downstreamPackage, updateStatus, options); 
                 }
+
                 else if (targetNode.type === 'SCENARIO_GENERATE') {
                     // 1. Look back up the graph to find the connected COMPONENT_HOLDER
                     const componentHolderNode = nodes.find(n => 
@@ -1424,6 +1429,7 @@ const PipelinePage: React.FC = () => {
 
                     await processNextNodes(targetNode.id, { ...payload, scenarioPayload }, updateStatus, options);
                 }
+
                 else if (targetNode.type === 'TEST_GENERATE') {
                     // Find upstream prompt node
                     const promptNode = nodes.find(n => 
@@ -1448,6 +1454,7 @@ const PipelinePage: React.FC = () => {
 
                     await processNextNodes(targetNode.id, { ...payload, testSuitePayload: data }, updateStatus, options);
                 }
+
                 else if (targetNode.type === 'PROMPT_GENERATE') {
                     const scenarioNode = nodes.find(n => 
                         n.type === 'SCENARIO_GENERATE' && 
@@ -1471,6 +1478,7 @@ const PipelinePage: React.FC = () => {
 
                     await processNextNodes(targetNode.id, { ...payload, promptPayload: data }, updateStatus, options);
                 }
+
                 else if (targetNode.type === 'VISUALIZATION') {
                     // 1. Look at the FRESH payload passed directly from the node that just triggered this
                     const incomingIr = (payload as any)?.irJson;
@@ -1536,6 +1544,7 @@ const PipelinePage: React.FC = () => {
                     // if(!irPayload.irJson) throw new Error("Invalid input for Visualization");
                     // updateStatus(targetNode.id, 'completed', 'Ready to Visualize.', { payload: irPayload });
                 }
+
                 else if (targetNode.type === 'AEGIS') {
                     // Type Guard
                     const irPayload = payload as PipelinePayload;
@@ -1583,6 +1592,7 @@ const PipelinePage: React.FC = () => {
                         updateStatus(targetNode.id, 'error', `Analysis Failed: ${error.message}`);
                     });
                 }
+
                 else if (targetNode.type === 'FORMAL_VIZ') {
                     // Use the deadlock fix to safely get state
                     setTimeout(() => {
@@ -1643,6 +1653,7 @@ const PipelinePage: React.FC = () => {
                         });
                     }, 50);
                 }
+
                 else if (targetNode.type === 'VERIFICATION_COMPARISON') {
                     setTimeout(async () => {
                         if (options?.killSwitch?.current) return;
@@ -1698,6 +1709,7 @@ const PipelinePage: React.FC = () => {
                         }
                     }, 50);
                 }
+
                 else if (targetNode.type === 'CHANGE_IMPACT') {
                     setTimeout(async () => {
                         if (options?.killSwitch?.current) return;
@@ -1774,6 +1786,7 @@ const PipelinePage: React.FC = () => {
                         }
                     }, 50);
                 }
+                
                 else if (targetNode.type === 'SECURITY_REGRESSION') {
                     setTimeout(async () => {
                         if (options?.killSwitch?.current) return;
