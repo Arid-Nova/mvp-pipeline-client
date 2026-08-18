@@ -48,15 +48,15 @@ export const api = {
     // Generate auth testing scenarioes.
     generateScenarios: async (indexId: string, authVecId: string) => {
         const response = await axios.post(`${API_URLS.ANALYSIS}/scenarios/generate`, {
-            indexId,
-            authVecId
+            index_id: indexId,
+            vectors_id: authVecId
         });
         return response.data;
     },
 
     // Prompting the LLM to generate actual test cases.
     generateTestSuites: async (llm: string, prompts: any[]) => {
-        const response = await axios.post(`${API_URLS.TEST}/tests/generate`, {
+        const response = await axios.post(`${API_URLS.TEST}/testsuites/generate`, {
             llm_model: llm,
             prompts: prompts 
         });

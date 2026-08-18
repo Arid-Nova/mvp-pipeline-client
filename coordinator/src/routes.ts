@@ -8,11 +8,25 @@ router.post('/execute/:sessionId', async (req: Request, res: Response) => {
         const { sessionId } = req.params;
         const engine = new PipelineCoordinator(sessionId as string);
         
-        engine.execute().catch(e => console.error(`[Background Task] Session ${sessionId} failed:`, e));
+        const executionReport = await engine.execute();
+        
+        const hasFailures = executionReport.some(node => 
+            node.status === 'failed' || node.status === 'error'
+        );
 
-        res.status(202).json({ 
-            message: "Pipeline execution started successfully in the background.", 
-            sessionId 
+        if (hasFailures) {
+            // Return a 422 (Unprocessable Entity) to break the pipeline execution and indicate that there were failures.
+            return res.status(422).json({ 
+                message: "Pipeline execution failed. Deployment halted.", 
+                sessionId,
+                report: executionReport 
+            });
+        }
+
+        return res.status(200).json({ 
+            message: "Pipeline execution completed successfully.", 
+            sessionId,
+            report: executionReport
         });
     } catch (error: any) {
         res.status(500).json({ error: error.message });

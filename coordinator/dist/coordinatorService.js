@@ -26,6 +26,17 @@ class PipelineCoordinator {
             throw error;
         }
     }
+    getExecutionSummary() {
+        const summary = [];
+        this.nodesMap.forEach((node, id) => {
+            summary.push({
+                type: node.type,
+                status: node.status,
+                logs: node.logs
+            });
+        });
+        return summary;
+    }
     updateStatus(id, status, log, dataUpdate) {
         const node = this.nodesMap.get(id);
         if (!node)
@@ -88,6 +99,7 @@ class PipelineCoordinator {
         catch (error) {
             console.log(`An error occured during input handling: `, error);
         }
+        return this.getExecutionSummary();
     }
     async processNextNodes(sourceId, payload) {
         const outgoing = this.connections.filter(c => c.source === sourceId);

@@ -28,6 +28,18 @@ export class PipelineCoordinator {
         }
     }
 
+    public getExecutionSummary() {
+        const summary: any[] = [];
+        this.nodesMap.forEach((node, id) => {
+            summary.push({
+                type: node.type,
+                status: node.status,
+                logs: node.logs
+            });
+        });
+        return summary;
+    }
+
     private updateStatus(id: string, status: string, log: string, dataUpdate?: any) {
         const node = this.nodesMap.get(id);
         if (!node) return;
@@ -97,7 +109,8 @@ export class PipelineCoordinator {
             }
         } catch(error:any) {
             console.log(`An error occured during input handling: `, error)
-        }     
+        }  
+        return this.getExecutionSummary();  
     }
 
     async processNextNodes(sourceId: string, payload: any) {
@@ -340,6 +353,7 @@ export class PipelineCoordinator {
 
                     // Pass the combined payload downstream
                     await this.processNextNodes(targetNode.id, { ...payload, scenarioPayload });
+
                 }
 
                 else if (targetNode.type === 'TEST_GENERATE') {
