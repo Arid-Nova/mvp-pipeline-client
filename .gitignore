@@ -13,3 +13,5 @@ __pycache__/
 *.class
 chatbot-backend/target
 config.example.py
+coordinator/node_modules
+coordinator/dist
