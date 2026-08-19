@@ -13,3 +13,6 @@ __pycache__/
 *.class
 chatbot-backend/target
 config.example.py
+
+# macOS Finder metadata
+.DS_Store
