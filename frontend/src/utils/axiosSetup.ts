@@ -11,11 +11,11 @@ export const VECTOR_API = axios.create({ baseURL: env.VECTOR_SERVICE_URL || 'htt
 export const ANALYSIS_API = axios.create({ baseURL: env.ANALYSIS_SERVICE_URL || 'http://localhost:8040' });
 export const TEST_API = axios.create({ baseURL: env.TEST_SERVICE_URL || 'http://localhost:8030' });
 export const AEGIS_API = axios.create({ baseURL: env.AEGIS_SERVICE_URL || 'http://localhost:8900' });
-export const REPO_API = axios.create({ baseURL: env.REPO_SERVICE_URL || 'http://localhost:8020'});
-export const EXECUTOR_API = axios.create({ baseURL: env.EXEC_SERVICE_URL || 'http://localhost:8010'});
-export const USER_API = axios.create({ baseURL: env.USER_SERVICE_URL || 'http://localhost:8100'});
-export const CHATBOT_API = axios.create({ baseURL: env.CHATBOT_SERVICE_URL || 'http://localhost:8081'});
-export const SLMBACKEND_API = axios.create({ baseURL: env.SLMBACKEND_SERVICE_URL || 'http://localhost:8071'});
+export const REPO_API = axios.create({ baseURL: env.REPO_SERVICE_URL || 'http://localhost:8020'});  // Not replicated in coordinator. Frontend only.
+export const EXECUTOR_API = axios.create({ baseURL: env.EXEC_SERVICE_URL || 'http://localhost:8010'}); // Not replicated in coordinator. Frontend only.
+export const USER_API = axios.create({ baseURL: env.USER_SERVICE_URL || 'http://localhost:8100'}); // Not replicated in coordinator. Frontend only.
+export const CHATBOT_API = axios.create({ baseURL: env.CHATBOT_SERVICE_URL || 'http://localhost:8081'}); // Not replicated in coordinator. Frontend only.
+export const SLMBACKEND_API = axios.create({ baseURL: env.SLMBACKEND_SERVICE_URL || 'http://localhost:8071'}); // Not replicated in coordinator. Frontend only.
 
 // Helper function for logging
 const applyInterceptors = (instance: AxiosInstance) => {
