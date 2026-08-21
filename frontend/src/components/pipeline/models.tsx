@@ -122,9 +122,17 @@ export interface TestSuiteItem {
     test_code: string;
 }
 
+export interface GenerationFailure {
+    scenario_id: string;
+    error: string;
+}
+
 export interface TestSuitePayload {
     status: string;
     tests: TestSuiteItem[];
+    generated?: number;
+    failed?: number;
+    errors?: GenerationFailure[];
 }
 
 export interface MatrixData {

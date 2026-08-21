@@ -1,5 +1,5 @@
 from groq import AsyncGroq
-from .base import LLMProvider
+from .base import LLMProvider, TestGenerationError
 import os
 
 class LlamaProvider(LLMProvider):
@@ -28,4 +28,4 @@ class LlamaProvider(LLMProvider):
             )
             return response.choices[0].message.content.strip()
         except Exception as e:
-            return f"Error generating Llama test: {str(e)}"
+            raise TestGenerationError(str(e)) from e

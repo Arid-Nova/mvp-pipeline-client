@@ -1446,11 +1446,26 @@ const PipelinePage: React.FC = () => {
                     const selectedLlm = targetNode.data.selectedLlm || 'gpt-5-mini'; 
                     updateStatus(targetNode.id, 'running', `Sending ${prompts.length} prompts to ${selectedLlm}...`);
 
-                    const data = await generateTestSuites(selectedLlm, prompts, { signal: options?.signal }); // Assumes { status: "success", tests: [...] }
-                    
-                    updateStatus(targetNode.id, 'completed', 'Test Suite Generated Successfully.', { 
-                        testSuitePayload: data 
-                    });
+                    const data = await generateTestSuites(selectedLlm, prompts, { signal: options?.signal });
+
+                    const generated = data?.generated ?? data?.tests?.length ?? 0;
+                    const failed = data?.failed ?? 0;
+
+                    if (generated === 0 && failed > 0) {
+                        // Halt: nothing usable downstream. Store the payload first so the
+                        // card can still show the aggregated error breakdown.
+                        updateStatus(targetNode.id, 'failed', undefined, { testSuitePayload: data });
+                        throw new Error(`All ${failed} test generations failed. ${data?.errors?.[0]?.error ?? 'Unknown error'}`);
+                    }
+
+                    updateStatus(
+                        targetNode.id,
+                        'completed',
+                        failed > 0
+                            ? `Generated ${generated} tests, ${failed} failed.`
+                            : 'Test Suite Generated Successfully.',
+                        { testSuitePayload: data }
+                    );
 
                     await processNextNodes(targetNode.id, { ...payload, testSuitePayload: data }, updateStatus, options);
                 }

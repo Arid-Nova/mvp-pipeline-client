@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { NodeData } from '../models';
@@ -21,6 +21,22 @@ export const TestGenerateCard: React.FC<TestGenerateCardProps> = ({ node, nodes,
     const targetLanguage = promptNode?.data.language || 'java'; 
     const hasTests = !!node.data.testSuitePayload;
     const selectedLlm = node.data.selectedLlm || 'gpt-5-mini';
+
+    const [showErrors, setShowErrors] = useState(false);
+
+    const payload = node.data.testSuitePayload;
+    // Fall back to tests.length for responses from an older backend.
+    const generatedCount = payload?.generated ?? payload?.tests?.length ?? 0;
+    const failedCount = payload?.failed ?? 0;
+
+    // Group identical messages: 259 scenarios failing on one API error is one problem.
+    const uniqueErrors = useMemo(() => {
+        const counts = new Map<string, number>();
+        (payload?.errors || []).forEach(e => counts.set(e.error, (counts.get(e.error) || 0) + 1));
+        return Array.from(counts.entries())
+            .map(([error, count]) => ({ error, count }))
+            .sort((a, b) => b.count - a.count);
+    }, [payload]);
 
     // Helper to update dropdown state locally
     const handleLlmChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -107,9 +123,35 @@ export const TestGenerateCard: React.FC<TestGenerateCardProps> = ({ node, nodes,
                     <div className="p-3 bg-slate-950 border border-purple-500/30 rounded-lg text-center">
                         <div className="text-[10px] text-purple-400 font-bold uppercase tracking-widest mb-1">Generated</div>
                         <div className="text-xs text-white">
-                            {node.data.testSuitePayload?.tests?.length || 0} {targetLanguage === 'curl' ? 'Bash Scripts' : targetLanguage.toUpperCase() + ' Test Classes'} 
+                            {generatedCount} {targetLanguage === 'curl' ? 'Bash Scripts' : targetLanguage.toUpperCase() + ' Test Classes'} 
                         </div>
+                        {failedCount > 0 && (
+                            <div className="mt-1 text-[10px] text-red-400 font-bold">
+                                {failedCount} failed
+                            </div>
+                        )}
                     </div>
+                    {failedCount > 0 && (
+                        <div className="space-y-1.5">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setShowErrors(v => !v); }}
+                                onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); setShowErrors(v => !v); }}
+                                className="w-full py-1.5 text-[10px] border border-red-800 text-red-400 hover:bg-red-900/20 rounded font-bold transition-all"
+                            >
+                                {showErrors ? 'Hide' : 'View'} {uniqueErrors.length} unique error{uniqueErrors.length === 1 ? '' : 's'}
+                            </button>
+                            {showErrors && (
+                                <div className="max-h-40 overflow-y-auto space-y-1.5 p-2 bg-slate-950 border border-red-900/40 rounded-lg">
+                                    {uniqueErrors.map((u, i) => (
+                                        <div key={i} className="text-[10px] text-slate-300 break-words leading-relaxed">
+                                            <span className="text-red-400 font-bold">&times;{u.count}</span>{' '}
+                                            <span className="font-mono">{u.error}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
                     <div className="flex flex-col gap-2">
                         <button 
                             onClick={async (e) => {
