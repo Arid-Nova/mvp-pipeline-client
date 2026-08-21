@@ -1,5 +1,10 @@
 from abc import ABC, abstractmethod
 
+
+class TestGenerationError(Exception):
+    """Raised when an LLM provider fails to generate a test."""
+
+
 class LLMProvider(ABC):
     @abstractmethod
     async def generate_test(self, prompt: str) -> str:

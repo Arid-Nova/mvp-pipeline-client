@@ -1,5 +1,5 @@
 from anthropic import AsyncAnthropic
-from .base import LLMProvider
+from .base import LLMProvider, TestGenerationError
 import os
 
 class AnthropicProvider(LLMProvider):
@@ -21,4 +21,4 @@ class AnthropicProvider(LLMProvider):
             )
             return response.content[0].text.strip()
         except Exception as e:
-            return f"Error generating test: {str(e)}"
+            raise TestGenerationError(str(e)) from e
