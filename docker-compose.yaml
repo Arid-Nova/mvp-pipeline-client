@@ -129,6 +129,7 @@ services:
       - REACT_APP_PUBLIC_POSTHOG_KEY=${PUBLIC_POSTHOG_KEY}
       - REACT_APP_PUBLIC_POSTHOG_HOST=${PUBLIC_POSTHOG_HOST:-https://us.i.posthog.com}
       - REACT_APP_IS_DEMO_VERSION=true
+      - REACT_APP_ARIDNOVA_API_URL=${ARIDNOVA_API_URL}
     restart: always
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1"]
@@ -223,7 +224,7 @@ services:
       - MONGO_PASSWORD=${MONGO_ROOT_PASSWORD}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
-      - LLM_TEMPERATURE=0.1
+      - LLM_TEMPERATURE=${LLM_TEMPERATURE:-1}
       - OPENAI_API_MODEL=gpt-5-mini
     networks:
       - app_network
@@ -250,7 +251,8 @@ services:
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
-      - LLM_TEMPERATURE=0.3
+      # GPT-5 models only accept the default temperature (1).
+      - LLM_TEMPERATURE=${LLM_TEMPERATURE:-1}
       - MAX_TOKENS=10000
     networks:
       - app_network
@@ -375,7 +377,8 @@ services:
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
-      - LLM_TEMPERATURE=0.1
+      # GPT-5 models only accept the default temperature (1).
+      - LLM_TEMPERATURE=${LLM_TEMPERATURE:-1}
       - MAX_TOKENS=10000
       - OPENAI_API_MODEL=gpt-5-mini
       - MONGO_URI=mongodb://cloudhub_mongo:27017
@@ -398,6 +401,37 @@ services:
       timeout: 5s        
       retries: 3        
       start_period: 10s  
+
+  coordinator:
+    build:
+      context: ./coordinator
+      dockerfile: Dockerfile
+    container_name: cloudhub_coordinator
+    ports:
+      - "3124:3124" 
+    environment:
+      - PORT=3124
+      - SESSION_API_URL=${SESSION_API_URL:-http://localhost:8080}
+      - IR_API_URL=${IR_API_URL:-http://localhost:8080}
+      - COMPONENT_API_URL=${COMPONENT_API_URL:-http://localhost:8060}
+      - VECTOR_API_URL=${VECTOR_API_URL:-http://localhost:8050}
+      - ANALYSIS_API_URL=${ANALYSIS_API_URL:-http://localhost:8040}
+      - VERIFY_API_URL=${VERIFY_API_URL:-http://localhost:9000}
+      - TEST_API_URL=${TEST_API_URL:-http://localhost:8030}
+      - AEGIS_API_URL=${AEGIS_API_URL:-http://localhost:8900}
+      - INTERNAL_SERVICE_KEY=${INTERNAL_SERVICE_KEY}
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - app_network
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3124/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   ollama:
     image: ollama/ollama:latest
