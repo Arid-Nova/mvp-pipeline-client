@@ -375,11 +375,10 @@ export const generateScenarios = async (indexId: string|undefined, vectorsId: st
 export const generateTestSuites = async (selectedLlm: string, prompts: PromptItem[] | undefined, options?: { signal?: AbortSignal }) => {
     try {
         const llmProvider = localStorage.getItem('llm_provider') || 'internal';
-        const response = await TEST_API.post('/testsuites/generate', { 
+        const response = await axios.post('/testsuites/generate', { 
             llm_model: selectedLlm,
             prompts: prompts,
-            llm_uri: llmProvider !== 'internal' ? localStorage.getItem('llm_uri') : null,
-            llm_token: llmProvider !== 'internal' ? localStorage.getItem('llm_token') : null
+            llm_uri: llmProvider !== 'internal' ? localStorage.getItem('llm_uri') : null
         }, {
             signal: options?.signal 
         });
@@ -391,8 +390,7 @@ export const generateTestSuites = async (selectedLlm: string, prompts: PromptIte
             abortError.name = "AbortError";
             throw abortError;
         }
-
-        throw new Error(error.response?.data?.detail || "Test Generation error");
+        throw new Error(error.response?.data?.detail || "Test generation error.");
     }
 };
 
@@ -427,9 +425,8 @@ export const analyzeAegis = async (enginePayload: any, options?: { signal?: Abor
         const enrichedPayload = {
             ...enginePayload,
             llm_uri: llmProvider !== 'internal' ? localStorage.getItem('llm_uri') : null,
-            llm_token: llmProvider !== 'internal' ? localStorage.getItem('llm_token') : null
         };
-        const response = await AEGIS_API.post('/analyze', enrichedPayload, {
+        const response = await axios.post('/analyze', enrichedPayload, {
             signal: options?.signal 
         });
         
@@ -741,8 +738,7 @@ export const summarizePipelineResults = async (nodes: NodeData[], connections: C
             nodes: nodes,
             connections: connections,
             use_external_slm: llmProvider !== 'internal',
-            external_api_base: localStorage.getItem('llm_uri') || '',
-            external_api_key: localStorage.getItem('llm_token') || ''
+            external_api_base: localStorage.getItem('llm_uri') || ''
         };
         
         const compressedBlob = await compressData(rawPayload);
@@ -759,5 +755,50 @@ export const summarizePipelineResults = async (nodes: NodeData[], connections: C
     } catch (error) {
         console.error("Failed to summarize pipeline results:", error);
         throw error;
+    }
+};
+
+// LLM Configuration API
+export const saveLLMConfig = async (userId: string, provider: string, uri: string, token: string) => {
+    try {
+        const response = await axios.post('/api/llm-config/save', null, {
+            params: { userId, provider, uri, token }
+        });
+        return response.data;
+    } catch (error: any) {
+        throw new Error(error.response?.data?.detail || "Failed to save LLM config");
+    }
+};
+
+export const getDefaultLLMConfig = async (userId: string) => {
+    try {
+        const response = await axios.get('/api/llm-config/default', {
+            params: { userId }
+        });
+        return response.data;
+    } catch (error: any) {
+        return null;
+    }
+};
+
+export const getLLMConfig = async (userId: string, provider: string) => {
+    try {
+        const response = await axios.get(`/api/llm-config/${provider}`, {
+            params: { userId }
+        });
+        return response.data;
+    } catch (error: any) {
+        return null;
+    }
+};
+
+export const setDefaultLLMConfig = async (userId: string, provider: string) => {
+    try {
+        const response = await axios.post(`/api/llm-config/set-default/${provider}`, null, {
+            params: { userId }
+        });
+        return response.data;
+    } catch (error: any) {
+        throw new Error(error.response?.data?.detail || "Failed to set default config");
     }
 };

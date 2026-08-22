@@ -6,7 +6,7 @@ import {
     getAvailableSessions, 
     deleteSession
 } from '../../../services/api';
-
+import { saveLLMConfig, getDefaultLLMConfig, setDefaultLLMConfig } from '../../../services/api';
 import { useNavigate } from 'react-router-dom';
 
 const BrandSection = ({ sessionName, hasUnsavedChanges }: { sessionName?: string; hasUnsavedChanges: boolean }) => {
@@ -197,13 +197,41 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
     const [llmToken, setLlmToken] = useState(() => localStorage.getItem('llm_token') || '');
     const [llmSaved, setLlmSaved] = useState(false);
 
-    const handleSaveLlmConfig = () => {
-        localStorage.setItem('llm_provider', llmProvider);
-        localStorage.setItem('llm_uri', llmUri);
-        localStorage.setItem('llm_token', llmToken);
+    const getUserId = () => {
+    let userId = localStorage.getItem('userId');
+    if (!userId) {
+        userId = 'user-' + Date.now();
+        localStorage.setItem('userId', userId);
+    }
+    return userId;
+};
+
+    const handleSaveLlmConfig = async () => {
+    try {
+        const userId = getUserId();
+        await saveLLMConfig(userId, llmProvider, llmUri, llmToken);
+        await setDefaultLLMConfig(userId, llmProvider);
         setLlmSaved(true);
         setTimeout(() => setLlmSaved(false), 3000);
+    } catch (error) {
+        console.error("Failed to save LLM config:", error);
+        setLlmSaved(false);
+    }
+};
+
+    useEffect(() => {
+    const loadDefaultConfig = async () => {
+        // TODO: Get userId from auth context/session
+        const userId = "default-user"; // placeholder
+        const config = await getDefaultLLMConfig(userId);
+        if (config) {
+            setLlmProvider(config.provider as 'internal' | 'local' | 'external');
+            setLlmUri(config.uri || '');
+            // Don't set token - we don't return decrypted token to frontend
+        }
     };
+    loadDefaultConfig();
+}, []);
 
     // Session Hadlers
     const handleQuickSave = async () => {
