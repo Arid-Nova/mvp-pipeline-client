@@ -1,4 +1,4 @@
-import configparser
+import configparser, requests
 from contextlib import asynccontextmanager
 
 import os
@@ -66,16 +66,30 @@ def health_check():
 
 @app.post("/analyze", 
           responses={500: {"description": "Internal Error"}})
+
 async def analyze_endpoint(payload: Dict[str, Any]):
     global facade
     if not facade:
         raise HTTPException(status_code=500, detail="Analysis service not initialized. Check server logs.")
 
     try:
-        # Run the analysis using your existing logic
         print("[INFO] Starting introspection!")
-        llm_uri = payload.get('llm_uri', None)
-        llm_token = payload.get('llm_token', None)
+        
+        # Fetch LLM config from backend
+        userId = payload.get('userId', 'default-user')
+        config_response = requests.get(
+            'http://cloudhub_backend:8080/api/llm-config/service/gpt-5-mini',
+            params={'userId': userId}
+        )
+        
+        llm_uri = None
+        llm_token = None
+        
+        if config_response.status_code == 200:
+            config = config_response.json()
+            llm_uri = config.get('uri')
+            llm_token = config.get('token')
+        
         results = facade.run_analysis(payload, llm_uri=llm_uri, llm_token=llm_token)
 
         if 'vulnerabilities' in results:
@@ -88,7 +102,6 @@ async def analyze_endpoint(payload: Dict[str, Any]):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
-
 # Use for local testing
 if __name__ == "__main__":
     import uvicorn

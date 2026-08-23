@@ -8,8 +8,7 @@ class PromptItem(BaseModel):
 class TestGenerationRequest(BaseModel):
     llm_model: str
     prompts: List[PromptItem]
-    llm_uri: Optional[str] = None
-    llm_token: Optional[str] = None
+    userId: str
 
 class TestSuiteItem(BaseModel):
     scenario_id: str

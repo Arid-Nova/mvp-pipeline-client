@@ -1,4 +1,4 @@
-import asyncio
+import asyncio, requests
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -33,22 +33,35 @@ async def process_single_prompt(provider, item) -> TestSuiteItem:
 @app.post("/testsuites/generate", response_model=TestGenerationResponse, 
           responses={400: {"description": "Invalid LLM model or request"}, 
                      500: {"description": "Internal Server Error"}})
+
 async def generate_testsuites(request: TestGenerationRequest):
     try:
+        # Fetch LLM config from backend
+        config_response = requests.get(
+            'http://cloudhub_backend:8080/api/llm-config/service/gpt-5-mini',
+            params={'userId': request.userId}
+        )
+        
+        llm_uri = None
+        llm_token = None
+        
+        if config_response.status_code == 200:
+            config = config_response.json()
+            llm_uri = config.get('uri')
+            llm_token = config.get('token')
+        
         # 1. Instantiate the correct provider using the Factory
-        provider = LLMFactory.get_provider(request.llm_model, request.llm_uri, request.llm_token)
+        provider = LLMFactory.get_provider(request.llm_model, llm_uri, llm_token)
         
         # 2. Creating asynchronous tasks for all prompts
         tasks = [process_single_prompt(provider, item) for item in request.prompts]
         
         # 3. Wait for all tasks to complete
         generated_tests = await asyncio.gather(*tasks)
-        
         return TestGenerationResponse(
             status="success",
             tests=list(generated_tests)
         )
-        
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:

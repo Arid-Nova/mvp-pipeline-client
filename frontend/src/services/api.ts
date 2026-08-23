@@ -18,6 +18,15 @@ import { PromptItem, NodeData, Connection } from '../components/pipeline/models'
 import { decompressPayload, decompressGzipResponse } from '../utils/decompress';
 import { compressData } from '../utils/compress'
 
+const getUserId = () => {
+    let userId = localStorage.getItem('userId');
+    if (!userId) {
+        userId = 'user-' + Date.now();
+        localStorage.setItem('userId', userId);
+    }
+    return userId;
+};
+
 // IR generation and retrieval functions
 export const fetchIRFromRepo = async (input: RepositoryInput, options?: { signal?: AbortSignal }) => {
     try {
@@ -374,11 +383,11 @@ export const generateScenarios = async (indexId: string|undefined, vectorsId: st
 
 export const generateTestSuites = async (selectedLlm: string, prompts: PromptItem[] | undefined, options?: { signal?: AbortSignal }) => {
     try {
-        const llmProvider = localStorage.getItem('llm_provider') || 'internal';
+        const userId = getUserId();
         const response = await axios.post('/testsuites/generate', { 
             llm_model: selectedLlm,
             prompts: prompts,
-            llm_uri: llmProvider !== 'internal' ? localStorage.getItem('llm_uri') : null
+            userId: userId
         }, {
             signal: options?.signal 
         });
@@ -421,10 +430,10 @@ export const analyzeAegis = async (enginePayload: any, options?: { signal?: Abor
         // const response = await AEGIS_API.post('/analyze', enginePayload, {
         //     signal: options?.signal 
         // });
-        const llmProvider = localStorage.getItem('llm_provider') || 'internal';
+        const userId = getUserId();
         const enrichedPayload = {
             ...enginePayload,
-            llm_uri: llmProvider !== 'internal' ? localStorage.getItem('llm_uri') : null,
+            userId: userId
         };
         const response = await axios.post('/analyze', enrichedPayload, {
             signal: options?.signal 
@@ -733,18 +742,17 @@ export const endUserSession = (sessionId: string) => {
 // Chain-of-Thought Summarizer
 export const summarizePipelineResults = async (nodes: NodeData[], connections: Connection[]) => {
     try {
-        const llmProvider = localStorage.getItem('llm_provider') || 'internal';
+        const userId = getUserId();
         const rawPayload = {
             nodes: nodes,
             connections: connections,
-            use_external_slm: llmProvider !== 'internal',
-            external_api_base: localStorage.getItem('llm_uri') || ''
+            userId: userId,
         };
         
         const compressedBlob = await compressData(rawPayload);
         const arrayBuffer = await compressedBlob.arrayBuffer();
 
-        const response = await SLMBACKEND_API.post('/summaries', arrayBuffer, {
+        const response = await axios.post('/summaries', arrayBuffer, {
             headers: {
                 'Content-Type': 'application/json',
                 'Content-Encoding': 'gzip' 
