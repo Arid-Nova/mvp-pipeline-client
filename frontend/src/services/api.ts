@@ -18,6 +18,15 @@ import { PromptItem, NodeData, Connection } from '../components/pipeline/models'
 import { decompressPayload, decompressGzipResponse } from '../utils/decompress';
 import { compressData } from '../utils/compress'
 
+export const getUserId = () => {
+    let userId = localStorage.getItem('userId');
+    if (!userId) {
+        userId = 'user-' + Date.now();
+        localStorage.setItem('userId', userId);
+    }
+    return userId;
+};
+
 // IR generation and retrieval functions
 export const fetchIRFromRepo = async (input: RepositoryInput, options?: { signal?: AbortSignal }) => {
     try {
@@ -374,9 +383,11 @@ export const generateScenarios = async (indexId: string|undefined, vectorsId: st
 
 export const generateTestSuites = async (selectedLlm: string, prompts: PromptItem[] | undefined, options?: { signal?: AbortSignal }) => {
     try {
+        const userId = getUserId();
         const response = await TEST_API.post('/testsuites/generate', { 
             llm_model: selectedLlm,
-            prompts: prompts 
+            prompts: prompts,
+            userId: userId
         }, {
             signal: options?.signal 
         });
@@ -388,8 +399,7 @@ export const generateTestSuites = async (selectedLlm: string, prompts: PromptIte
             abortError.name = "AbortError";
             throw abortError;
         }
-
-        throw new Error(error.response?.data?.detail || "Test Generation error");
+        throw new Error(error.response?.data?.detail || "Test generation error.");
     }
 };
 
@@ -417,9 +427,18 @@ export const generatePrompts = async (selectedIds: string[], targetLanguage: str
 // Aegis introspection functions 
 export const analyzeAegis = async (enginePayload: any, options?: { signal?: AbortSignal }) => {
     try {
-        const response = await AEGIS_API.post('/analyze', enginePayload, {
+        // const response = await AEGIS_API.post('/analyze', enginePayload, {
+        //     signal: options?.signal 
+        // });
+        const userId = getUserId();
+        const enrichedPayload = {
+            ...enginePayload,
+            userId: userId
+        };
+        const response = await axios.post('/analyze', enrichedPayload, {
             signal: options?.signal 
         });
+        
         return response.data;
     } catch (error: any) {
         if (axios.isCancel(error)) {
@@ -723,15 +742,17 @@ export const endUserSession = (sessionId: string) => {
 // Chain-of-Thought Summarizer
 export const summarizePipelineResults = async (nodes: NodeData[], connections: Connection[]) => {
     try {
+        const userId = getUserId();
         const rawPayload = {
             nodes: nodes,
-            connections: connections
+            connections: connections,
+            userId: userId,
         };
-
+        
         const compressedBlob = await compressData(rawPayload);
         const arrayBuffer = await compressedBlob.arrayBuffer();
 
-        const response = await SLMBACKEND_API.post('/summaries', arrayBuffer, {
+        const response = await axios.post('/summaries', arrayBuffer, {
             headers: {
                 'Content-Type': 'application/json',
                 'Content-Encoding': 'gzip' 
@@ -742,5 +763,53 @@ export const summarizePipelineResults = async (nodes: NodeData[], connections: C
     } catch (error) {
         console.error("Failed to summarize pipeline results:", error);
         throw error;
+    }
+};
+
+// LLM Configuration API
+export const saveLLMConfig = async (userId: string, provider: string, uri: string, token: string) => {
+    try {
+        const response = await axios.post('/api/llm-config/save', {
+            userId,
+            provider,
+            uri,
+            token
+        });
+        return response.data;
+    } catch (error: any) {
+        throw new Error(error.response?.data?.detail || "Failed to save LLM config");
+    }
+};
+
+export const getDefaultLLMConfig = async (userId: string) => {
+    try {
+        const response = await axios.get('/api/llm-config/default', {
+            params: { userId }
+        });
+        return response.data;
+    } catch (error: any) {
+        return null;
+    }
+};
+
+export const getLLMConfig = async (userId: string, provider: string) => {
+    try {
+        const response = await axios.get(`/api/llm-config/${provider}`, {
+            params: { userId }
+        });
+        return response.data;
+    } catch (error: any) {
+        return null;
+    }
+};
+
+export const setDefaultLLMConfig = async (userId: string, provider: string) => {
+    try {
+        const response = await axios.post(`/api/llm-config/set-default/${provider}`, null, {
+            params: { userId }
+        });
+        return response.data;
+    } catch (error: any) {
+        throw new Error(error.response?.data?.detail || "Failed to set default config");
     }
 };

@@ -30,3 +30,6 @@ management:
     health:
       probes:
         enabled: true
+
+encryption:
+  key: ${ENCRYPTION_KEY:}
