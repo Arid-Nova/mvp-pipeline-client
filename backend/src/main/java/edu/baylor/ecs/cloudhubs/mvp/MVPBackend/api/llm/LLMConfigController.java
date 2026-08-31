@@ -18,14 +18,11 @@ public class LLMConfigController {
     private LLMConfigService llmConfigService;
     
     @PostMapping("/save")
-    public ResponseEntity<LLMConfigEntity> saveLLMConfig(
-            @RequestParam String userId,
-            @RequestParam String provider,
-            @RequestParam String uri,
-            @RequestParam String token) {
-        LLMConfigEntity saved = llmConfigService.saveLLMConfig(userId, provider, uri, token);
-        return ResponseEntity.ok(saved);
-    }
+    public ResponseEntity<LLMConfigEntity> saveLLMConfig(@RequestBody SaveLLMConfigRequest request) {
+    LLMConfigEntity saved = llmConfigService.saveLLMConfig(
+        request.getUserId(), request.getProvider(), request.getUri(), request.getToken());
+    return ResponseEntity.ok(saved);
+}
     
     @PostMapping("/set-default/{provider}")
     public ResponseEntity<String> setDefaultConfig(

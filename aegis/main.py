@@ -99,7 +99,6 @@ class AnalysisFacade:
             print(f"Error parsing IR data: {e}")
             raise
 
-    #def run_analysis(self, payload: Dict[str, Any], max_workers: int = 3) -> List[ExecutionPath]:
     def run_analysis(self, payload: Dict[str, Any], max_workers: int = 3, llm_uri: str = None, llm_token: str = None) -> List[ExecutionPath]:
         # Executes the end-to-end analysis pipeline.
         print("\nStarting AEGIS analysis!")

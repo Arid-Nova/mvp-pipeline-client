@@ -6,7 +6,7 @@ import {
     getAvailableSessions, 
     deleteSession
 } from '../../../services/api';
-import { saveLLMConfig, getDefaultLLMConfig, setDefaultLLMConfig } from '../../../services/api';
+import { saveLLMConfig, getDefaultLLMConfig, setDefaultLLMConfig, getUserId  } from '../../../services/api';
 import { useNavigate } from 'react-router-dom';
 
 const BrandSection = ({ sessionName, hasUnsavedChanges }: { sessionName?: string; hasUnsavedChanges: boolean }) => {
@@ -153,6 +153,7 @@ interface PipelineHeaderProps {
     stopPipeline: () => void;
     onLoad: (sessionId: string) => Promise<void>;
     onSave: (name: string, isSaveAs: boolean) => Promise<void>;
+    onExportClick: () => void;
 }
 
 export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
@@ -197,21 +198,14 @@ export const PipelineHeader: React.FC<PipelineHeaderProps> = ({
     const [llmToken, setLlmToken] = useState(() => localStorage.getItem('llm_token') || '');
     const [llmSaved, setLlmSaved] = useState(false);
 
-    const getUserId = () => {
-    let userId = localStorage.getItem('userId');
-    if (!userId) {
-        userId = 'user-' + Date.now();
-        localStorage.setItem('userId', userId);
-    }
-    return userId;
-};
-
     const handleSaveLlmConfig = async () => {
+    console.log("Saving LLM config:", { llmProvider, llmUri });
     try {
         const userId = getUserId();
         await saveLLMConfig(userId, llmProvider, llmUri, llmToken);
         await setDefaultLLMConfig(userId, llmProvider);
         setLlmSaved(true);
+        console.log("Config saved successfully");
         setTimeout(() => setLlmSaved(false), 3000);
     } catch (error) {
         console.error("Failed to save LLM config:", error);

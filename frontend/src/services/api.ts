@@ -18,7 +18,7 @@ import { PromptItem, NodeData, Connection } from '../components/pipeline/models'
 import { decompressPayload, decompressGzipResponse } from '../utils/decompress';
 import { compressData } from '../utils/compress'
 
-const getUserId = () => {
+export const getUserId = () => {
     let userId = localStorage.getItem('userId');
     if (!userId) {
         userId = 'user-' + Date.now();
@@ -384,7 +384,7 @@ export const generateScenarios = async (indexId: string|undefined, vectorsId: st
 export const generateTestSuites = async (selectedLlm: string, prompts: PromptItem[] | undefined, options?: { signal?: AbortSignal }) => {
     try {
         const userId = getUserId();
-        const response = await axios.post('/testsuites/generate', { 
+        const response = await TEST_API.post('/testsuites/generate', { 
             llm_model: selectedLlm,
             prompts: prompts,
             userId: userId
@@ -769,8 +769,11 @@ export const summarizePipelineResults = async (nodes: NodeData[], connections: C
 // LLM Configuration API
 export const saveLLMConfig = async (userId: string, provider: string, uri: string, token: string) => {
     try {
-        const response = await axios.post('/api/llm-config/save', null, {
-            params: { userId, provider, uri, token }
+        const response = await axios.post('/api/llm-config/save', {
+            userId,
+            provider,
+            uri,
+            token
         });
         return response.data;
     } catch (error: any) {
