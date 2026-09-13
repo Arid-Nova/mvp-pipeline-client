@@ -53,6 +53,7 @@ export const TestGenerateCard: React.FC<TestGenerateCardProps> = ({ node, nodes,
                         <option value="claude-3-5-sonnet">Anthropic Claude 3.5 Sonnet</option>
                         <option value="claude-3-opus">Anthropic Claude 3 Opus</option>
                         <option value="llama-3-70b">Meta Llama 3 70B</option>
+                        <option value="llama3.2">Internal SLM (Ollama llama3.2)</option>
                     </select>
                     
                     {/* Custom sleek arrow overlay */}

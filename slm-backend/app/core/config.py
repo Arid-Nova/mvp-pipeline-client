@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     semaphores: int = 2
     
     # Internal Ollama Config
-    ollama_base_url: str = "http://cloudhub_ollama:11434"
+    ollama_base_url: str = "http://cloudhub_ollama:11434/v1"
     model_name: str = "llama3.2"
     temperature: float = 0.1
     
