@@ -70,4 +70,16 @@ public class LLMConfigService {
         }
         return Optional.empty();
     }
+
+    public Optional<Map<String, String>> getConfigForService(String userId, String provider) {
+        Optional<LLMConfigEntity> config = getConfig(userId, provider);
+        if (config.isPresent()) {
+            LLMConfigEntity entity = config.get();
+            Map<String, String> response = new HashMap<>();
+            response.put("uri", entity.getUri());
+            response.put("token", entity.getEncryptedToken());
+            return Optional.of(response);
+        }
+        return Optional.empty();
+    }
 }

@@ -48,16 +48,10 @@ public class LLMConfigController {
 
     @GetMapping("/service/{provider}")
     public ResponseEntity<?> getConfigForService(
-            @RequestParam String userId,
-            @PathVariable String provider) {
-        Optional<LLMConfigEntity> config = llmConfigService.getConfig(userId, provider);
-        if (config.isPresent()) {
-            LLMConfigEntity entity = config.get();
-            Map<String, String> response = new HashMap<>();
-            response.put("uri", entity.getUri());
-            response.put("token", entity.getEncryptedToken());
-            return ResponseEntity.ok(response);
-        }
-        return ResponseEntity.notFound().build();
-    }
+        @RequestParam String userId,
+        @PathVariable String provider) {
+    return llmConfigService.getConfigForService(userId, provider)
+        .map(ResponseEntity::ok)
+        .orElseGet(() -> ResponseEntity.notFound().build());
+}
 }
