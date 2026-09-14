@@ -1,5 +1,6 @@
 from groq import AsyncGroq
-from .base import LLMProvider, TestGenerationError
+from .base import LLMProvider
+from .errors import TestGenerationError
 import os
 
 class LlamaProvider(LLMProvider):

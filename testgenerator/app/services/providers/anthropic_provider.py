@@ -1,5 +1,6 @@
 from anthropic import AsyncAnthropic
-from .base import LLMProvider, TestGenerationError
+from .base import LLMProvider
+from .errors import TestGenerationError
 import os
 
 class AnthropicProvider(LLMProvider):

@@ -1,5 +1,6 @@
 from openai import AsyncOpenAI
-from .base import LLMProvider, TestGenerationError
+from .base import LLMProvider
+from .errors import TestGenerationError
 import os
 
 class OpenAIProvider(LLMProvider):
