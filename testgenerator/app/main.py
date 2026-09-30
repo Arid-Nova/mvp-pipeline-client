@@ -1,11 +1,9 @@
 import re
 import asyncio
-import requests
-
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 
 from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 from .models.schemas import (
     TestGenerationRequest,
@@ -13,6 +11,7 @@ from .models.schemas import (
     TestSuiteItem,
     GenerationFailure,
 )
+from .services.outbound import get_config
 from .services.llm_factory import LLMFactory
 
 load_dotenv()
@@ -57,19 +56,8 @@ async def process_single_prompt(provider, item):
 
 async def generate_testsuites(request: TestGenerationRequest):
     try:
-        # Fetch LLM config from backend
-        config_response = requests.get(
-            'http://cloudhub_backend:8080/api/llm-config/service/gpt-5-mini',
-            params={'userId': request.userId}
-        )
-        
-        llm_uri = None
-        llm_token = None
-        
-        if config_response.status_code == 200:
-            config = config_response.json()
-            llm_uri = config.get('uri')
-            llm_token = config.get('token')
+        # 0. Fetch LLM config from backend
+        llm_uri, llm_token = get_config(request.userId, request.provider)
         
         # 1. Instantiate the correct provider using the Factory
         provider = LLMFactory.get_provider(request.llm_model, llm_uri, llm_token)

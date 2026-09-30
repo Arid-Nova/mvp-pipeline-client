@@ -1,12 +1,13 @@
-import configparser, requests
+import configparser
 from contextlib import asynccontextmanager
 
 import os
 from time import time
 from typing import Dict, Any
-from fastapi.middleware.cors import CORSMiddleware
+from .src.services.outbound import getConfig
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 from main import AnalysisFacade
 
@@ -73,23 +74,13 @@ async def analyze_endpoint(payload: Dict[str, Any]):
         raise HTTPException(status_code=500, detail="Analysis service not initialized. Check server logs.")
 
     try:
-        print("[INFO] Starting introspection!")
-        
+        # print("[INFO] Starting introspection!")
         # Fetch LLM config from backend
-        userId = payload.get('userId', 'default-user')
-        config_response = requests.get(
-            'http://cloudhub_backend:8080/api/llm-config/service/gpt-5-mini',
-            params={'userId': userId}
+        llm_uri, llm_token = getConfig(
+            payload.get('userId', 'default-user'),
+            payload.get('provider', 'internal')
         )
-        
-        llm_uri = None
-        llm_token = None
-        
-        if config_response.status_code == 200:
-            config = config_response.json()
-            llm_uri = config.get('uri')
-            llm_token = config.get('token')
-        
+
         results = facade.run_analysis(payload, llm_uri=llm_uri, llm_token=llm_token)
 
         if 'vulnerabilities' in results:
@@ -102,7 +93,8 @@ async def analyze_endpoint(payload: Dict[str, Any]):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
 # Use for local testing
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("service:app", host="0.0.0.0", port=8900)
+# if __name__ == "__main__":
+#     import uvicorn
+#     uvicorn.run("service:app", host="0.0.0.0", port=8900)

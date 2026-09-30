@@ -27,6 +27,10 @@ export const getUserId = () => {
     return userId;
 };
 
+export const getLLMProvider = () => {
+    return (localStorage.getItem('llm_provider') as 'internal' | 'local' | 'external') || 'internal'
+};
+
 // IR generation and retrieval functions
 export const fetchIRFromRepo = async (input: RepositoryInput, options?: { signal?: AbortSignal }) => {
     try {
@@ -383,11 +387,11 @@ export const generateScenarios = async (indexId: string|undefined, vectorsId: st
 
 export const generateTestSuites = async (selectedLlm: string, prompts: PromptItem[] | undefined, options?: { signal?: AbortSignal }) => {
     try {
-        const userId = getUserId();
         const response = await TEST_API.post('/testsuites/generate', { 
             llm_model: selectedLlm,
             prompts: prompts,
-            userId: userId
+            userId: getUserId(),
+            provider: getLLMProvider()
         }, {
             signal: options?.signal 
         });
@@ -430,10 +434,10 @@ export const analyzeAegis = async (enginePayload: any, options?: { signal?: Abor
         // const response = await AEGIS_API.post('/analyze', enginePayload, {
         //     signal: options?.signal 
         // });
-        const userId = getUserId();
         const enrichedPayload = {
             ...enginePayload,
-            userId: userId
+            userId: getUserId(),
+            provider: getLLMProvider()
         };
         const response = await axios.post('/analyze', enrichedPayload, {
             signal: options?.signal 
@@ -742,11 +746,11 @@ export const endUserSession = (sessionId: string) => {
 // Chain-of-Thought Summarizer
 export const summarizePipelineResults = async (nodes: NodeData[], connections: Connection[]) => {
     try {
-        const userId = getUserId();
         const rawPayload = {
             nodes: nodes,
             connections: connections,
-            userId: userId,
+            userId: getUserId(),
+            provider: getLLMProvider()
         };
         
         const compressedBlob = await compressData(rawPayload);

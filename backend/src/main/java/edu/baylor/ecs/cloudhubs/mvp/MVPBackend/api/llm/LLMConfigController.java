@@ -50,8 +50,8 @@ public class LLMConfigController {
     public ResponseEntity<?> getConfigForService(
         @RequestParam String userId,
         @PathVariable String provider) {
-    return llmConfigService.getConfigForService(userId, provider)
-        .map(ResponseEntity::ok)
-        .orElseGet(() -> ResponseEntity.notFound().build());
+        return llmConfigService.getConfigForService(userId, provider)
+            .map(ResponseEntity::ok)
+            .orElseGet(() -> ResponseEntity.notFound().build());
 }
 }
