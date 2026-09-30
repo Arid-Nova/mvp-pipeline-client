@@ -1,0 +1,181 @@
+# ===========================================================================
+# Azure OpenAI rate limits
+#
+# A rate limit here is the TPM capacity assigned to a model deployment. That
+# is the only rate limit Azure OpenAI enforces -- requests-per-minute is
+# derived from it by Azure and cannot be set separately.
+#
+# THREE BLOCKS
+#   [[resource]]     which Azure OpenAI accounts exist
+#   [[deployment]]   what each limit should normally be
+#   [[budget]]       when to lower it because you have spent enough money
+#
+# ONE RULE. The limit actually applied is always:
+#   min(what the deployment declares, what the budget currently allows)
+#
+# COMMANDS  (run from the repo root)
+#
+#   python3 scripts/azure/openai-limits/limits.py status
+#       Show the current limits and how much budget is left. Read-only.
+#
+#   python3 scripts/azure/openai-limits/limits.py apply
+#       Make Azure match this file. Asks before changing anything.
+#       Run it after editing anything below.
+#
+#   python3 scripts/azure/openai-limits/limits.py guard
+#       Report whether spend is over budget. Read-only.
+#
+#   python3 scripts/azure/openai-limits/limits.py guard --enforce
+#       Same check, but actually lowers the limits when over budget, and
+#       raises them back when a new month resets. No prompt -- run from cron.
+#
+# ===========================================================================
+
+
+[quota_tier]
+# Since May 2026 Azure RAISES quota automatically as usage grows, which
+# silently undoes every limit below. true pins each subscription used here to
+# its current tier. There is no portal setting for this.
+pin = true
+
+
+# ---------------------------------------------------------------------------
+# RESOURCES -- one block per Azure OpenAI account.
+#
+# `id` is the short handle the blocks below refer to. Add a second region or
+# subscription by adding another block; nothing in the script changes.
+#
+# Verified live 2026-08-23 with `az cognitiveservices account list`.
+# ---------------------------------------------------------------------------
+
+[[resource]]
+id             = "primary"
+account        = "aridnova-openai"       # the host in OPENAI_BASE_URL
+resource_group = "rg-aridnova-ai"
+location       = "eastus2"               # NOT eastus; quota is per region
+subscription   = "ae12cd2d-736a-47e5-bde1-649c4885e80c"   # mvp_pipeline_dev
+
+# [[resource]]
+# id             = "westus-failover"
+# account        = "aridnova-openai-west"
+# resource_group = "rg-aridnova-ai-west"
+# location       = "westus3"
+# subscription   = "ae12cd2d-736a-47e5-bde1-649c4885e80c"
+
+
+# ---------------------------------------------------------------------------
+# DEPLOYMENTS -- the normal limit for each one.
+#
+# capacity is in THOUSANDS of tokens per minute, Azure's own unit:
+#     capacity = 50   ->   50,000 TPM
+#
+# For a deployment that ALREADY EXISTS, resource + name + capacity is enough.
+# Model, version and sku are read from Azure and echoed back untouched, so a
+# stale value here can never silently swap your model.
+#
+# A deployment that does NOT exist yet must also give model, version and sku,
+# because there is nothing in Azure to copy them from. Run `status` to see the
+# values your existing deployments use.
+#
+# LIVE STATE (2026-08-23): gpt-5-mini @ 50, GlobalStandard, gpt-5-mini/2025-08-07.
+# Quota in eastus2: 50 of 1000 used, so 950 spare.
+# ---------------------------------------------------------------------------
+
+[[deployment]]
+resource = "primary"
+name     = "gpt-5-mini"
+capacity = 50
+
+# Everything shares this one deployment today, so whichever service calls first
+# gets the throughput. To give each service its own slice, add a deployment per
+# service and point that service's OPENAI_API_MODEL (LLM_MODEL for aegis) at
+# its name in docker-compose.yaml.
+#
+# testgenerator is the exception: it takes llm_model from the request body
+# (app/main.py:39), so its deployment name comes from the dropdown in
+# frontend/src/components/pipeline/cards/TestGenerateCard.tsx, not compose.
+
+# [[deployment]]
+# resource = "primary"
+# name     = "gpt-5-mini-testgen"
+# capacity = 30
+# model    = "gpt-5-mini"
+# version  = "2025-08-07"
+# sku      = "GlobalStandard"
+
+
+# ---------------------------------------------------------------------------
+# BUDGET -- a monthly spending cap. Optional; delete the block to disable.
+#
+# `limits.py guard` works out what this resource has cost so far this month.
+# Past enough of the budget it caps every deployment on the resource; when a
+# new month starts, the next run lifts the cap. Nothing is remembered between
+# runs -- it is recalculated from scratch each time.
+#
+# HOW THE FIGURE IS BUILT
+#   billed       what Azure has actually invoiced for this resource. Exact,
+#                covers every model, but lands about a day late.
+#   since then   recent tokens priced at the rate the billed data implies
+#                (cost so far divided by tokens over the same period). Fresh,
+#                approximate.
+#   The two are added. `status` shows both, so the split is always visible.
+#
+#   Because the rate comes from your own bill, there is no price list to keep
+#   up to date, and it adapts by itself when you add or change models.
+#
+# COVERS THIS AI RESOURCE ONLY -- not your VM, storage or databases.
+#
+# NOT A HARD CAP: guard only acts when it runs, so spend can overshoot in
+# between, and the billed half is a day behind. Every run prints the worst
+# case. A smoke alarm, not a sprinkler.
+# ---------------------------------------------------------------------------
+
+[[budget]]
+resource = "primary"
+
+# THE BUDGET, in US dollars per calendar month (UTC). Resets on the 1st with
+# nothing carried over.
+#
+# Dollars, not tokens, because token cost varies by model -- a million tokens
+# of a small model and a million of a large one are not the same spend. This
+# budget does not care which models you use or how many tokens they burn.
+monthly_usd = 100.00
+
+# A DAILY CEILING, so the month cannot be burned in a day. 0 disables it.
+#
+# Both budgets are checked and the tighter one wins: at 90% of today's cap the
+# steps below apply even if the month is barely touched. `status` marks which
+# one is binding.
+#
+# HOW TO PICK: even pacing is monthly / days-in-month, so $100/month is about
+# $3.25/day. Set it above that -- a real day is bursty -- but low enough that
+# a runaway is caught. $10 allows a heavy day at roughly 3x normal pace while
+# still capping the damage at a tenth of the month.
+#
+# CAVEAT: Azure's billed cost lands about a day late, so TODAY's figure is
+# almost entirely the live token estimate. The daily cap is therefore
+# approximate in a way the monthly one is not.
+daily_usd = 10.00
+
+# Only used before Azure has published any cost for a new month, when there is
+# nothing to calibrate a rate against. 0 means "do not guess" -- status says so
+# rather than inventing a figure. Set it to your rough blended $/M if you want
+# coverage on the 1st of the month.
+fallback_usd_per_million = 0.0
+
+
+# STEPS -- what ceiling applies once a percentage of the budget is spent.
+# The last step you have reached wins, and it only ever lowers: a deployment
+# already below the ceiling is left alone. Below the first step, nothing is
+# touched. Steps must tighten as at_percent rises.
+#
+# Two steps rather than one cutoff so the service degrades visibly instead of
+# going from working to unusable with no warning.
+
+[[budget.step]]
+at_percent = 80          # $80 of $100
+capacity   = 25          # 25,000 TPM -- noticeably slower, still usable
+
+[[budget.step]]
+at_percent = 100         # $100 of $100
+capacity   = 1           # 1,000 TPM -- a trickle. The floor; never deleted

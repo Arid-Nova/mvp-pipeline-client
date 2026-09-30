@@ -1,5 +1,6 @@
 from openai import AsyncOpenAI, AsyncAzureOpenAI
 from .base import LLMProvider
+from .errors import TestGenerationError
 import os
 
 class OpenAIProvider(LLMProvider):
@@ -35,4 +36,4 @@ class OpenAIProvider(LLMProvider):
             
             return response.choices[0].message.content.strip()
         except Exception as e:
-            return f"Error generating test: {str(e)}"
+            raise TestGenerationError(str(e)) from e
