@@ -49,6 +49,7 @@ services:
     ports:
       - "8080:8080" 
     environment:
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       IR_RETENTION_DAYS: ${IR_RETENTION_DAYS:-1}
       SPRING_DATASOURCE_URL: ${MYSQL_URL}
       SPRING_DATASOURCE_USERNAME: ${MYSQL_ROOT_USERNAME:-root}
@@ -254,6 +255,7 @@ services:
       # GPT-5 models only accept the default temperature (1).
       - LLM_TEMPERATURE=${LLM_TEMPERATURE:-1}
       - MAX_TOKENS=10000
+      - CONFIG_SERVICE_URL=http://cloudhub_backend:8080/api/llm-config/service
     networks:
       - app_network
     restart: always
@@ -313,6 +315,7 @@ services:
       PYTHONUNBUFFERED: 1
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
       IR_SERVICE_URL: http://cloudhub_backend:8080/ir/create
+      CONFIG_SERVICE_URL: http://cloudhub_backend:8080/api/llm-config/service
       LLM_PROVIDER: openai
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENAI_ENDPOINT: ${OPENAI_BASE_URL}
@@ -486,6 +489,8 @@ services:
     container_name: cloudhub_slmbackend
     ports:
       - "8071:8071"
+    environment:
+      - CONFIG_SERVICE_URL=http://cloudhub_backend:8080/api/llm-config/service
     networks:
       - app_network
     restart: always

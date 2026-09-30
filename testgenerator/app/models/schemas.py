@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 
 class PromptItem(BaseModel):
     scenario_id: str
@@ -8,6 +8,7 @@ class PromptItem(BaseModel):
 class TestGenerationRequest(BaseModel):
     llm_model: str
     prompts: List[PromptItem]
+    userId: str
 
 class TestSuiteItem(BaseModel):
     scenario_id: str

@@ -4,9 +4,10 @@ from contextlib import asynccontextmanager
 import os
 from time import time
 from typing import Dict, Any
-from fastapi.middleware.cors import CORSMiddleware
+from .src.services.outbound import getConfig
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 from main import AnalysisFacade
 
@@ -66,20 +67,26 @@ def health_check():
 
 @app.post("/analyze", 
           responses={500: {"description": "Internal Error"}})
+
 async def analyze_endpoint(payload: Dict[str, Any]):
     global facade
     if not facade:
         raise HTTPException(status_code=500, detail="Analysis service not initialized. Check server logs.")
 
     try:
-        # Run the analysis using your existing logic
-        print("[INFO] Starting introspection!")
-        results = facade.run_analysis(payload)
+        # print("[INFO] Starting introspection!")
+        # Fetch LLM config from backend
+        llm_uri, llm_token = getConfig(
+            payload.get('userId', 'default-user'),
+            payload.get('provider', 'internal')
+        )
+
+        results = facade.run_analysis(payload, llm_uri=llm_uri, llm_token=llm_token)
 
         if 'vulnerabilities' in results:
             return {"status": "success"}
 
-        facade.get_latent_vulnerabilities(payload['ir_id'], results)
+        facade.get_latent_vulnerabilities(payload['ir_id'], results, llm_uri=llm_uri, llm_token=llm_token)
         return {"status": "success"}
 
     except Exception as e:
@@ -88,6 +95,6 @@ async def analyze_endpoint(payload: Dict[str, Any]):
         raise HTTPException(status_code=500, detail=str(e))
 
 # Use for local testing
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("service:app", host="0.0.0.0", port=8900)
+# if __name__ == "__main__":
+#     import uvicorn
+#     uvicorn.run("service:app", host="0.0.0.0", port=8900)
