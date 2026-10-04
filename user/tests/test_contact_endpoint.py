@@ -41,14 +41,31 @@ def test_fields_are_trimmed(client, db, send):
     assert saved_lead["company"] == "Acme Cloud"
 
 
-def test_honeypot_pretends_success_and_stores_nothing(client, db, send):
+def test_honeypot_stores_flagged_lead_without_email(client, db, send):
     response = client.post("/users/contact", json={**VALID_CONTACT, "website": "http://spam.example"})
 
     assert response.status_code == 200
-    assert response.json() == {"message": "Received"}
-    db.count_recent_contact_requests.assert_not_awaited()
-    db.save_contact_request.assert_not_awaited()
+    assert response.json() == {"message": "Received", "id": LEAD_ID}
+    db.save_contact_request.assert_awaited_once_with(
+        EXPECTED_LEAD, "testclient", suspected_bot=True, honeypot_value="http://spam.example"
+    )
     send.assert_not_called()
+    db.set_contact_email_status.assert_not_awaited()
+
+
+def test_honeypot_value_is_truncated(client, db, send):
+    client.post("/users/contact", json={**VALID_CONTACT, "website": "x" * 500})
+
+    assert len(db.save_contact_request.await_args.kwargs["honeypot_value"]) == 200
+
+
+def test_rate_limit_applies_to_honeypot_hits(client, db, send):
+    db.count_recent_contact_requests.return_value = CONTACT_RATE_LIMIT_PER_HOUR
+
+    response = client.post("/users/contact", json={**VALID_CONTACT, "website": "http://spam.example"})
+
+    assert response.status_code == 429
+    db.save_contact_request.assert_not_awaited()
 
 
 def test_empty_honeypot_is_ignored(client, db, send):
