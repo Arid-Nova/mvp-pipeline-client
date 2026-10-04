@@ -1,8 +1,10 @@
 import os
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
 
-from fastapi import FastAPI, HTTPException, Request, Depends
+from fastapi import FastAPI, HTTPException, Request, Depends, BackgroundTasks
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 
 from .utils.verifier import verify_internal_service
@@ -10,10 +12,14 @@ from .utils.network import extract_client_ip
 from .utils.geolocate import geolocate_ip
 
 from .services.configdb import config_db_service
+from .services.notifier import NotifierNotConfigured, send_contact_notification
 
 from .models.FeedbackRequest import FeedbackRequest
 from .models.SessionStartRequest import SessionStartRequest
 from .models.DemographicsRequest import DemographicsRequest
+from .models.ContactRequest import ContactRequest
+
+CONTACT_RATE_LIMIT_PER_HOUR = 5
 
 
 @asynccontextmanager
@@ -113,3 +119,35 @@ async def capture_demographics(req: DemographicsRequest, request: Request):
     )
 
     return {"message": "Captured", **result}
+
+@app.post("/users/contact",
+          responses={429: {"description": "Too many requests from this IP."}})
+async def submit_contact_request(req: ContactRequest, request: Request,
+                                 background_tasks: BackgroundTasks):
+    # Honeypot filled: only bots see that field. Pretend success, store nothing.
+    if req.website:
+        return {"message": "Received"}
+
+    ip_address = extract_client_ip(request)
+    since = datetime.now(timezone.utc) - timedelta(hours=1)
+    recent = await config_db_service.count_recent_contact_requests(ip_address, since)
+    if recent >= CONTACT_RATE_LIMIT_PER_HOUR:
+        raise HTTPException(status_code=429, detail="Too many requests. Please try again later.")
+
+    # Save first, email second: if sending fails the lead is still stored.
+    lead = req.model_dump(exclude={"website"})
+    lead_id, created_at = await config_db_service.save_contact_request(lead, ip_address)
+    background_tasks.add_task(notify_contact_request, lead, lead_id, created_at)
+
+    return {"message": "Received", "id": lead_id}
+
+async def notify_contact_request(lead: dict, lead_id: str, created_at: datetime):
+    try:
+        message_id = await run_in_threadpool(send_contact_notification, lead, lead_id, created_at)
+        await config_db_service.set_contact_email_status(lead_id, "sent", message_id=message_id)
+    except NotifierNotConfigured:
+        logging.warning("ACS email is not configured; contact request %s stored without email", lead_id)
+        await config_db_service.set_contact_email_status(lead_id, "not_configured")
+    except Exception as exc:
+        logging.exception("Contact notification failed for %s", lead_id)
+        await config_db_service.set_contact_email_status(lead_id, "failed", error=str(exc)[:500])
