@@ -25,6 +25,7 @@ class ConfigDatabase:
         self.feedback_collection = self.db["user_feedback"]
         self.session_collection = self.db["user_session"]
         self.demographics_collection = self.db["user_demographics"]
+        self.contact_collection = self.db["contact_requests"]
 
     # Common utilities
     def _get_aes_key(self):
@@ -87,32 +88,46 @@ class ConfigDatabase:
 
     # Demo-visitor demographics (captured from the public landing/marketing page)
     async def upsert_demographics(self, visitor_id, profile: dict, ip_address: str, ip_geo):
+        now = datetime.now(timezone.utc)
+        skipped = bool(profile.get("skipped"))
+
         # One entry appended per visit, so `visits` is the full timeline and its
         # length stays in step with `visit_count`.
         visit_entry = {
-            "ts": datetime.now(timezone.utc),
+            "ts": now,
             "ip_address": ip_address,
             "ip_geo": ip_geo,
+            "skipped": skipped,
         }
 
-        # Anonymous visitors carry a stable browser-stored id: store their
-        # details once and log every subsequent demo visit.
+        # Anonymous visitors carry a stable browser-stored id. The form is shown
+        # on every visit, so keep the latest non-empty answer per field; a skip
+        # never erases earlier answers. No key may appear in both $setOnInsert
+        # and $set (Mongo rejects that as a conflict).
         if visitor_id:
-            await self.demographics_collection.update_one(
-                {"visitor_id": visitor_id},
-                {
-                    "$setOnInsert": {
-                        "visitor_id": visitor_id,
-                        **profile,
-                        "ip_address": ip_address,
-                        "ip_geo": ip_geo,
-                        "first_seen": datetime.now(timezone.utc),
-                    },
-                    "$set": {"last_seen": datetime.now(timezone.utc)},
-                    "$inc": {"visit_count": 1},
-                    "$push": {"visits": visit_entry},
+            update = {
+                "$setOnInsert": {
+                    "visitor_id": visitor_id,
+                    "ip_address": ip_address,
+                    "ip_geo": ip_geo,
+                    "first_seen": now,
                 },
-                upsert=True,
+                "$set": {"last_seen": now},
+                "$inc": {"visit_count": 1},
+                "$push": {"visits": visit_entry},
+            }
+            if skipped:
+                update["$setOnInsert"]["skipped"] = True
+            else:
+                answers = {
+                    key: value
+                    for key, value in profile.items()
+                    if key != "skipped" and value is not None
+                }
+                update["$set"].update({**answers, "skipped": False, "answers_updated_at": now})
+
+            await self.demographics_collection.update_one(
+                {"visitor_id": visitor_id}, update, upsert=True
             )
             doc = await self.demographics_collection.find_one(
                 {"visitor_id": visitor_id}, {"_id": 0, "visit_count": 1}
@@ -132,11 +147,43 @@ class ConfigDatabase:
         result = await self.demographics_collection.insert_one(document)
         return {"id": str(result.inserted_id), "visit_count": 1}
 
+    # "Request a Technical Conversation" leads (public landing/marketing page)
+    async def save_contact_request(self, lead: dict, ip_address: str):
+        created_at = datetime.now(timezone.utc)
+        document = {
+            **lead,
+            "ip_address": ip_address,
+            "created_at": created_at,
+            "email_status": "pending",
+        }
+        result = await self.contact_collection.insert_one(document)
+        return str(result.inserted_id), created_at
+
+    async def count_recent_contact_requests(self, ip_address: str, since: datetime) -> int:
+        return await self.contact_collection.count_documents(
+            {"ip_address": ip_address, "created_at": {"$gte": since}}
+        )
+
+    async def set_contact_email_status(self, lead_id: str, status: str, message_id=None, error=None):
+        await self.contact_collection.update_one(
+            {"_id": ObjectId(lead_id)},
+            {"$set": {
+                "email_status": status,
+                "email_message_id": message_id,
+                "email_error": error,
+                "email_updated_at": datetime.now(timezone.utc),
+            }},
+        )
+
     async def ensure_indexes(self):
         # Unique (sparse) index keeps one document per anonymous visitor and
         # protects the upsert against duplicates under concurrent first visits.
         await self.demographics_collection.create_index(
             "visitor_id", unique=True, sparse=True
+        )
+        # Supports the per-IP rate limit on contact requests.
+        await self.contact_collection.create_index(
+            [("ip_address", 1), ("created_at", -1)]
         )
 
 config_db_service = ConfigDatabase()
