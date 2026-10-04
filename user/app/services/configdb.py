@@ -148,7 +148,8 @@ class ConfigDatabase:
         return {"id": str(result.inserted_id), "visit_count": 1}
 
     # "Request a Technical Conversation" leads (public landing/marketing page)
-    async def save_contact_request(self, lead: dict, ip_address: str):
+    async def save_contact_request(self, lead: dict, ip_address: str,
+                                   suspected_bot: bool = False, honeypot_value=None):
         created_at = datetime.now(timezone.utc)
         document = {
             **lead,
@@ -156,6 +157,13 @@ class ConfigDatabase:
             "created_at": created_at,
             "email_status": "pending",
         }
+        # Suspected bots are kept for review but never emailed.
+        if suspected_bot:
+            document.update({
+                "suspected_bot": True,
+                "honeypot_value": honeypot_value,
+                "email_status": "skipped_suspected_bot",
+            })
         result = await self.contact_collection.insert_one(document)
         return str(result.inserted_id), created_at
 

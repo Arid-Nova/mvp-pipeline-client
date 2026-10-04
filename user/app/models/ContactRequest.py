@@ -13,7 +13,9 @@ class ContactRequest(BaseModel):
     landing/marketing page.
 
     Length caps mirror the form's client-side validation. `website` is a
-    honeypot: the field is visually hidden on the form, so only bots fill it in.
+    honeypot: the field is hidden on the form, so a filled value almost always
+    means a bot. Those submissions are stored flagged (`suspected_bot`) and not
+    emailed, because browser autofill can occasionally fill it too.
     """
 
     first_name: Name

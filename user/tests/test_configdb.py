@@ -120,6 +120,21 @@ def test_save_contact_request_document_shape(monkeypatch):
     assert lead_id == LEAD_ID
 
 
+def test_save_suspected_bot_is_flagged_and_never_pending_email(monkeypatch):
+    collection = fake_collection(insert_one=type("Result", (), {"inserted_id": ObjectId(LEAD_ID)})())
+    monkeypatch.setattr(config_db_service, "contact_collection", collection)
+
+    lead_id, created_at = run(config_db_service.save_contact_request(
+        VALID_CONTACT, "203.0.113.9", suspected_bot=True, honeypot_value="http://spam.example"
+    ))
+
+    document = collection.insert_one.await_args.args[0]
+    assert document == {**VALID_CONTACT, "ip_address": "203.0.113.9", "created_at": created_at,
+                        "email_status": "skipped_suspected_bot", "suspected_bot": True,
+                        "honeypot_value": "http://spam.example"}
+    assert lead_id == LEAD_ID
+
+
 def test_count_recent_contact_requests_filters_by_ip_and_time(monkeypatch):
     collection = fake_collection(count_documents=2)
     monkeypatch.setattr(config_db_service, "contact_collection", collection)

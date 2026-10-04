@@ -124,18 +124,25 @@ async def capture_demographics(req: DemographicsRequest, request: Request):
           responses={429: {"description": "Too many requests from this IP."}})
 async def submit_contact_request(req: ContactRequest, request: Request,
                                  background_tasks: BackgroundTasks):
-    # Honeypot filled: only bots see that field. Pretend success, store nothing.
-    if req.website:
-        return {"message": "Received"}
-
     ip_address = extract_client_ip(request)
     since = datetime.now(timezone.utc) - timedelta(hours=1)
     recent = await config_db_service.count_recent_contact_requests(ip_address, since)
     if recent >= CONTACT_RATE_LIMIT_PER_HOUR:
         raise HTTPException(status_code=429, detail="Too many requests. Please try again later.")
 
-    # Save first, email second: if sending fails the lead is still stored.
     lead = req.model_dump(exclude={"website"})
+
+    # Honeypot filled: almost always a bot, but browser autofill and password
+    # managers can fill it too. Never discard: store it flagged, without email,
+    # so a real lead that tripped it can still be found.
+    if req.website:
+        lead_id, _ = await config_db_service.save_contact_request(
+            lead, ip_address, suspected_bot=True, honeypot_value=req.website[:200]
+        )
+        logging.warning("Contact request %s stored as suspected bot (honeypot filled)", lead_id)
+        return {"message": "Received", "id": lead_id}
+
+    # Save first, email second: if sending fails the lead is still stored.
     lead_id, created_at = await config_db_service.save_contact_request(lead, ip_address)
     background_tasks.add_task(notify_contact_request, lead, lead_id, created_at)
 
