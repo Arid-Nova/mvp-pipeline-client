@@ -1,4 +1,4 @@
-import { CardType } from './models';
+import { CardType, NodeData } from './models';
 
 export const CATEGORIES: Record<string, CardType[]> = {
     "Input": ['SYSTEM_INPUT', 'UPLOAD_IR'],
@@ -259,4 +259,93 @@ export const VALID_CONNECTIONS: Record<CardType, CardType[]> = {
     VERIFICATION_COMPARISON: [],  
     CHANGE_IMPACT: ['SCENARIO_GENERATE'],
     SECURITY_REGRESSION: ['FORMAL_VIZ']
+};
+
+// --- Pipeline structure facts beyond pairwise VALID_CONNECTIONS ---
+// Each entry mirrors a check in PipelinePage's runFromNode / runPipeline / processNextNodes.
+// These are structural facts: a graph that breaks one of them is wired wrongly regardless of
+// how the cards are configured.
+
+/** Cards that `runPipeline` starts execution from. */
+export const INPUT_CARD_TYPES: CardType[] = ['SYSTEM_INPUT', 'UPLOAD_IR'];
+
+/** CATEGORIES buckets whose cards produce an analysis result (as opposed to inputs, generators and holders). */
+export const ANALYSIS_CATEGORIES: string[] = ['Processes', 'Execution', 'Visualization', 'Version Control'];
+
+export interface CardInputRequirement {
+    /** Each inner array is a group: at least one upstream card of one of these types is required. */
+    requiresAllOf?: CardType[][];
+    /** Exactly `count` upstream cards of `type` are required. */
+    exactUpstreamCount?: { type: CardType; count: number };
+    /** Upper bound on incoming connections. */
+    maxIncoming?: number;
+}
+
+export const CARD_INPUT_REQUIREMENTS: Partial<Record<CardType, CardInputRequirement>> = {
+    // Single-input cards: runFromNode reads only the first upstream connection
+    // (`connections.find(c => c.target === nodeId)`), and each handler expects one payload.
+    MULTI_REPO: { maxIncoming: 1 },
+    COMPONENT_GENERATE: { maxIncoming: 1 },
+    COMPONENT_HOLDER: { maxIncoming: 1 },
+    IR_HOLDER: { maxIncoming: 1 },
+    FORMAL_VERIFY: { maxIncoming: 1 },
+    PROMPT_GENERATE: { maxIncoming: 1 },
+    TEST_GENERATE: { maxIncoming: 1 },
+    TEST_EXECUTOR: { maxIncoming: 1 },
+    AEGIS: { maxIncoming: 1 },
+    // processNextNodes SCENARIO_GENERATE: throws "No endpoints found. Please connect a COMPONENT
+    // HOLDER to this card..." without a connected COMPONENT_HOLDER. FORMAL_VERIFY and
+    // CHANGE_IMPACT inputs are optional filters.
+    SCENARIO_GENERATE: { requiresAllOf: [['COMPONENT_HOLDER']] },
+    // processNextNodes VERIFICATION_COMPARISON: fails with "Link BOTH 'Formal Verification' and
+    // 'Scenario Generation' cards." unless both are connected.
+    VERIFICATION_COMPARISON: { requiresAllOf: [['FORMAL_VERIFY'], ['SCENARIO_GENERATE']] },
+    // processNextNodes CHANGE_IMPACT: needs a base IR (MULTI_REPO or IR_HOLDER) and a target
+    // SYSTEM_INPUT, otherwise fails with "Missing Inputs: ...".
+    CHANGE_IMPACT: { requiresAllOf: [['MULTI_REPO', 'IR_HOLDER'], ['SYSTEM_INPUT']] },
+    // processNextNodes SECURITY_REGRESSION: does nothing unless exactly two FORMAL_VERIFY cards are
+    // connected (`fvNodes.length !== 2`); base vs PR is chosen by their y position.
+    SECURITY_REGRESSION: { exactUpstreamCount: { type: 'FORMAL_VERIFY', count: 2 } },
+    // processNextNodes FORMAL_VIZ: fails with "Please connect a Formal Verify base card." without a
+    // connected FORMAL_VERIFY; a SECURITY_REGRESSION input is optional.
+    FORMAL_VIZ: { requiresAllOf: [['FORMAL_VERIFY']] },
+    // VISUALIZATION is deliberately unbounded: runFromNode stacks every upstream IR into timelineIRs.
+};
+
+// --- User guidance (NOT structural rules) ---
+// The entries below tell a user what still has to happen before or during a run. They are not
+// validation rules and do not predict whether a run will succeed; the existing runtime checks
+// in PipelinePage remain authoritative.
+
+export interface RequiredUserConfig {
+    /** NodeData.data fields the existing pre-run check reads. */
+    fields: (keyof NodeData['data'])[];
+    hint: string;
+}
+
+/**
+ * Configuration a card needs before Run, mirroring only the existing pre-run checks.
+ * Cards whose settings fall back to defaults are intentionally absent: Test Suite Generation
+ * (selectedLlm defaults to 'gpt-5-mini'), Test Executor (targetUrl defaults to
+ * 'http://localhost:1234') and LLM Prompter (language defaults to 'java').
+ */
+export const REQUIRED_USER_CONFIG: Partial<Record<CardType, RequiredUserConfig>> = {
+    // runPipeline / runFromNode: "System Name and at least one Repository URL are required."
+    SYSTEM_INPUT: {
+        fields: ['systemName', 'repositories'],
+        hint: 'Enter a system name and at least one repository.',
+    },
+    // runPipeline: "No File Uploaded" unless data.payload.irJson is present.
+    UPLOAD_IR: {
+        fields: ['payload'],
+        hint: 'Upload a snapshot (IR) file or load one from your analysis history.',
+    },
+};
+
+/** Steps that need user action during a run, after upstream cards have produced results. */
+export const RUNTIME_INTERACTION_HINTS: Partial<Record<CardType, string>> = {
+    // processNextNodes PROMPT_GENERATE: "No scenarios selected. Please check scenarios in the previous card."
+    PROMPT_GENERATE: 'After Scenario Generation runs, select the scenarios to use in the Scenario Generation card.',
+    // TestExecutorCard: generated tests are executed only via its "Launch Test Executor" button.
+    TEST_EXECUTOR: 'Generated tests are run from this card with "Launch Test Executor"; check the target URL first (default http://localhost:1234).',
 };
