@@ -465,7 +465,10 @@ services:
       - MONGO_USER=${MONGO_ROOT_USERNAME:-root}
       - MONGO_PASSWORD=${MONGO_ROOT_PASSWORD}
       - INTERNAL_SERVICE_KEY=${INTERNAL_SERVICE_KEY}
-      - LANDING_ORIGINS=${LANDING_ORIGINS:-}
+      - LANDING_ORIGINS=${LANDING_ORIGINS:-https://aridnova.net,https://www.aridnova.net}
+      - ACS_CONNECTION_STRING=${ACS_CONNECTION_STRING:-}
+      - ACS_SENDER_ADDRESS=${ACS_SENDER_ADDRESS:-}
+      - CONTACT_NOTIFY_TO=${CONTACT_NOTIFY_TO:-}
     networks:
       - app_network
     restart: always
