@@ -1,0 +1,12 @@
+default_env := "dev"
+default_sub := "ab81cb03-0cde-4583-8571-52dcd1ba9524"
+
+
+deploy-demo:
+    ./deploy.sh -s {{default_sub}} -e {{default_env}}
+
+deploy-demo-dev:
+    ./deploy.sh -s {{default_sub}} -e dev
+
+deploy-demo-prod:
+    ./deploy.sh -s {{default_sub}} -e prod
