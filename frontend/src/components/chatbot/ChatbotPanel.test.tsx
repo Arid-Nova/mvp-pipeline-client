@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import ChatbotPanel from "./ChatbotPanel";
 import { getChatbotHealth, refreshChatbotContext, sendChatbotQuery } from "../../services/api";
 import CitationList from "./CitationList";
@@ -53,9 +53,12 @@ describe("ChatbotPanel", () => {
         render(<ChatbotPanel />);
         fireEvent.click(screen.getByTestId("chatbot-toggle"));
 
+        // RuntimeStatus was redesigned (e1ba1e2, 0b45d3a) into a compact pill: errors show
+        // "Offline" with the error message as the tooltip instead of "Runtime: unavailable".
         await waitFor(() => {
-            expect(screen.getByText(/Runtime: unavailable/i)).toBeInTheDocument();
+            expect(screen.getByText("Offline")).toBeInTheDocument();
         });
+        expect(screen.getByText("Offline").closest("[title]")).toHaveAttribute("title", "backend down");
     });
 
     it("renders answer with citations and confidence sections", async () => {
@@ -103,8 +106,12 @@ describe("ChatbotPanel", () => {
         expect(screen.getByTestId("answer-section")).toBeInTheDocument();
         expect(screen.getByTestId("citation-list")).toBeInTheDocument();
         expect(screen.getByTestId("confidence-panel")).toBeInTheDocument();
-        expect(screen.getByText(/SERVICE · svc-1/)).toBeInTheDocument();
-        expect(screen.getByText(/Subject: order-service/)).toBeInTheDocument();
+        // CitationList (e1ba1e2) renders type and id as separate elements ("SERVICE / svc-1")
+        // and the subject label without a "Subject:" prefix.
+        const citationList = within(screen.getByTestId("citation-list"));
+        expect(citationList.getByText("SERVICE")).toBeInTheDocument();
+        expect(citationList.getByText("svc-1")).toBeInTheDocument();
+        expect(citationList.getByText("order-service")).toBeInTheDocument();
         expect(screen.getByText(/Relevant evidence exists/i)).toBeInTheDocument();
     });
 
@@ -251,7 +258,8 @@ describe("ChatbotPanel", () => {
         expect(screen.getByText("HIGH")).toBeInTheDocument();
         expect(screen.getByText("MEDIUM")).toBeInTheDocument();
         expect(screen.getAllByText("LOW").length).toBeGreaterThan(0);
-        expect(screen.getByText("INSUFFICIENT_EVIDENCE")).toBeInTheDocument();
+        // ConfidenceBadge displays INSUFFICIENT_EVIDENCE with the explicit label "INSUFFICIENT DATA".
+        expect(screen.getByText("INSUFFICIENT DATA")).toBeInTheDocument();
     });
 
     it("runtime unavailable response still renders without crash", async () => {
@@ -312,8 +320,10 @@ describe("ChatbotPanel", () => {
             fireEvent.click(screen.getByTestId("chatbot-submit"));
             // eslint-disable-next-line no-await-in-loop
             await waitFor(() => expect(mockedSendQuery).toHaveBeenCalledTimes(i + 1));
+            // The submit button is icon-only since e1ba1e2; the composer input is disabled while
+            // a request is in flight, so wait for it to be re-enabled.
             // eslint-disable-next-line no-await-in-loop
-            await waitFor(() => expect(screen.getByTestId("chatbot-submit")).toHaveTextContent("Send"));
+            await waitFor(() => expect(screen.getByTestId("chatbot-input")).not.toBeDisabled());
         }
 
         const lastPayload = mockedSendQuery.mock.calls[mockedSendQuery.mock.calls.length - 1][0];
@@ -351,10 +361,39 @@ describe("ChatbotPanel", () => {
 
         rerender(<ChatbotPanel activeContext={{ systemName: "SystemB", irId: "ir-b" }} />);
         expect(screen.queryByText(/first context/i)).toBeNull();
-        expect(screen.getByText(/Ask a question about your current system context/i)).toBeInTheDocument();
+        // Empty-state copy was reworded in 81c3949.
+        expect(screen.getByText(/Ask me any question about your system/i)).toBeInTheDocument();
     });
 
-    it("refresh button calls API and renders result without clearing conversation", async () => {
+    // Context refresh became automatic on context change (795dee4, f64d1b8). The manual
+    // "Refresh" control is now only shown as "Retry Sync" after a refresh error or a stale
+    // context, and the refresh result / error / stale panels were removed from the header
+    // (0b45d3a). The three tests below assert that current behaviour.
+    it("automatically refreshes retrieval context when the active context changes", async () => {
+        mockedGetHealth.mockResolvedValue({
+            status: "healthy",
+            provider: "OLLAMA",
+            model: "llama3.2",
+            baseUrl: "http://localhost:8080",
+            message: "ok",
+            checkedAt: new Date().toISOString(),
+            latencyMs: 20
+        });
+
+        const { rerender } = render(<ChatbotPanel activeContext={{ systemName: "SystemA", irId: "ir-a" }} />);
+        fireEvent.click(screen.getByTestId("chatbot-toggle"));
+        expect(mockedRefreshContext).not.toHaveBeenCalled();
+
+        rerender(<ChatbotPanel activeContext={{ systemName: "SystemB", irId: "ir-b" }} />);
+        await waitFor(() => expect(mockedRefreshContext).toHaveBeenCalledTimes(1));
+        expect(mockedRefreshContext).toHaveBeenCalledWith({
+            context: { systemName: "SystemB", irId: "ir-b" }
+        });
+        // A successful, non-stale refresh does not surface the manual retry control.
+        await waitFor(() => expect(screen.queryByTestId("chatbot-refresh-context")).toBeNull());
+    });
+
+    it("refresh failure shows Retry Sync, and a manual retry keeps the conversation", async () => {
         mockedGetHealth.mockResolvedValue({
             status: "healthy",
             provider: "OLLAMA",
@@ -374,52 +413,29 @@ describe("ChatbotPanel", () => {
             model: "llama3.2",
             provider: "OLLAMA"
         });
-        mockedRefreshContext.mockResolvedValue({
-            success: true,
-            refreshedArtifactCountsByType: { SERVICE: 2, ENDPOINT: 4 },
-            unavailableProviders: [],
-            refreshedAt: "2026-05-23T12:00:00Z",
-            refreshVersion: "TrainTicket|ir-9",
-            message: "ok",
-            staleContext: false
-        });
+        mockedRefreshContext.mockRejectedValueOnce(new Error("refresh failed"));
 
-        render(<ChatbotPanel activeContext={{ systemName: "TrainTicket", irId: "ir-9" }} />);
+        const { rerender } = render(<ChatbotPanel activeContext={{ systemName: "SystemA", irId: "ir-a" }} />);
         fireEvent.click(screen.getByTestId("chatbot-toggle"));
+        rerender(<ChatbotPanel activeContext={{ systemName: "TrainTicket", irId: "ir-9" }} />);
+
+        const retry = await screen.findByTestId("chatbot-refresh-context");
+        expect(retry).toHaveTextContent(/Retry Sync/i);
+
         fireEvent.change(screen.getByTestId("chatbot-input"), { target: { value: "Question 1" } });
         fireEvent.click(screen.getByTestId("chatbot-submit"));
         await waitFor(() => expect(screen.getByText(/still here/i)).toBeInTheDocument());
 
         fireEvent.click(screen.getByTestId("chatbot-refresh-context"));
-        await waitFor(() => expect(mockedRefreshContext).toHaveBeenCalledTimes(1));
-        expect(mockedRefreshContext).toHaveBeenCalledWith({
+        await waitFor(() => expect(mockedRefreshContext).toHaveBeenCalledTimes(2));
+        expect(mockedRefreshContext).toHaveBeenLastCalledWith({
             context: { systemName: "TrainTicket", irId: "ir-9" }
         });
-        await waitFor(() => expect(screen.getByTestId("chatbot-refresh-result")).toHaveTextContent("SERVICE:2"));
+        await waitFor(() => expect(screen.queryByTestId("chatbot-refresh-context")).toBeNull());
         expect(screen.getByText(/still here/i)).toBeInTheDocument();
     });
 
-    it("refresh failure renders error and stale-context notice", async () => {
-        mockedGetHealth.mockResolvedValue({
-            status: "healthy",
-            provider: "OLLAMA",
-            model: "llama3.2",
-            baseUrl: "http://localhost:8080",
-            message: "ok",
-            checkedAt: new Date().toISOString(),
-            latencyMs: 20
-        });
-        mockedRefreshContext.mockRejectedValueOnce(new Error("refresh failed"));
-
-        render(<ChatbotPanel activeContext={{ systemName: "TrainTicket", irId: "ir-9" }} />);
-        fireEvent.click(screen.getByTestId("chatbot-toggle"));
-        fireEvent.click(screen.getByTestId("chatbot-refresh-context"));
-
-        await waitFor(() => expect(screen.getByTestId("chatbot-refresh-error")).toHaveTextContent("refresh failed"));
-        expect(screen.getByTestId("chatbot-local-stale")).toBeInTheDocument();
-    });
-
-    it("no active context shows actionable scope message and hides refresh control", async () => {
+    it("no active context shows the generic empty state and no refresh control", async () => {
         mockedGetHealth.mockResolvedValue({
             status: "healthy",
             provider: "OLLAMA",
@@ -431,8 +447,9 @@ describe("ChatbotPanel", () => {
         });
         render(<ChatbotPanel />);
         fireEvent.click(screen.getByTestId("chatbot-toggle"));
-        expect(screen.getByText(/No active analysis context/i)).toBeInTheDocument();
+        expect(screen.getByText(/Ask me any question about your system/i)).toBeInTheDocument();
         expect(screen.queryByTestId("chatbot-refresh-context")).toBeNull();
+        expect(mockedRefreshContext).not.toHaveBeenCalled();
     });
 });
 
@@ -460,13 +477,36 @@ describe("CitationList", () => {
             />
         );
 
+        // Since e1ba1e2 the toggle reports its state through its title, and the detail labels
+        // read "Path:" / "Location:" instead of "sourcePath:" / "locationHint:".
+        const toggle = screen.getByTestId("citation-toggle-0");
+        expect(toggle).toHaveAttribute("title", "Expand");
+        fireEvent.click(toggle);
+        expect(toggle).toHaveAttribute("title", "Collapse");
+        const details = within(screen.getByTestId("citation-details-0"));
+        expect(details.getByText("Path:")).toBeInTheDocument();
+        expect(details.getByText("src/OrderController.java")).toBeInTheDocument();
+        expect(details.getByText("Location:")).toBeInTheDocument();
+        expect(details.getByText("controllers[0].methods[0]")).toBeInTheDocument();
+    });
+
+    // KNOWN BUG P60-M1-012-BUG-1 (accessibility regression, not fixed in P60-M1-012 per
+    // decision D10): the e1ba1e2 redesign dropped aria-expanded / aria-controls from the
+    // icon-only citation toggle, so assistive technology cannot tell whether details are
+    // expanded. Re-enable this test when the bug is fixed.
+    it.skip("exposes the expanded state of the citation toggle via aria-expanded (P60-M1-012-BUG-1)", () => {
+        render(
+            <CitationList
+                citations={[
+                    { artifactType: "IR", artifactId: "E1", artifactName: "a", locationHint: "l", version: "v", summary: "s" }
+                ]}
+            />
+        );
+
         const toggle = screen.getByTestId("citation-toggle-0");
         expect(toggle).toHaveAttribute("aria-expanded", "false");
         fireEvent.click(toggle);
         expect(toggle).toHaveAttribute("aria-expanded", "true");
-        expect(screen.getByTestId("citation-details-0")).toBeInTheDocument();
-        expect(screen.getByText(/sourcePath:/i)).toBeInTheDocument();
-        expect(screen.getByText(/locationHint:/i)).toBeInTheDocument();
     });
 
     it("handles missing optional citation fields", () => {

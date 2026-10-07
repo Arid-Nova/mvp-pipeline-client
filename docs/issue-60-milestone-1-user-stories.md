@@ -324,7 +324,35 @@ P60-M1-011 must cover T1, T12, and T15 against the real page. There is no `Pipel
 **Definition of Done**
 - The spike-result block below is filled in, the proof test is merged if Outcome A, and P60-M1-011 has been updated to the chosen strategy.
 
-> **Spike result (fill in when complete):** Outcome A/B · mocks required · blockers (file:line) · recommendation (if B) · confirmed P60-M1-011 estimate.
+> **Spike result (completed 2026-10-07): Outcome A, feasible.** The real `PipelinePage` renders and can be driven under the existing CRA 5 / Jest 27 / RTL 13 setup with module-level mocks only. No pipeline component, `PipelinePage` internals, or production code was mocked or changed, and no test IDs were added.
+>
+> - **Proof test:** `frontend/src/components/pipeline/PipelinePage.harness.test.tsx` (6 tests, all passing). The harness is `frontend/src/components/pipeline/__testutils__/renderPipelinePage.tsx`. Probes:
+>   1. The page renders, with the toolbox and a disabled **Run Pipeline**.
+>   2. The chatbot opens.
+>   3. The "Architecture Reconstruction" template puts 4 cards and 3 connections on the canvas.
+>   4. **Run** reaches the existing "System Name and at least one Repository URL are required." check.
+>   5. *(Stretch, done.)* System Source configured through its inputs → **Run** → mocked `fetchIRFromRepo` called → Generate Snapshot logs "IR generated."
+>   6. An isolation check.
+>
+>   Each test also passes on its own.
+> - **Mocks and shims required** (all module-level, documented in the harness header):
+>   - **`services/api`:** a factory mock with every export as `jest.fn`, plus inert defaults for mount-time calls (`getChatbotHealth`, `refreshChatbotContext`, `checkGitHubTokenStatus`, `getAvailableSessions`). It must be a factory, never an automock: the real module imports `axios` 1.12.2, which ships as ESM and can't be loaded by Jest 27.
+>   - **`analytics/posthog`:** `track` is a `jest.fn`; everything else is real.
+>   - **Resolution shims (not behaviour mocks):**
+>     - `react-router-dom` 7.9.1 declares `"main": "./dist/main.js"`, which doesn't exist. Its real entry points, and its `react-router/dom` subpath, are only in the `exports` map, which Jest 27 doesn't read. The shims load the real files and polyfill `TextEncoder`/`TextDecoder`, which React Router 7 needs and Jest 27's jsdom lacks.
+>     - `date-fns/{format,isValid,formatDistanceToNow}` resolve to ESM `.js` files under Jest 27; the shims load the published `.cjs` builds.
+>   - **Wrappers and environment:** `MemoryRouter` at `/pipeline`; a fresh `QueryClientProvider` (`SystemInputCard` uses react-query); `sessionStorage` cleared; `localStorage.pipeline_feedback_handled = 'true'` so the 15-minute feedback timer (`PipelinePage.tsx:320`) never starts; `window.confirm` stubbed to `true` for the existing **Clear All**.
+>   - **`react-joyride`:** didn't need mocking (3.1.0 ships CommonJS, and the tour doesn't run).
+> - **Isolation caveat:**
+>   - `PipelinePage` keeps canvas state in a module-level `inMemoryPipelineCache` (`PipelinePage.tsx:70`) that survives unmounts.
+>   - The harness empties the canvas through the existing toolbar **Clear All** before each test.
+>   - Verified: with that reset disabled, the isolation test fails because state leaks between tests.
+>   - P60-M1-011 tests must start through `renderPipelinePage()`.
+> - **Runtime:** the harness file runs in ≈2.3–2.7 s for 6 tests; the full frontend suite (`ChatbotPanel.test.tsx` + harness) takes ≈3.0 s.
+> - **Known noise (non-blocking):** about 6 console warnings per harness run: `act()` warnings from `ChatbotPanel`'s async health and context-refresh updates, and the `ReactDOMTestUtils.act` deprecation from RTL 13 on React 18.3. The existing `ChatbotPanel.test.tsx` produces the same kinds.
+> - **Blockers:** none. **Risk to note:** the root cause of the friction is that Jest 27 (CRA 5) doesn't support package `exports`. Any new `exports`-only or ESM-only dependency added under `PipelinePage` will need another shim in the harness, or a later test-config change such as `moduleNameMapper` or a custom resolver. That isn't done or authorized here.
+> - **Recommendation:** none needed (Outcome A). Decision R2 is resolved: no production refactor of `PipelinePage` is needed for testing.
+> - **P60-M1-011:** proceeds on the Outcome A path, building `PipelinePlanning.integration.test.tsx` on `renderPipelinePage()` and `mockedApi`. **Estimate of 3 points confirmed.**
 
 ---
 

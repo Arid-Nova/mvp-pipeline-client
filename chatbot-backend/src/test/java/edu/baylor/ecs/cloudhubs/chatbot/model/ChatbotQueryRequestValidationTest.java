@@ -35,12 +35,27 @@ class ChatbotQueryRequestValidationTest {
         ChatbotQueryRequest request = new ChatbotQueryRequest(
             "Which services changed in this commit?",
             new ChatbotContext("TrainTicket", "ir-1", "index-1", "run-1", "abc123", "order-service", "GET /orders", null),
-            "conv-2",
+            "3f2b8c1e-9a4d-4e6f-b1c2-7d8e9f0a1b2c",
             List.of(new ChatbotMessage("user", "previous turn"))
         );
 
         Set<ConstraintViolation<ChatbotQueryRequest>> violations = validator.validate(request);
         assertThat(violations).isEmpty();
+    }
+
+    @Test
+    void rejectsMalformedConversationId() {
+        ChatbotQueryRequest request = new ChatbotQueryRequest(
+            "Which services changed in this commit?",
+            null,
+            "conv-2",
+            null
+        );
+
+        Set<ConstraintViolation<ChatbotQueryRequest>> violations = validator.validate(request);
+        assertThat(violations)
+            .extracting(ConstraintViolation::getMessage)
+            .containsExactly("conversationId must be a valid UUID.");
     }
 
     @Test
@@ -83,13 +98,13 @@ class ChatbotQueryRequestValidationTest {
         ChatbotQueryRequest request = new ChatbotQueryRequest(
             "Summarize this run.",
             null,
-            "conv-3",
+            "7c1d2e3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f",
             messages
         );
 
         Set<ConstraintViolation<ChatbotQueryRequest>> violations = validator.validate(request);
         assertThat(violations)
             .extracting(ConstraintViolation::getMessage)
-            .contains("messages supports at most 8 prior turns.");
+            .containsExactly("messages supports at most 8 prior turns.");
     }
 }
