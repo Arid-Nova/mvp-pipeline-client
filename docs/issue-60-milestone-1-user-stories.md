@@ -503,7 +503,65 @@ These numbers come from P60-M1-006: `PLAN_TOTAL_BUDGET_MS` = 150 s and `MAX_PLAN
 **Definition of Done**
 - The result block is filled in, the decision has been reviewed by the team, and the P60-M1-005 defaults have been updated to match.
 
-> **Spike result (fill in when complete):** Ollama version · hardware · model(s) · results table · threshold pass/fail · decision A/B/C/D · provisional P60-M1-005 settings.
+> **Spike result (completed 2026-10-07): Decision D. No tested local model reaches the G1 threshold. Pause before P60-M1-006/008 and replan.**
+>
+> - **Setup:**
+>   - Harness: `frontend/src/components/pipeline/planning/__spike__/localModelFeasibility.live.test.ts`, skipped unless `RUN_LIVE_LLM=1`.
+>   - Catalog: the real `buildPipelineCapabilityCatalog()`, `catalogVersion = pcat-0861a6885a178a` (17 cards, inputs `SYSTEM_INPUT`/`UPLOAD_IR`).
+>   - Prompt: v1 draft, 6,622 characters, built entirely from the catalog. It includes allowed edges, structural requirements, the schema, the exactly-three and focused/balanced/comprehensive instruction, and two template examples (`arch-reconstruction`, `auth-test-generation`).
+>   - Settings: `format: "json"`, `num_ctx` 8192, `num_predict` 2048, temperature 0.4.
+>   - Evaluator: a temporary one inside the spike file, reporting syntax and semantic failures separately. P60-M1-002/003 don't exist yet.
+> - **Hardware:** Apple M4, 10 cores, 24 GB RAM, macOS 26.6.2. Docker Desktop VM: 10 CPUs, 8.3 GB, **CPU-only inference** (no GPU passthrough on macOS).
+> - **Models and runtimes measured:**
+>   1. **Reference:** `llama3.2` (3.2B, Q4_K_M) in the compose container `cloudhub_ollama`, Ollama **0.23.4**, reached at `http://[::1]:11434`.
+>   2. **Decision C larger model:** `llama3.1:8b` on the host's native Ollama **0.35.1** (Metal GPU), at `http://127.0.0.1:11434`. This changes the model and the runtime at the same time; a native macOS Ollama also listens on 127.0.0.1:11434, so `localhost` is ambiguous on this machine.
+>
+>   Both ran the full matrix: G1×5, G2–G5×3, G1×2 with JSON mode off, and one retry for every G1 run without a usable set.
+>
+> | Signal (17 main runs) | Early threshold | `llama3.2` (container, CPU) | `llama3.1:8b` (native, Metal) |
+> |---|---|---|---|
+> | Structured output (JSON parses) | ≥ 80% | **100% ✓** | **100% ✓** |
+> | ≥ 3 candidate structures before filtering | ≥ 60% | **12% ✗** (2/17)¹ | **100% ✓** (17/17) |
+> | G1: 3 valid, distinct after ≤ 1 retry | ≥ 3/5 | **0/5 ✗** (best: 2) | **0/5 ✗** (best: 2) |
+> | Per-call p95 (main + retry calls, n=22) | ≤ 75 s | **91.7 s ✗** (p50 51.2 s, max 111.8 s) | **61.3 s ✓** (p50 48.3 s, max 64.0 s) |
+> | Prompt usage of `num_ctx` | ≤ 75% | **33% ✓** (max 2,688 / 8,192 tokens) | **34% ✓** (max 2,757 / 8,192) |
+> | Runs with any usable 3-set | — | 0/17 | 0/17 |
+> | Valid candidates / well-formed candidates | — | 6/20 (30%) | 11/51 (22%) |
+> | Output truncated (`done_reason: length`) | — | 0 | 0 (max 1,316 output tokens) |
+>
+> ¹ `llama3.2` usually returned one candidate in `candidates` and put the other options under extra top-level `focused`/`balanced`/`comprehensive` keys, violating the schema. Even counted leniently, only 8/17 runs (47%) had three structures.
+>
+> - **Most common semantic rejections:** for `llama3.2` / `llama3.1:8b` respectively:
+>   - `ILLEGAL_CONNECTION`: 22 / 46.
+>   - `INPUT_REQUIREMENT_UNMET`: 21 / 27.
+>   - Graph-shape failures, `NOT_CONNECTED` / `MISSING_UPSTREAM` / `UNREACHABLE_NODE`: 9 each for `llama3.2`; 2–3 each for `llama3.1:8b`.
+>   - The larger model's illegal edges are systematic. It places Get Components after the snapshot chain: `MULTI_REPO→COMPONENT_GENERATE` 14×, `IR_HOLDER→COMPONENT_GENERATE` 10×, `COMPONENT_GENERATE→IR_HOLDER` 7×. The catalog allows only `SYSTEM_INPUT→COMPONENT_GENERATE`.
+>   - Both models often leave out the required inputs of Scenario Generation (Component Card), Quick Compare (FV + Scenario Generation), and Policy Drift (exactly two FV).
+>   - No config-like fields were emitted by `llama3.1:8b`; `llama3.2` emitted 6 extra fields.
+> - **JSON mode:** keep it on. In the JSON-off control, `llama3.2` produced prose with no JSON in 1 of 2 runs; `llama3.1:8b` produced JSON both times.
+> - **Retry:** the single bounded retry never produced a usable set. It raised `llama3.1:8b`'s distinct valid count by at most one per run.
+> - **Why D, not B or C:**
+>   - `llama3.2` failed latency, candidate volume, and G1, which is C. C requires measuring a larger model.
+>   - `llama3.1:8b` passes structure, volume, latency (on native Metal), and context, but still scores 0/5 on G1.
+>   - Under the frozen definition this is **D**, so no tuning iteration was run.
+> - **Evidence for the replanning discussion:**
+>   - `llama3.1:8b`'s failure profile is concentrated in a few error patterns and has near misses: candidates often one edge away from valid. That's the shape B was designed for.
+>   - The harness already contains a catalog-derived tuning prompt (`LIVE_LLM_PROMPT=v2`: incoming-edge restatement plus an edge self-check), which was **not run**.
+>   - The cheapest next experiment, *only with explicit team approval*, is one v2 run of `llama3.1:8b` with `LIVE_LLM_PLAN=g1` (about 10 minutes).
+>   - Alternatives raised in §5 remain for the team: the model chooses analysis goals and deterministic code composes the graphs; or a GPU-backed or native Ollama runtime.
+>   - The 75 s per-call budget isn't achievable for the compose container on macOS (CPU only) with either model size.
+> - **Provisional P60-M1-005 settings, if work resumes:**
+>   - `format: "json"` on;
+>   - `num_ctx` 8192 (peak usage 34%; 4096 would leave little room for retries);
+>   - `num_predict` 2048 (peak output 1,316 tokens, never truncated);
+>   - temperature 0.4 (unchanged; not a factor in the failures);
+>   - per-call timeout 75 s only on a GPU or native runtime. On the CPU-only compose container, p95 is 92 s, so the 150 s two-attempt budget can't hold.
+>   - Reference model: **unresolved (R1)**. `llama3.2` is not adequate; `llama3.1:8b` meets everything except G1.
+> - **Raw data:** per-run JSON results, including prompts and model outputs, were written outside the repository (`LIVE_LLM_RESULTS_DIR`). Re-run with:
+>
+>   ```
+>   RUN_LIVE_LLM=1 OLLAMA_BASE_URL=... OLLAMA_MODEL=... CI=true npm test -- --watchAll=false localModelFeasibility
+>   ```
 
 ---
 
