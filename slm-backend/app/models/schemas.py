@@ -6,9 +6,11 @@ class SummaryStep(BaseModel):
     description: str = Field(..., description="The detailed CoT summary of the results.")
     branchNames: Optional[List[str]] = Field(default=[], description="Names of parallel branches involved in this step.")
 
+
 class PipelineSummaryRequest(BaseModel):
     nodes: List[Dict[str, Any]] = Field(..., description="The sanitized pipeline nodes containing execution results.")
     connections: List[Dict[str, Any]] = Field(..., description="The directed edges representing the pipeline's execution flow.")
-
+    userId: str = Field(..., description="User ID to fetch LLM config from backend.")
+        
 class PipelineSummaryResponse(BaseModel):
     steps: List[SummaryStep] = Field(..., description="The stepped summary of the non-linear pipeline execution.")

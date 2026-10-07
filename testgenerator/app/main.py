@@ -1,10 +1,9 @@
 import re
 import asyncio
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-
-from dotenv import load_dotenv
 
 from .models.schemas import (
     TestGenerationRequest,
@@ -12,6 +11,7 @@ from .models.schemas import (
     TestSuiteItem,
     GenerationFailure,
 )
+from .services.outbound import get_config
 from .services.llm_factory import LLMFactory
 
 load_dotenv()
@@ -53,10 +53,14 @@ async def process_single_prompt(provider, item):
 @app.post("/testsuites/generate", response_model=TestGenerationResponse, 
           responses={400: {"description": "Invalid LLM model or request"}, 
                      500: {"description": "Internal Server Error"}})
+
 async def generate_testsuites(request: TestGenerationRequest):
     try:
+        # 0. Fetch LLM config from backend
+        llm_uri, llm_token = get_config(request.userId, request.provider)
+        
         # 1. Instantiate the correct provider using the Factory
-        provider = LLMFactory.get_provider(request.llm_model)
+        provider = LLMFactory.get_provider(request.llm_model, llm_uri, llm_token)
         
         # 2. Creating asynchronous tasks for all prompts
         tasks = [process_single_prompt(provider, item) for item in request.prompts]
@@ -82,7 +86,6 @@ async def generate_testsuites(request: TestGenerationRequest):
             failed=len(failures),
             errors=failures,
         )
-        
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
