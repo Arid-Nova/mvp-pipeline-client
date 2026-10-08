@@ -184,6 +184,8 @@ interface OllamaChatResult {
     promptEvalMs: number | null;
     evalCount: number | null;
     evalMs: number | null;
+    /** Length of message.thinking for reasoning models (thinking tokens are included in evalCount). */
+    thinkingChars: number | null;
     error: string | null;
 }
 
@@ -230,7 +232,7 @@ const chat = async (messages: { role: string; content: string }[], jsonMode: boo
         });
         const wallMs = Date.now() - started;
         if (status !== 200) {
-            return { content: '', wallMs, doneReason: null, totalDurationMs: null, loadDurationMs: null, promptEvalCount: null, promptEvalMs: null, evalCount: null, evalMs: null, error: `HTTP ${status}: ${text.slice(0, 200)}` };
+            return { content: '', wallMs, doneReason: null, totalDurationMs: null, loadDurationMs: null, promptEvalCount: null, promptEvalMs: null, evalCount: null, evalMs: null, thinkingChars: null, error: `HTTP ${status}: ${text.slice(0, 200)}` };
         }
         const body = JSON.parse(text);
         return {
@@ -243,10 +245,11 @@ const chat = async (messages: { role: string; content: string }[], jsonMode: boo
             promptEvalMs: nsToMs(body?.prompt_eval_duration),
             evalCount: typeof body?.eval_count === 'number' ? body.eval_count : null,
             evalMs: nsToMs(body?.eval_duration),
+            thinkingChars: typeof body?.message?.thinking === 'string' ? body.message.thinking.length : null,
             error: null,
         };
     } catch (e: any) {
-        return { content: '', wallMs: Date.now() - started, doneReason: null, totalDurationMs: null, loadDurationMs: null, promptEvalCount: null, promptEvalMs: null, evalCount: null, evalMs: null, error: String(e?.message || e) };
+        return { content: '', wallMs: Date.now() - started, doneReason: null, totalDurationMs: null, loadDurationMs: null, promptEvalCount: null, promptEvalMs: null, evalCount: null, evalMs: null, thinkingChars: null, error: String(e?.message || e) };
     }
 };
 
@@ -265,6 +268,9 @@ interface CandidateEvaluation {
     shapeIssues: string[];
     ignoredFields: string[];
     issues: string[]; // semantic rule codes
+    /** Reporting detail for ILLEGAL_CONNECTION / INPUT_REQUIREMENT_UNMET (same rules, no extra checks). */
+    illegalEdges: string[];
+    unmetRequirements: string[];
     valid: boolean;
     analysisSet: string | null;
     signature: string | null;
@@ -338,8 +344,16 @@ const checkShape = (raw: unknown): { spec: SpecLike | null; issues: string[]; ig
     return { spec: issues.length === 0 ? { nodes, edges } : null, issues, ignoredFields };
 };
 
-const evaluateSemantics = (spec: SpecLike, catalog: PipelineCapabilityCatalog): string[] => {
+interface SemanticEvaluation {
+    issues: string[];
+    illegalEdges: string[];
+    unmetRequirements: string[];
+}
+
+const evaluateSemantics = (spec: SpecLike, catalog: PipelineCapabilityCatalog): SemanticEvaluation => {
     const issues = new Set<string>();
+    const illegalEdges: string[] = [];
+    const unmetRequirements: string[] = [];
     const cardByType = new Map(catalog.cards.map((c) => [c.cardType as string, c]));
     const typeOf = new Map<string, string>();
     spec.nodes.forEach((n) => {
@@ -362,7 +376,10 @@ const evaluateSemantics = (spec: SpecLike, catalog: PipelineCapabilityCatalog): 
         if (seen.has(id)) issues.add('DUPLICATE_EDGE');
         seen.add(id);
         const source = cardByType.get(typeOf.get(e.from) as string);
-        if (source && !source.allowedTargets.includes(typeOf.get(e.to) as CardType)) issues.add('ILLEGAL_CONNECTION');
+        if (source && !source.allowedTargets.includes(typeOf.get(e.to) as CardType)) {
+            issues.add('ILLEGAL_CONNECTION');
+            illegalEdges.push(`${typeOf.get(e.from)}->${typeOf.get(e.to)}`);
+        }
         incoming.set(e.to, [...(incoming.get(e.to) || []), e.from]);
         outgoing.set(e.from, [...(outgoing.get(e.from) || []), e.to]);
     });
@@ -380,12 +397,19 @@ const evaluateSemantics = (spec: SpecLike, catalog: PipelineCapabilityCatalog): 
         if (!card.isInput && ups.length === 0) issues.add('MISSING_UPSTREAM');
         const req = card.inputRequirement;
         if (!req) return;
-        if (req.maxIncoming !== undefined && ups.length > req.maxIncoming) issues.add('INPUT_REQUIREMENT_UNMET');
+        if (req.maxIncoming !== undefined && ups.length > req.maxIncoming) {
+            issues.add('INPUT_REQUIREMENT_UNMET');
+            unmetRequirements.push(`${n.cardType} maxIncoming ${req.maxIncoming}`);
+        }
         req.requiresAllOf?.forEach((group) => {
-            if (!ups.some((t) => t !== undefined && (group as string[]).includes(t))) issues.add('INPUT_REQUIREMENT_UNMET');
+            if (!ups.some((t) => t !== undefined && (group as string[]).includes(t))) {
+                issues.add('INPUT_REQUIREMENT_UNMET');
+                unmetRequirements.push(`${n.cardType} needs ${group.join('|')}`);
+            }
         });
         if (req.exactUpstreamCount && ups.filter((t) => t === req.exactUpstreamCount!.type).length !== req.exactUpstreamCount.count) {
             issues.add('INPUT_REQUIREMENT_UNMET');
+            unmetRequirements.push(`${n.cardType} needs exactly ${req.exactUpstreamCount.count} ${req.exactUpstreamCount.type}`);
         }
     });
 
@@ -424,7 +448,7 @@ const evaluateSemantics = (spec: SpecLike, catalog: PipelineCapabilityCatalog): 
     }
 
     if (!spec.nodes.some((n) => cardByType.get(n.cardType)?.isAnalysis)) issues.add('NO_ANALYSIS_CARD');
-    return Array.from(issues).sort();
+    return { issues: Array.from(issues).sort(), illegalEdges, unmetRequirements };
 };
 
 const analysisSetOf = (spec: SpecLike, catalog: PipelineCapabilityCatalog): string => {
@@ -469,15 +493,17 @@ const evaluateResponse = (content: string, catalog: PipelineCapabilityCatalog): 
     result.candidates = root.candidates.map((raw: unknown, index: number): CandidateEvaluation => {
         const shape = checkShape(raw);
         if (!shape.spec) {
-            return { index, shapeOk: false, shapeIssues: shape.issues, ignoredFields: shape.ignoredFields, issues: [], valid: false, analysisSet: null, signature: null, cardTypes: [] };
+            return { index, shapeOk: false, shapeIssues: shape.issues, ignoredFields: shape.ignoredFields, issues: [], illegalEdges: [], unmetRequirements: [], valid: false, analysisSet: null, signature: null, cardTypes: [] };
         }
-        const issues = evaluateSemantics(shape.spec, catalog);
+        const { issues, illegalEdges, unmetRequirements } = evaluateSemantics(shape.spec, catalog);
         return {
             index,
             shapeOk: true,
             shapeIssues: [],
             ignoredFields: shape.ignoredFields,
             issues,
+            illegalEdges,
+            unmetRequirements,
             valid: issues.length === 0,
             analysisSet: analysisSetOf(shape.spec, catalog),
             signature: signatureOf(shape.spec),
@@ -634,6 +660,13 @@ describeLive('P60-M1-014 live local-model feasibility', () => {
             });
         });
 
+        const mainCandidates = [...main.flatMap((r) => r.evaluation.candidates), ...main.flatMap((r) => r.retry?.evaluation.candidates ?? [])];
+        const countBy = (items: string[]) =>
+            Object.entries(items.reduce<Record<string, number>>((acc, item) => ({ ...acc, [item]: (acc[item] || 0) + 1 }), {}))
+                .sort((a, b) => b[1] - a[1])
+                .map(([item, count]) => `${item} x${count}`);
+        const planningTotals = main.map((r) => r.call.wallMs + (r.retry ? r.retry.call.wallMs : 0));
+
         const summary = {
             catalogVersion: catalog.catalogVersion,
             ollamaBaseUrl: BASE_URL,
@@ -641,7 +674,8 @@ describeLive('P60-M1-014 live local-model feasibility', () => {
             model: MODEL,
             settings: { numCtx: NUM_CTX, numPredict: NUM_PREDICT, temperature: TEMPERATURE, promptVariant: PROMPT_VARIANT, plan: PLAN },
             systemPromptChars: systemPrompt.length,
-            warmup: { wallMs: warmup.wallMs, loadDurationMs: warmup.loadDurationMs, promptEvalCount: warmup.promptEvalCount },
+            // Cold start is isolated in the uncounted warm-up call; all measured calls below are warm.
+            warmup: { wallMs: warmup.wallMs, loadDurationMs: warmup.loadDurationMs, promptEvalCount: warmup.promptEvalCount, doneReason: warmup.doneReason },
             mainRuns: main.length,
             jsonParseRate: main.filter((r) => r.evaluation.jsonExtracted).length / Math.max(1, main.length),
             jsonDirectRate: main.filter((r) => r.evaluation.jsonDirect).length / Math.max(1, main.length),
@@ -662,6 +696,40 @@ describeLive('P60-M1-014 live local-model feasibility', () => {
             truncatedByLength: mainCalls.filter((c) => c.doneReason === 'length').length,
             callErrors: mainCalls.filter((c) => c.error).map((c) => c.error),
             semanticAndShapeIssueCounts: issueCounts,
+            illegalEdgeCounts: countBy(mainCandidates.flatMap((c) => c.illegalEdges)),
+            unmetRequirementCounts: countBy(mainCandidates.flatMap((c) => c.unmetRequirements)),
+            totalPlanningMs: { n: planningTotals.length, p50: percentile(planningTotals, 50), p95: percentile(planningTotals, 95), max: planningTotals.length ? Math.max(...planningTotals) : null },
+            g1Reps: g1.map((r) => {
+                const first = r.evaluation.candidates;
+                const retryCands = r.retry?.evaluation.candidates ?? [];
+                const all = [...first, ...retryCands];
+                const validAll = all.filter((c) => c.valid);
+                const distinctAll = distinctValid(all);
+                return {
+                    rep: r.rep,
+                    jsonParsed: r.evaluation.jsonExtracted,
+                    rawCandidates: r.evaluation.candidateCount,
+                    validBeforeRetry: first.filter((c) => c.valid).length,
+                    distinctBeforeRetry: r.distinctValidCount,
+                    retryUsed: Boolean(r.retry),
+                    retryJsonParsed: r.retry ? r.retry.evaluation.jsonExtracted : null,
+                    retryRawCandidates: r.retry ? r.retry.evaluation.candidateCount : null,
+                    validAfterRetry: validAll.length,
+                    distinctValidAfterRetry: distinctAll.length,
+                    equivalentValidDropped: validAll.length - distinctAll.length,
+                    usableExactlyThree: distinctAll.length >= 3,
+                    unknownCardErrors: all.filter((c) => c.issues.includes('UNKNOWN_CARD_TYPE')).length,
+                    illegalConnectionErrors: all.filter((c) => c.issues.includes('ILLEGAL_CONNECTION')).length,
+                    requirementErrors: all.filter((c) => c.issues.some((i) => ['INPUT_REQUIREMENT_UNMET', 'MISSING_UPSTREAM', 'MISSING_INPUT', 'UNREACHABLE_NODE'].includes(i))).length,
+                    attempt1WallMs: r.call.wallMs,
+                    retryWallMs: r.retry ? r.retry.call.wallMs : null,
+                    totalPlanningMs: r.call.wallMs + (r.retry ? r.retry.call.wallMs : 0),
+                    attempt1: { promptEvalCount: r.call.promptEvalCount, evalCount: r.call.evalCount, totalDurationMs: r.call.totalDurationMs, doneReason: r.call.doneReason, thinkingChars: r.call.thinkingChars },
+                    retry: r.retry
+                        ? { promptEvalCount: r.retry.call.promptEvalCount, evalCount: r.retry.call.evalCount, totalDurationMs: r.retry.call.totalDurationMs, doneReason: r.retry.call.doneReason, thinkingChars: r.retry.call.thinkingChars }
+                        : null,
+                };
+            }),
             ignoredFieldCount: main.reduce((s, r) => s + r.evaluation.candidates.reduce((t, c) => t + c.ignoredFields.length, 0), 0),
             control: runs
                 .filter((r) => r.phase === 'control')

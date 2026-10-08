@@ -563,6 +563,55 @@ These numbers come from P60-M1-006: `PLAN_TOTAL_BUDGET_MS` = 150 s and `MAX_PLAN
 >   RUN_LIVE_LLM=1 OLLAMA_BASE_URL=... OLLAMA_MODEL=... CI=true npm test -- --watchAll=false localModelFeasibility
 >   ```
 
+> **Post-D model feasibility experiment: `gpt-oss:20b` (2026-10-07). Outcome D20.** This appends to, and doesn't replace, the Decision D evidence above.
+>
+> - **Question:** can a substantially stronger local reasoning model make the original architecture (LLM generates complete graphs → deterministic validation) viable without changing the product design?
+> - **Setup (only the model changed vs the `llama3.1:8b` run):**
+>   - Same harness, same v1 prompt, same evaluator, same settings: `format: "json"`, `num_ctx` 8192, `num_predict` 2048, temperature 0.4.
+>   - Same ≤1-retry rule, applied to G1×5.
+>   - `catalogVersion = pcat-0861a6885a178a`.
+> - **Runtime:**
+>   - Native macOS Ollama **0.40.0**, which auto-updated from 0.35.1 since the `llama3.1:8b` run, at `http://127.0.0.1:11434`. That server binds IPv4 loopback only; the compose container answers on `[::1]`, so the two can't be confused.
+>   - Model tag **`gpt-oss:20b`** (20.9B, MXFP4, capabilities `completion/tools/thinking`), fully resident in GPU memory (`size_vram` = `size` = 12.7 GB; Metal).
+>   - Apple M4, 24 GB.
+>   - Cold start: smoke-test load 16.3 s; the uncounted warm-up call took 90.6 s, including a 7.9 s load.
+>
+> | G1 rep | JSON parsed | Raw candidates | Valid before retry | Retry used | Valid after retry | Distinct valid | Usable 3-set | Attempt 1 | Retry | Total planning |
+> |---|---|---|---|---|---|---|---|---|---|---|
+> | 1 | no | 0 | 0 | yes | 0 | 0 | **no** | 81.6 s | 82.1 s | 163.7 s |
+> | 2 | no | 0 | 0 | yes | 0 | 0 | **no** | 81.6 s | 80.8 s | 162.4 s |
+> | 3 | no | 0 | 0 | yes | 0 | 0 | **no** | 80.1 s | 79.5 s | 159.6 s |
+> | 4 | no | 0 | 0 | yes | 0 | 0 | **no** | 79.3 s | 79.9 s | 159.2 s |
+> | 5 | no | 0 | 0 | yes | 0 | 0 | **no** | 81.3 s | 79.4 s | 160.6 s |
+>
+> - **Results:**
+>   - G1 usable sets: **0/5 before retry, 0/5 after ≤1 retry.**
+>   - JSON success: **0/10 calls.** Candidate volume: 0%.
+>   - Unknown-card, illegal-connection, and requirement errors: **none, because no candidate was ever produced.**
+>   - `prompt_eval_count` 1,601 (retry 1,648; 20% of `num_ctx`).
+> - **Failure mode:**
+>   - Every call ended with `done_reason: "length"`. The model used its whole `num_predict` 2048 budget (`eval_count` = 2048) on its internal reasoning trace (`message.thinking`, about 8,100–9,000 characters per call) and returned **empty content**.
+>   - So this run does **not** show whether `gpt-oss:20b` can solve the graph rules; it never emitted a graph.
+>   - It shows that, under the planned settings, the model can't produce an answer at all.
+> - **Latency:**
+>   - Warm per-call p50 **80.1 s**, p95 **82.1 s** (n=10); total planning p50 **160.6 s**, p95 **163.7 s**. Generation runs at about 25.6 tokens/s; prompt evaluation takes about 0.1 s.
+>   - Even these truncated calls exceed the **75 s per-call** and **150 s total** budgets.
+>   - A complete answer needs more than 2,048 reasoning tokens plus the JSON (600–1,300 tokens for three candidates in the earlier runs), so at least about 115 s per call on this hardware.
+>   - The budget can't be met by raising `num_predict`.
+> - **v2 not run.** The rule allows v2 only when failures are concentrated semantic mistakes that v2 addresses. These failures are reasoning-token exhaustion, which v2 doesn't address.
+> - **One untested knob, for the record only:** Ollama exposes a reasoning-effort setting for `gpt-oss` (`think: "low"`). Testing it would change the planned settings and needs explicit team approval. The per-call latency budget would remain at risk at about 25.6 tokens/s.
+> - **Recommendation:** with D (`llama3.2`, `llama3.1:8b`: graph-rule failures) plus D20 (`gpt-oss:20b`: no output within budget), stop model and prompt experimentation. Move to the fallback raised in Decision D: **LLM intent selection plus a deterministic pipeline composer**, keeping deterministic validation authoritative. This needs a planning revision before P60-M1-002+ continues.
+>
+> | Metric | `llama3.2` (container, CPU) | `llama3.1:8b` (native, Metal) | `gpt-oss:20b` (native, Metal) |
+> |---|---|---|---|
+> | Ollama | 0.23.4 | 0.35.1 | 0.40.0 |
+> | JSON success | 100% (17/17) | 100% (17/17) | **0%** (0/10, all truncated) |
+> | Candidate-volume success | 12% | 100% | 0% |
+> | G1 usable sets (≤1 retry) | 0/5 | 0/5 | **0/5** |
+> | Dominant illegal edges | `IR_HOLDER→SCENARIO_GENERATE`, `IR_HOLDER→TEST_EXECUTOR`, `IR_HOLDER→PROMPT_GENERATE` | `MULTI_REPO→COMPONENT_GENERATE` ×14, `IR_HOLDER→COMPONENT_GENERATE` ×10, `COMPONENT_GENERATE→IR_HOLDER` ×7 | none (no output) |
+> | Missing-input failures (`INPUT_REQUIREMENT_UNMET`) | 21 | 27 | none (no output) |
+> | p50 / p95 call latency | 51.2 s / 91.7 s | 48.3 s / 61.3 s | 80.1 s / 82.1 s (truncated calls) |
+
 ---
 
 ### P60-M1-002 — `PipelineSpec` v1 contract and strict parser
