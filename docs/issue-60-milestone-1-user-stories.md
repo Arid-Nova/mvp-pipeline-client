@@ -4,7 +4,7 @@
 **Milestone:** 1 — Chatbot-assisted creation of a new analysis pipeline
 **Story prefix:** `P60-M1-xxx`
 **Baseline inspected:** branch `60-can-produce-or-edit-a-pipeline-automatically-using-the-chatbot` @ `3aee1b0`
-**Revision:** 6 (product decisions frozen before implementation; see §0 and §11)
+**Revision:** 7 (architectural pivot: LLM intent selection plus a deterministic composer; see §4 and §11)
 
 ---
 
@@ -19,13 +19,14 @@ These decisions are settled. Implementation shouldn't reopen them; changing one 
 | D3 | Exactly three suggestions | **Frozen** | Exactly 3 selectable suggestions, all structurally valid and meaningfully distinct (different analysis-card sets, not just different text). Never show invalid, partly validated, or raw LLM options, or 1–2 suggestions as a degraded success. Fewer than 3 after the bounded retry → the typed failure (P60-M1-004/006/009) |
 | D4 | Explicit user selection | **Frozen** | The user chooses 1, 2, or 3. No auto-apply and no preselection based on model confidence, tier ("Balanced"), past behaviour, size, or ranking. Tier labels are informational only (P60-M1-004/008) |
 | D5 | Auto-run | **Out of scope** | Apply only builds the graph and shows configuration guidance. The user presses the **existing Run**. The chatbot never runs, triggers Run, or executes cards; "Use this pipeline" ≠ "Use and Run" (§10) |
-| D6 | Model-supplied runtime config | **Out of scope** | `PipelineSpec` v1 has graph structure and explanatory text only. The model can't supply repositories, system name, IR uploads, target URLs, execution model, tokens or credentials, card data, IDs, or coordinates; the parser strips such fields. The UI tells the user what still needs configuring (P60-M1-002, §10) |
-| D7 | Validation authority | **Frozen** | LLM output is advisory and untrusted. Deterministic code is authoritative for card types, connections, required inputs, reachability, structural limits, duplicate edges, candidate identity, deduplication and diversity, and apply-time re-validation. Prompting is never sufficient validation (§4, P60-M1-003) |
+| D6 | Model-supplied runtime config | **Out of scope** | The model supplies only an intent plan: analysis capabilities and explanatory text (P60-M1-015). It can't supply repositories, system name, IR uploads, target URLs, execution model, tokens or credentials, card data, IDs, coordinates, nodes, or edges; the parser strips such fields. `PipelineSpec` v1 is built by deterministic code and holds graph structure and explanatory text only. The UI tells the user what still needs configuring (P60-M1-002, §10) |
+| D7 | Validation authority | **Frozen** | LLM output is advisory and untrusted. Deterministic code is authoritative for capability IDs, graph composition, card types, connections, required inputs, reachability, structural limits, duplicate edges, candidate identity, deduplication and diversity, and apply-time re-validation. Prompting is never sufficient validation (§4, P60-M1-003, P60-M1-015, P60-M1-017) |
 | D8 | Execution guarantee | **Frozen** | Guaranteed: structural validity, deterministic conversion to the canvas, compatibility with the existing execution path. Not guaranteed: every analysis completing, runtime dependencies being available, user configuration being correct, downstream services succeeding (§4, §7 criterion 6) |
 | D9 | Telemetry and preference learning | **Non-blocking / out of scope** | Lightweight selection telemetry (P60-M1-010, P1) is desirable but **not** required for Milestone 1 completion. Preference learning, model-weight updates, and personalized ranking are not part of Milestone 1 |
 | D10 | Stale chatbot tests (P60-M1-012) | **Frozen policy** | Per failing test: compare it with the *currently intended* UI. If the change was intentional, update or remove the test. If the UI is actually broken, log a separate product bug and don't change production behaviour in this story. Record each disposition in the PR. Old tests aren't product requirements just because they exist |
-| R1 | Reference and demo local model | **Risk-gated** | Decided by P60-M1-014 (outcome A/B/C/D), starting from the configured default (`llama3.2` on Ollama). This is a runtime choice and doesn't change product scope. After P60-M1-014, the team records the reference model |
-| R2 | E2E test strategy | **Risk-gated** | Decided by P60-M1-013 (Outcome A/B). **No production refactor of `PipelinePage` is authorized solely for testing until P60-M1-013 shows it's necessary and the team explicitly approves it** |
+| D11 | Planning architecture | **Frozen (Revision 7)** | The LLM selects **what** to analyse: three intent options, each a list of analysis capabilities. Deterministic TypeScript code builds **how** they are wired: composer → validator → candidate set. The LLM never supplies graph nodes, edges, prerequisite cards, IDs, coordinates, or config. Milestone 1 doesn't depend on any commercial API or on `gpt-oss:20b`. Evidence: P60-M1-014 (Decision D, post-D D20) |
+| R1 | Reference and demo local model | **Risk-gated** | Decided by the intent-selection spike **P60-M1-016**, starting from `llama3.2` on Ollama. (P60-M1-014 measured the superseded graph-generation task and is complete.) This is a runtime choice and doesn't change product scope. After P60-M1-016, the team records the reference model |
+| R2 | E2E test strategy | **Resolved** | P60-M1-013 returned Outcome A: the real `PipelinePage` is testable with module-level mocks. **No production refactor of `PipelinePage` is authorized solely for testing** |
 | R3 | llama.cpp JSON or grammar support | **Non-blocking** | The local-LLM abstraction stays compatible with all adapters. The reference provider may be Ollama. Without JSON mode, llama.cpp uses tolerant extraction (P60-M1-005). Not a Milestone 1 blocker, unless the team explicitly chooses llama.cpp as the reference runtime |
 
 **Implementation-tunable parameters (not product decisions).** Developers may tune these from repository or runtime evidence without reopening scope, as long as defaults are safe, important limits are covered by tests, and values are documented where they're defined:
@@ -34,6 +35,8 @@ These decisions are settled. Implementation shouldn't reopen them; changing one 
 - graph size: `SIZE_LIMIT` (node and edge caps);
 - inputs: per-card `maxIncoming`;
 - LLM: prompt token budget, `temperature`, context window (`num_ctx`), number of prompt examples;
+- intent plan: maximum analysis capabilities per option (default 6);
+- composer: deterministic tie-break order, as long as it stays documented and tested;
 - planning time: per-call timeout, `PLAN_TOTAL_BUDGET_MS`, retry timing.
 
 Escalate to a product decision only if a change alters user-visible behaviour or milestone scope (for example, showing fewer than 3 suggestions or allowing larger pipelines than a user could reasonably review).
@@ -44,7 +47,12 @@ Escalate to a product decision only if a change alters user-visible behaviour or
 
 A user who doesn't know AridNova's card vocabulary describes an analysis goal in plain language, for example "I want to visualize the architecture and check authorization problems", in the existing AI Assistant panel on the Pipeline page. The assistant returns exactly three structurally valid and clearly different pipeline suggestions. Each suggestion has a title, a short explanation, the cards it uses, and why it fits. The user picks one, and its cards and connections are applied to the empty pipeline canvas without being dragged or linked by hand. This is a "new pipeline" as defined by the Milestone 1 empty-canvas policy (§3).
 
-The milestone leaves everything after that alone. The user still configures repositories, presses **Run**, and watches results through the current `runPipeline` / `processNextNodes` mechanism in `PipelinePage.tsx`. The language model only *proposes* pipelines. Deterministic TypeScript code checks every proposal against the real `VALID_CONNECTIONS` and card rules before it can be shown, and creates canvas state from validated data only.
+The milestone leaves everything after that alone. The user still configures repositories, presses **Run**, and watches results through the current `runPipeline` / `processNextNodes` mechanism in `PipelinePage.tsx`.
+
+The language model only decides **what** to analyse: it picks three sets of analysis capabilities (focused, balanced, comprehensive) and explains them. Deterministic TypeScript code decides **how** they are wired:
+- it composes each set into a pipeline graph using the real `VALID_CONNECTIONS` and card rules;
+- it validates every graph before it can be shown;
+- it creates canvas state from validated data only.
 
 The planner guarantees that the applied graph is **structurally valid**. It also guarantees the graph is **operationally runnable**: once the user supplies the required configuration and the AridNova services it uses are available, it enters the existing Run path just like a hand-built pipeline. It does **not** guarantee that every analysis in every generated pipeline completes successfully in every environment (see "Validity, runnability, and execution" in §4).
 
@@ -56,18 +64,20 @@ The planner guarantees that the applied graph is **structurally valid**. It also
 
 **System:**
 
-1. Calls the new planning endpoint on `chatbot-backend` (`POST /chatbot/pipeline/plan`, port 8081). That endpoint prompts the configured local LLM (Ollama `llama3.2` by default) with a capability catalog built from the frontend's pipeline config.
-2. Parses the model output, then validates every candidate in the browser against `CardType`, `VALID_CONNECTIONS`, and the new explicit card input requirements. It drops invalid or near-duplicate candidates and retries once, with feedback, if fewer than three distinct valid ones are left.
-3. Shows three suggestion cards. The examples below are illustrative: each chain was checked by hand against `VALID_CONNECTIONS` at `3aee1b0`, but real output depends on the model.
+1. Calls the new intent-selection endpoint on `chatbot-backend` (`POST /chatbot/pipeline/intents`, port 8081). It prompts the configured local LLM (Ollama `llama3.2` by default, subject to P60-M1-016) with the **analysis capabilities** from the catalog. The model returns three intent options; each names analysis capabilities only, with a title, summary, and rationale.
+2. Parses the intent options in the browser, keeping only catalog capabilities with `isAnalysis = true`.
+3. Composes each option into a pipeline graph with the deterministic composer, which adds every prerequisite card and edge from `VALID_CONNECTIONS`, `CARD_INPUT_REQUIREMENTS`, and the shipped templates.
+4. Validates every composed graph, and checks that the three are meaningfully distinct. If the intent options are malformed, unknown, or duplicates, it retries the model once.
+5. Shows three suggestion cards. The example below is the composer's output for one plausible set of model choices. The analyses chosen depend on the model, but the wiring for a given choice is deterministic, and each chain was checked by hand against `VALID_CONNECTIONS` at `3aee1b0`.
 
-| Tier | Example cards (titles from `CARD_CONFIG`) | Edges, all legal in `VALID_CONNECTIONS` |
+| Tier | Model's choice (analysis capabilities) | Composed cards and edges (all legal in `VALID_CONNECTIONS`) |
 |---|---|---|
-| Focused | System Source → Generate Snapshot → IR Card → System Visualization; IR Card → Formal Verification → Verification Visualization | `SYSTEM_INPUT→MULTI_REPO→IR_HOLDER→VISUALIZATION`, `IR_HOLDER→FORMAL_VERIFY→FORMAL_VIZ` |
-| Balanced | Focused, plus Get Components → Component Card → Scenario Generation, with Formal Verification and Scenario Generation feeding Quick Compare | `+ SYSTEM_INPUT→COMPONENT_GENERATE→COMPONENT_HOLDER→SCENARIO_GENERATE`, `FORMAL_VERIFY→SCENARIO_GENERATE`, `FORMAL_VERIFY→VERIFICATION_COMPARISON`, `SCENARIO_GENERATE→VERIFICATION_COMPARISON` |
-| Comprehensive | Balanced, plus Aegis and LLM Prompter → Test Suite Generation → Test Executor | `+ IR_HOLDER→AEGIS`, `SCENARIO_GENERATE→PROMPT_GENERATE→TEST_GENERATE→TEST_EXECUTOR` |
+| Focused | System Visualization, Formal Verification | `SYSTEM_INPUT→MULTI_REPO→IR_HOLDER→VISUALIZATION`, `IR_HOLDER→FORMAL_VERIFY` (5 cards) |
+| Balanced | Focused + Verification Visualization, Quick Compare | `+ FORMAL_VERIFY→FORMAL_VIZ`; Quick Compare needs Scenario Generation, which needs a Component Card, so the composer adds `SYSTEM_INPUT→COMPONENT_GENERATE→COMPONENT_HOLDER→SCENARIO_GENERATE`, `FORMAL_VERIFY→VERIFICATION_COMPARISON`, `SCENARIO_GENERATE→VERIFICATION_COMPARISON` (10 cards) |
+| Comprehensive | Balanced + Aegis, Test Executor | `+ IR_HOLDER→AEGIS`, `SCENARIO_GENERATE→PROMPT_GENERATE→TEST_GENERATE→TEST_EXECUTOR` (14 cards) |
 
-4. The user clicks **Use this pipeline** on "Balanced". The cards appear in a left-to-right layered layout, joined by connections. The chat then says: "Next: add your repository in *System Source*, then press Run."
-5. The user fills in System Source and presses the existing **Run** button. The generated pipeline enters and uses the same execution path as a hand-built pipeline. The demo uses a known-good repository and running services, so it gets further; that shows this environment working, not a guarantee for every pipeline.
+6. The user clicks **Use this pipeline** on "Balanced". The cards appear in a left-to-right layered layout, joined by connections. The chat then says: "Next: add your repository in *System Source*, then press Run."
+7. The user fills in System Source and presses the existing **Run** button. The generated pipeline enters and uses the same execution path as a hand-built pipeline. The demo uses a known-good repository and running services, so it gets further; that shows this environment working, not a guarantee for every pipeline.
 
 ## 3. Scope
 
@@ -77,15 +87,18 @@ The planner guarantees that the applied graph is **structurally valid**. It also
 - A machine-readable pipeline capability catalog derived from `pipelineConfig.tsx`, with no duplicated hand-written card knowledge in prompts.
 - Making implicit runtime requirements explicit as config. Today they exist only inside `runPipeline` / `processNextNodes`: multi-input dependencies, and the configuration each card needs before it can run.
   - **Validation vs execution:** planner validation checks only structural correctness. User and runtime prerequisites remain execution concerns: repository configuration, an uploaded IR, choices made during a run, and the availability of the analysis services and models. A generated pipeline may need configuration before **Run**. A run that stops because a runtime prerequisite is missing is **not** automatically a planner-validation failure. `REQUIRED_USER_CONFIG` and `RUNTIME_INTERACTION_HINTS` are guidance only.
-- `PipelineSpec` v1: a JSON contract for one candidate pipeline, covering nodes, edges, and descriptive text, with **no** positions, IDs, or config values.
-- A deterministic validator, plus candidate deduplication, diversity checks, deterministic candidate IDs, and enforcement of exactly three candidates.
-- A new planning endpoint in `chatbot-backend` that builds the prompt, calls the LLM, and extracts and parses JSON.
+- `PipelineIntentPlan` v1: the only thing the model returns. It's three intent options, each with a tier, text, and **analysis capability IDs only**, plus a strict frontend parser (P60-M1-015).
+- A deterministic pipeline composer that turns one intent option into a pipeline graph from machine-readable repository facts and template recipes (P60-M1-017/018).
+- `PipelineSpec` v1: the JSON contract for one composed pipeline, covering nodes, edges, and descriptive text, with **no** positions, IDs, or config values. It's produced by the composer, never by the model.
+- A deterministic validator as an independent safety net, plus candidate deduplication, diversity checks, deterministic candidate IDs, and enforcement of exactly three candidates.
+- A new intent-selection endpoint in `chatbot-backend` that builds the capability prompt, calls the LLM, and extracts and shape-checks JSON.
+- A small intent-selection feasibility test against the lightweight local model (P60-M1-016).
 - Suggestion rendering, explicit selection, and cancel or dismiss.
 - A deterministic layout, plus an atomic applier that applies the selected suggestion to the empty pipeline canvas (see "Milestone 1 empty-canvas policy" below).
 - Safe failure for every error path, with canvas state left unchanged.
 - Lightweight, non-blocking PostHog events through the existing `track()`.
 - Restoring the existing chatbot test suites to green, because they are currently failing (see P60-M1-012).
-- Two timeboxed risk-reduction spikes that run before the main build: PipelinePage testability (P60-M1-013) and local-model feasibility (P60-M1-014). They produce decisions and measurements, not product features.
+- Timeboxed risk-reduction spikes: PipelinePage testability (P60-M1-013, done), graph-generation feasibility (P60-M1-014, done, Decision D), and intent-selection feasibility (P60-M1-016). They produce decisions and measurements, not product features.
 - Unit, component, backend, and integration tests.
 
 ### Milestone 1 empty-canvas policy (approved)
@@ -128,7 +141,10 @@ Editing, merging, patching, extending, or adding next to an existing pipeline ar
 - Keeping a layout stable across modifications.
 - Running the pipeline automatically after selection, or running it from chat.
 - Having the model fill in card config values, such as repository URLs, system names, LLM choice, or target URLs.
-- Deterministic auto-repair of invalid candidates.
+- Deterministic auto-repair of invalid candidates. (The composer builds graphs from scratch; it doesn't repair model output.)
+- LLM-generated graph structure (nodes, edges, prerequisites) in any form (D11).
+- Keyword or rule-based intent classification when the model is unavailable. `model_unavailable` stays the failure behaviour; see §10.
+- Commercial LLM APIs as a dependency, or any requirement for `gpt-oss:20b`.
 - Preference learning, personalized ranking, preference-weight updates, model fine-tuning, or SLM fine-tuning.
 - Long-term personalization, memory across sessions, or sophisticated analytics such as dashboards or funnels.
 - Adding CI. There are no `.github/workflows` today; "tests pass" means the local commands in §7.
@@ -140,22 +156,27 @@ Editing, merging, patching, extending, or adding next to an existing pipeline ar
  ChatbotPanel ("Build a pipeline" mode)
         │  goal text
         ▼
- usePipelinePlanner (frontend) ── builds catalog from pipelineConfig.tsx ──┐
-        │  POST /chatbot/pipeline/plan {goal, catalog, catalogVersion,     │
-        │                               suggestionSetId, attempt, ...}     │
-        ▼                                                                  │
- chatbot-backend: PipelinePlanService                                      │
-   prompt built ONLY from request.catalog → LocalLlmClient (JSON mode)     │
-   → JSON extraction + shape check (no semantics)                          │
-        │  raw candidates  (UNTRUSTED)                                     │
-        ▼                                                                  │
- Frontend gate (pure, deterministic):                                      │
-   parsePipelineSpec ── strips unknown fields (positions, ids, config)     │
-   validatePipelineSpec ◄── CARD_CONFIG keys / VALID_CONNECTIONS /  ◄──────┘
-        │                    CARD_INPUT_REQUIREMENTS / CATEGORIES
+ usePipelinePlanner (frontend) ── builds catalog from pipelineConfig.tsx ─────────┐
+        │  POST /chatbot/pipeline/intents {goal, catalog, catalogVersion,          │
+        │                                  suggestionSetId, attempt, ...}          │
+        ▼                                                                         │
+ chatbot-backend: PipelineIntentService                                           │
+   prompt lists ONLY the catalog's analysis capabilities (no edges, no graph)     │
+   → LocalLlmClient (JSON mode) → JSON extraction + shape check (no semantics)    │
+        │  raw intent options  (UNTRUSTED: WHAT to analyse, never HOW)            │
+        ▼                                                                         │
+ Frontend gate (pure, deterministic):                                             │
+   parseIntentPlan ── keeps only isAnalysis capability IDs; strips nodes/edges/   │
+        │             config; tiers, text and limits checked          ◄───────────┤
+        ▼                                                                         │
+   composePipeline (per option) ── VALID_CONNECTIONS / CARD_INPUT_REQUIREMENTS /  │
+        │   INPUT_CARD_TYPES / template recipes → PipelineSpecV1     ◄────────────┤
+        │   (fails closed: a composer bug never yields an unvalidated graph)      │
+        ▼                                                                         │
+   validatePipelineSpec ── independent safety net  ◄──────────────────────────────┘
         ▼
-   assembleCandidateSet: dedupe → diversity → exactly 3 → candidateId + tier
-        │   (<3 → ONE retry with exclusions + rejection codes; still <3 → typed failure)
+   assembleCandidateSet: exactly 3 · distinct analysis sets · distinct graphs · tiers
+        │   (<3 → ONE retry for malformed/unknown/duplicate intents; still <3 → typed failure)
         ▼
  PipelineSuggestionList: 3 ValidatedSuggestions (Select / Dismiss)
         │  user clicks Select (canvas must be empty)
@@ -167,9 +188,17 @@ Editing, merging, patching, extending, or adding next to an existing pipeline ar
  Existing canvas → existing Run → runPipeline / processNextNodes
 ```
 
-**Trust boundary.** Everything the LLM produces is untrusted until the frontend validator accepts it. That includes the backend's parsed output, because the backend only checks the JSON shape.
+**Division of labour (D11).** The LLM selects **what** to analyse. Deterministic code constructs **how** it's wired. The model never supplies graph nodes, edges, prerequisite cards, node IDs, coordinates, or runtime config.
 
-- `parsePipelineSpec` copies only whitelisted fields. The model can't supply node IDs, coordinates, `status`, `logs`, or `NodeData.data`.
+**Why (evidence from P60-M1-014).** Asking local models to write complete graphs failed for three models: `llama3.2`, `llama3.1:8b`, and `gpt-oss:20b`. Across 34 measured runs, none produced three valid, distinct graphs.
+- The failures were structural: illegal `VALID_CONNECTIONS` edges, unmet `CARD_INPUT_REQUIREMENTS`, or, for `gpt-oss:20b`, the reasoning budget running out before any output.
+- The models generally picked sensible analysis capabilities but didn't reliably wire them.
+- Wiring is a small, fully machine-readable problem (17 card types; a DAG), so code does it. The model is left with a short classification task that small local models are much better suited to. That's verified by P60-M1-016, not assumed.
+
+**Trust boundary.** Everything the LLM produces is untrusted until the frontend accepts it. That includes the backend's parsed output, because the backend only checks the JSON shape.
+
+- `parseIntentPlan` copies only whitelisted fields and keeps only catalog capability IDs with `isAnalysis = true`. Model-supplied nodes, edges, IDs, coordinates, or config are dropped and never used.
+- The composer reads only repository facts. Its output still passes through `validatePipelineSpec` as an independent check, and a composer bug fails closed.
 - The UI renders only the branded `ValidatedSuggestion` type, which only the validator module can build.
 - The applier re-validates against the live config, then builds all new state in a pure function before calling any React setter.
 
@@ -177,12 +206,14 @@ Editing, merging, patching, extending, or adding next to an existing pipeline ar
 
 | Concern | Where |
 |---|---|
-| Malformed candidate structure | `parsePipelineSpec` (P60-M1-002) and backend extractor (P60-M1-005) |
+| Malformed model output | `parseIntentPlan` (P60-M1-015) and the backend extractor (P60-M1-005) |
+| Model-selected capabilities exist and are analysis capabilities | `parseIntentPlan`: `UNKNOWN_CAPABILITY` rejects the option; known non-analysis cards are dropped and reported (P60-M1-015) |
+| Graph construction (prerequisites, inputs, edges) | The deterministic composer, never the model (P60-M1-017/018) |
 | Known card types | `UNKNOWN_CARD_TYPE` (P60-M1-003) |
 | Valid connections | `ILLEGAL_CONNECTION` against `VALID_CONNECTIONS` (P60-M1-003) |
 | Required predecessors and inputs | `MISSING_UPSTREAM`, `UNREACHABLE_NODE`, `INPUT_REQUIREMENT_UNMET` (P60-M1-001, P60-M1-003) |
 | Duplicate edges | `DUPLICATE_EDGE`, `SELF_LOOP` (P60-M1-003) |
-| Duplicate or near-identical suggestions | Canonical signature plus analysis-card-set distinctness (P60-M1-004) |
+| Duplicate or near-identical suggestions | Requested-capability distinctness, plus canonical signature and analysis-card-set distinctness of the **composed** graphs (P60-M1-004) |
 | Required node configuration | The model can't set config (parser strips it). The configuration each new card still needs comes from `REQUIRED_USER_CONFIG` and is shown to the user as guidance. The **existing** Run-time checks enforce it (P60-M1-001, P60-M1-007) |
 | Exactly three usable candidates | `assembleCandidateSet` (P60-M1-004) |
 | Can't produce three | Typed `insufficient_valid_candidates` failure; nothing selectable is shown (P60-M1-006, P60-M1-009) |
@@ -208,9 +239,13 @@ How responsibilities are split:
 
 **Why the validator lives in the frontend.** `CardType`, `VALID_CONNECTIONS`, `CATEGORIES`, and the card handlers in `processNextNodes` all live in `frontend/src/components/pipeline/`. A TypeScript validator can import them directly, which gives one source of truth. A Java copy would drift. The backend gets the catalog and its `catalogVersion` with each request, and echoes the version back.
 
-**Why `chatbot-backend` hosts the planner.** It already has the local-LLM abstraction (`LocalLlmClient` plus the Ollama, llama.cpp, and OpenAI-compatible adapters), `/chatbot/health`, the 503 mapping for an unavailable runtime, and CORS on `/**`. A separate controller keeps the evidence-grounded `/chatbot/query` untouched.
+**Why the composer lives in the frontend.** It needs the same facts as the validator: `VALID_CONNECTIONS`, `CARD_INPUT_REQUIREMENTS`, `INPUT_CARD_TYPES`, the catalog, and `PIPELINE_TEMPLATES`. All of them are TypeScript in `frontend/src/components/pipeline/`.
 
-**Diversity definition.** Two candidates are *meaningfully distinct* only if their **sets of analysis card types** differ. Analysis types are those in the `CATEGORIES` buckets Processes, Execution, Visualization, and Version Control. Differences in titles, wording, node keys, node order, or in Input, Generator, or Intermediate-Result cards (an extra `IR_HOLDER`, say) don't count.
+**Why `chatbot-backend` hosts the intent selection.** It already has the local-LLM abstraction (`LocalLlmClient` plus the Ollama, llama.cpp, and OpenAI-compatible adapters), `/chatbot/health`, the 503 mapping for an unavailable runtime, and CORS on `/**`. A separate controller keeps the evidence-grounded `/chatbot/query` untouched.
+
+**Diversity definition.** Two candidates are *meaningfully distinct* only if the **sets of analysis card types in their composed graphs** differ. Analysis types are those in the `CATEGORIES` buckets Processes, Execution, Visualization, and Version Control.
+- Differences in titles, wording, node keys, node order, or in Input, Generator, or Intermediate-Result cards (an extra `IR_HOLDER`, say) don't count.
+- Because the comparison uses the *composed* graph, two intent options that request different capabilities but compose to the same graph also count as duplicates. For example, {Test Executor} and {Test Executor, Test Suite Generation} both compose to the full test chain.
 
 ## 5. User Stories
 
@@ -220,7 +255,13 @@ Stories are ordered by dependency. Three technical stories come first because th
 - P60-M1-013, PipelinePage testability spike (Revision 3);
 - P60-M1-014, local-model feasibility spike (Revision 3), which comes right after the catalog it needs (P60-M1-001).
 
-Existing IDs were not renumbered. See §6, "Early Risk-Reduction Checkpoint".
+**Revision 7.** P60-M1-012, 013, 001, and 014 are **complete**. P60-M1-014 ended in Decision D, which triggered the pivot to intent selection plus a deterministic composer (D11). Four stories were added:
+- P60-M1-016: intent-selection feasibility spike;
+- P60-M1-015: `PipelineIntentPlan` contract and parser;
+- P60-M1-017: core composer;
+- P60-M1-018: two-snapshot recipes and an exhaustive composition test.
+
+Stories 002–006 were revised. Existing IDs were not renumbered, so the order below is by dependency. See §6, "Early Risk-Reduction Checkpoint".
 
 ---
 
@@ -429,6 +470,8 @@ so that the LLM prompt, the validator, and the "what to configure next" guidance
 
 ### P60-M1-014 — Local-model pipeline-planning feasibility spike
 
+> **Status: complete (Decision D; post-D experiment D20).** This spike measured the *graph-generation* task, which Revision 7 replaced with intent selection (D11). Its results below are kept as evidence. Its checkpoint role for P60-M1-006/008, and its role in setting the reference model (R1), pass to **P60-M1-016**. The planning defaults and prompt it proposed for P60-M1-005 are superseded.
+
 **User story**
 As the team building the planner,
 I want early evidence that the configured local model can turn real AridNova goals into usable structured pipeline candidates from the real capability catalog, within the planned latency budget,
@@ -614,15 +657,75 @@ These numbers come from P60-M1-006: `PLAN_TOTAL_BUDGET_MS` = 150 s and `MAX_PLAN
 
 ---
 
+### P60-M1-016 — Intent-selection feasibility spike (lightweight local model)
+
+**User story**
+As the team building the planner,
+I want early evidence that the lightweight local model can reliably choose three sensible, distinct sets of analysis capabilities for a goal,
+so that the new intent-selection contract and its prompt are settled before orchestration (P60-M1-006) and the suggestion UX (P60-M1-008) are built on them.
+
+**Rationale**
+P60-M1-014 showed that graph construction is beyond the tested local models. Revision 7 shrinks the model's job to classification: pick capability IDs from a short list. This spike checks that smaller task directly. It measures capability classification, **not** graph construction; graph correctness comes from the composer and is tested deterministically (P60-M1-017/018).
+
+**Implementation scope** (timebox: **at most 2 working days**; no production code; no fine-tuning; local-only; no commercial API)
+- **Reuse** the P60-M1-014 harness `frontend/src/components/pipeline/planning/__spike__/localModelFeasibility.live.test.ts`. Add an intent task mode (e.g. `LIVE_LLM_TASK=intent`). The harness stays skipped unless `RUN_LIVE_LLM=1`, makes no network calls by default, and builds everything from `buildPipelineCapabilityCatalog()`.
+- **Draft intent prompt**, catalog-derived. It lists only the analysis capabilities (`cardType`, title, purpose, outcome); it has no edges, requirements, or graph schema. It asks for the `PipelineIntentPlanV1` JSON (P60-M1-015) with exactly three options, focused, balanced, and comprehensive, using different capabilities. It allows `unsupportedReason`. This draft becomes the starting text for P60-M1-005.
+- **Evaluator:** use `parseIntentPlan` (P60-M1-015) if merged, otherwise a temporary evaluator inside the spike file. It reports these separately:
+  - syntax: JSON, an `options` array, option shape;
+  - capability problems: unknown IDs, and non-analysis IDs that would be dropped;
+  - set problems: missing tiers, duplicate or empty capability sets.
+- **Relevance rubric**, defined in the spike file before running, as a per-goal set of capabilities at least one of which a sensible option must contain. For G1 that's System Visualization plus at least one authorization-related capability: Formal Verification, Verification Visualization, Scenario Generation, Quick Compare, Aegis, or the test chain. It's recorded with the results, and it's a measurement aid, not a product rule.
+- **Runtime:** the lightweight reference model `llama3.2` on the compose container `cloudhub_ollama` (explicit base URL, `[::1]` on macOS), JSON mode on, settings recorded. Not `gpt-oss:20b`.
+- **Runs:** G1–G5 (the same goal texts as P60-M1-014): G1×5, G2–G5×3 each. Each run gets at most one retry when the options are malformed, unknown, or duplicates. If the composer (P60-M1-017/018) is already merged, also compose and validate each option and record the result; otherwise that's deferred to P60-M1-011's smoke.
+
+**Early thresholds** (feasibility signals, not the P60-M1-011 demo gate):
+
+| Signal | Threshold |
+|---|---|
+| JSON and `options` array parse | ≥ 90% of 17 main runs |
+| Three valid options (known analysis capabilities, all tiers, distinct capability sets) after ≤ 1 retry | G1 ≥ 4/5; all goals ≥ 80% |
+| Relevance (focused option meets the goal's rubric) | ≥ 80% of runs |
+| Per-call p95 on the reference runtime | ≤ 75 s; two calls ≤ 150 s |
+
+**Decision** (record exactly one):
+- **A.** All thresholds met: proceed; P60-M1-005 adopts the spike prompt and settings.
+- **B.** Structure and latency met, but relevance or distinctness short with concentrated causes: one bounded prompt-tuning iteration, then proceed or escalate.
+- **C.** Latency or structure fails on `llama3.2`: measure one other lightweight local model the team approves, with the same harness.
+- **D.** Classification remains unreliable: stop before P60-M1-006/008 and replan. Rule-based classification is a listed future option (§10), not a Milestone 1 fallback.
+
+**Acceptance criteria**
+- Given the harness, then capabilities come only from the catalog, and the prompt contains no edges or graph schema.
+- Given each run, then syntax, capability, set, and relevance results are recorded separately, with latency (attempt, retry, total) and token counts.
+- Given the spike ends, then thresholds and decision A–D are recorded in a "Spike result" block below, along with the provisional P60-M1-005 settings (JSON mode, `num_ctx`, `num_predict`, temperature, timeout).
+- Given `CI=true npm test -- --watchAll=false` without `RUN_LIVE_LLM`, then no network call happens.
+- Given the spike's diff, then no production source file changed.
+
+**Testing** Measurement (T40). The offline prompt-construction check in the harness stays in the normal suite.
+
+**Dependencies** P60-M1-001 (done). Uses P60-M1-015/017/018 if merged, but doesn't need them.
+**Priority** P0
+**Estimate** 2. The harness exists; this adds an intent mode, the rubric, and about 25 short runs.
+
+**Checkpoint role** Its decision must be recorded **before P60-M1-006 and P60-M1-008 start** (§6). It also sets the prompt and runtime defaults that P60-M1-005 finalizes.
+
+**Definition of Done**
+- The result block is filled in, the decision has been reviewed by the team, and R1 is recorded.
+
+> **Spike result (fill in when complete):** runtime and model · catalogVersion · results table · threshold pass/fail · decision A/B/C/D · provisional P60-M1-005 settings.
+
+---
+
 ### P60-M1-002 — `PipelineSpec` v1 contract and strict parser
 
 **User story**
 As a developer integrating the planner,
-I want a stable, versioned, minimal description of one candidate pipeline, plus a parser that turns untrusted JSON into it,
-so that model output, API payloads, validation, rendering, and canvas creation share one contract and the model can never inject runtime state.
+I want a stable, versioned, minimal description of one candidate pipeline, plus a strict parser for it,
+so that composition, validation, rendering, fixtures, and canvas creation share one contract and no runtime state can enter it.
 
 **Rationale**
-`NodeData` and `Connection` (`models.tsx`) carry runtime state (`status`, `logs`, `data` payloads) and generated IDs and coordinates. The model must supply none of these.
+`NodeData` and `Connection` (`models.tsx`) carry runtime state (`status`, `logs`, `data` payloads) and generated IDs and coordinates. None of these belong in a suggestion.
+
+**Revision 7:** `PipelineSpecV1` is produced by the deterministic composer (P60-M1-017/018), never by the model, so the LLM envelope parser and the backend spec DTOs are removed from this story. The model's contract is `PipelineIntentPlanV1` (P60-M1-015). `parsePipelineSpec` stays as the strict, never-throwing entry point for fixtures, round-trips such as canvas-to-spec in T14, and defensive checks.
 
 **Implementation scope**
 - **New** `frontend/src/components/pipeline/planning/pipelineSpec.ts`:
@@ -635,33 +738,26 @@ so that model output, API payloads, validation, rendering, and canvas creation s
     nodes: { key: string; cardType: string }[];   // key: /^[a-z][a-z0-9_-]{0,31}$/
     edges: { from: string; to: string }[];
   }
-  interface PlannerEnvelope { candidates: unknown[]; unsupportedReason?: string }
   ```
   - `parsePipelineSpec(raw: unknown)` returns `{ ok: true; spec; ignoredFields: string[] } | { ok: false; issues: SpecIssue[] }`. It copies only whitelisted fields and reports dropped ones (for example `data`, `config`, `x`, `id`) in `ignoredFields`. It trims, strips control characters, enforces types and lengths, and rejects `specVersion !== 1`. It **never throws**.
-  - `parsePlannerEnvelope(raw)` parses each candidate on its own, so one malformed candidate doesn't discard the others.
-  - Shared `SpecIssue { code: string; message: string; path?: string }`.
-- **Modify** `frontend/src/services/types.ts` to add `PipelinePlanRequest` and `PipelinePlanResponse`. Response candidates are typed `unknown[]`, because they are untrusted.
-- **New (backend)** `chatbot-backend/src/main/java/edu/baylor/ecs/cloudhubs/chatbot/pipeline/model/` request and response DTOs: Lombok POJOs following `model/ChatbotResponse.java`. Candidates are passed through as `JsonNode` after the shape check.
+  - Shared `SpecIssue { code: string; message: string; path?: string }`, also used by P60-M1-015.
 
 **Acceptance criteria**
 - Given a well-formed candidate, when parsed, then `ok: true` with exactly the whitelisted fields.
 - Given extra fields such as `"x": 10` or `"data": {"repositories": [...]}`, when parsed, then `ok: true`, the fields are absent, and `ignoredFields` lists them.
 - Given a missing `title`, non-array `nodes`, key `"Bad Key!"`, a 61-character title, or `specVersion: 2`, when parsed, then `ok: false` with a coded issue and a `path` for each problem.
 - Given `cardType: "VECTOR_GENERATE"`, when parsed, then parsing succeeds. Card membership is the validator's job.
-- Given an envelope `[valid, null, valid]`, when parsed, then 2 specs are returned plus 1 per-candidate issue.
 - Given a non-object, an empty string, or a 1 MB string, when parsed, then the parser returns issues and doesn't throw.
 
 **Testing**
-- Unit (Jest), `planning/pipelineSpec.test.ts`: happy path, field stripping and `ignoredFields`, every length boundary (0/1/max/max+1), wrong types, per-candidate isolation, and a loop over random JSON values asserting the parser never throws.
-- Backend: `PipelinePlanDtoSerializationTest`, following `ChatbotDtoSerializationTest`.
-- Fixture `planning/__fixtures__/plan-response.valid.json`, mirrored by an identical backend test resource.
+- Unit (Jest), `planning/pipelineSpec.test.ts`: happy path, field stripping and `ignoredFields`, every length boundary (0/1/max/max+1), wrong types, and a loop over random JSON values asserting the parser never throws.
 
 **Dependencies** P60-M1-001 (card vocabulary for fixtures).
 **Priority** P0
-**Estimate** 3
+**Estimate** 2 (down from 3: the LLM envelope parser and backend spec DTOs are no longer needed).
 
 **Definition of Done**
-- Parser, types, and DTOs are merged with tests green, and the header comment documents `PipelineSpecV1` with an example.
+- Parser and types are merged with tests green, and the header comment documents `PipelineSpecV1` with an example.
 
 ---
 
@@ -707,7 +803,7 @@ The only connection check today is inline in `handleLinkClick` (`PipelinePage.ts
     | `INPUT_REQUIREMENT_UNMET` | A `CARD_INPUT_REQUIREMENTS` rule fails |
     | `NO_ANALYSIS_CARD` | No card of an `ANALYSIS_CATEGORIES` type |
     | `SIZE_LIMIT` | Nodes outside 2..16 or edges > 24 (largest template has 11 nodes; *tune while implementing*) |
-  - `describeIssuesForRetry(issues)` returns short, deduplicated, model-readable feedback strings.
+  - **Revision 7:** the validator is the independent safety net behind the composer (P60-M1-017/018). It no longer produces retry feedback for the model, because the model doesn't build graphs; `describeIssuesForRetry` is removed. Validation failures of composed graphs are composer bugs and fail closed.
 
 **Acceptance criteria**
 - Given each Demo Scenario chain (§2) and every template, when validated, then `valid: true`.
@@ -739,7 +835,175 @@ The only connection check today is inline in `handleLinkClick` (`PipelinePage.ts
 
 ---
 
-### P60-M1-004 — Candidate set assembly: dedupe, diversity, exactly three
+### P60-M1-015 — `PipelineIntentPlan` v1 contract and strict parser
+
+**User story**
+As a developer integrating the planner,
+I want a minimal, versioned contract for what the model returns (three intent options naming analysis capabilities), plus a strict parser,
+so that the model can only express *what* to analyse, and anything else it outputs is dropped before it can reach the composer or the UI.
+
+**Rationale**
+Under D11 the model's whole job is to choose capabilities. A narrow contract keeps the prompt short, the output small, and the trust boundary obvious. Only catalog capabilities with `isAnalysis = true` may survive.
+
+**Implementation scope**
+- **New** `frontend/src/components/pipeline/planning/intentPlan.ts`:
+  ```ts
+  type IntentTier = 'focused' | 'balanced' | 'comprehensive';
+  interface PipelineIntentOption {
+    tier: IntentTier;
+    title: string;               // 1..60 chars
+    summary: string;             // 1..280 chars, plain text
+    rationale?: string;          // 0..400 chars
+    analysisCardTypes: string[]; // 1..MAX_ANALYSIS_PER_OPTION (default 6), unique
+  }
+  interface PipelineIntentPlanV1 {
+    version: 1;
+    options: PipelineIntentOption[];
+    unsupportedReason?: string;
+  }
+  ```
+  - `parseIntentPlan(raw: unknown, catalog = buildPipelineCapabilityCatalog())` returns `{ plan: { options: ParsedIntentOption[]; unsupportedReason?: string }; issues: SpecIssue[]; ignoredFields: string[] }`. Each option is parsed on its own, so one bad option doesn't discard the others, and the parser **never throws**.
+  - **Capability rules:**
+    - an ID not in the catalog → `UNKNOWN_CAPABILITY`, and the option is rejected;
+    - a catalog card with `isAnalysis = false` (for example `SYSTEM_INPUT`, `IR_HOLDER`) → dropped and reported as `NON_ANALYSIS_DROPPED`. Prerequisites are the composer's job, so dropping them is safe;
+    - an option left with no capabilities → `NO_ANALYSIS_CAPABILITY`, rejected;
+    - duplicates within an option are collapsed;
+    - IDs are normalized to catalog order, so `[B, A]` equals `[A, B]`.
+  - **Field rules:** whitelisted fields only. Model-supplied `nodes`, `edges`, `prerequisites`, `id`, `x`/`y`, `config`, and so on are dropped into `ignoredFields` and never used (D6/D11). It trims, strips control characters, enforces lengths, and rejects `version !== 1` and unknown tiers.
+  - **Plan-level checks** (reported, not fatal per option): `MISSING_TIER`, `DUPLICATE_TIER`, and `DUPLICATE_CAPABILITY_SET` (two options with the same normalized set). P60-M1-004 makes the final exactly-three decision.
+  - `ParsedIntentOption` carries `optionId = "io_" + a stable hash of the normalized capability set`, used for retry exclusions and telemetry.
+  - `describeIntentIssuesForRetry(issues, acceptedOptions)` returns short, deduplicated, model-readable feedback: codes plus the accepted capability sets to avoid.
+- **Modify** `frontend/src/services/types.ts` to add `PipelineIntentRequest` and `PipelineIntentResponse`. Response `options` are typed `unknown[]`, because they are untrusted.
+
+**Acceptance criteria**
+- Given three well-formed options with analysis capabilities, when parsed, then all three survive with normalized capability sets and stable `optionId`s.
+- Given an option with `"VECTOR_GENERATE"`, then that option is rejected with `UNKNOWN_CAPABILITY` and the others survive.
+- Given an option `["SYSTEM_INPUT", "IR_HOLDER", "VISUALIZATION"]`, then it survives as `["VISUALIZATION"]` with two `NON_ANALYSIS_DROPPED` notes. Given `["SYSTEM_INPUT"]` only, then `NO_ANALYSIS_CAPABILITY`.
+- Given an option that also contains `nodes`, `edges`, or `config`, then those fields are absent from the result and listed in `ignoredFields`.
+- Given `[B, A]` and `[A, B]` in two options, then both normalize to the same set and `DUPLICATE_CAPABILITY_SET` is reported.
+- Given seven capabilities in one option (limit 6), a 61-character title, `version: 2`, or tier `"extreme"`, then coded issues are returned.
+- Given a non-object, an empty string, or a 1 MB string, then issues are returned and the parser doesn't throw.
+
+**Testing**
+- Unit (Jest), `planning/intentPlan.test.ts`: every criterion above, boundary lengths, a random-JSON never-throws loop, and a check that **every** catalog card with `isAnalysis = true` is accepted and every card with `isAnalysis = false` is dropped (driven by the catalog, not a hand-written list).
+- Fixtures `planning/__fixtures__/intent-response.*.json`, mirrored by identical backend test resources (P60-M1-005).
+
+**Dependencies** P60-M1-001 (done).
+**Priority** P0
+**Estimate** 3
+
+**Definition of Done**
+- Parser and types are merged with tests green, and the header comment documents the contract with an example and the capability rules.
+
+---
+
+### P60-M1-017 — Deterministic pipeline composer (core)
+
+**User story**
+As a user who chose a set of analyses,
+I want AridNova to build the pipeline that runs them, with every prerequisite card and connection added correctly,
+so that what I select is wired the way the pipeline engine expects, regardless of how capable the language model is.
+
+**Rationale**
+This replaces graph generation by the model (D11). The wiring rules are fully machine-readable, and the shipped templates already encode the canonical way each analysis is fed. Inspection at `3aee1b0` shows that 10 of the 11 analysis cards appear in a template, and each card's template ancestors form a valid feed chain:
+- Visualization: `arch-reconstruction`;
+- Formal Verification and Verification Visualization: `formal-verification`;
+- Scenario Generation, LLM Prompter, Test Suite Generation, Test Executor: `auth-test-generation`;
+- Aegis: `vulnerability-extraction`;
+- Change Impact and Policy Drift: their own templates.
+
+Only Quick Compare has no template, and its requirements (Formal Verification + Scenario Generation) are machine-readable.
+
+**Implementation scope**
+- **New** `frontend/src/components/pipeline/planning/pipelineComposer.ts`, `composePipeline(option: ParsedIntentOption, facts = defaultComposerFacts): ComposeResult`. The result is `{ ok: true; spec: PipelineSpecV1; analysisSet: CardType[] } | { ok: false; reason: 'COMPOSITION_TOO_LARGE' | 'COMPOSITION_UNSUPPORTED' | 'COMPOSITION_INVALID'; detail }`. It's pure, and the facts can be injected for tests. It reads only `VALID_CONNECTIONS`, `CARD_INPUT_REQUIREMENTS`, `INPUT_CARD_TYPES`, the capability catalog, and `PIPELINE_TEMPLATES`.
+- **Composition rules (single-snapshot core):**
+  1. **Targets:** the option's analysis capabilities, in catalog order.
+  2. **Canonical recipe per target:** take the ancestor closure of the target in the **first** template, in `PIPELINE_TEMPLATES` order, that contains it. The recipe is derived at runtime from template data, not hand-written.
+  3. **Requirement-derived recipe** for a target in no template (today only `VERIFICATION_COMPARISON`): for each `requiresAllOf` group, take the first type in the group, compose that type's recipe, and add the edge to the target. It's recursive, but the type graph is a DAG.
+  4. **Required structure:** after merging, satisfy every `CARD_INPUT_REQUIREMENTS` rule of every node by the same rule as step 3. Never exceed `maxIncoming`.
+  5. **Shared prefixes:** merge nodes by card type within the single-snapshot namespace, so all targets share one `SYSTEM_INPUT → MULTI_REPO → IR_HOLDER` chain and one `COMPONENT_GENERATE → COMPONENT_HOLDER` chain. Union the edges and drop duplicates.
+  6. **Input:** every target is reachable from `SYSTEM_INPUT`, the canonical input of the templates. Starting from `UPLOAD_IR` instead is deferred (§10).
+  7. **No optional enrichment:** the composer adds only required structure. It doesn't add optional edges such as `FORMAL_VERIFY → SCENARIO_GENERATE` filtering (§10).
+  8. **Deterministic output:** node keys come from card type (`system_input`, `ir_holder`, …, suffixed `_2` in the second-snapshot namespace of P60-M1-018). Node order is topological with catalog-order tie-break, and edge order is sorted. The same option always produces byte-identical output.
+  9. **Size:** if the result exceeds the validator's `SIZE_LIMIT`, return `COMPOSITION_TOO_LARGE`. Never truncate.
+  10. **Fail closed:** run `validatePipelineSpec` on every result. If it fails, return `COMPOSITION_INVALID` with the issues and log a developer-facing error. An invalid graph never leaves the composer.
+  - Title, summary, and rationale come from the intent option (text only). `specVersion: 1`.
+- Two-snapshot targets (`CHANGE_IMPACT`, `SECURITY_REGRESSION`) return `COMPOSITION_UNSUPPORTED` until P60-M1-018 lands.
+
+**Acceptance criteria**
+- Given each single-snapshot analysis capability on its own, when composed, then the result is valid, and its structural signature equals that capability's template ancestor closure. For Quick Compare, it equals the union of the Formal Verification and Scenario Generation recipes plus the two required edges.
+- Given the §2 Focused, Balanced, and Comprehensive options, then the composed graphs equal the §2 table exactly (cards, edges, counts).
+- Given {Visualization, Aegis}, then one shared `SYSTEM_INPUT → MULTI_REPO → IR_HOLDER` prefix feeds both. The graph has no duplicate prefix cards and respects `maxIncoming`.
+- Given the same option twice, or with capabilities listed in a different order, then the output is byte-identical.
+- Given injected facts that make a recipe invalid (for example a removed connection), then `COMPOSITION_INVALID` is returned and no spec is produced.
+- Given an option whose composition would exceed `SIZE_LIMIT`, then `COMPOSITION_TOO_LARGE`.
+- Given any composed spec, then it contains no IDs, coordinates, status, or config, only `PipelineSpecV1` fields.
+
+**Testing**
+- Unit (Jest), `planning/pipelineComposer.test.ts`:
+  - each capability alone;
+  - the §2 golden outputs;
+  - prefix sharing and determinism;
+  - fail-closed with injected facts;
+  - the size limit;
+  - recipes derived from templates: a test fails if a template change alters a recipe without the golden outputs being updated.
+
+**Dependencies** P60-M1-001 (done), P60-M1-002, P60-M1-003, P60-M1-015 (the `ParsedIntentOption` type).
+**Priority** P0
+**Estimate** 5
+
+**Definition of Done**
+- The composer is merged with tests green.
+- The composition rules are documented in the module header.
+- No hand-written card chains exist in the composer; everything comes from repository facts and templates.
+
+---
+
+### P60-M1-018 — Composer: two-snapshot recipes and exhaustive composition test
+
+**User story**
+As a user who wants to compare versions (Change Impact, Policy Drift),
+I want the composer to build the special two-snapshot pipelines correctly,
+so that comparison analyses are offered alongside the others and are always wired the way the runtime expects.
+
+**Rationale**
+`CHANGE_IMPACT` needs a base IR plus a *second* System Source (the target commit), and `SECURITY_REGRESSION` needs *exactly two* Formal Verifications, with base above PR (`PipelinePage.tsx:1805`; P60-M1-007 layout). Generic prefix sharing would collapse the two snapshots into one. These are the "structurally special multi-input cases" that get explicit deterministic recipes from their templates.
+
+**Implementation scope**
+- **Modify** `pipelineComposer.ts` to add `TWO_SNAPSHOT_RECIPES`:
+  - one entry per two-snapshot card, naming its source template (`change-impact-analysis`, `policy-drift-comparison`);
+  - which of the template's node keys belong to the **comparison** namespace (`sys2` for Change Impact; `sys2`, `repo2`, `ir2`, `fv2` for Policy Drift). Everything else is the base namespace.
+
+  The recipe graph itself is derived from the template, as in P60-M1-017, rather than written by hand. A unit test asserts that the table matches the templates.
+- **Merge rule:** nodes are merged by `(namespace, cardType)`. The base namespace is shared with single-snapshot targets; the comparison namespace is shared between the two two-snapshot targets, since both compare the same other version.
+- **Ordering:** base-namespace nodes come before comparison-namespace nodes within each layer, so the base Formal Verification is listed first and laid out higher (P60-M1-007), which matches the runtime's y-based base/PR choice.
+- **Exhaustive property test:** for **every non-empty subset** of the catalog's analysis capabilities (2¹¹ − 1 = 2,047 at `pcat-0861a6885a178a`), `composePipeline` either:
+  - returns a spec that passes `validatePipelineSpec` and contains every requested capability; or
+  - returns `COMPOSITION_TOO_LARGE`.
+
+  It never returns `COMPOSITION_INVALID` or `COMPOSITION_UNSUPPORTED`, never throws, and is deterministic. The test also records how many subsets are too large, for the tunable `MAX_ANALYSIS_PER_OPTION`.
+
+**Acceptance criteria**
+- Given {Policy Drift} alone, then the composed graph's structural signature equals the `policy-drift-comparison` template's ancestor closure of `SECURITY_REGRESSION`: two snapshot chains feeding it, base first. It passes `exactUpstreamCount`.
+- Given {Change Impact} alone, then the signature equals the `change-impact-analysis` template structure.
+- Given {Policy Drift, Change Impact, Visualization}, then one base chain is shared by all three, one comparison namespace is shared by the two comparisons, and the result is valid.
+- Given the exhaustive subset test, then every subset is valid or `COMPOSITION_TOO_LARGE`, with zero invalid, unsupported, or thrown results.
+- Given the same subset twice, then the output is identical.
+
+**Testing**
+- Unit (Jest): two-snapshot golden tests, a test that the recipe table matches the templates, the layout-order assertion (base FV first), and the exhaustive property test (fast: 2,047 pure compositions).
+
+**Dependencies** P60-M1-017.
+**Priority** P0
+**Estimate** 3
+
+**Definition of Done**
+- The exhaustive test is green and part of the normal suite.
+- `COMPOSITION_UNSUPPORTED` is no longer reachable for any catalog analysis capability.
+
+---
+
+### P60-M1-004 — Candidate set assembly: distinct intents, distinct graphs, exactly three
 
 **User story**
 As a non-expert user,
@@ -747,29 +1011,36 @@ I want the three suggestions to be meaningfully different options rather than th
 so that the choice I make is a real choice between scope and depth.
 
 **Rationale**
-Small local models often repeat themselves. Diversity has to be enforced by code, using the definition in §4.
+Small local models often repeat themselves. Under D11 the model proposes three intent options and the composer builds them, so this layer no longer picks among arbitrary model-generated graphs. It checks that the three *composed* suggestions are distinct, using the definition in §4, and that there are exactly three.
 
 **Implementation scope**
 - **New** `frontend/src/components/pipeline/planning/candidateSet.ts`:
-  - `assembleCandidateSet(validated: ValidatedSuggestion[])` returns `{ ok: true; suggestions: [S,S,S] } | { ok: false; reason: 'INSUFFICIENT_DISTINCT'; distinctCount: number }`.
-  - **Duplicate:** same `candidateId`. The first occurrence wins.
-  - **Near-identical:** same analysis-card-type set as an already accepted candidate. The first occurrence wins.
-  - **More than 3 distinct:** choose the triple with the largest minimum pairwise Jaccard distance between analysis-card sets, breaking ties by original order. At most 5 candidates means at most 10 triples.
-  - **Tier labels, assigned by code:** sort the three by (distinct analysis types, node count, original index), then label them `focused`, `balanced`, `comprehensive`. If the first and third have the same number of distinct analysis types, use `Option A/B/C` instead, so labels never claim a size difference that isn't there.
-  - The 3 chosen candidates are displayed in this sorted order, so "candidate 1/2/3" is deterministic.
-  - `excludeIdsFor(accepted)` returns the `candidateId`s and readable card lists to send on retry.
+  - `assembleCandidateSet(composed: ComposedCandidate[])`, where `ComposedCandidate = { option: ParsedIntentOption; suggestion: ValidatedSuggestion; analysisSet: CardType[] }`. It returns `{ ok: true; suggestions: [S,S,S] } | { ok: false; reason: 'INSUFFICIENT_DISTINCT'; distinctCount: number }`.
+  - **Duplicate graph:** same `candidateId`, so the composed graphs are identical even if the requested capabilities differ. The first occurrence wins.
+  - **Near-identical:** same composed analysis-card set as an already accepted candidate. The first occurrence wins.
+  - **More than 3 distinct** (possible only after a retry merges new options with accepted ones; at most 6): choose the triple with the largest minimum pairwise Jaccard distance between composed analysis sets, breaking ties by original order.
+  - **Tiers:**
+    1. The model's tier labels are kept when the three distinct candidates have one of each tier, and composed analysis-set sizes are non-decreasing focused ≤ balanced ≤ comprehensive, with focused < comprehensive.
+    2. If the model's labels are inconsistent with the sizes, code relabels by size (analysis-set size, node count, original index).
+    3. If the first and third have the same size, it uses `Option A/B/C`, so labels never claim a size difference that isn't there.
+
+    Tier labels stay informational (D4).
+  - Display order is focused, balanced, comprehensive (or A/B/C), so "candidate 1/2/3" is deterministic.
+  - `acceptedForRetry(accepted)` returns the accepted options' capability sets for the retry's exclusions.
 
 **Acceptance criteria**
-- Given 3 valid candidates with distinct analysis sets, when assembled, then `ok: true` and the tiers come out in size order.
-- Given candidates that differ only by an extra `IR_HOLDER`, or identical graphs with different titles, when assembled, then they count as one.
-- Given 4 or 5 valid distinct candidates, when assembled, then exactly 3 are returned, and the same input always returns the same 3.
-- Given 0, 1, or 2 distinct valid candidates, when assembled, then `ok: false` and no partial set is returned.
-- Given three equally sized but different pipelines, when assembled, then `ok: true` with `Option A/B/C`.
+- Given three composed candidates with distinct analysis sets and consistent tiers, when assembled, then `ok: true` and the model's tiers are kept.
+- Given two options that request different capabilities but compose to the same graph (e.g. {Test Executor} and {Test Executor, Test Suite Generation}), then they count as one.
+- Given three options worded differently with the same capability set, then they count as one.
+- Given inconsistent tier labels (the "focused" option is the largest), then code relabels by size.
+- Given 4–6 distinct candidates after a retry, then exactly 3 are returned, deterministically.
+- Given 0, 1, or 2 distinct candidates, then `ok: false` and no partial set is returned.
+- Given three equally sized but different candidates, then `ok: true` with `Option A/B/C`.
 
 **Testing**
-- Unit (Jest), `planning/candidateSet.test.ts`: every criterion above, the count boundaries 0–5, and a shuffle test showing the result doesn't depend on input order when there are no ties.
+- Unit (Jest), `planning/candidateSet.test.ts`: every criterion above, count boundaries 0–6, and a shuffle test showing order-independence when there are no ties.
 
-**Dependencies** P60-M1-002, P60-M1-003.
+**Dependencies** P60-M1-003, P60-M1-015 (option type). It's tested with fixture `ValidatedSuggestion`s, so it doesn't need the composer.
 **Priority** P0
 **Estimate** 3
 
@@ -778,84 +1049,86 @@ Small local models often repeat themselves. Diversity has to be enforced by code
 
 ---
 
-### P60-M1-005 — Pipeline-planning endpoint in `chatbot-backend`
+### P60-M1-005 — Intent-selection endpoint in `chatbot-backend`
 
 **User story**
 As the AridNova assistant,
-I want a dedicated planning endpoint that turns a goal and the capability catalog into candidate pipeline specs using the configured local LLM,
-so that pipeline generation is an explicit action with its own contract, and the evidence-grounded Q&A path stays untouched.
+I want a dedicated endpoint that turns a goal and the capability catalog into three intent options (analysis capabilities only) using the configured local LLM,
+so that pipeline building is an explicit action with its own contract, and the evidence-grounded Q&A path stays untouched.
 
 **Rationale**
-`/chatbot/query` (`ChatbotController`, `ChatbotQueryService`) is built around evidence retrieval and citations, and returns free text. Planning needs structured JSON, a bigger context window and token budget, and its own timeout.
+`/chatbot/query` (`ChatbotController`, `ChatbotQueryService`) is built around evidence retrieval and citations, and returns free text. Intent selection needs structured JSON, JSON mode, and its own timeout. **Revision 7:** the model task is capability selection only (D11), so there is no graph-generation prompt. The prompt lists no edges, no input requirements, and no node or edge schema.
 
 **Implementation scope**
 - **New package** `chatbot-backend/src/main/java/edu/baylor/ecs/cloudhubs/chatbot/pipeline/`:
-  - `PipelinePlanController`: `@RestController @RequestMapping("/chatbot/pipeline")`, `@PostMapping("/plan")`. Error mapping:
+  - `PipelineIntentController`: `@RestController @RequestMapping("/chatbot/pipeline")`, `@PostMapping("/intents")`. Error mapping:
     - `LocalLlmException` → **503** (same as `ChatbotController.query`);
     - bean-validation failure → **400**;
     - anything else → **200** with an explicit `outcome`.
-  - `model/PipelinePlanRequest`:
+  - `model/PipelineIntentRequest`:
     - `goal`: `@NotBlank`, `@Size(max=1000)`;
     - `suggestionSetId`: UUID pattern;
     - `attempt`: 1..2;
-    - `catalog`: `@NotNull`, bounded (≤64 cards, bounded strings, ≤10 examples);
+    - `catalog`: `@NotNull`, bounded (≤64 cards, bounded strings);
     - `catalogVersion`;
-    - `excludeCandidates`: ≤10;
+    - `excludeCapabilitySets`: ≤6 lists of ≤6 IDs each;
     - `rejectionFeedback`: ≤20 strings of ≤200 characters.
-  - `model/PipelinePlanResponse`:
+  - `model/PipelineIntentResponse`:
     - `outcome`: `OK | INVALID_MODEL_OUTPUT | UNSUPPORTED_GOAL | MODEL_UNAVAILABLE`;
     - `suggestionSetId`, `requestId`, `catalogVersion` (echoed);
-    - `candidates: List<JsonNode>` (0..5, shape-checked only), `parseErrors`, `unsupportedReason`;
+    - `options: List<JsonNode>` (0..6, shape-checked only), `parseErrors`, `unsupportedReason`;
     - `model`, `provider`, `processingTimeMs`.
 
-    **Don't reuse `ChatbotFlag`.** The Java enum serializes as UPPERCASE (`MODEL_UNAVAILABLE`), while the frontend `ChatbotFlag` type expects lowercase. That mismatch already exists and is out of scope. The planning contract uses its own `outcome` enum.
-  - `PipelinePlanPromptBuilder` builds the system instruction **only** from `request.catalog`; there are no card names in Java. It includes:
-    - cards (`cardType`, title, purpose), allowed edges, input requirements, and hard rules;
-    - the output JSON schema and "return exactly three candidates: one focused, one balanced, one comprehensive; vary the *analysis* cards";
-    - "never include configuration, positions, or IDs";
-    - "for Policy Drift list the base Formal Verification first";
-    - 1–2 `examples`;
-    - on retry, `excludeCandidates` and `rejectionFeedback`;
-    - "if unsupported, return `{"candidates":[],"unsupportedReason":...}`".
-  - `PipelinePlanService` builds a `ChatbotPrompt` with `jsonOutput=true` and calls `LocalLlmClient.generate(prompt, planningConfig)`.
-  - `PipelineSpecJsonExtractor` does tolerant extraction:
+    **Don't reuse `ChatbotFlag`.** Its Java enum serializes as UPPERCASE while the frontend type expects lowercase. That mismatch already exists and is out of scope; the contract uses its own `outcome` enum.
+  - `PipelineIntentPromptBuilder` builds the system instruction **only** from `request.catalog`, with no card names in Java:
+    - only the cards with `isAnalysis = true` (`cardType`, title, purpose, outcome);
+    - the `PipelineIntentPlanV1` schema (P60-M1-015);
+    - "return exactly three options: focused (the fewest capabilities that serve the goal), balanced, and comprehensive; use different capabilities";
+    - "list analysis capabilities only; never list inputs, prerequisites, nodes, edges, configuration, IDs, or coordinates; AridNova adds the wiring";
+    - on retry, `excludeCapabilitySets` and `rejectionFeedback`;
+    - "if unsupported, return `{"version":1,"options":[],"unsupportedReason":...}`".
+
+    No edges, requirements, templates, or graph examples are included.
+  - `PipelineIntentService` builds a `ChatbotPrompt` with `jsonOutput=true` and calls `LocalLlmClient.generate(prompt, intentConfig)`.
+  - `PipelineIntentJsonExtractor` does tolerant extraction:
     - strips Markdown fences, finds the first balanced top-level JSON object, and parses it with Jackson;
-    - shape-checks candidates (objects with `nodes`/`edges` arrays) and caps the list at 5;
+    - shape-checks options (objects with an `analysisCardTypes` array) and caps the list at 6;
     - never throws for bad model output, returning `outcome=INVALID_MODEL_OUTPUT` with `parseErrors` instead.
-- **Modify** `ChatbotConfig` and `application.properties` to add planning overrides, bound like the existing properties (`ChatbotConfigBindingTest`). All defaults are **provisional until P60-M1-014 records its measured values**:
-  - `chatbot.pipeline-plan.max-tokens` (default 2048; the global `CHATBOT_MAX_TOKENS` default of 1024 is likely too small for 3 specs);
-  - `chatbot.pipeline-plan.temperature` (default 0.4);
-  - `chatbot.pipeline-plan.timeout-ms` (default 75000, i.e. half of `PLAN_TOTAL_BUDGET_MS`, so two attempts fit the 150 s budget; the global `CHATBOT_TIMEOUT_MS` of 240000 is too long);
-  - `chatbot.pipeline-plan.context-tokens` (default 8192).
-- **Prompt text:** start `PipelinePlanPromptBuilder` from the draft prompt validated in P60-M1-014. Port it from the TypeScript harness to Java and keep it catalog-driven. Don't redesign the prompt from scratch.
-- **Modify** `runtime/model/ChatbotPrompt` to add optional `boolean jsonOutput` and `Integer contextTokens`, both defaulting to off so `/chatbot/query` is unchanged.
-- **Modify** `OllamaLocalLlmAdapter.buildPayload`. When the flags are set, send `"format":"json"` and `options.num_ctx`. The adapter sets only `temperature` and `num_predict` today, so Ollama's default context window applies. That default is small (2048–4096 tokens depending on Ollama version; *verify the deployed version*), and the catalog, examples, and output may not fit, which would truncate the prompt silently.
-- **Modify** `OpenAiStyleLocalLlmAdapter` to send `response_format: {type: "json_object"}` when `jsonOutput` is set. For `LlamaCppLocalLlmAdapter`, *verify JSON or grammar support while implementing*; if it isn't supported, ignore the flag and let the extractor handle prose. This isn't a Milestone 1 blocker unless llama.cpp is chosen as the reference runtime (R3).
-- Logging, in the style of `ChatbotController`: `chatbot.pipeline_plan.completed requestId suggestionSetId attempt outcome candidates parseErrors latencyMs model promptChars`. **Never log the goal text.**
-- No semantic validation in Java (see §4).
+- **Modify** `ChatbotConfig` and `application.properties` to add overrides bound like the existing properties (`ChatbotConfigBindingTest`). The defaults are **provisional until P60-M1-016 reports**:
+  - `chatbot.pipeline-intent.max-tokens` (default 1024; the output is three short options);
+  - `chatbot.pipeline-intent.temperature` (default 0.4);
+  - `chatbot.pipeline-intent.timeout-ms` (default 75000, half of `PLAN_TOTAL_BUDGET_MS`);
+  - `chatbot.pipeline-intent.context-tokens` (default 8192).
+- **Prompt text:** start from the intent prompt measured in P60-M1-016, ported to Java and kept catalog-driven.
+- **Modify** `runtime/model/ChatbotPrompt` to add optional `boolean jsonOutput` and `Integer contextTokens`, both off by default so `/chatbot/query` is unchanged.
+- **Modify** `OllamaLocalLlmAdapter.buildPayload`: when the flags are set, send `"format":"json"` and `options.num_ctx`. P60-M1-014 showed that JSON mode matters for `llama3.2`: with it off, one of two control runs produced prose.
+- **Modify** `OpenAiStyleLocalLlmAdapter`: send `response_format: {type: "json_object"}` when `jsonOutput` is set. `LlamaCppLocalLlmAdapter`: if JSON or grammar isn't supported, ignore the flag and let the extractor handle prose. That isn't a Milestone 1 blocker (R3).
+- Logging, in the style of `ChatbotController`: `chatbot.pipeline_intent.completed requestId suggestionSetId attempt outcome options parseErrors latencyMs model promptChars`. **Never log the goal text.**
+- No semantic validation in Java (§4): capability membership and composition are frontend concerns.
 
 **Acceptance criteria**
-- Given a stub LLM returning 3 specs inside Markdown fences, when the endpoint is called, then 200, `outcome=OK`, 3 candidates, and `catalogVersion` echoed.
+- Given a stub LLM returning three options inside Markdown fences, when the endpoint is called, then 200, `outcome=OK`, three options, and `catalogVersion` echoed.
 - Given the stub returns prose or truncated JSON, then 200, `outcome=INVALID_MODEL_OUTPUT`, and non-empty `parseErrors`.
-- Given the stub returns 7 candidates, then 5 are returned. Given candidate #2 is `"oops"`, then #1 and #3 are returned plus one parse error.
-- Given `{"candidates":[],"unsupportedReason":"…"}`, then 200, `outcome=UNSUPPORTED_GOAL`.
+- Given the stub returns 8 options, then 6 are returned. Given option #2 is `"oops"`, then #1 and #3 are returned plus one parse error.
+- Given an option that also contains `nodes`/`edges`, then the backend passes it through shape-checked and unchanged; the frontend parser strips them (P60-M1-015).
+- Given `{"version":1,"options":[],"unsupportedReason":"…"}`, then 200, `outcome=UNSUPPORTED_GOAL`.
 - Given `LocalLlmException` (`MODEL_UNAVAILABLE` or `TIMEOUT`), then 503, `outcome=MODEL_UNAVAILABLE`.
 - Given a blank or 1001-character goal, a missing catalog, or a bad UUID, then 400.
-- Given a catalog containing `FOO_CARD`, when the prompt is built, then `FOO_CARD` is in the system instruction (catalog-driven).
+- Given a catalog containing an analysis card `FOO_CARD` and a non-analysis card `BAR_CARD`, when the prompt is built, then `FOO_CARD` is listed, `BAR_CARD` isn't, and no edge or graph schema appears.
 - Given `jsonOutput=true` and `contextTokens=8192`, when the Ollama payload is built, then it contains `format:"json"` and `options.num_ctx=8192`. Given the defaults, then neither key is present.
-- Given the existing suite (green after P60-M1-012), when run, then it still passes.
+- Given the existing suite, when run, then it still passes.
 
 **Testing**
-- Backend unit: `PipelineSpecJsonExtractorTest`, `PipelinePlanPromptBuilderTest`, `PipelinePlanRequestValidationTest`. Extend `LocalLlmAdapterTest` for `format`/`num_ctx`/`response_format`, and `ChatbotConfigBindingTest` for the new properties.
-- Controller: `PipelinePlanControllerTest`, using standalone `MockMvcBuilders` like `ChatbotControllerTest` (no Spring context).
+- Backend unit: `PipelineIntentJsonExtractorTest`, `PipelineIntentPromptBuilderTest`, `PipelineIntentRequestValidationTest`. Extend `LocalLlmAdapterTest` (`format`/`num_ctx`/`response_format`) and `ChatbotConfigBindingTest` (new properties). Add `PipelineIntentDtoSerializationTest` against the shared `intent-response.*.json` fixtures (P60-M1-015).
+- Controller: `PipelineIntentControllerTest`, using standalone `MockMvcBuilders` like `ChatbotControllerTest`.
 - Command: `mvn -f chatbot-backend/pom.xml test`.
 
-**Dependencies** P60-M1-001 (catalog shape), P60-M1-002 (DTOs), P60-M1-012 (green baseline). Soft dependency: P60-M1-014. DTOs, the extractor, and the controller can start before it; the prompt text and runtime defaults are finalized from its result.
+**Dependencies** P60-M1-001 (catalog shape), P60-M1-012 (green baseline, done), P60-M1-015 (contract and shared fixtures). Soft dependency: P60-M1-016. DTOs, the extractor, and the controller can start before it; the prompt text and defaults are finalized from its result.
 **Priority** P0
-**Estimate** 5
+**Estimate** 5 (unchanged: the prompt is simpler, but the controller, DTOs, extractor, adapter JSON-mode and `num_ctx` changes, config binding, and tests remain).
 
 **Definition of Done**
-- `POST http://localhost:8081/chatbot/pipeline/plan` works under compose, and all tests are green.
+- `POST http://localhost:8081/chatbot/pipeline/intents` works under compose, and all tests are green.
 - `chatbot-backend/README.md` documents the endpoint with a curl example and the new properties.
 - Q&A behaviour is unchanged.
 
@@ -869,10 +1142,10 @@ I want the assistant to produce exactly three valid suggestions or tell me clear
 so that I never see a half-baked or invalid option.
 
 **Rationale**
-This is where untrusted output meets the deterministic gate. The hook owns parse → validate → assemble → one bounded retry, so the UI deals with a single typed outcome.
+This is where untrusted model output meets the deterministic pipeline. The hook owns request intents → parse → compose → validate → assemble → one bounded retry, so the UI deals with a single typed outcome. **Revision 7:** the model is asked only for intent options (D11). Graphs are built by the composer, so the retry exists for malformed, unknown, or duplicate *intents*, never for graph wiring.
 
 **Implementation scope**
-- **Modify** `frontend/src/services/api.ts` to add `requestPipelinePlan(req, { signal })` via `CHATBOT_API.post('/chatbot/pipeline/plan', …)` (`utils/axiosSetup.ts`; base URL `env.CHATBOT_SERVICE_URL`). It reuses `normalizeChatbotError`.
+- **Modify** `frontend/src/services/api.ts` to add `requestPipelineIntents(req, { signal })` via `CHATBOT_API.post('/chatbot/pipeline/intents', …)` (`utils/axiosSetup.ts`; base URL `env.CHATBOT_SERVICE_URL`). It reuses `normalizeChatbotError`.
 - **New** `frontend/src/components/chatbot/usePipelinePlanner.ts`:
   ```ts
   type PlanOutcome =
@@ -884,38 +1157,40 @@ This is where untrusted output meets the deterministic gate. The hook owns parse
   ```
   1. Build the catalog and a `suggestionSetId` (UUID). Call attempt 1.
   2. If the echoed `catalogVersion` differs from the local one, return `catalog_mismatch`.
-  3. `parsePlannerEnvelope` → `validatePipelineSpec` each → accumulate. The frontend re-parses even though the backend checked the shape.
-  4. `assembleCandidateSet`. If `ok`, return success.
-  5. If `outcome=UNSUPPORTED_GOAL` and nothing is valid, return `unsupported_goal` without a retry.
-  6. Otherwise, if `attempt < MAX_PLAN_ATTEMPTS` (= 2), call again with `excludeCandidates` and `rejectionFeedback`, merge, and go back to step 4.
-  7. Otherwise return `insufficient_valid_candidates`, or `invalid_model_output` if nothing ever parsed.
-  - **Latency budget:** `PLAN_TOTAL_BUDGET_MS` (default 150000) across all attempts. Past the budget, abort and return `timeout`. HTTP 503 returns `model_unavailable` immediately, with no retry.
+  3. `parseIntentPlan` (P60-M1-015). The frontend re-parses even though the backend checked the shape.
+  4. For each surviving option, `composePipeline` (P60-M1-017/018), which validates internally and fails closed. Options that fail composition are dropped and counted in `rejectedByCode`; `COMPOSITION_INVALID` is also logged as a developer error, since it's a composer bug.
+  5. `assembleCandidateSet` (P60-M1-004). If `ok`, return success.
+  6. If `outcome=UNSUPPORTED_GOAL` and nothing survived, return `unsupported_goal` without a retry.
+  7. Otherwise, if `attempt < MAX_PLAN_ATTEMPTS` (= 2), call again with `excludeCapabilitySets` (accepted options) and `rejectionFeedback` (`describeIntentIssuesForRetry`: unknown capability, missing tier, duplicate set, too large). Merge with the accepted candidates and go back to step 5.
+  8. Otherwise return `insufficient_valid_candidates`, or `invalid_model_output` if nothing ever parsed.
+  - **Latency budget:** `PLAN_TOTAL_BUDGET_MS` (default 150000) across all attempts. Past the budget, abort and return `timeout`. HTTP 503 returns `model_unavailable` immediately, with no retry. There is **no keyword or rule-based fallback** (§10).
   - **Concurrency:** one plan in flight. A new `plan()`, `cancel()`, or unmount aborts it through `AbortController`. Responses with a stale `suggestionSetId` are ignored.
   - The hook **never** touches canvas state.
 
 **Acceptance criteria**
-- Given 3 valid distinct candidates, when `plan()` runs, then `success` after 1 attempt.
-- Given attempt 1 has 2 valid candidates plus 1 with `ILLEGAL_CONNECTION`, and attempt 2 adds a new valid distinct one, then `success` after 2 attempts. Request 2 carries 2 exclusions and feedback containing `ILLEGAL_CONNECTION`.
-- Given both attempts yield fewer than 3 distinct valid candidates, then `insufficient_valid_candidates` with no suggestions exposed.
+- Given three valid, distinct intent options, when `plan()` runs, then `success` after 1 attempt. Each suggestion's graph is the composer's output for that option, not anything the model supplied.
+- Given an option that also carries model-written `nodes`/`edges`, then those are ignored, and the suggestion's graph equals the composer's output.
+- Given attempt 1 has two valid options plus one with `UNKNOWN_CAPABILITY`, and attempt 2 supplies a new distinct option, then `success` after 2 attempts. Request 2 carries the two accepted capability sets as exclusions and feedback containing `UNKNOWN_CAPABILITY`.
+- Given attempt 1 has three options where two compose to the same graph, then the duplicate triggers the retry.
+- Given both attempts yield fewer than three distinct candidates, then `insufficient_valid_candidates` with no suggestions exposed.
 - Given both attempts are unparseable, then `invalid_model_output`.
-- Given 503 or a network error, then `model_unavailable` after exactly 1 call.
+- Given 503 or a network error, then `model_unavailable` after exactly 1 call, with no fallback classification.
 - Given `UNSUPPORTED_GOAL`, then `unsupported_goal` after 1 call.
 - Given a mismatched `catalogVersion`, then `catalog_mismatch`.
 - Given the budget is exceeded (fake timers), then `timeout` and the in-flight request is aborted.
 - Given `plan("A")` followed immediately by `plan("B")`, then A is aborted and its late response is ignored.
-- Given a backend candidate with `cardType:"VECTOR_GENERATE"`, then it is rejected with `UNKNOWN_CARD_TYPE`; the frontend doesn't trust the backend.
 
 **Testing**
-- Hook tests (Jest + RTL v13 `renderHook` from `@testing-library/react`; *confirm 13.4 exports it, otherwise use a small test component*) with `jest.mock("../../services/api", …)`, as in `ChatbotPanel.test.tsx`.
-- Fixtures in `planning/__fixtures__/`: `plan-response.valid.json`, `.partial-invalid.json`, `.retry-completion.json`, `.duplicates.json`, `.five-candidates.json`, `.prose.json`, `.unsupported.json`.
+- Hook tests (Jest + RTL `renderHook` or a small test component) with `jest.mock("../../services/api", …)`, as in `ChatbotPanel.test.tsx`. They use the real parser, composer, validator, and candidate-set modules.
+- Fixtures in `planning/__fixtures__/`: `intent-response.valid.json`, `.unknown-capability.json`, `.retry-completion.json`, `.duplicate-sets.json`, `.compose-to-same-graph.json`, `.with-model-graph.json`, `.prose.json`, `.unsupported.json`.
 
-**Dependencies** P60-M1-003, P60-M1-004, P60-M1-005. **Checkpoint:** P60-M1-014's decision must be recorded before this story starts, because the retry design assumes the model can produce usable candidates.
+**Dependencies** P60-M1-004, P60-M1-005, P60-M1-015, P60-M1-017, P60-M1-018. **Checkpoint:** P60-M1-016's decision must be recorded before this story starts.
 **Priority** P0
 **Estimate** 5
 
 **Definition of Done**
 - The hook and API function are merged with tests green, and `PlanOutcome` is checked exhaustively by consumers (`never` check).
-- Constants (`MAX_PLAN_ATTEMPTS`, `PLAN_TOTAL_BUDGET_MS`, size limits) live in one module.
+- Constants (`MAX_PLAN_ATTEMPTS`, `PLAN_TOTAL_BUDGET_MS`, `MAX_ANALYSIS_PER_OPTION`) live in one module.
 
 ---
 
@@ -1016,7 +1291,7 @@ so that I can get a structurally valid analysis pipeline, ready to configure and
   - ordered card chips using `CARD_CONFIG[type].title` and its colour classes (never raw enums);
   - card and connection counts;
   - "You'll need to configure: …" from `pendingConfiguration` (computed with a dry-run `materializeSuggestion`);
-  - a collapsible **"Checked against pipeline rules ✓"** disclosure listing the passed rule groups (known cards, allowed connections, required inputs, reachable from a source). This lets a demo show rule compliance without dev tools.
+  - a collapsible **"Built by AridNova and checked against pipeline rules ✓"** disclosure. It names the analyses the assistant chose for the goal (the option's capabilities) and the passed rule groups (known cards, allowed connections, required inputs, reachable from a source), and states that AridNova added the wiring. This lets a demo show rule compliance without dev tools.
   - **Use this pipeline** (`data-testid="pipeline-suggestion-select-{1|2|3}"`, accessible name includes the title). It is enabled only in state A (`canvasIsEmpty && !isPipelineRunning`).
     - **State B (non-empty canvas):** disabled, and the set shows the guidance once (`data-testid="pipeline-suggestions-empty-canvas-notice"`): *"Pipeline suggestions can be added only to an empty canvas in Milestone 1. Save your current session if needed, then use **Clear All** in the toolbar."* The panel doesn't open the Clear All confirmation, save the session, or change the canvas.
     - **State C (running):** disabled, with *"Wait for the current run to finish."*
@@ -1038,17 +1313,17 @@ so that I can get a structurally valid analysis pipeline, ready to configure and
 - Given build mode and a mocked `success`, when a goal is submitted, then exactly 3 cards render, each with a title, summary, tier, `CARD_CONFIG`-title chips, and the rules disclosure.
 - Given an empty canvas, when Select is clicked on candidate 1, 2, or 3, then `onApplyPipelineSuggestion` is called once with that candidate's `ValidatedSuggestion` (matched by `candidateId`), and all Select buttons are then disabled.
 - Given `canvasIsEmpty=false`, when a goal is submitted, then planning still runs and three suggestions render with all three Select buttons disabled and the state B guidance shown (T24).
-- Given that state, when `canvasIsEmpty` flips to `true` (the user clicked **Clear All**), then the same three Select buttons enable, and `requestPipelinePlan` isn't called again (T24).
+- Given that state, when `canvasIsEmpty` flips to `true` (the user clicked **Clear All**), then the same three Select buttons enable, and `requestPipelineIntents` isn't called again (T24).
 - Given `isPipelineRunning=true`, then the Select buttons are disabled with the run-in-progress text.
 - Given any interaction with the suggestions on a non-empty canvas, then the panel never calls `clearPipeline`, `handleSaveSession`, or `window.confirm`, and never calls `onApplyPipelineSuggestion` from a disabled button (T34).
 - Given Dismiss, Cancel during planning, or closing the panel without selecting, then the callback is never called.
 - Given the callback returns `{ok:false}`, then the inline reason appears.
-- Given "Ask" mode, when the user submits anything, including text like "build me a pipeline", then `sendChatbotQuery` is called, `requestPipelinePlan` isn't, no suggestion cards render, and `onApplyPipelineSuggestion` is never called (D2).
+- Given "Ask" mode, when the user submits anything, including text like "build me a pipeline", then `sendChatbotQuery` is called, `requestPipelineIntents` isn't, no suggestion cards render, and `onApplyPipelineSuggestion` is never called (D2).
 
 **Testing**
 - Component (Jest + RTL): extend `ChatbotPanel.test.tsx` and add `PipelineSuggestionList.test.tsx`, mocking `../../services/api` as the existing tests do. Cover each criterion, including select 1/2/3 (`it.each`) and the disabled/enabled toggle.
 
-**Dependencies** P60-M1-006, P60-M1-007, P60-M1-012. **Checkpoint:** P60-M1-014's decision is recorded (already implied by P60-M1-006).
+**Dependencies** P60-M1-006, P60-M1-007, P60-M1-012. **Checkpoint:** P60-M1-016's decision is recorded (already implied by P60-M1-006).
 **Priority** P0
 **Estimate** 5
 
@@ -1074,7 +1349,7 @@ Each component reports its own failures. This story owns the user-facing states 
   |---|---|---|
   | `model_unavailable` | "The assistant's model isn't reachable right now." | Retry · Browse templates |
   | `timeout` | "That took too long. Local models can be slow — try again or a shorter description." | Retry · Browse templates |
-  | `invalid_model_output` | "The assistant couldn't produce a usable pipeline description." | Retry · Browse templates |
+  | `invalid_model_output` | "The assistant couldn't produce usable analysis options for that goal." | Retry · Browse templates |
   | `insufficient_valid_candidates` | "I couldn't find three valid, different pipelines for that goal. Try describing it differently." | Retry · Browse templates |
   | `unsupported_goal` | `unsupportedReason`, then "AridNova pipelines can:" and the `CATEGORIES` names | Browse templates |
   | `catalog_mismatch` | "The app was updated — please reload the page." | — |
@@ -1126,7 +1401,7 @@ so that later milestones have data for ranking and preference learning without b
 **Implementation scope**
 - **Modify** `analytics/posthog.ts` to add to `PipelineEvent`:
   - `PLAN_REQUESTED`, with `{suggestionSetId, goalLength, canvasEmpty}`;
-  - `PLAN_SUGGESTIONS_SHOWN`, with `{suggestionSetId, attempts, latencyMs, candidateIds[3], tiers[3], nodeCounts[3], rejectedByCode, ignoredFieldCount}`;
+  - `PLAN_SUGGESTIONS_SHOWN`, with `{suggestionSetId, attempts, latencyMs, candidateIds[3], optionIds[3], requestedCapabilities[3], tiers[3], nodeCounts[3], rejectedByCode, ignoredFieldCount}`. `rejectedByCode` includes intent codes (`UNKNOWN_CAPABILITY`, `DUPLICATE_CAPABILITY_SET`, …) and composer codes (`COMPOSITION_TOO_LARGE`, `COMPOSITION_INVALID`);
   - `PLAN_FAILED`, with `{suggestionSetId, reason, attempts, rejectedByCode}`;
   - `PLAN_SUGGESTION_SELECTED`, with `{suggestionSetId, candidateId, position, tier}`;
   - `PLAN_SUGGESTIONS_DISMISSED`, with `{suggestionSetId}`;
@@ -1173,23 +1448,23 @@ This story doesn't repeat either investigation.
   - *Outcome A (expected):* build the test below on `renderPipelinePage()` from `pipeline/__testutils__/`, reusing its mock set.
   - *Outcome B:* implement the single alternative P60-M1-013 recommended and the team approved. That is either a smaller harness plus a scripted manual browser check for T1/T12/T15, or tests against a separately approved extracted layer. Any refactor is its own approved change; this story's estimate is revised as P60-M1-013 records.
 - **New** `frontend/src/components/pipeline/planning/PipelinePlanning.integration.test.tsx` (Outcome A):
-  - mocks: `requestPipelinePlan` returns `plan-response.partial-invalid.json`, then `plan-response.retry-completion.json`; `getChatbotHealth` reports healthy; `fetchIRFromRepo` resolves a small IR (e.g. `src/data/pipeline_ir.json`);
+  - mocks: `requestPipelineIntents` returns `intent-response.unknown-capability.json`, then `intent-response.retry-completion.json`. The real parser, composer, validator, and candidate-set modules run; `getChatbotHealth` reports healthy; `fetchIRFromRepo` resolves a small IR (e.g. `src/data/pipeline_ir.json`);
   - happy path, **starting from an empty canvas**: open chatbot → Build mode → type the demo goal → 3 suggestion cards → Select #2 → canvas cards match the spec by title, and the connection count equals the spec edges → configure System Source through its inputs → click **Run** → `fetchIRFromRepo` is called and Generate Snapshot reaches `completed` → **Undo** (header button) → empty canvas.
     - The Run step checks **execution-path compatibility (T15)** in a small, controlled, mocked environment. It shows that the generated graph enters the existing `runPipeline` / `processNextNodes` path and that the expected first mocked downstream call happens.
     - The test does **not** assert that the other cards of the suggestion complete. Their services are inert mocks, and they may legitimately stop at runtime checks.
     - Integration tests never require every possible candidate pipeline to complete every card;
   - **empty-canvas policy variants:**
     - *non-empty canvas:* apply a template first, then generate; 3 suggestions render, all Select buttons are disabled, the guidance is shown, and a forced apply returns `canvas_not_empty` with `snapshotCanvas()` unchanged (T13, T24);
-    - *transition:* from that state, click the toolbar **Clear All** (with `window.confirm` mocked to true), and the same Select buttons enable with no second `requestPipelinePlan` call. Select #1 and apply succeeds (T24);
+    - *transition:* from that state, click the toolbar **Clear All** (with `window.confirm` mocked to true), and the same Select buttons enable with no second `requestPipelineIntents` call. Select #1 and apply succeeds (T24);
     - *race:* generate on an empty canvas, add a card from the toolbox, then a forced apply with the stale handler returns `canvas_not_empty`, and the canvas holds only the user's card (T33);
     - *no automatic clear or save:* across all the above, the chatbot never triggered `window.confirm`, `clearPipeline`, or the session-save API (T34);
   - failure variants: `model_unavailable`, `insufficient_valid_candidates`, and Dismiss, each with `snapshotCanvas()` unchanged.
-- **New** `chatbot-backend/src/test/java/edu/baylor/ecs/cloudhubs/chatbot/pipeline/PipelinePlanIntegrationTest.java`, using service-level wiring with a stub `LocalLlmClient` (pattern: `ChatbotS12M2IntegrationTest`) plus standalone MockMvc. It asserts the HTTP contract for `OK`, `INVALID_MODEL_OUTPUT`, `UNSUPPORTED_GOAL`, and 503.
-- **Contract alignment:** the frontend fixture `plan-response.valid.json` and the backend test resource are identical, and a backend test deserializes it.
+- **New** `chatbot-backend/src/test/java/edu/baylor/ecs/cloudhubs/chatbot/pipeline/PipelineIntentIntegrationTest.java`, using service-level wiring with a stub `LocalLlmClient` (pattern: `ChatbotS12M2IntegrationTest`) plus standalone MockMvc. It asserts the HTTP contract for `OK`, `INVALID_MODEL_OUTPUT`, `UNSUPPORTED_GOAL`, and 503.
+- **Contract alignment:** the frontend fixtures `intent-response.*.json` and the backend test resources are identical, and a backend test deserializes them.
 - **Final live-model smoke (manual, not automated):** a release-qualification run of the *finished* system, distinct from the early P60-M1-014 feasibility signal.
-  - Setup: `docker compose --profile local-llm up --build`, then `docker exec cloudhub_ollama ollama pull <model>`. Use the model selected by P60-M1-014 (`llama3.2` unless it chose otherwise). Ollama runs only under the `local-llm` profile, and nothing pulls the model automatically.
-  - Run goals G1–G5 (as defined in P60-M1-014, for comparability) **5 times each, 25 runs**, through the real `POST /chatbot/pipeline/plan` plus the P60-M1-006 parse → validate → assemble → retry logic. The P60-M1-014 harness may be re-pointed at the endpoint for this; don't build a new one.
-  - Record the **planning success rate** (exactly 3 structurally valid, distinct suggestions), mean attempts, p50/p95 total planning time, and top rejection codes in the PR, and compare them with the P60-M1-014 baseline. Pipeline execution isn't part of this metric.
+  - Setup: `docker compose --profile local-llm up --build`, then `docker exec cloudhub_ollama ollama pull <model>`. Use the model selected by P60-M1-016 (`llama3.2` unless it chose otherwise). Ollama runs only under the `local-llm` profile, and nothing pulls the model automatically.
+  - Run goals G1–G5 (as defined in P60-M1-014, for comparability) **5 times each, 25 runs**, through the real `POST /chatbot/pipeline/intents` plus the P60-M1-006 parse → compose → validate → assemble → retry logic. The P60-M1-014/016 harness may be re-pointed at the endpoint for this; don't build a new one.
+  - Record the **planning success rate** (exactly 3 structurally valid, distinct suggestions), mean attempts, p50/p95 total planning time, and top rejection codes in the PR, and compare them with the P60-M1-016 baseline. Pipeline execution isn't part of this metric.
   - **Demo gate:** at least 70% planning success and p95 total planning time under 150 s (`PLAN_TOTAL_BUDGET_MS`) on the demo machine. If the gate isn't met, tune the prompt and examples within P60-M1-005's settings, or escalate the model choice (*team decision*).
 - **Docs:** add a "Chatbot-assisted pipeline creation" paragraph to `CLAUDE.md`'s pipeline section, list `chatbot-backend` (8081) in its services table (currently missing), and add the Ollama profile and model-pull steps.
 
@@ -1202,7 +1477,7 @@ This story doesn't repeat either investigation.
 
 **Testing** This story is the end-to-end test work.
 
-**Dependencies** P60-M1-001 … P60-M1-009, P60-M1-012, P60-M1-013 (test strategy and harness), and P60-M1-014 (selected model, harness, and baseline). P60-M1-010 is optional (telemetry assertions).
+**Dependencies** P60-M1-001 … P60-M1-009, P60-M1-012, P60-M1-013 (test strategy and harness), P60-M1-015, P60-M1-016 (selected model, harness, and baseline), P60-M1-017, and P60-M1-018. P60-M1-010 is optional (telemetry assertions).
 **Priority** P0
 **Estimate** 3 (down from 5, because the spike moved to P60-M1-013). Remaining work: the integration test on the existing harness, the backend integration test, contract alignment, a 25-run smoke on the existing harness, docs, and rehearsal. Under P60-M1-013 Outcome B, use the estimate recorded there.
 
@@ -1213,24 +1488,26 @@ This story doesn't repeat either investigation.
 
 ## 6. Story Dependency Map
 
-| Story | Title | Pri | Pts | Depends on | Unlocks |
-|---|---|---|---|---|---|
-| Story | Title | Pri | Pts | Depends on | Unlocks |
-|---|---|---|---|---|---|
-| P60-M1-012 | Restore green chatbot test baseline | P0 | 3 | — | 005, 008, 011 |
-| P60-M1-013 | PipelinePage integration-test feasibility spike | P0 | 2 | — | 011 (test strategy) |
-| P60-M1-001 | Capability catalog, input requirements, required config | P0 | 3 | — | 002, 003, 005, 014 |
-| P60-M1-014 | Local-model pipeline-planning feasibility spike | P0 | 3 | 001 | checkpoint for 006/008; 005 defaults; 011 baseline |
-| P60-M1-002 | `PipelineSpec` v1 and parser | P0 | 3 | 001 | 003, 004, 005, 007 |
-| P60-M1-003 | Deterministic validator and candidate IDs | P0 | 5 | 001, 002 | 004, 006, 007 |
-| P60-M1-004 | Candidate set: dedupe, diversity, exactly 3 | P0 | 3 | 002, 003 | 006 |
-| P60-M1-005 | Backend planning endpoint | P0 | 5 | 001, 002, 012; soft: 014 | 006 |
-| P60-M1-006 | Frontend planning orchestration | P0 | 5 | 003, 004, 005; checkpoint: 014 | 008, 009, 010 |
-| P60-M1-007 | Layout and atomic empty-canvas applier | P0 | 5 | 002, 003 | 008, 009, 010 |
-| P60-M1-008 | Chatbot build mode and suggestion UI | P0 | 5 | 006, 007, 012; checkpoint: 014 | 009, 010, 011 |
-| P60-M1-009 | Failure handling and canvas safety | P0 | 3 | 006, 007, 008 | 011 |
-| P60-M1-010 | Suggestion telemetry (non-blocking) | P1 | 2 | 006, 007, 008 | (Milestone 2) |
-| P60-M1-011 | End-to-end tests and demo readiness | P0 | 3 | 001–009, 012, 013, 014 | Milestone 1 sign-off |
+| Story | Title | Status | Pri | Pts | Depends on | Unlocks |
+|---|---|---|---|---|---|---|
+| P60-M1-012 | Restore green chatbot test baseline | **Done** | P0 | 3 | — | 005, 008, 011 |
+| P60-M1-013 | PipelinePage integration-test feasibility spike | **Done** (Outcome A) | P0 | 2 | — | 011 (test strategy) |
+| P60-M1-001 | Capability catalog, input requirements, required config | **Done** | P0 | 3 | — | 002, 003, 005, 015, 016, 017 |
+| P60-M1-014 | Graph-generation feasibility spike | **Done** (Decision D → D11) | P0 | 3 | 001 | Revision 7 pivot |
+| P60-M1-016 | Intent-selection feasibility spike | New | P0 | 2 | 001 | checkpoint for 006/008; 005 defaults; 011 baseline; R1 |
+| P60-M1-002 | `PipelineSpec` v1 and parser | Revised | P0 | 2 | 001 | 003, 017 |
+| P60-M1-003 | Deterministic validator and candidate IDs | Revised (minor) | P0 | 5 | 001, 002 | 004, 007, 017 |
+| P60-M1-015 | `PipelineIntentPlan` v1 contract and parser | New | P0 | 3 | 001 | 004, 005, 006, 017 |
+| P60-M1-017 | Deterministic composer (core) | New | P0 | 5 | 001, 002, 003, 015 | 018 |
+| P60-M1-018 | Composer: two-snapshot recipes and exhaustive test | New | P0 | 3 | 017 | 006 |
+| P60-M1-004 | Candidate set: distinct intents and graphs, exactly 3 | Revised | P0 | 3 | 003, 015 | 006 |
+| P60-M1-005 | Intent-selection endpoint | Revised | P0 | 5 | 001, 012, 015; soft: 016 | 006 |
+| P60-M1-006 | Frontend planning orchestration | Revised | P0 | 5 | 004, 005, 015, 017, 018; checkpoint: 016 | 008, 009, 010 |
+| P60-M1-007 | Layout and atomic empty-canvas applier | Unchanged | P0 | 5 | 002, 003 | 008, 009, 010 |
+| P60-M1-008 | Chatbot build mode and suggestion UI | Unchanged (wording) | P0 | 5 | 006, 007, 012; checkpoint: 016 | 009, 010, 011 |
+| P60-M1-009 | Failure handling and canvas safety | Unchanged (wording) | P0 | 3 | 006, 007, 008 | 011 |
+| P60-M1-010 | Suggestion telemetry (non-blocking) | Unchanged (fields) | P1 | 2 | 006, 007, 008 | (Milestone 2) |
+| P60-M1-011 | End-to-end tests and demo readiness | Revised (contract names) | P0 | 3 | 001–009, 012, 013, 015–018 | Milestone 1 sign-off |
 
 How to read the dependency column:
 
@@ -1240,28 +1517,37 @@ How to read the dependency column:
 Summary:
 
 - No cycles. No story is larger than 5 points.
-- **Total: 14 stories, 50 points.** P0: 13 stories / 48 pts; P1: 1 story / 2 pts; P2: none.
-- **Critical path (unchanged chain; 30 pts, down from 32 because P60-M1-011 is now 3):** 001 → 002 → 003 → 004 → 006 → 008 → 009 → 011.
-  - P60-M1-014 is not on it: 001 → 014 takes 6 pts to reach 006, while 001 → 002 → 003 → 004 takes 14.
-  - P60-M1-013 is not on it: it only has to finish before 011.
+- **Total: 18 stories, 62 points.**
+  - P0: 17 stories / 60 pts; P1: 1 story / 2 pts; P2: none.
+  - **Done:** 4 stories / 11 pts (012, 013, 001, 014).
+  - **Remaining:** 14 stories / 51 pts.
+- **Critical path (remaining, 31 pts):** 002 → 003 → 017 → 018 → 006 → 008 → 009 → 011.
+  - 015 → 005 reaches 006 after 8 pts, against 15 pts on the composer chain, so it isn't critical. 004 (after 003 + 015) isn't critical either.
+  - 016 isn't on the path: it's a 2-pt checkpoint that runs alongside 002/003.
 - **Parallel tracks:**
-  - 012 and 013 in the first days, with no dependencies (013 is a one-day timebox);
-  - 014 right after 001, alongside 002/003 (two-day timebox);
-  - 005 after 002 (DTOs, extractor, and controller first; prompt and defaults once 014 reports);
-  - 007 after 003, alongside 004/006;
+  - start immediately: 016 (spike), 015 (contract), 002 (spec);
+  - 005 after 015: DTOs, extractor, and controller first; prompt and defaults once 016 reports;
+  - 004 after 003 + 015;
+  - 007 after 003, alongside 017/018;
   - 010 after 008, off the critical path.
-- **Vertical slice:** first clear the Early Risk-Reduction Checkpoint below. Then take one pass through 002 → 003 → 005 → 006 → 007 → 008, with 004 implemented only as dedupe plus exactly-3. Then harden with full diversity (004), failure states (009), and E2E (011). Every story ships its own tests, so no testing is left disconnected at the end.
+- **Vertical slice:**
+  1. 015 → 002 → 003 → 017 (single-snapshot capabilities only) → 004 (minimal) → 005 → 006 → 007 → 008, demoing G1 end to end once 016 is green.
+  2. Then 018 (two-snapshot cards, exhaustive test), 009 (failure states), and 011 (E2E).
+
+  Every story ships its own tests.
 
 ### Early Risk-Reduction Checkpoint
 
-This is a checkpoint, not a milestone. Before investing in the planning orchestration (P60-M1-006) and the polished suggestion UX (P60-M1-008), and before fixing any demo assumptions, the team should have:
+This is a checkpoint, not a milestone. Before investing in planning orchestration (P60-M1-006) and the polished suggestion UX (P60-M1-008), the team should have:
 
-1. **Green existing chatbot tests** (P60-M1-012).
-2. **A decided end-to-end testing strategy:** Outcome A or B recorded (P60-M1-013).
-3. **The real pipeline capability catalog available** (P60-M1-001).
-4. **Evidence that the local model and prompt approach is viable:** decision A, B, or C recorded with measurements (P60-M1-014). Decision D stops the main build for replanning.
+1. **Green existing chatbot tests** (P60-M1-012): **done**.
+2. **A decided end-to-end testing strategy** (P60-M1-013): **done, Outcome A**.
+3. **The real pipeline capability catalog** (P60-M1-001): **done**.
+4. **Evidence that the local model can do the model's job:**
+   - *Graph generation* (P60-M1-014): **done, Decision D**, which led to the Revision 7 pivot.
+   - *Intent selection* (P60-M1-016): **open**. Decision A, B, or C must be recorded before 006/008. Decision D stops the main build for replanning.
 
-Work that doesn't depend on the model or the test strategy (002, 003, 004, 007, and 005's DTOs, extractor, and controller) may continue while the checkpoint is open. In the expected schedule, all four items close at roughly the same point that 002/003 finish, so the checkpoint adds review time rather than calendar time.
+Work that doesn't depend on the model (002, 003, 004, 007, 015, 017, 018, and 005's DTOs, extractor, and controller) may continue while item 4 is open.
 
 ## 7. Milestone Acceptance Criteria
 
@@ -1270,6 +1556,7 @@ Milestone 1 is complete only when all of the following are true:
 1. On `/pipeline`, the user opens the AI Assistant, switches to "Build a pipeline", and describes an analysis goal in natural language.
 2. The system shows **exactly three** suggestions, all **structurally valid** (they pass `validatePipelineSpec` against the live `VALID_CONNECTIONS` and `CARD_INPUT_REQUIREMENTS`) and **meaningfully distinct** (different analysis-card sets), each with a deterministic `candidateId`. Otherwise it shows a clear failure state with **no** selectable suggestions.
 3. No invalid pipeline can be rendered as selectable or applied. Only `ValidatedSuggestion` renders, and the applier re-validates.
+   - **No graph structure comes from the model (D11).** Every node and edge of every suggestion is produced by the deterministic composer from the option's analysis capabilities. Anything graph-like in the model's output is ignored. The composer fails closed, and the validator independently checks its output.
 4. Nothing changes on the canvas until the user explicitly clicks **Use this pipeline**. The **Milestone 1 empty-canvas policy** (§3) holds:
    1. A generated suggestion can only be applied to an empty pipeline canvas.
    2. Nothing on the current canvas is ever automatically removed, replaced, cleared, saved, merged, or extended by the chatbot. Automatic clearing is **not** a success criterion.
@@ -1293,15 +1580,15 @@ Frontend tests use Jest + React Testing Library 13 via `react-scripts test`, wit
 
 | Test ID | Scenario | Level / file | Expected result | Stories |
 |---|---|---|---|---|
-| T1 | Happy-path natural-language request | Integration: `pipeline/planning/PipelinePlanning.integration.test.tsx` | 3 validated suggestions render from the demo goal | 006, 008, 011 |
-| T2 | Model returns malformed structured output (prose, truncated, fenced, non-object candidates) | Unit (BE): `PipelineSpecJsonExtractorTest`; Hook (FE): `usePipelinePlanner.test.ts` | BE `INVALID_MODEL_OUTPUT`, never throws; FE retries once, then `invalid_model_output` | 002, 005, 006 |
-| T3 | Unknown card type (`VECTOR_GENERATE`) | Unit: `pipelineValidator.test.ts`; Hook | `UNKNOWN_CARD_TYPE`; rejected even after passing the BE shape check | 003, 006 |
-| T4 | Invalid edge (full 17×17 matrix; `SYSTEM_INPUT→FORMAL_VERIFY`) | Unit: `pipelineValidator.test.ts` | `ILLEGAL_CONNECTION` exactly where `VALID_CONNECTIONS` forbids | 003 |
-| T5 | Missing required predecessor/input (no input; orphan; Quick Compare without Scenario Generation; Policy Drift with ≠2 FVs; Scenario Generation without Component Card) | Unit: `pipelineValidator.test.ts` | `MISSING_INPUT` / `MISSING_UPSTREAM` / `UNREACHABLE_NODE` / `INPUT_REQUIREMENT_UNMET` | 001, 003 |
-| T6 | Only 1 or 2 valid candidates generated | Unit: `candidateSet.test.ts`; Hook | `INSUFFICIENT_DISTINCT`; one retry; then `insufficient_valid_candidates`, nothing selectable | 004, 006, 009 |
-| T7 | More than 3 candidates generated (4, 5, and 7 from the model) | Unit (BE) cap at 5; Unit (FE): `candidateSet.test.ts` | Exactly 3, chosen deterministically | 004, 005 |
-| T8 | Duplicate or equivalent candidates (same graph with different text; differs only by an extra holder card) | Unit: `candidateSet.test.ts`, `pipelineValidator.test.ts` | Same `candidateId` / same analysis set → counted once | 003, 004 |
-| T9 | Model or runtime unavailable (503, network error, health `unavailable`, timeout) | Controller (BE): `PipelinePlanControllerTest`; Hook; Component: `ChatbotPanel.test.tsx` | 503 → `model_unavailable` after 1 call; Send disabled in build mode; `timeout` past budget | 005, 006, 009 |
+| T1 | Happy-path natural-language request | Integration: `pipeline/planning/PipelinePlanning.integration.test.tsx` | Mocked intent options → composed → 3 validated suggestions render from the demo goal | 006, 008, 011, 015, 017 |
+| T2 | Model returns malformed intent output (prose, truncated, fenced, non-object options) | Unit (BE): `PipelineIntentJsonExtractorTest`; Unit (FE): `intentPlan.test.ts`; Hook: `usePipelinePlanner.test.ts` | BE `INVALID_MODEL_OUTPUT`, never throws; FE parser never throws; FE retries once, then `invalid_model_output` | 005, 006, 015 |
+| T3 | Unknown card type / capability (`VECTOR_GENERATE`) | Unit: `intentPlan.test.ts` (`UNKNOWN_CAPABILITY`), `pipelineValidator.test.ts` (`UNKNOWN_CARD_TYPE`); Hook | The option is rejected at the intent gate even after passing the BE shape check; the validator still rejects unknown types in any spec | 003, 006, 015 |
+| T4 | Invalid edge (full 17×17 matrix; `SYSTEM_INPUT→FORMAL_VERIFY`) | Unit: `pipelineValidator.test.ts`; composer exhaustive test (T36) | `ILLEGAL_CONNECTION` exactly where `VALID_CONNECTIONS` forbids; the composer never emits an illegal edge | 003, 017, 018 |
+| T5 | Missing required predecessor/input (no input; orphan; Quick Compare without Scenario Generation; Policy Drift with ≠2 FVs; Scenario Generation without Component Card) | Unit: `pipelineValidator.test.ts`; composer tests | Validator reports `MISSING_INPUT` / `MISSING_UPSTREAM` / `UNREACHABLE_NODE` / `INPUT_REQUIREMENT_UNMET`; the composer always adds the required predecessors (Quick Compare → FV + Scenario Generation; Policy Drift → 2 FVs) | 001, 003, 017, 018 |
+| T6 | Only 1 or 2 distinct valid options (unknown capabilities, empty sets, duplicates, or options composing to the same graph) | Unit: `candidateSet.test.ts`; Hook | `INSUFFICIENT_DISTINCT`; one retry with exclusions; then `insufficient_valid_candidates`, nothing selectable | 004, 006, 009, 015 |
+| T7 | More than 3 options (8 from the model → BE caps at 6; 4–6 distinct after a retry merge) | Unit (BE) cap at 6; Unit (FE): `candidateSet.test.ts` | Exactly 3, chosen deterministically | 004, 005 |
+| T8 | Duplicate or equivalent options (same set, different wording; different sets composing to the same graph; graphs differing only by holder cards) | Unit: `intentPlan.test.ts` (`DUPLICATE_CAPABILITY_SET`), `candidateSet.test.ts` | Counted once by normalized set, `candidateId`, or composed analysis set | 003, 004, 015 |
+| T9 | Model or runtime unavailable (503, network error, health `unavailable`, timeout) | Controller (BE): `PipelineIntentControllerTest`; Hook; Component: `ChatbotPanel.test.tsx` | 503 → `model_unavailable` after 1 call, **no keyword fallback**; Send disabled in build mode; `timeout` past budget | 005, 006, 009 |
 | T10 | User selects candidate 1 / 2 / 3 on an empty canvas (state A) | Component: `chatbot/PipelineSuggestionList.test.tsx` (`it.each`) | Select enabled; callback called once with the matching `candidateId`; all Select buttons then disabled | 008 |
 | T11 | User closes, cancels, or dismisses without selecting | Component; Integration | Callback never called; canvas snapshot unchanged; in-flight request aborted | 008, 009, 011 |
 | T12 | Canvas application succeeds on an empty canvas | Unit: `pipelineApplier.test.ts`; Integration | Cards and connections match the spec; committed together in one render; one Undo → empty canvas | 007, 011 |
@@ -1316,34 +1603,40 @@ Frontend tests use Jest + React Testing Library 13 via `react-scripts test`, wit
 | T16 | Baseline suites green before changes | Existing `ChatbotPanel.test.tsx`; `mvn test` | 16/16 FE and 110/110 BE pass | 012 |
 | T17 | Catalog parity, serializability, stable version | Unit: `pipelineCapabilities.test.ts` | 17 cards; `allowedTargets` equals `VALID_CONNECTIONS` | 001 |
 | T18 | All 7 `PIPELINE_TEMPLATES` validate | Unit: `pipelineValidator.test.ts` | All valid | 001, 003 |
-| T19 | Parser strips `data`/`x`/`id`/`config` and reports `ignoredFields`; never throws | Unit: `pipelineSpec.test.ts` | Whitelisted spec only | 002 |
-| T20 | Prompt built only from catalog (`FOO_CARD`); Ollama payload has `format:"json"` and `num_ctx` only when requested | Unit (BE): `PipelinePlanPromptBuilderTest`, `LocalLlmAdapterTest` | As stated; Q&A payload unchanged | 005 |
-| T21 | Retry carries exclusions and rejection codes; superseded request ignored | Hook | Request 2 body asserted; stale response dropped | 006 |
+| T19 | Parsers strip model-supplied graph/config fields: `parseIntentPlan` drops `nodes`/`edges`/`id`/`config` and non-analysis cards; `parsePipelineSpec` strips `data`/`x`/`id`/`config` | Unit: `intentPlan.test.ts`, `pipelineSpec.test.ts` | Whitelisted fields only; dropped items reported; never throws | 002, 015 |
+| T20 | Intent prompt built only from catalog **analysis** capabilities (`FOO_CARD` listed, non-analysis `BAR_CARD` not, no edges/graph schema); Ollama payload has `format:"json"` and `num_ctx` only when requested | Unit (BE): `PipelineIntentPromptBuilderTest`, `LocalLlmAdapterTest` | As stated; Q&A payload unchanged | 005 |
+| T21 | Retry carries excluded capability sets and intent issue codes; superseded request ignored | Hook | Request 2 body asserted; stale response dropped | 006, 015 |
 | T22 | Policy Drift layout: base FV above PR FV | Unit: `pipelineLayout.test.ts` | FV#1.y < FV#2.y | 007 |
 | T23 | Undo after apply on a restored or loaded-then-cleared canvas (stale history) | Integration | Undo → empty canvas, not an earlier graph | 007, 011 |
-| T24 | Non-empty canvas, then manual **Clear All** | Component: `chatbot/PipelineSuggestionList.test.tsx`, `ChatbotPanel.test.tsx`; Integration | (a) With `canvasIsEmpty=false`, generation still runs and 3 suggestions render; (b) all three Select buttons disabled and the empty-canvas guidance shown; (c) after the user's **Clear All**, the same buttons enable with **no** new `requestPipelinePlan` call; (d) Select then succeeds (re-validated on click); (e) with `isPipelineRunning=true`, buttons disabled with the run-in-progress text | 008, 011 |
+| T24 | Non-empty canvas, then manual **Clear All** | Component: `chatbot/PipelineSuggestionList.test.tsx`, `ChatbotPanel.test.tsx`; Integration | (a) With `canvasIsEmpty=false`, generation still runs and 3 suggestions render; (b) all three Select buttons disabled and the empty-canvas guidance shown; (c) after the user's **Clear All**, the same buttons enable with **no** new `requestPipelineIntents` call; (d) Select then succeeds (re-validated on click); (e) with `isPipelineRunning=true`, buttons disabled with the run-in-progress text | 008, 011 |
 | T25 | Each failure reason renders its message and actions | Component (`it.each`) | Per the P60-M1-009 table; no Select buttons | 009 |
 | T26 | Unsupported goal | Hook + Component | `unsupported_goal` after 1 call; capability list shown | 005, 006, 009 |
 | T27 | Ask mode unaffected | Component | `sendChatbotQuery` called; no planning call | 008 |
 | T28 | Telemetry sequence and privacy | Unit (`track` mocked) | 4 events, shared `suggestionSetId`/`candidateId`; no goal text | 010 |
-| T29 | Backend HTTP contract | Integration (BE): `PipelinePlanIntegrationTest` | `OK` / `INVALID_MODEL_OUTPUT` / `UNSUPPORTED_GOAL` / 503 | 005, 011 |
-| T30 | **Final** live-model smoke on the finished system, G1–G5 × 5 runs through the real endpoint | Manual (re-pointed P60-M1-014 harness) | Planning success rate (3 structurally valid, distinct suggestions; execution not measured), attempts, and p50/p95 total planning time recorded and compared with the T32 baseline; demo gate (≥70%, p95 < 150 s) decided | 011 |
+| T29 | Backend HTTP contract | Integration (BE): `PipelineIntentIntegrationTest` | `OK` / `INVALID_MODEL_OUTPUT` / `UNSUPPORTED_GOAL` / 503 | 005, 011 |
+| T30 | **Final** live-model smoke on the finished system, G1–G5 × 5 runs through the real intents endpoint | Manual (re-pointed P60-M1-014/016 harness) | Planning success rate (3 structurally valid, distinct composed suggestions; execution not measured), attempts, and p50/p95 total planning time recorded and compared with the T40 baseline; demo gate (≥70%, p95 < 150 s) decided | 011 |
 | T33 | Canvas changed between generation and selection (race) | Unit: `pipelineApplier.test.ts` (handler with live state) and Integration | Suggestions generated on an empty canvas → user adds a card → apply (even with a stale `canvasIsEmpty=true`) returns `canvas_not_empty`; canvas holds exactly the user's card; `history`/`historyIndex` reflect only the user's action | 007, 011 |
 | T34 | Milestone 2 boundary: no automatic clear, save, append, or merge | Component and Integration (spies on `window.confirm`, `clearPipeline` path, and session-save API) | Across all suggestion interactions on empty and non-empty canvases, the chatbot never opens the Clear All confirmation, clears, saves, or adds next to existing nodes. No Milestone 1 test expects chatbot append, merge, or edit behaviour | 007, 008, 011 |
+| T35 | Composer: each analysis capability alone, and §2 golden outputs | Unit: `pipelineComposer.test.ts` | Each single capability composes to a valid spec equal to its template recipe (Quick Compare: FV + Scenario Generation recipes + 2 edges); §2 Focused/Balanced/Comprehensive match exactly; shared prefixes; byte-identical on repeat and on reordered input | 017 |
+| T36 | Composer exhaustive property test | Unit: `pipelineComposer.test.ts` | All 2,047 non-empty analysis subsets compose to a valid spec containing every requested capability, or `COMPOSITION_TOO_LARGE`; never invalid, unsupported, or thrown; deterministic | 018 |
+| T37 | Two-snapshot recipes (Policy Drift, Change Impact) | Unit: `pipelineComposer.test.ts` | Signatures equal their templates; base FV listed and laid out first; recipe table matches the templates; combined with other capabilities stays valid | 018, 007 |
+| T38 | Composer fails closed | Unit: `pipelineComposer.test.ts` (injected broken facts) | `COMPOSITION_INVALID`, no spec escapes; orchestration drops the option and counts it | 006, 017 |
+| T39 | Intent parser capability rules | Unit: `intentPlan.test.ts` (catalog-driven) | Every `isAnalysis` card accepted; every non-analysis card dropped (`NON_ANALYSIS_DROPPED`); unknown → `UNKNOWN_CAPABILITY`; empty → `NO_ANALYSIS_CAPABILITY`; tier and length rules; stable `optionId` | 015 |
 
 **Risk-reduction spikes** (results inform the plan; not Milestone 1 acceptance criteria):
 
 | Test ID | Scenario | Level / file | Expected result | Stories |
 |---|---|---|---|---|
 | T31 | PipelinePage testability spike | Proof test: `pipeline/PipelinePage.harness.test.tsx` + `pipeline/__testutils__/renderPipelinePage.tsx` | Probes 1–4 pass with module-level mocks only (Outcome A), or blockers are recorded with file:line and one recommendation (Outcome B); within one working day | 013 |
-| T32 | Early local-model feasibility | Live harness, skipped by default: `pipeline/planning/__spike__/localModelFeasibility.live.test.ts` (`RUN_LIVE_LLM=1`) | 17 main runs, the JSON-mode-off control, and the G1 retry probe recorded, with syntax and semantic failures kept separate; early thresholds evaluated; decision A/B/C/D recorded | 014 |
+| T32 | Early local-model feasibility: **graph generation** (completed) | Live harness: `pipeline/planning/__spike__/localModelFeasibility.live.test.ts` (`RUN_LIVE_LLM=1`) | Done: Decision D (`llama3.2`, `llama3.1:8b`) and post-D D20 (`gpt-oss:20b`); historical evidence for D11 | 014 |
+| T40 | Intent-selection feasibility (lightweight local model) | Live harness, intent mode (`RUN_LIVE_LLM=1`, `LIVE_LLM_TASK=intent`) | G1×5, G2–G5×3; syntax, capability, set, and relevance results kept separate; thresholds evaluated; decision A/B/C/D recorded | 016 |
 
 ## 9. Suggested Demonstration Script
 
 About 4 minutes. **Prerequisites:**
 
 - `docker compose --profile local-llm up --build`;
-- `docker exec cloudhub_ollama ollama pull llama3.2`, or the reference model selected by P60-M1-014 and confirmed at the P60-M1-011 demo gate;
+- `docker exec cloudhub_ollama ollama pull llama3.2`, or the reference model selected by P60-M1-016 and confirmed at the P60-M1-011 demo gate;
 - a warm-up plan request run once beforehand, so the model is loaded;
 - the browser on `http://localhost:3000/pipeline` with an **empty** pipeline canvas (the presenter clears it beforehand with **Clear All** if needed).
 
@@ -1351,7 +1644,7 @@ About 4 minutes. **Prerequisites:**
 2. **(0:15) Open chatbot.** Click the assistant button, then switch to **Build a pipeline**.
 3. **(0:25) Type the goal.** Enter *"I want to visualize the architecture and check authorization problems."* and press Send. The progress line appears.
 4. **(0:30–1:30) Three choices.** Walk through Focused, Balanced, and Comprehensive: plain-language card names, "Why this fits", and what each needs to be configured.
-5. **(1:45) Rule compliance.** Expand **"Checked against pipeline rules ✓"** on one card. "Every option was checked by code against the same connection rules the canvas uses. Anything the model got wrong was dropped before you saw it."
+5. **(1:45) Who did what.** Expand **"Built by AridNova and checked against pipeline rules ✓"** on one card. "The assistant only chose which analyses fit your goal. AridNova built the wiring, adding every prerequisite card and connection, and checked it against the same rules the canvas uses."
 6. **(2:00) Select.** Click **Use this pipeline** on Balanced. The cards and connections appear together. Click a card's link button to show that the canvas's own valid-target highlighting agrees with the created connections. Click the header **Undo** to show the whole addition reverts in one step, then **Redo**. Use the header buttons: keyboard Ctrl/Cmd+Z is ignored while focus is in the chat textarea.
 7. **(2:45, optional) Run normally.** Following the hint, enter the system name and the known-good demo repository in System Source, then press the existing **Run**. Watch Generate Snapshot → IR Card progress. "Execution is unchanged; the assistant constructed the graph, and the existing runtime executes it." The repository and running services are a **demo fixture**: they show this environment executing, not that every pipeline completes in every environment.
 8. **(3:30, optional) Failure safety.** Run `docker stop cloudhub_ollama`, ask again, and show "model isn't reachable" with **Browse templates**. The canvas is untouched.
@@ -1382,6 +1675,11 @@ About 4 minutes. **Prerequisites:**
 - Undo/redo semantics for graph patches, beyond the Milestone 1 single-step undo of an apply.
 - **Model-filled configuration** (repository URLs, system names, LLM choice, target URLs) and a `config` section in `PipelineSpec`.
 - **Deterministic auto-repair** of nearly valid candidates.
+- **Keyword or rule-based intent classification**, for example as a fallback when the model is unavailable. In Milestone 1, `model_unavailable` remains the failure behaviour (P60-M1-006/009).
+- **Optional enrichment edges in the composer**, such as `FORMAL_VERIFY → SCENARIO_GENERATE` scenario filtering or `CHANGE_IMPACT → SCENARIO_GENERATE`. These would need machine-readable "optional input" facts, which the catalog doesn't have today.
+- **Alternative composition roots:** starting from `UPLOAD_IR` (an uploaded snapshot), or history-only Visualization fed directly from System Source.
+- **LLM-generated graph structure.** Revisit only if a future local model passes the P60-M1-014 thresholds with recorded evidence. The deterministic validator would stay authoritative.
+- **Commercial or hosted LLM providers** as an optional configuration through the existing OpenAI-compatible adapter. Not a Milestone 1 dependency.
 - **Showing partial result sets** (1–2 valid suggestions) instead of a failure.
 - **Preference ranking**, personalized defaults, preference-weight updates, and **learning from selections**, including SLM or model fine-tuning on the P60-M1-010 data.
 - **Auto-run** after selection, or chat-triggered execution.
@@ -1497,9 +1795,40 @@ Still risk-gated: the reference model (R1, decided by P60-M1-014) and the E2E st
 | 5 | P60-M1-008: no preselection or emphasised default (D4); Ask-mode criterion now asserts that no suggestions render and no apply happens, even for build-like text (D2) |
 | 6 | Unresolved decisions reduced to risk-gated items. Removed: the stale-test disposition (now D10), `maxIncoming`/`ROW_GAP`/`SIZE_LIMIT` (now tunable parameters in §0), and llama.cpp JSON support (now R3) |
 
+**Revision 7: architectural pivot to intent selection plus a deterministic composer.**
+
+**Evidence (P60-M1-014 and the post-D experiment).** Asking a local LLM to write complete `PipelineSpec` graphs failed feasibility on every model tested:
+
+| Model | G1 usable sets | Failure |
+|---|---|---|
+| `llama3.2` | 0/5 | Illegal `VALID_CONNECTIONS` edges, unmet `CARD_INPUT_REQUIREMENTS`, too few candidates |
+| `llama3.1:8b` | 0/5 | Systematic illegal edges (e.g. `MULTI_REPO→COMPONENT_GENERATE` 14×), unmet requirements |
+| `gpt-oss:20b` | 0/5 | Reasoning exhausted the token budget before any output; over the latency budget |
+
+Across 34 measured runs, no response contained three valid, distinct graphs. The models generally chose sensible analysis capabilities but didn't reliably wire them.
+
+**Decision (D11):** the LLM selects **what** to analyse, and deterministic TypeScript constructs **how** it's wired. The product behaviour frozen in D1–D10 is unchanged.
+
+| # | Change |
+|---|---|
+| 1 | §0: added D11 (planning architecture). D6/D7 updated to name the intent plan and composer. R1 is now decided by P60-M1-016. R2 marked resolved (P60-M1-013 Outcome A). Tunables add max capabilities per option and composer tie-break order |
+| 2 | §1/§2/§3/§4: objective, demo flow, scope, and architecture diagram rewritten for the pipeline intents → parse → compose → validate → candidate set. The §2 example now shows the model's capability choices and the composer's deterministic wiring. Out of Scope adds LLM-generated graph structure, keyword fallback, and commercial-API dependency |
+| 3 | **New P60-M1-016** (2 pts): intent-selection feasibility spike on `llama3.2`, reusing the P60-M1-014 harness, measuring classification rather than graph construction. Takes over P60-M1-014's checkpoint role and R1 |
+| 4 | **New P60-M1-015** (3 pts): `PipelineIntentPlanV1` contract and strict parser. Only `isAnalysis` capabilities survive; model-supplied graph or config fields are dropped |
+| 5 | **New P60-M1-017** (5 pts): deterministic composer core. Template-derived recipes, requirement-derived composition, shared prefixes, deterministic output, fails closed through `validatePipelineSpec` |
+| 6 | **New P60-M1-018** (3 pts): two-snapshot recipes (Change Impact, Policy Drift) from their templates, plus an exhaustive test over all 2,047 analysis subsets |
+| 7 | P60-M1-002 revised (3 → 2): spec produced by the composer; LLM envelope parser and backend spec DTOs removed |
+| 8 | P60-M1-003 revised (minor): independent safety net behind the composer; `describeIssuesForRetry` removed |
+| 9 | P60-M1-004 revised: distinctness of intents **and** composed graphs, tier consistency and relabelling, exactly three; no longer chooses among arbitrary model graphs |
+| 10 | P60-M1-005 revised: `POST /chatbot/pipeline/intents`, capability-only prompt (no edges or graph schema), intent DTOs and extractor; defaults provisional on P60-M1-016 |
+| 11 | P60-M1-006 revised: intents → parse → compose → validate → assemble; retry only for malformed, unknown, or duplicate intents; no keyword fallback |
+| 12 | P60-M1-008/009/010/011: contract names, disclosure wording ("Built by AridNova…"), telemetry fields, fixtures, and dependencies updated; behaviour unchanged |
+| 13 | §6: new dependency map; 18 stories / 62 pts (11 done, 51 remaining); critical path 002 → 003 → 017 → 018 → 006 → 008 → 009 → 011 (31 pts remaining). Also fixed a duplicated table header |
+| 14 | §7: new guarantee that no graph structure comes from the model. §8: T1–T9, T19–T21, T29, T30, T32 updated; T35–T39 (composer and intent parser) and T40 (intent spike) added |
+| 15 | §10: keyword or rule-based classification, optional enrichment edges, alternative composition roots, revisiting LLM graph generation, and optional commercial providers listed as future enhancements |
+
 **Unresolved decisions** (risk-gated; each closes when its spike reports):
 
-1. **R1, reference and demo model:** decided by P60-M1-014 (outcome A/B/C/D), starting from `llama3.2` on Ollama. P60-M1-011's demo gate confirms it. This is a runtime choice and doesn't change product scope.
-2. **R2, E2E strategy:** decided by P60-M1-013 (Outcome A/B). If it returns Outcome B and recommends extracting a small apply/run-entry layer from `PipelinePage`, that refactor needs explicit team approval as a separate change before P60-M1-011 relies on it.
+1. **R1, reference and demo model:** decided by **P60-M1-016** (intent selection), starting from `llama3.2` on Ollama. P60-M1-011's demo gate confirms it. This is a runtime choice and doesn't change product scope; Milestone 1 doesn't depend on `gpt-oss:20b` or a commercial API.
 
-*Decided, no longer open:* D1–D10 and R3 (§0). Implementation-tunable parameters are listed in §0 and aren't tracked as decisions.
+*Decided, no longer open:* D1–D11, R2 (resolved by P60-M1-013 Outcome A), and R3 (§0). Implementation-tunable parameters are listed in §0 and aren't tracked as decisions.
