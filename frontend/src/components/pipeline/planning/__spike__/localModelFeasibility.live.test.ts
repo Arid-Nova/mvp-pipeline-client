@@ -2,11 +2,16 @@
  * @jest-environment node
  */
 /**
- * P60-M1-014 — Local-model pipeline-planning feasibility spike (live measurement harness).
+ * Local-model feasibility spikes (live measurement harness):
+ *   - P60-M1-014: graph generation (LIVE_LLM_TASK=graph, default). Completed: Decision D.
+ *   - P60-M1-016: intent selection (LIVE_LLM_TASK=intent). The model only picks analysis
+ *     capabilities; it never sees or produces graph structure (Revision 7, D11).
  *
  * SKIPPED unless RUN_LIVE_LLM=1, so normal `npm test` makes no network calls.
  *
  *   RUN_LIVE_LLM=1 OLLAMA_BASE_URL=http://[::1]:11434 \
+ *     CI=true npm test -- --watchAll=false localModelFeasibility
+ *   RUN_LIVE_LLM=1 LIVE_LLM_TASK=intent OLLAMA_BASE_URL=http://[::1]:11434 LIVE_LLM_NUM_PREDICT=1024 \
  *     CI=true npm test -- --watchAll=false localModelFeasibility
  *
  * Everything the model sees is built from buildPipelineCapabilityCatalog(); this file keeps no
@@ -36,7 +41,10 @@ import { CardType } from '../../models';
 import { PipelineCapabilityCatalog, PipelineExample, buildPipelineCapabilityCatalog } from '../pipelineCapabilities';
 
 const LIVE = process.env.RUN_LIVE_LLM === '1';
-const describeLive = LIVE ? describe : describe.skip;
+/** graph = P60-M1-014 graph-generation task (default); intent = P60-M1-016 intent-selection task. */
+const TASK = process.env.LIVE_LLM_TASK || 'graph';
+const describeLive = LIVE && TASK === 'graph' ? describe : describe.skip;
+const describeIntentLive = LIVE && TASK === 'intent' ? describe : describe.skip;
 
 const BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
 const MODEL = process.env.OLLAMA_MODEL || 'llama3.2';
@@ -746,6 +754,441 @@ describeLive('P60-M1-014 live local-model feasibility', () => {
 
         expect(summary.catalogVersion).toMatch(/^pcat-/);
         expect(main.length).toBeGreaterThan(0);
+    });
+});
+
+// =============================================================================================
+// P60-M1-016 — Intent-selection feasibility (Revision 7)
+// =============================================================================================
+// The model receives only the catalog's analysis capabilities and returns three intent profiles
+// (focused / balanced / comprehensive), each naming analysis capability IDs. It is never shown
+// edges, requirements, templates or a graph schema. The evaluator below is TEMPORARY spike code
+// written against the planned P60-M1-015 contract; it is not production parsing.
+
+const INTENT_TIERS = ['focused', 'balanced', 'comprehensive'];
+const MAX_ANALYSIS_PER_OPTION = 6;
+const GRAPH_OR_CONFIG_FIELDS = ['nodes', 'edges', 'connections', 'prerequisites', 'inputs', 'config', 'id', 'x', 'y', 'position'];
+
+/**
+ * Relevance rubric, fixed before any live run. A measurement aid, not a product rule.
+ * The focused profile is "relevant" when it contains every required group, where a group is
+ * satisfied by any one of its capabilities.
+ */
+const RELEVANCE_RUBRIC: Record<string, { description: string; requiredGroups: CardType[][] }> = {
+    G1: {
+        description: 'System Visualization plus at least one authorization-related analysis',
+        requiredGroups: [
+            ['VISUALIZATION'],
+            ['FORMAL_VERIFY', 'FORMAL_VIZ', 'SCENARIO_GENERATE', 'VERIFICATION_COMPARISON', 'AEGIS', 'PROMPT_GENERATE', 'TEST_GENERATE', 'TEST_EXECUTOR'],
+        ],
+    },
+    G2: { description: 'System Visualization', requiredGroups: [['VISUALIZATION']] },
+    G3: {
+        description: 'Authorization test generation/execution',
+        requiredGroups: [['SCENARIO_GENERATE', 'PROMPT_GENERATE', 'TEST_GENERATE', 'TEST_EXECUTOR']],
+    },
+    G4: {
+        description: 'A risk or security analysis',
+        requiredGroups: [['AEGIS', 'FORMAL_VERIFY', 'FORMAL_VIZ', 'VERIFICATION_COMPARISON']],
+    },
+    G5: {
+        description: 'A cross-version comparison (Policy Drift or Change Impact)',
+        requiredGroups: [['SECURITY_REGRESSION', 'CHANGE_IMPACT']],
+    },
+};
+
+/**
+ * v1: first measured prompt. v2: the single bounded tuning iteration allowed by Decision B. It
+ * targets the causes observed in v1 (misspelled IDs, focused options covering only part of a
+ * compound goal, version-comparison capabilities chosen for single-version goals). It uses only
+ * catalog data (each capability's category); the catalog itself is unchanged.
+ */
+export const buildIntentSystemPrompt = (catalog: PipelineCapabilityCatalog, variant: string = 'v1'): string => {
+    const capabilities = catalog.cards
+        .filter((c) => c.isAnalysis)
+        .map((c) =>
+            variant === 'v2'
+                ? `- ${c.cardType} ("${c.title}", category: ${c.category}): ${c.purpose} Produces: ${c.outcome}`
+                : `- ${c.cardType} ("${c.title}"): ${c.purpose} Produces: ${c.outcome}`
+        );
+    const versionCategories = Array.from(
+        new Set(catalog.cards.filter((c) => c.isAnalysis && c.category === 'Version Control').map((c) => c.category))
+    );
+    const v2Rules =
+        variant === 'v2'
+            ? [
+                  'Copy capability IDs exactly, character for character, from the list above.',
+                  'The focused option must cover every part of the goal: if the goal asks for two things, include a capability for each.',
+                  ...versionCategories.map(
+                      (category) =>
+                          `Capabilities in the "${category}" category compare two versions or snapshots of a system; ` +
+                          'choose them only when the goal is about versions, snapshots, or changes.'
+                  ),
+                  'Keep each title under 60 characters.',
+              ]
+            : [];
+    return [
+        'You help users of AridNova, a microservice analysis toolkit, choose which analyses to run.',
+        'Respond with ONE JSON object and nothing else.',
+        '',
+        'ANALYSIS CAPABILITIES (use these IDs exactly):',
+        ...capabilities,
+        '',
+        "Return EXACTLY THREE options for the user's goal, one for each tier:",
+        '- "focused": the fewest capabilities that directly serve the goal;',
+        '- "balanced": the focused capabilities plus the most useful related analysis;',
+        '- "comprehensive": a broader set of related analyses.',
+        'Each option must use a different set of capabilities.',
+        `Use at most ${MAX_ANALYSIS_PER_OPTION} capabilities per option.`,
+        'List analysis capability IDs only. Do NOT list data sources, inputs, intermediate or prerequisite steps, ' +
+            'nodes, edges, connections, configuration, repositories, IDs or positions. AridNova adds all wiring and ' +
+            'prerequisites automatically.',
+        ...v2Rules,
+        '',
+        'OUTPUT SCHEMA:',
+        '{"version":1,"options":[{"tier":"focused","title":"short title","rationale":"one sentence: why this fits the goal",' +
+            '"analysisCardTypes":["CAPABILITY_ID"]}]}',
+        'If AridNova cannot serve the goal at all, return {"version":1,"options":[],"unsupportedReason":"..."}.',
+    ].join('\n');
+};
+
+interface IntentOptionEvaluation {
+    index: number;
+    tier: string | null;
+    title: string | null;
+    rationale: string | null;
+    rawIds: string[];
+    analysisIds: string[]; // known analysis IDs, de-duplicated, catalog order
+    unknownIds: string[];
+    nonAnalysisIds: string[];
+    graphOrConfigFields: string[];
+    issues: string[]; // strict option issues
+    strictValid: boolean;
+    tolerantValid: boolean; // non-analysis known IDs dropped (planned P60-M1-015 policy)
+}
+
+interface IntentResponseEvaluation {
+    jsonParsed: boolean;
+    optionsArray: boolean;
+    version: unknown;
+    optionCount: number;
+    unsupportedReason: string | null;
+    options: IntentOptionEvaluation[];
+    setIssues: string[];
+    strictPass: boolean;
+    tolerantPass: boolean;
+    emittedIds: number;
+    knownAnalysisIds: number;
+}
+
+const evaluateIntentResponse = (content: string, catalog: PipelineCapabilityCatalog): IntentResponseEvaluation => {
+    const order = catalog.cards.map((c) => c.cardType as string);
+    const analysis = new Set(catalog.cards.filter((c) => c.isAnalysis).map((c) => c.cardType as string));
+    const known = new Set(order);
+    const extracted = extractJsonObject(content);
+    const root = extracted?.parsed as any;
+    const result: IntentResponseEvaluation = {
+        jsonParsed: Boolean(extracted),
+        optionsArray: Boolean(root && Array.isArray(root.options)),
+        version: root?.version,
+        optionCount: root && Array.isArray(root.options) ? root.options.length : 0,
+        unsupportedReason: typeof root?.unsupportedReason === 'string' ? root.unsupportedReason : null,
+        options: [],
+        setIssues: [],
+        strictPass: false,
+        tolerantPass: false,
+        emittedIds: 0,
+        knownAnalysisIds: 0,
+    };
+    if (!result.optionsArray) return result;
+
+    result.options = (root.options as unknown[]).map((raw, index): IntentOptionEvaluation => {
+        const o = (raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}) as Record<string, unknown>;
+        const issues: string[] = [];
+        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) issues.push('NOT_OBJECT');
+        const tier = typeof o.tier === 'string' ? o.tier : null;
+        if (!tier || !INTENT_TIERS.includes(tier)) issues.push('BAD_TIER');
+        const title = typeof o.title === 'string' && o.title.trim() ? o.title.trim() : null;
+        if (!title || title.length > 60) issues.push('BAD_TITLE');
+        const rationale = typeof o.rationale === 'string' ? o.rationale.trim() : null;
+        if (rationale !== null && rationale.length > 400) issues.push('RATIONALE_TOO_LONG');
+        const rawIds = Array.isArray(o.analysisCardTypes) ? (o.analysisCardTypes as unknown[]).map(String) : [];
+        if (!Array.isArray(o.analysisCardTypes)) issues.push('NO_CAPABILITY_ARRAY');
+        const unknownIds = rawIds.filter((id) => !known.has(id));
+        const nonAnalysisIds = rawIds.filter((id) => known.has(id) && !analysis.has(id));
+        const analysisIds = order.filter((id) => analysis.has(id) && rawIds.includes(id));
+        if (unknownIds.length) issues.push('UNKNOWN_CAPABILITY');
+        if (nonAnalysisIds.length) issues.push('NON_ANALYSIS_CAPABILITY');
+        if (analysisIds.length === 0) issues.push('EMPTY_SET');
+        if (analysisIds.length > MAX_ANALYSIS_PER_OPTION) issues.push('TOO_MANY_CAPABILITIES');
+        const graphOrConfigFields = Object.keys(o).filter((k) => GRAPH_OR_CONFIG_FIELDS.includes(k));
+        const tolerantIssues = issues.filter((i) => i !== 'NON_ANALYSIS_CAPABILITY');
+        return {
+            index,
+            tier,
+            title,
+            rationale,
+            rawIds,
+            analysisIds,
+            unknownIds,
+            nonAnalysisIds,
+            graphOrConfigFields,
+            issues,
+            strictValid: issues.length === 0,
+            tolerantValid: tolerantIssues.length === 0,
+        };
+    });
+    result.emittedIds = result.options.reduce((s, o) => s + o.rawIds.length, 0);
+    result.knownAnalysisIds = result.options.reduce((s, o) => s + o.rawIds.filter((id) => analysis.has(id)).length, 0);
+
+    if (result.optionCount !== 3) result.setIssues.push('WRONG_OPTION_COUNT');
+    if (result.version !== 1) result.setIssues.push('BAD_VERSION');
+    const tiers = result.options.map((o) => o.tier);
+    INTENT_TIERS.forEach((t) => {
+        const n = tiers.filter((x) => x === t).length;
+        if (n === 0) result.setIssues.push('MISSING_TIER');
+        if (n > 1) result.setIssues.push('DUPLICATE_TIER');
+    });
+    const sets = result.options.map((o) => o.analysisIds.join('+'));
+    if (new Set(sets).size !== sets.length) result.setIssues.push('DUPLICATE_SET');
+    result.setIssues = Array.from(new Set(result.setIssues));
+
+    const setOk = result.setIssues.length === 0;
+    result.strictPass = result.jsonParsed && setOk && result.options.every((o) => o.strictValid);
+    result.tolerantPass = result.jsonParsed && setOk && result.options.every((o) => o.tolerantValid);
+    return result;
+};
+
+const isRelevant = (goal: string, ids: string[]): boolean =>
+    RELEVANCE_RUBRIC[goal].requiredGroups.every((group) => group.some((id) => ids.includes(id)));
+
+interface IntentRunRecord {
+    id: string;
+    goal: string;
+    rep: number;
+    call: OllamaChatResult;
+    evaluation: IntentResponseEvaluation;
+    retry?: { call: OllamaChatResult; evaluation: IntentResponseEvaluation };
+    passFirst: boolean;
+    passAfterRetry: boolean;
+    passVia: 'first' | 'retry' | 'merged' | null;
+    focusedIds: string[] | null;
+    focusedRelevant: boolean | null;
+    anyOptionRelevant: boolean;
+    totalPlanningMs: number;
+}
+
+describeIntentLive('P60-M1-016 live intent-selection feasibility', () => {
+    jest.setTimeout(2 * 60 * 60 * 1000);
+
+    it('measures capability selection against the real catalog', async () => {
+        const catalog = buildPipelineCapabilityCatalog();
+        const systemPrompt = buildIntentSystemPrompt(catalog, PROMPT_VARIANT);
+        const version = await request('GET', '/api/version');
+        const ollamaVersion = JSON.parse(version.text).version;
+        const userMessage = (goal: string) => `Analysis goal: "${goal}"\nReturn the JSON object now.`;
+
+        // Warm-up (loads the model; not counted).
+        const warmup = await chat([{ role: 'system', content: systemPrompt }, { role: 'user', content: userMessage(GOALS.G2) }], true);
+
+        const plan = [
+            { goal: 'G1', reps: 5 },
+            { goal: 'G2', reps: 3 },
+            { goal: 'G3', reps: 3 },
+            { goal: 'G4', reps: 3 },
+            { goal: 'G5', reps: 3 },
+        ];
+        const runs: IntentRunRecord[] = [];
+        for (const step of plan) {
+            for (let rep = 1; rep <= step.reps; rep += 1) {
+                const messages = [{ role: 'system', content: systemPrompt }, { role: 'user', content: userMessage(GOALS[step.goal]) }];
+                // eslint-disable-next-line no-await-in-loop
+                const call = await chat(messages, true);
+                const evaluation = evaluateIntentResponse(call.content, catalog);
+                const record: IntentRunRecord = {
+                    id: `intent-${step.goal}-${rep}`,
+                    goal: step.goal,
+                    rep,
+                    call,
+                    evaluation,
+                    passFirst: evaluation.strictPass,
+                    passAfterRetry: evaluation.strictPass,
+                    passVia: evaluation.strictPass ? 'first' : null,
+                    focusedIds: null,
+                    focusedRelevant: null,
+                    anyOptionRelevant: false,
+                    totalPlanningMs: call.wallMs,
+                };
+
+                let finalOptions = evaluation.strictPass ? evaluation.options : [];
+                if (!evaluation.strictPass) {
+                    // One bounded retry for malformed / unknown / duplicate intents (planned P60-M1-006 rule).
+                    const accepted = evaluation.options.filter((o) => o.strictValid);
+                    const feedback = Array.from(
+                        new Set([
+                            ...(evaluation.jsonParsed ? [] : ['INVALID_JSON']),
+                            ...(evaluation.optionsArray ? [] : ['NO_OPTIONS_ARRAY']),
+                            ...evaluation.setIssues,
+                            ...evaluation.options.flatMap((o) => o.issues),
+                        ])
+                    );
+                    const unknown = Array.from(new Set(evaluation.options.flatMap((o) => [...o.unknownIds, ...o.nonAnalysisIds])));
+                    const retryPrompt =
+                        `Your previous answer was not usable. Problems: ${feedback.join(', ') || 'unknown'}.` +
+                        (unknown.length ? ` These IDs are not analysis capabilities and must not be used: ${unknown.join(', ')}.` : '') +
+                        (accepted.length ? ` Valid sets you already gave: ${accepted.map((o) => `[${o.analysisIds.join(', ')}]`).join(' ')}.` : '') +
+                        ' Return the complete JSON object again with exactly three options (focused, balanced, comprehensive), ' +
+                        'each with a different set of capability IDs from the list.';
+                    // eslint-disable-next-line no-await-in-loop
+                    const retryCall = await chat([...messages, { role: 'assistant', content: call.content }, { role: 'user', content: retryPrompt }], true);
+                    const retryEval = evaluateIntentResponse(retryCall.content, catalog);
+                    record.retry = { call: retryCall, evaluation: retryEval };
+                    record.totalPlanningMs += retryCall.wallMs;
+                    if (retryEval.strictPass) {
+                        record.passAfterRetry = true;
+                        record.passVia = 'retry';
+                        finalOptions = retryEval.options;
+                    } else {
+                        // Merge rule (planned P60-M1-004): distinct strictly valid sets from both attempts;
+                        // tiers may be relabelled by code, so only distinctness and count matter here.
+                        const merged: IntentOptionEvaluation[] = [];
+                        [...accepted, ...retryEval.options.filter((o) => o.strictValid)].forEach((o) => {
+                            if (!merged.some((m) => m.analysisIds.join('+') === o.analysisIds.join('+'))) merged.push(o);
+                        });
+                        if (merged.length >= 3) {
+                            record.passAfterRetry = true;
+                            record.passVia = 'merged';
+                            finalOptions = merged.slice(0, 3);
+                        }
+                    }
+                }
+
+                const focused = finalOptions.find((o) => o.tier === 'focused') ?? finalOptions[0];
+                record.focusedIds = focused ? focused.analysisIds : null;
+                record.focusedRelevant = focused ? isRelevant(step.goal, focused.analysisIds) : null;
+                record.anyOptionRelevant = finalOptions.some((o) => isRelevant(step.goal, o.analysisIds));
+                runs.push(record);
+
+                // eslint-disable-next-line no-console
+                console.log(
+                    `[${record.id}] wall=${call.wallMs}ms json=${evaluation.jsonParsed} options=${evaluation.optionCount} ` +
+                        `strict=${evaluation.strictPass} tolerant=${evaluation.tolerantPass} setIssues=${JSON.stringify(evaluation.setIssues)} ` +
+                        `opts=${JSON.stringify(evaluation.options.map((o) => ({ t: o.tier, ids: o.rawIds, iss: o.issues })))} ` +
+                        `promptTok=${call.promptEvalCount} outTok=${call.evalCount} done=${call.doneReason}${call.error ? ` ERROR=${call.error}` : ''}` +
+                        (record.retry
+                            ? ` | retry wall=${record.retry.call.wallMs}ms strict=${record.retry.evaluation.strictPass} ` +
+                              `setIssues=${JSON.stringify(record.retry.evaluation.setIssues)} ` +
+                              `opts=${JSON.stringify(record.retry.evaluation.options.map((o) => ({ t: o.tier, ids: o.rawIds, iss: o.issues })))}`
+                            : '') +
+                        ` => pass=${record.passAfterRetry} via=${record.passVia} focused=${JSON.stringify(record.focusedIds)} relevant=${record.focusedRelevant}`
+                );
+            }
+        }
+
+        const allCalls = [...runs.map((r) => r.call), ...runs.flatMap((r) => (r.retry ? [r.retry.call] : []))];
+        const allEvals = [...runs.map((r) => r.evaluation), ...runs.flatMap((r) => (r.retry ? [r.retry.evaluation] : []))];
+        const wall = allCalls.map((c) => c.wallMs);
+        const totals = runs.map((r) => r.totalPlanningMs);
+        const countBy = (items: string[]) =>
+            Object.entries(items.reduce<Record<string, number>>((acc, item) => ({ ...acc, [item]: (acc[item] || 0) + 1 }), {}))
+                .sort((a, b) => b[1] - a[1])
+                .map(([item, count]) => `${item} x${count}`);
+        const emitted = runs.reduce((s, r) => s + r.evaluation.emittedIds, 0);
+        const knownAnalysis = runs.reduce((s, r) => s + r.evaluation.knownAnalysisIds, 0);
+
+        const summary = {
+            task: 'intent',
+            catalogVersion: catalog.catalogVersion,
+            analysisCapabilities: catalog.cards.filter((c) => c.isAnalysis).length,
+            ollamaBaseUrl: BASE_URL,
+            ollamaVersion,
+            model: MODEL,
+            settings: { jsonMode: true, numCtx: NUM_CTX, numPredict: NUM_PREDICT, temperature: TEMPERATURE, promptVariant: PROMPT_VARIANT },
+            systemPromptChars: systemPrompt.length,
+            relevanceRubric: Object.fromEntries(Object.entries(RELEVANCE_RUBRIC).map(([g, r]) => [g, r.description])),
+            warmup: { wallMs: warmup.wallMs, loadDurationMs: warmup.loadDurationMs, promptEvalCount: warmup.promptEvalCount },
+            runs: runs.length,
+            structuredOutputRate: runs.filter((r) => r.evaluation.jsonParsed && r.evaluation.optionsArray && r.evaluation.optionCount === 3).length / runs.length,
+            knownAnalysisIdRate: emitted ? knownAnalysis / emitted : null,
+            strictFirstAttemptRate: runs.filter((r) => r.passFirst).length / runs.length,
+            tolerantFirstAttemptRate: runs.filter((r) => r.evaluation.tolerantPass).length / runs.length,
+            passAfterRetryRate: runs.filter((r) => r.passAfterRetry).length / runs.length,
+            g1PassAfterRetry: `${runs.filter((r) => r.goal === 'G1' && r.passAfterRetry).length}/${runs.filter((r) => r.goal === 'G1').length}`,
+            focusedRelevanceRate: runs.filter((r) => r.focusedRelevant).length / runs.length,
+            anyOptionRelevanceRate: runs.filter((r) => r.anyOptionRelevant).length / runs.length,
+            perGoal: Object.keys(GOALS).map((g) => {
+                const gr = runs.filter((r) => r.goal === g);
+                return {
+                    goal: g,
+                    runs: gr.length,
+                    passFirst: gr.filter((r) => r.passFirst).length,
+                    passAfterRetry: gr.filter((r) => r.passAfterRetry).length,
+                    focusedRelevant: gr.filter((r) => r.focusedRelevant).length,
+                };
+            }),
+            retriesUsed: runs.filter((r) => r.retry).length,
+            unknownIds: countBy(allEvals.flatMap((e) => e.options.flatMap((o) => o.unknownIds))),
+            nonAnalysisIds: countBy(allEvals.flatMap((e) => e.options.flatMap((o) => o.nonAnalysisIds))),
+            optionIssues: countBy(allEvals.flatMap((e) => e.options.flatMap((o) => o.issues))),
+            setIssues: countBy(allEvals.flatMap((e) => e.setIssues)),
+            graphOrConfigFieldsEmitted: countBy(allEvals.flatMap((e) => e.options.flatMap((o) => o.graphOrConfigFields))),
+            perCallWallMs: { n: wall.length, p50: percentile(wall, 50), p95: percentile(wall, 95), max: wall.length ? Math.max(...wall) : null },
+            totalPlanningMs: { n: totals.length, p50: percentile(totals, 50), p95: percentile(totals, 95), max: Math.max(...totals) },
+            promptTokensMax: Math.max(...allCalls.map((c) => c.promptEvalCount ?? 0)),
+            outputTokensMax: Math.max(...allCalls.map((c) => c.evalCount ?? 0)),
+            truncatedByLength: allCalls.filter((c) => c.doneReason === 'length').length,
+            callErrors: allCalls.filter((c) => c.error).map((c) => c.error),
+        };
+
+        const file = path.join(RESULTS_DIR, `p60-m1-016-intent-${MODEL.replace(/[^a-z0-9.-]/gi, '_')}-${PROMPT_VARIANT}-${Date.now()}.json`);
+        fs.writeFileSync(file, JSON.stringify({ summary, systemPrompt, runs }, null, 2));
+        // eslint-disable-next-line no-console
+        console.log(`P60-M1-016 SUMMARY ${JSON.stringify(summary, null, 2)}\nRaw results: ${file}`);
+
+        expect(summary.catalogVersion).toMatch(/^pcat-/);
+        expect(runs.length).toBe(17);
+    });
+});
+
+// Keeps the file a valid test suite when the live run is skipped.
+describe('P60-M1-016 intent harness (offline)', () => {
+    it('builds the intent prompt from analysis capabilities only, with no graph structure', () => {
+        const catalog = buildPipelineCapabilityCatalog();
+        const prompt = buildIntentSystemPrompt(catalog);
+        const analysisIds = catalog.cards.filter((c) => c.isAnalysis).map((c) => c.cardType);
+        const otherIds = catalog.cards.filter((c) => !c.isAnalysis).map((c) => c.cardType);
+        expect(analysisIds.filter((id) => !prompt.includes(id))).toEqual([]);
+        expect(otherIds.filter((id) => prompt.includes(id))).toEqual([]);
+        expect(prompt).not.toContain('ALLOWED CONNECTIONS');
+        expect(prompt).not.toContain('"edges"');
+        expect(prompt).not.toContain('"nodes"');
+        expect(prompt).toContain('EXACTLY THREE');
+    });
+
+    it('evaluates intent responses strictly against the catalog', () => {
+        const catalog = buildPipelineCapabilityCatalog();
+        const good = JSON.stringify({
+            version: 1,
+            options: [
+                { tier: 'focused', title: 'A', rationale: 'r', analysisCardTypes: ['VISUALIZATION'] },
+                { tier: 'balanced', title: 'B', rationale: 'r', analysisCardTypes: ['VISUALIZATION', 'FORMAL_VERIFY'] },
+                { tier: 'comprehensive', title: 'C', rationale: 'r', analysisCardTypes: ['VISUALIZATION', 'FORMAL_VERIFY', 'AEGIS'] },
+            ],
+        });
+        expect(evaluateIntentResponse(good, catalog).strictPass).toBe(true);
+
+        const bad = JSON.parse(good);
+        bad.options[0].analysisCardTypes = ['SYSTEM_INPUT', 'VISUALIZATION'];
+        bad.options[1].analysisCardTypes = ['VECTOR_GENERATE'];
+        const evaluated = evaluateIntentResponse(JSON.stringify(bad), catalog);
+        expect(evaluated.strictPass).toBe(false);
+        expect(evaluated.options[0].nonAnalysisIds).toEqual(['SYSTEM_INPUT']);
+        expect(evaluated.options[0].tolerantValid).toBe(true);
+        expect(evaluated.options[1].issues).toEqual(expect.arrayContaining(['UNKNOWN_CAPABILITY', 'EMPTY_SET']));
+
+        const duplicate = JSON.parse(good);
+        duplicate.options[2].analysisCardTypes = ['FORMAL_VERIFY', 'VISUALIZATION'];
+        expect(evaluateIntentResponse(JSON.stringify(duplicate), catalog).setIssues).toContain('DUPLICATE_SET');
     });
 });
 

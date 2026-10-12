@@ -711,7 +711,64 @@ P60-M1-014 showed that graph construction is beyond the tested local models. Rev
 **Definition of Done**
 - The result block is filled in, the decision has been reviewed by the team, and R1 is recorded.
 
-> **Spike result (fill in when complete):** runtime and model · catalogVersion · results table · threshold pass/fail · decision A/B/C/D · provisional P60-M1-005 settings.
+> **Spike result (completed 2026-10-12): Decision B → proceed with intent selection plus the deterministic composer.** One bounded prompt-tuning iteration (v2) brought relevance to 100%. Structural misses on the first attempt are fully recovered by the planned single retry.
+>
+> - **Setup:**
+>   - Harness: `frontend/src/components/pipeline/planning/__spike__/localModelFeasibility.live.test.ts` with `LIVE_LLM_TASK=intent`. Skipped unless `RUN_LIVE_LLM=1`; the normal suite makes no network calls.
+>   - Catalog: `catalogVersion = pcat-0861a6885a178a`, unchanged. The prompt lists only the **11 analysis capabilities**, with no edges, requirements, templates, or graph schema; an offline test checks this.
+>   - Output contract per profile: `tier`, `title`, `rationale`, `analysisCardTypes`. The P60-M1-015 draft's `summary` field was omitted for this spike, as the experiment specified; P60-M1-015 should decide whether `summary` stays required or is derived from `rationale`.
+>   - Evaluator: a temporary one inside the spike file, written against the P60-M1-015 contract.
+>   - Relevance rubric: fixed in code before any run.
+> - **Runtime (same throughout, same as P60-M1-014's reference):** compose container `cloudhub_ollama`, Ollama **0.23.4**, `http://[::1]:11434`, CPU-only Docker Desktop on an Apple M4 / 24 GB. Model **`llama3.2`** (3.2B, Q4_K_M). Settings: `format: "json"`, `num_ctx` 8192, `num_predict` 1024, temperature 0.4.
+> - **Runs:** G1×5 and G2–G5×3 (the P60-M1-014 goal texts), with at most one retry when profiles are malformed, unknown, or duplicates. Run twice: v1 (first prompt), then v2 (the single tuning iteration allowed by Decision B).
+> - **v2 tuning** (catalog-derived only; the catalog is unchanged):
+>   - copy capability IDs exactly;
+>   - the focused option must cover every part of the goal;
+>   - each capability is labelled with its catalog category, plus one rule: use "Version Control" capabilities only for goals about versions or changes;
+>   - keep titles under 60 characters.
+>
+> | Signal (17 runs) | Gate declared before running | v1 | v2 |
+> |---|---|---|---|
+> | Structured output, first attempt (JSON + `options` + exactly 3) | ≥ 90% | **100% ✓** | **76% ✗** (13/17) |
+> | JSON + `options` array (P60-M1-016 threshold) | ≥ 90% | 100% ✓ | **100% ✓** |
+> | Emitted IDs that are known analysis capabilities | ≥ 90% | 96% ✓ | **100% ✓** |
+> | Three distinct valid profiles after ≤ 1 retry | ≥ 80% | 100% ✓ (first attempt 82%) | **100% ✓** (first attempt 76%) |
+> | G1 after ≤ 1 retry | ≥ 4/5 | 5/5 ✓ (first attempt 4/5) | **5/5 ✓** (first attempt 5/5) |
+> | Focused profile meets relevance rubric | ≥ 80% | **76% ✗** (G1 1/5) | **100% ✓** |
+> | Per-call latency p50 / p95 (warm) | p95 ≤ 45 s | 13.1 s / 17.8 s ✓ | **11.4 s / 14.0 s ✓** |
+> | Total planning p50 / p95 (incl. retry) | p95 ≤ 75 s | 13.1 s / 36.4 s ✓ | **12.2 s / 17.2 s ✓** |
+> | Retries used | — | 3/17 | 4/17 |
+> | Max prompt / output tokens | — | 959 / 180 | 1,005 / 147 |
+>
+> - **Per goal (v2), passes after retry / focused relevant:** G1 5/5 / 5/5; G2 3/3 / 3/3; G3 3/3 / 3/3; G4 3/3 / 3/3; G5 3/3 / 3/3.
+> - **Invalid IDs:** v1 had 5, all misspellings of `FORMAL_VERIFY` (`FORMAL_VERYIFY` ×3, `FORMAL_VERYFY` ×2). v2 had none. Neither version proposed any non-analysis card (inputs or prerequisites), and neither emitted any graph or config fields.
+> - **Duplicates and structure:**
+>   - v1: no duplicate sets; 2 titles were over 60 characters.
+>   - v2 first attempts: 4× wrong option count (the model returned fewer than three options, some in 3–5 s), 3× missing tier, 2× duplicate tier, 2× duplicate set. All were recovered by the one retry.
+> - **Composed-graph duplicates (diagnostic):** an approximation using template recipe closures, not yet the real P60-M1-017/018. In v2, G3-1's {Scenario Generation, Test Suite Generation} and {LLM Prompter, Test Suite Generation} compose to the same chain, so P60-M1-004 would merge them and a retry would follow. That's 1/17 runs in v2 and 0/17 in v1.
+> - **Semantic mistakes (manual review):**
+>   - v1, G1 only: the focused profile chose **Change Impact** for "check authorization problems" (2/5), and balanced profiles added Policy Drift, a version-comparison analysis for a single-version goal. One focused profile covered only half the goal (Visualization alone).
+>   - v2: none of those. G1's focused profile was consistently Visualization + Verification Visualization (the composer adds Formal Verification).
+>   - Minor in v2: one title typo ("Authoriztion"). Tiers aren't always supersets (e.g. a balanced option without Visualization); P60-M1-004 relabels by composed size, so that's harmless.
+>   - G2–G5 choices were sensible in both versions: architecture → Visualization; endpoint authorization → Scenario Generation / test chain; risks → Formal Verification + Scenario Generation; cross-version → Policy Drift or Change Impact.
+> - **Comparison with graph generation, same runtime and model:**
+>   - graph task: p50 51.2 s / p95 91.7 s per call, 0/5 usable G1 sets;
+>   - intent task (v2): p50 11.4 s / p95 14.0 s per call, 5/5 G1.
+> - **Cold start:** the v1 warm-up (model not loaded) took 63.0 s, including a 27.6 s load. The demo needs the warm-up step already listed in §9.
+> - **Decision: B, then proceed.**
+>   - v1 met everything except relevance (76%), with concentrated causes. That's B, so one tuning iteration was allowed.
+>   - v2 meets every P60-M1-016 threshold.
+>   - Against the stricter gate declared for this run, v2 misses only first-attempt structure (76% vs 90%), and the single retry already in P60-M1-006 recovers it fully, within p95 17.2 s total.
+>   - No further tuning was done.
+>   - **Recommendation:** continue with intent selection plus the deterministic composer (D11). Treat the one-retry rule as essential, not optional.
+> - **Provisional P60-M1-005 settings:**
+>   - prompt: **v2**, ported to Java and catalog-driven. Reinforcing "exactly three options" near the schema is a candidate refinement, to be measured in the P60-M1-011 smoke;
+>   - JSON mode on;
+>   - `num_ctx` 4096 (peak 1,005 prompt tokens including retry history);
+>   - `num_predict` 512 (peak output 180 tokens);
+>   - temperature 0.4;
+>   - per-call timeout 75 s and `PLAN_TOTAL_BUDGET_MS` 150 s unchanged, with wide margin on warm calls.
+> - **Proposed reference model (R1):** `llama3.2` on the compose container, pending team review.
 
 ---
 
