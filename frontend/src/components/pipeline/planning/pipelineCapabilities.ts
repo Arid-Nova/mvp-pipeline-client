@@ -23,6 +23,7 @@ import {
     VALID_CONNECTIONS,
 } from '../pipelineConfig';
 import { PIPELINE_TEMPLATES, PipelineTemplate } from '../configs/PipelineTemplates';
+import { hashString, stableStringify } from './stableHash';
 
 export interface PipelineCardCapability {
     cardType: CardType;
@@ -104,33 +105,6 @@ const toExample = (template: CatalogSource['templates'][number]): PipelineExampl
     nodes: template.nodes.map((node) => ({ key: node.tempId, cardType: node.type })),
     edges: template.connections.map((conn) => ({ from: conn.sourceTempId, to: conn.targetTempId })),
 });
-
-/** JSON with object keys sorted, so semantically identical values always serialize identically. */
-const stableStringify = (value: unknown): string => {
-    if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
-    if (value !== null && typeof value === 'object') {
-        const entries = Object.keys(value as Record<string, unknown>)
-            .sort()
-            .map((key) => `${JSON.stringify(key)}:${stableStringify((value as Record<string, unknown>)[key])}`);
-        return `{${entries.join(',')}}`;
-    }
-    return JSON.stringify(value);
-};
-
-/** cyrb53: small deterministic 53-bit string hash (non-cryptographic). */
-const hashString = (input: string): string => {
-    let h1 = 0xdeadbeef;
-    let h2 = 0x41c6ce57;
-    for (let i = 0; i < input.length; i += 1) {
-        const ch = input.charCodeAt(i);
-        h1 = Math.imul(h1 ^ ch, 2654435761);
-        h2 = Math.imul(h2 ^ ch, 1597334677);
-    }
-    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-    const hash = 4294967296 * (2097151 & h2) + (h1 >>> 0);
-    return hash.toString(16).padStart(14, '0');
-};
 
 /**
  * Builds the capability catalog. Pure: the same source always yields the same catalog.

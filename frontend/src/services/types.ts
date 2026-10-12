@@ -145,6 +145,35 @@ export interface ChatbotHealthResponse {
     latencyMs: number | null;
 }
 
+// Pipeline intent selection (Issue #60, P60-M1-015). Wire types for
+// POST /chatbot/pipeline/intents; the endpoint itself is P60-M1-005. The model's options are
+// untrusted (`unknown[]`) until frontend parseIntentPlan validates them.
+export type PipelineIntentOutcome = "OK" | "INVALID_MODEL_OUTPUT" | "UNSUPPORTED_GOAL" | "MODEL_UNAVAILABLE";
+
+export interface PipelineIntentRequest {
+    goal: string;
+    suggestionSetId: string;
+    attempt: number;
+    /** The serialized capability catalog (buildPipelineCapabilityCatalog()). */
+    catalog: unknown;
+    catalogVersion: string;
+    excludeCapabilitySets?: string[][];
+    rejectionFeedback?: string[];
+}
+
+export interface PipelineIntentResponse {
+    outcome: PipelineIntentOutcome;
+    suggestionSetId: string;
+    requestId: string;
+    catalogVersion: string;
+    options: unknown[];
+    parseErrors: string[];
+    unsupportedReason?: string | null;
+    model: string;
+    provider: string;
+    processingTimeMs: number;
+}
+
 // Session Management Types
 export interface SessionSummary {
     id: string;
