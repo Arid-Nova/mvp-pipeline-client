@@ -1,5 +1,6 @@
 package edu.baylor.ecs.cloudhubs.chatbot;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
@@ -42,6 +43,10 @@ public class ChatbotConfig {
     private int contextBudgetMaxEvidenceChars;
 
     private boolean strictEvidenceOnly;
+
+    /** Settings for POST /chatbot/pipeline/intents only; Q&A keeps the settings above. */
+    @Valid
+    private PipelineIntent pipelineIntent = new PipelineIntent();
 
     public enum Provider {
         OLLAMA,
@@ -127,5 +132,66 @@ public class ChatbotConfig {
 
     public void setStrictEvidenceOnly(boolean strictEvidenceOnly) {
         this.strictEvidenceOnly = strictEvidenceOnly;
+    }
+
+    public PipelineIntent getPipelineIntent() {
+        return pipelineIntent;
+    }
+
+    public void setPipelineIntent(PipelineIntent pipelineIntent) {
+        this.pipelineIntent = pipelineIntent;
+    }
+
+    /**
+     * Runtime defaults for pipeline intent selection (Issue #60, R1 reference settings): JSON mode,
+     * llama3.2 via the shared chatbot.model, num_predict 512, temperature 0.4, num_ctx 4096 and a
+     * 75 s per-call timeout. The two-attempt 150 s budget belongs to the frontend orchestration.
+     */
+    public static class PipelineIntent {
+
+        @Positive(message = "chatbot.pipeline-intent.max-tokens must be positive.")
+        private int maxTokens = 512;
+
+        @DecimalMin(value = "0.0", inclusive = true, message = "chatbot.pipeline-intent.temperature must be >= 0.0.")
+        @DecimalMax(value = "2.0", inclusive = true, message = "chatbot.pipeline-intent.temperature must be <= 2.0.")
+        private double temperature = 0.4;
+
+        @Positive(message = "chatbot.pipeline-intent.timeout-ms must be positive.")
+        private int timeoutMs = 75000;
+
+        @Positive(message = "chatbot.pipeline-intent.context-tokens must be positive.")
+        private int contextTokens = 4096;
+
+        public int getMaxTokens() {
+            return maxTokens;
+        }
+
+        public void setMaxTokens(int maxTokens) {
+            this.maxTokens = maxTokens;
+        }
+
+        public double getTemperature() {
+            return temperature;
+        }
+
+        public void setTemperature(double temperature) {
+            this.temperature = temperature;
+        }
+
+        public int getTimeoutMs() {
+            return timeoutMs;
+        }
+
+        public void setTimeoutMs(int timeoutMs) {
+            this.timeoutMs = timeoutMs;
+        }
+
+        public int getContextTokens() {
+            return contextTokens;
+        }
+
+        public void setContextTokens(int contextTokens) {
+            this.contextTokens = contextTokens;
+        }
     }
 }
