@@ -4,7 +4,7 @@
 **Milestone:** 1 — Chatbot-assisted creation of a new analysis pipeline
 **Story prefix:** `P60-M1-xxx`
 **Baseline inspected:** branch `60-can-produce-or-edit-a-pipeline-automatically-using-the-chatbot` @ `3aee1b0`
-**Revision:** 7 (architectural pivot: LLM intent selection plus a deterministic composer; see §4 and §11)
+**Revision:** 8 (implementation synchronization after intent feasibility and the deterministic composer; architecture from Revision 7 unchanged; see §11)
 
 ---
 
@@ -24,8 +24,8 @@ These decisions are settled. Implementation shouldn't reopen them; changing one 
 | D8 | Execution guarantee | **Frozen** | Guaranteed: structural validity, deterministic conversion to the canvas, compatibility with the existing execution path. Not guaranteed: every analysis completing, runtime dependencies being available, user configuration being correct, downstream services succeeding (§4, §7 criterion 6) |
 | D9 | Telemetry and preference learning | **Non-blocking / out of scope** | Lightweight selection telemetry (P60-M1-010, P1) is desirable but **not** required for Milestone 1 completion. Preference learning, model-weight updates, and personalized ranking are not part of Milestone 1 |
 | D10 | Stale chatbot tests (P60-M1-012) | **Frozen policy** | Per failing test: compare it with the *currently intended* UI. If the change was intentional, update or remove the test. If the UI is actually broken, log a separate product bug and don't change production behaviour in this story. Record each disposition in the PR. Old tests aren't product requirements just because they exist |
-| D11 | Planning architecture | **Frozen (Revision 7)** | The LLM selects **what** to analyse: three intent options, each a list of analysis capabilities. Deterministic TypeScript code builds **how** they are wired: composer → validator → candidate set. The LLM never supplies graph nodes, edges, prerequisite cards, IDs, coordinates, or config. Milestone 1 doesn't depend on any commercial API or on `gpt-oss:20b`. Evidence: P60-M1-014 (Decision D, post-D D20) |
-| R1 | Reference and demo local model | **Risk-gated** | Decided by the intent-selection spike **P60-M1-016**, starting from `llama3.2` on Ollama. (P60-M1-014 measured the superseded graph-generation task and is complete.) This is a runtime choice and doesn't change product scope. After P60-M1-016, the team records the reference model |
+| D11 | Planning architecture | **Frozen (Revision 7); implemented through the deterministic core (Revision 8)** | The LLM selects **what** to analyse: three intent options, each a list of analysis capabilities. Deterministic TypeScript code builds **how** they are wired: composer → validator → candidate set. The LLM never supplies graph nodes, edges, prerequisite cards, IDs, coordinates, or config. Milestone 1 doesn't depend on any commercial API or on `gpt-oss:20b`. Evidence: P60-M1-014 (Decision D, post-D D20) against graph generation; P60-M1-016 (Decision B → proceed) for intent selection |
+| R1 | Reference and demo local model | **Resolved (Revision 8)** | Reference planning model: **`llama3.2` on Ollama**, in the compose Ollama runtime (`cloudhub_ollama`), with **intent-selection prompt v2**, JSON mode on, `num_ctx` 4096, `num_predict` 512, temperature 0.4, per-call timeout 75 s, total two-attempt planning budget (`PLAN_TOTAL_BUDGET_MS`) 150 s. Evidence: P60-M1-016. These are **runtime defaults, not product-scope decisions**. A cold model load is slower (P60-M1-016 measured a 63 s first call), so the demo warms the model beforehand (§9). P60-M1-005 implements these defaults and doesn't reopen model selection |
 | R2 | E2E test strategy | **Resolved** | P60-M1-013 returned Outcome A: the real `PipelinePage` is testable with module-level mocks. **No production refactor of `PipelinePage` is authorized solely for testing** |
 | R3 | llama.cpp JSON or grammar support | **Non-blocking** | The local-LLM abstraction stays compatible with all adapters. The reference provider may be Ollama. Without JSON mode, llama.cpp uses tolerant extraction (P60-M1-005). Not a Milestone 1 blocker, unless the team explicitly chooses llama.cpp as the reference runtime |
 
@@ -38,6 +38,8 @@ These decisions are settled. Implementation shouldn't reopen them; changing one 
 - intent plan: maximum analysis capabilities per option (default 6);
 - composer: deterministic tie-break order, as long as it stays documented and tested;
 - planning time: per-call timeout, `PLAN_TOTAL_BUDGET_MS`, retry timing.
+
+**Not tunable in Milestone 1:** `MAX_PLAN_ATTEMPTS = 2`, i.e. attempt 1 plus **exactly one bounded retry**. P60-M1-016 showed the retry is part of normal reliability (first-attempt structure 76%, 100% after the retry), so it is required behaviour, not an optimization (P60-M1-006). No further retry or iterative loop is added.
 
 Escalate to a product decision only if a change alters user-visible behaviour or milestone scope (for example, showing fewer than 3 suggestions or allowing larger pipelines than a user could reasonably review).
 
@@ -64,10 +66,10 @@ The planner guarantees that the applied graph is **structurally valid**. It also
 
 **System:**
 
-1. Calls the new intent-selection endpoint on `chatbot-backend` (`POST /chatbot/pipeline/intents`, port 8081). It prompts the configured local LLM (Ollama `llama3.2` by default, subject to P60-M1-016) with the **analysis capabilities** from the catalog. The model returns three intent options; each names analysis capabilities only, with a title, summary, and rationale.
+1. Calls the new intent-selection endpoint on `chatbot-backend` (`POST /chatbot/pipeline/intents`, port 8081). It prompts the configured local LLM (the R1 reference model, Ollama `llama3.2`) with the **analysis capabilities** from the catalog. The model returns three intent options (focused, balanced, comprehensive); each names analysis capabilities only, with a title and an optional rationale. The model writes no graph and no summary.
 2. Parses the intent options in the browser, keeping only catalog capabilities with `isAnalysis = true`.
-3. Composes each option into a pipeline graph with the deterministic composer, which adds every prerequisite card and edge from `VALID_CONNECTIONS`, `CARD_INPUT_REQUIREMENTS`, and the shipped templates.
-4. Validates every composed graph, and checks that the three are meaningfully distinct. If the intent options are malformed, unknown, or duplicates, it retries the model once.
+3. Composes each option into a pipeline graph with the deterministic composer, which adds every prerequisite card and edge from `VALID_CONNECTIONS`, `CARD_INPUT_REQUIREMENTS`, and the shipped templates, and writes each suggestion's summary from the chosen capabilities' titles.
+4. Validates every composed graph, and checks that the three final pipelines are meaningfully distinct. If the intent plan is unusable (malformed, unknown capabilities, missing or duplicate tiers, duplicate sets), a composition fails or is too large, or two composed pipelines collide, it makes the one bounded retry.
 5. Shows three suggestion cards. The example below is the composer's output for one plausible set of model choices. The analyses chosen depend on the model, but the wiring for a given choice is deterministic, and each chain was checked by hand against `VALID_CONNECTIONS` at `3aee1b0`.
 
 | Tier | Model's choice (analysis capabilities) | Composed cards and edges (all legal in `VALID_CONNECTIONS`) |
@@ -92,13 +94,13 @@ The planner guarantees that the applied graph is **structurally valid**. It also
 - `PipelineSpec` v1: the JSON contract for one composed pipeline, covering nodes, edges, and descriptive text, with **no** positions, IDs, or config values. It's produced by the composer, never by the model.
 - A deterministic validator as an independent safety net, plus candidate deduplication, diversity checks, deterministic candidate IDs, and enforcement of exactly three candidates.
 - A new intent-selection endpoint in `chatbot-backend` that builds the capability prompt, calls the LLM, and extracts and shape-checks JSON.
-- A small intent-selection feasibility test against the lightweight local model (P60-M1-016).
+- A small intent-selection feasibility test against the lightweight local model (P60-M1-016, done: Decision B → proceed).
 - Suggestion rendering, explicit selection, and cancel or dismiss.
 - A deterministic layout, plus an atomic applier that applies the selected suggestion to the empty pipeline canvas (see "Milestone 1 empty-canvas policy" below).
 - Safe failure for every error path, with canvas state left unchanged.
 - Lightweight, non-blocking PostHog events through the existing `track()`.
 - Restoring the existing chatbot test suites to green, because they are currently failing (see P60-M1-012).
-- Timeboxed risk-reduction spikes: PipelinePage testability (P60-M1-013, done), graph-generation feasibility (P60-M1-014, done, Decision D), and intent-selection feasibility (P60-M1-016). They produce decisions and measurements, not product features.
+- Timeboxed risk-reduction spikes: PipelinePage testability (P60-M1-013, done), graph-generation feasibility (P60-M1-014, done, Decision D), and intent-selection feasibility (P60-M1-016, done, Decision B → proceed; R1 resolved). They produce decisions and measurements, not product features.
 - Unit, component, backend, and integration tests.
 
 ### Milestone 1 empty-canvas policy (approved)
@@ -162,23 +164,28 @@ Editing, merging, patching, extending, or adding next to an existing pipeline ar
         ▼                                                                         │
  chatbot-backend: PipelineIntentService                                           │
    prompt lists ONLY the catalog's analysis capabilities (no edges, no graph)     │
-   → LocalLlmClient (JSON mode) → JSON extraction + shape check (no semantics)    │
-        │  raw intent options  (UNTRUSTED: WHAT to analyse, never HOW)            │
+   → LocalLlmClient (JSON mode; llama3.2, prompt v2) → JSON extraction            │
+     + shape check (no semantics)                                                 │
+        │  intent profiles ONLY (UNTRUSTED: WHAT to analyse, never HOW;           │
+        │  no PipelineSpec, nodes, edges, prerequisites, IDs, positions, config)  │
         ▼                                                                         │
  Frontend gate (pure, deterministic):                                             │
    parseIntentPlan ── keeps only isAnalysis capability IDs; strips nodes/edges/   │
         │             config; tiers, text and limits checked          ◄───────────┤
         ▼                                                                         │
    composePipeline (per option) ── VALID_CONNECTIONS / CARD_INPUT_REQUIREMENTS /  │
-        │   INPUT_CARD_TYPES / template recipes → PipelineSpecV1     ◄────────────┤
+        │   INPUT_CARD_TYPES / catalog / template recipes → PipelineSpecV1  ◄─────┤
+        │   (also writes the summary from capability titles)                      │
         │   (fails closed: a composer bug never yields an unvalidated graph)      │
         ▼                                                                         │
    validatePipelineSpec ── independent safety net  ◄──────────────────────────────┘
         ▼
-   assembleCandidateSet: exactly 3 · distinct analysis sets · distinct graphs · tiers
-        │   (<3 → ONE retry for malformed/unknown/duplicate intents; still <3 → typed failure)
+   assembleCandidateSet: exactly 3 · tiers kept from the intent plan (never by size)
+        │   · post-composition distinctness (candidateId AND final analysis-card set)
+        │   (unusable intents / composition failure / too large / collision →
+        │    the ONE required retry, MAX_PLAN_ATTEMPTS = 2; still failing → typed failure)
         ▼
- PipelineSuggestionList: 3 ValidatedSuggestions (Select / Dismiss)
+ PipelineSuggestionList: exactly 3 ValidatedSuggestions (Select / Dismiss)
         │  user clicks Select (canvas must be empty)
         ▼
  applyPipelineSuggestion (PipelinePage):
@@ -193,7 +200,7 @@ Editing, merging, patching, extending, or adding next to an existing pipeline ar
 **Why (evidence from P60-M1-014).** Asking local models to write complete graphs failed for three models: `llama3.2`, `llama3.1:8b`, and `gpt-oss:20b`. Across 34 measured runs, none produced three valid, distinct graphs.
 - The failures were structural: illegal `VALID_CONNECTIONS` edges, unmet `CARD_INPUT_REQUIREMENTS`, or, for `gpt-oss:20b`, the reasoning budget running out before any output.
 - The models generally picked sensible analysis capabilities but didn't reliably wire them.
-- Wiring is a small, fully machine-readable problem (17 card types; a DAG), so code does it. The model is left with a short classification task that small local models are much better suited to. That's verified by P60-M1-016, not assumed.
+- Wiring is a small, fully machine-readable problem (17 card types; a DAG), so code does it. The model is left with a short classification task that small local models are much better suited to. That's verified by P60-M1-016, not assumed: `llama3.2` with prompt v2 produced usable three-profile plans in 17/17 runs after ≤ 1 retry (G1 5/5), at p95 17.2 s total planning time.
 
 **Trust boundary.** Everything the LLM produces is untrusted until the frontend accepts it. That includes the backend's parsed output, because the backend only checks the JSON shape.
 
@@ -246,6 +253,10 @@ How responsibilities are split:
 **Diversity definition.** Two candidates are *meaningfully distinct* only if the **sets of analysis card types in their composed graphs** differ. Analysis types are those in the `CATEGORIES` buckets Processes, Execution, Visualization, and Version Control.
 - Differences in titles, wording, node keys, node order, or in Input, Generator, or Intermediate-Result cards (an extra `IR_HOLDER`, say) don't count.
 - Because the comparison uses the *composed* graph, two intent options that request different capabilities but compose to the same graph also count as duplicates. For example, {Test Executor} and {Test Executor, Test Suite Generation} both compose to the full test chain.
+- This is expected, not a defect: a requested analysis can pull in another analysis as a **structural prerequisite** (Verification Visualization adds Formal Verification; LLM Prompter, Test Suite Generation, and Test Executor add Scenario Generation). P60-M1-016 observed it with real model output (G3-1: {Scenario Generation, Test Suite Generation} and {LLM Prompter, Test Suite Generation}), and the implemented candidate assembly reproduces it. Distinctness is therefore checked **after** composition, using both the canonical `candidateId` and the final analysis-card set.
+- A collision is never resolved by altering a pipeline, renaming an option, or adding optional cards to make it look different. It triggers the one bounded retry (P60-M1-004/006).
+
+**Minimum canonical structure.** The composer builds the minimum structure each requested analysis needs to be correct: its canonical feed from the templates, plus every `CARD_INPUT_REQUIREMENTS` rule. It doesn't add every optional connection that `VALID_CONNECTIONS` permits or that a template happens to contain (for example `FORMAL_VERIFY → SCENARIO_GENERATE`, `SECURITY_REGRESSION → FORMAL_VIZ`, or `CHANGE_IMPACT → SCENARIO_GENERATE`). The validator checks structural correctness, not identity with a template. Optional edges are not turned into input requirements (see §10 for optional enrichment).
 
 ## 5. User Stories
 
@@ -262,6 +273,8 @@ Stories are ordered by dependency. Three technical stories come first because th
 - P60-M1-018: two-snapshot recipes and an exhaustive composition test.
 
 Stories 002–006 were revised. Existing IDs were not renumbered, so the order below is by dependency. See §6, "Early Risk-Reduction Checkpoint".
+
+**Revision 8.** The deterministic planning core is **complete**: P60-M1-016 (Decision B → proceed; R1 resolved), 002, 015, 003, 017, 018, and 004, with all frontend tests green. The story texts below are synchronized with what was implemented and measured. **P60-M1-005 is the next implementation story.** Remaining: 005, 006, 007, 008, 009, 010, 011.
 
 ---
 
@@ -659,6 +672,8 @@ These numbers come from P60-M1-006: `PLAN_TOTAL_BUDGET_MS` = 150 s and `MAX_PLAN
 
 ### P60-M1-016 — Intent-selection feasibility spike (lightweight local model)
 
+> **Status: complete (Decision B → proceed). R1 resolved in Revision 8.** The result block below is the measured evidence; the Revision 8 follow-up after it records what was frozen from it.
+
 **User story**
 As the team building the planner,
 I want early evidence that the lightweight local model can reliably choose three sensible, distinct sets of analysis capabilities for a goal,
@@ -749,7 +764,7 @@ P60-M1-014 showed that graph construction is beyond the tested local models. Rev
 > - **Semantic mistakes (manual review):**
 >   - v1, G1 only: the focused profile chose **Change Impact** for "check authorization problems" (2/5), and balanced profiles added Policy Drift, a version-comparison analysis for a single-version goal. One focused profile covered only half the goal (Visualization alone).
 >   - v2: none of those. G1's focused profile was consistently Visualization + Verification Visualization (the composer adds Formal Verification).
->   - Minor in v2: one title typo ("Authoriztion"). Tiers aren't always supersets (e.g. a balanced option without Visualization); P60-M1-004 relabels by composed size, so that's harmless.
+>   - Minor in v2: one title typo ("Authoriztion"). Tiers aren't always supersets (e.g. a balanced option without Visualization); P60-M1-004 relabels by composed size, so that's harmless. *(Revision 8: superseded. P60-M1-004 preserves the model's tiers and never relabels by size; non-superset tiers are allowed, because tiers are informational (D4).)*
 >   - G2–G5 choices were sensible in both versions: architecture → Visualization; endpoint authorization → Scenario Generation / test chain; risks → Formal Verification + Scenario Generation; cross-version → Policy Drift or Change Impact.
 > - **Comparison with graph generation, same runtime and model:**
 >   - graph task: p50 51.2 s / p95 91.7 s per call, 0/5 usable G1 sets;
@@ -770,9 +785,20 @@ P60-M1-014 showed that graph construction is beyond the tested local models. Rev
 >   - per-call timeout 75 s and `PLAN_TOTAL_BUDGET_MS` 150 s unchanged, with wide margin on warm calls.
 > - **Proposed reference model (R1):** `llama3.2` on the compose container, pending team review.
 
+> **Revision 8 follow-up (2026-10-12): frozen from this result.** This appends to the result above and doesn't change its measurements.
+>
+> - **Conclusion:** the local model is feasible for selecting **what** to analyse. It is **not** responsible for graph topology; the deterministic composer builds every graph (D11). The earlier "LLM generates `PipelineSpec` graphs" design stays retired (P60-M1-014 evidence).
+> - **Measured basis:** with prompt v2, 17/17 usable three-profile intent plans after ≤ 1 retry; G1 5/5; focused-profile relevance 100%; 100% of emitted capability IDs were known analysis capabilities; total planning p95 17.2 s, far inside the 150 s budget.
+> - **R1 resolved:** `llama3.2` on Ollama in the compose runtime, prompt v2, JSON mode, `num_ctx` 4096, `num_predict` 512, temperature 0.4, per-call timeout 75 s, `PLAN_TOTAL_BUDGET_MS` 150 s. The spike itself ran with `num_ctx` 8192 / `num_predict` 1024; the frozen values come from the measured peaks (1,005 prompt tokens including retry history; 180 output tokens). These are runtime defaults, not scope decisions (§0).
+> - **Retry required:** `MAX_PLAN_ATTEMPTS = 2`. First attempts sometimes return fewer than three options, missing or duplicate tiers, or duplicate sets (first-attempt structure 76%); the single retry recovered every case.
+> - **Intent summary removed:** the model returns `tier`, `title`, optional `rationale`, and `analysisCardTypes` only, as in this spike. `PipelineSpecV1.summary` is generated by the composer (P60-M1-015, P60-M1-017).
+> - **Composed-duplicate diagnostic confirmed:** the real composer and candidate assembly (P60-M1-017/018/004) reproduce the G3-1 collision, so it fails as `INSUFFICIENT_DISTINCT` and triggers the retry. The G1 fixture profiles compose to 6, 10, and 14 cards, all valid.
+
 ---
 
 ### P60-M1-002 — `PipelineSpec` v1 contract and strict parser
+
+> **Status: done (Revision 8).** Implemented in `planning/pipelineSpec.ts` as specified. `summary` stays required in `PipelineSpecV1`; the composer generates it (P60-M1-017).
 
 **User story**
 As a developer integrating the planner,
@@ -820,6 +846,13 @@ so that composition, validation, rendering, fixtures, and canvas creation share 
 
 ### P60-M1-003 — Deterministic pipeline validator
 
+> **Status: done (Revision 8).** Implemented in `planning/pipelineValidator.ts`; 48 tests in `pipelineValidator.test.ts`. Implemented evidence:
+> - pure and deterministic (no React, network, `Date`, or `Math.random`; a test spies on the last two), and reads `CARD_CONFIG`, `VALID_CONNECTIONS`, `CARD_INPUT_REQUIREMENTS`, `INPUT_CARD_TYPES`, `ANALYSIS_CATEGORIES`/`CATEGORIES` directly (a test asserts they are the same objects, not copies);
+> - the 15 stable rule codes below, all issues returned together;
+> - the full 17×17 connection-legality matrix; all 7 shipped templates and the §2 demo graphs validate; every composed graph from P60-M1-017/018 is re-validated by it;
+> - a branded `ValidatedSuggestion` that only this module can create, with a deterministic `signature` and `candidateId`;
+> - no repository, System Source, IR, credential, service, model, `REQUIRED_USER_CONFIG`, or `RUNTIME_INTERACTION_HINTS` checks. The structural-validity boundary (§4, D8) is unchanged, and there is no server-side validator.
+
 **User story**
 As a user who doesn't understand AridNova's card rules,
 I want every suggested pipeline checked against the real pipeline rules before I see it,
@@ -836,11 +869,13 @@ The only connection check today is inline in `handleLinkClick` (`PipelinePage.ts
   - Returns `{ valid: true; suggestion: ValidatedSuggestion } | { valid: false; issues: SpecIssue[] }` and reports **all** issues, not just the first.
   - `ValidatedSuggestion` is a branded type that only this module can build:
     ```ts
-    { readonly __validated: unique symbol; spec: PipelineSpecV1;
-      signature: string; candidateId: string; catalogVersion: string }
+    { readonly [VALIDATED]: true;   // VALIDATED: a non-exported unique symbol
+      readonly spec: Readonly<PipelineSpecV1>;   // deep-frozen copy of contract fields
+      readonly signature: string; readonly candidateId: string; readonly catalogVersion: string }
     ```
+    Every issued value is also registered in a module-private `WeakSet`, so `isValidatedSuggestion(value)` rejects look-alikes such as parsed JSON or spread copies at runtime.
   - **Deterministic IDs:**
-    - `signature = canonicalSignature(spec)`: the sorted multiset of `cardType`s plus the sorted multiset of `"SRC_TYPE>DST_TYPE"` edges, ignoring keys, order, and text;
+    - `signature = canonicalSignature(spec)`: the sorted multiset of `cardType`s, the sorted multiset of `"SRC_TYPE>DST_TYPE"` edges, and sorted Weisfeiler-Lehman neighbourhood labels (3 rounds, using the existing `stableHash`), ignoring keys, order, title, summary, and rationale. The neighbourhood labels make it sensitive to *how* card types are wired, not only to which type pairs occur;
     - `candidateId = "pc_" + first 10 hex characters of a stable hash of signature`. The same graph always gets the same ID, across retries and sessions. It is used for selection, deduplication, and telemetry.
   - Rules, each with a stable `code`:
     | Code | Rule |
@@ -860,7 +895,8 @@ The only connection check today is inline in `handleLinkClick` (`PipelinePage.ts
     | `INPUT_REQUIREMENT_UNMET` | A `CARD_INPUT_REQUIREMENTS` rule fails |
     | `NO_ANALYSIS_CARD` | No card of an `ANALYSIS_CATEGORIES` type |
     | `SIZE_LIMIT` | Nodes outside 2..16 or edges > 24 (largest template has 11 nodes; *tune while implementing*) |
-  - **Revision 7:** the validator is the independent safety net behind the composer (P60-M1-017/018). It no longer produces retry feedback for the model, because the model doesn't build graphs; `describeIssuesForRetry` is removed. Validation failures of composed graphs are composer bugs and fail closed.
+  - **Revision 7:** the validator is the independent safety net behind the composer (P60-M1-017/018). It no longer produces retry feedback for the model, because the model doesn't build graphs. Validation failures of composed graphs are composer bugs and fail closed.
+  - **Revision 8:** `describeIssuesForRetry(issues)` exists as a sanitized, bounded helper (codes plus catalog card types only; no node keys, paths, or arbitrary spec text) for logs and diagnostics. It is **not** sent to the model: retry feedback is capability- and profile-level (P60-M1-004/006). Messages never echo unknown card-type text.
 
 **Acceptance criteria**
 - Given each Demo Scenario chain (§2) and every template, when validated, then `valid: true`.
@@ -894,6 +930,8 @@ The only connection check today is inline in `handleLinkClick` (`PipelinePage.ts
 
 ### P60-M1-015 — `PipelineIntentPlan` v1 contract and strict parser
 
+> **Status: done (Revision 8).** Implemented in `planning/intentPlan.ts` (45 tests), with the frontend types in `services/types.ts` and the `chatbot-backend` DTOs `PipelineIntentOutcome`, `PipelineIntentRequest`, `PipelineIntentResponse` plus `PipelineIntentDtoSerializationTest` against the shared `intent-response.valid.json` fixture. **Revision 8 contract change:** `summary` is no longer part of the model contract (it was omitted in the P60-M1-016 spike and the composer generates `PipelineSpecV1.summary`).
+
 **User story**
 As a developer integrating the planner,
 I want a minimal, versioned contract for what the model returns (three intent options naming analysis capabilities), plus a strict parser,
@@ -909,31 +947,34 @@ Under D11 the model's whole job is to choose capabilities. A narrow contract kee
   interface PipelineIntentOption {
     tier: IntentTier;
     title: string;               // 1..60 chars
-    summary: string;             // 1..280 chars, plain text
     rationale?: string;          // 0..400 chars
     analysisCardTypes: string[]; // 1..MAX_ANALYSIS_PER_OPTION (default 6), unique
   }
+  // No `summary`: the model is not asked for one. PipelineSpecV1.summary is
+  // generated by the composer from the chosen capabilities' display titles.
   interface PipelineIntentPlanV1 {
     version: 1;
     options: PipelineIntentOption[];
     unsupportedReason?: string;
   }
   ```
-  - `parseIntentPlan(raw: unknown, catalog = buildPipelineCapabilityCatalog())` returns `{ plan: { options: ParsedIntentOption[]; unsupportedReason?: string }; issues: SpecIssue[]; ignoredFields: string[] }`. Each option is parsed on its own, so one bad option doesn't discard the others, and the parser **never throws**.
+  - `parseIntentPlan(raw: unknown, catalog = buildPipelineCapabilityCatalog())` returns `{ status: 'ok' | 'unsupported' | 'invalid'; options?: [focused, balanced, comprehensive]; validOptions: ParsedIntentOption[]; unsupportedReason?; issues; notes; ignoredFields }`. `options` is present only when `status` is `'ok'`, ordered by tier. Each option is parsed on its own, so one bad option doesn't discard the others (`validOptions`), and the parser **never throws**.
   - **Capability rules:**
     - an ID not in the catalog → `UNKNOWN_CAPABILITY`, and the option is rejected;
     - a catalog card with `isAnalysis = false` (for example `SYSTEM_INPUT`, `IR_HOLDER`) → dropped and reported as `NON_ANALYSIS_DROPPED`. Prerequisites are the composer's job, so dropping them is safe;
     - an option left with no capabilities → `NO_ANALYSIS_CAPABILITY`, rejected;
-    - duplicates within an option are collapsed;
+    - more than `MAX_ANALYSIS_PER_OPTION` (6) → `TOO_MANY_CAPABILITIES`, rejected;
+    - duplicates within an option are collapsed (`DUPLICATE_CAPABILITY_COLLAPSED` note);
     - IDs are normalized to catalog order, so `[B, A]` equals `[A, B]`.
-  - **Field rules:** whitelisted fields only. Model-supplied `nodes`, `edges`, `prerequisites`, `id`, `x`/`y`, `config`, and so on are dropped into `ignoredFields` and never used (D6/D11). It trims, strips control characters, enforces lengths, and rejects `version !== 1` and unknown tiers.
-  - **Plan-level checks** (reported, not fatal per option): `MISSING_TIER`, `DUPLICATE_TIER`, and `DUPLICATE_CAPABILITY_SET` (two options with the same normalized set). P60-M1-004 makes the final exactly-three decision.
+  - **Field rules:** whitelisted fields only. Model-supplied `nodes`, `edges`, `prerequisites`, `id`, `x`/`y`, `config`, and so on are dropped into `ignoredFields` and never used as planning authority (D6/D11). It trims, strips control characters, enforces lengths, and rejects `version !== 1` and unknown tiers.
+  - **Parser tolerance (not part of the contract):** if an option has no `rationale` but has a `summary`, the `summary` text is used as the rationale and a `SUMMARY_USED_AS_RATIONALE` note is recorded; otherwise a `summary` is ignored. The model is never asked for a summary.
+  - **Plan-level rules:** `status: 'ok'` requires exactly three valid options (`WRONG_OPTION_COUNT`), exactly one `focused`, one `balanced`, and one `comprehensive` (`MISSING_TIER`, `DUPLICATE_TIER`), and three distinct normalized capability sets (`DUPLICATE_CAPABILITY_SET`). An empty `options` list with `unsupportedReason` is `status: 'unsupported'`. Distinctness of the *composed* pipelines is checked later, by P60-M1-004.
   - `ParsedIntentOption` carries `optionId = "io_" + a stable hash of the normalized capability set`, used for retry exclusions and telemetry.
-  - `describeIntentIssuesForRetry(issues, acceptedOptions)` returns short, deduplicated, model-readable feedback: codes plus the accepted capability sets to avoid.
+  - `describeIntentIssuesForRetry(result, accepted?)` returns short, deduplicated, model-readable feedback at capability level: issue codes, unknown IDs not to use, and (when `accepted` is passed) capability sets not to repeat. It never describes graph topology.
 - **Modify** `frontend/src/services/types.ts` to add `PipelineIntentRequest` and `PipelineIntentResponse`. Response `options` are typed `unknown[]`, because they are untrusted.
 
 **Acceptance criteria**
-- Given three well-formed options with analysis capabilities, when parsed, then all three survive with normalized capability sets and stable `optionId`s.
+- Given three well-formed options with analysis capabilities and no `summary`, when parsed, then `status: 'ok'` and all three survive in tier order with normalized capability sets and stable `optionId`s.
 - Given an option with `"VECTOR_GENERATE"`, then that option is rejected with `UNKNOWN_CAPABILITY` and the others survive.
 - Given an option `["SYSTEM_INPUT", "IR_HOLDER", "VISUALIZATION"]`, then it survives as `["VISUALIZATION"]` with two `NON_ANALYSIS_DROPPED` notes. Given `["SYSTEM_INPUT"]` only, then `NO_ANALYSIS_CAPABILITY`.
 - Given an option that also contains `nodes`, `edges`, or `config`, then those fields are absent from the result and listed in `ignoredFields`.
@@ -956,6 +997,14 @@ Under D11 the model's whole job is to choose capabilities. A narrow contract kee
 
 ### P60-M1-017 — Deterministic pipeline composer (core)
 
+> **Status: done (Revision 8).** Implemented in `planning/pipelineComposer.ts` together with P60-M1-018; 51 tests in `pipelineComposer.test.ts`. Flow: `PipelineIntentOption` (analysis capabilities) → `composePipeline` → `PipelineSpecV1` → `parsePipelineSpec` + independent `validatePipelineSpec`. The LLM supplies **zero** topology: the composer owns prerequisites, legal paths, node multiplicity, edges, node keys, node and edge order, and the summary. Proven facts:
+> - all 11 analysis capabilities compose as singleton intents; all 55 pairs compose; every subset of up to 3 capabilities composes;
+> - every accepted composition independently passes `validatePipelineSpec` and contains every requested capability;
+> - the §2 golden graphs match exactly, and the G1 fixture profiles compose and validate (6, 10, 14 cards);
+> - two-snapshot and multi-input cases (Quick Compare, Change Impact, Policy Drift) are deterministic; shared prerequisite chains are reused where semantically safe;
+> - no model-provided edges, config, or positions are read (the input type has no such fields; smuggled fields are ignored);
+> - recipe sources at `pcat-0861a6885a178a`: 10 capabilities from templates, Quick Compare from its input requirements.
+
 **User story**
 As a user who chose a set of analyses,
 I want AridNova to build the pipeline that runs them, with every prerequisite card and connection added correctly,
@@ -972,20 +1021,20 @@ This replaces graph generation by the model (D11). The wiring rules are fully ma
 Only Quick Compare has no template, and its requirements (Formal Verification + Scenario Generation) are machine-readable.
 
 **Implementation scope**
-- **New** `frontend/src/components/pipeline/planning/pipelineComposer.ts`, `composePipeline(option: ParsedIntentOption, facts = defaultComposerFacts): ComposeResult`. The result is `{ ok: true; spec: PipelineSpecV1; analysisSet: CardType[] } | { ok: false; reason: 'COMPOSITION_TOO_LARGE' | 'COMPOSITION_UNSUPPORTED' | 'COMPOSITION_INVALID'; detail }`. It's pure, and the facts can be injected for tests. It reads only `VALID_CONNECTIONS`, `CARD_INPUT_REQUIREMENTS`, `INPUT_CARD_TYPES`, the capability catalog, and `PIPELINE_TEMPLATES`.
+- **New** `frontend/src/components/pipeline/planning/pipelineComposer.ts`, `composePipeline(intent: ComposableIntent, facts = defaultComposerFacts()): ComposeResult`, where `ComposableIntent` is `Pick<ParsedIntentOption, 'title' | 'rationale' | 'analysisCardTypes'>`, so there is no API for model nodes, edges, prerequisites, coordinates, or config. The result is `{ ok: true; spec: PipelineSpecV1; suggestion: ValidatedSuggestion; analysisCardTypes: CardType[] } | { ok: false; reason: 'COMPOSITION_TOO_LARGE' | 'COMPOSITION_UNSUPPORTED' | 'COMPOSITION_INVALID'; issues }`; `analysisCardTypes` is the **final effective** analysis set, including analyses added as prerequisites. It's pure, never throws for any intent input, and the facts can be injected for tests. It reads only `VALID_CONNECTIONS`, `CARD_INPUT_REQUIREMENTS`, `INPUT_CARD_TYPES`, the capability catalog, and `PIPELINE_TEMPLATES` (the canonical repository evidence); it keeps no copy of the connection matrix. Unknown or non-analysis capabilities return `COMPOSITION_UNSUPPORTED` without echoing the input text.
 - **Composition rules (single-snapshot core):**
   1. **Targets:** the option's analysis capabilities, in catalog order.
   2. **Canonical recipe per target:** take the ancestor closure of the target in the **first** template, in `PIPELINE_TEMPLATES` order, that contains it. The recipe is derived at runtime from template data, not hand-written.
-  3. **Requirement-derived recipe** for a target in no template (today only `VERIFICATION_COMPARISON`): for each `requiresAllOf` group, take the first type in the group, compose that type's recipe, and add the edge to the target. It's recursive, but the type graph is a DAG.
-  4. **Required structure:** after merging, satisfy every `CARD_INPUT_REQUIREMENTS` rule of every node by the same rule as step 3. Never exceed `maxIncoming`.
+  3. **Requirement-derived recipe** for a target in no template (today only `VERIFICATION_COMPARISON`): for each `requiresAllOf` group, take the first type in the group, compose that type's recipe, and add the edge to the target. It's recursive, but the type graph is a DAG. If neither a template nor requirements apply, the fallback is the shortest legal `VALID_CONNECTIONS` path from an input card (catalog-order tie-break). No catalog capability needs it today; it is exercised only with injected facts.
+  4. **Required structure:** after merging, satisfy every `CARD_INPUT_REQUIREMENTS` rule of every node by the same rule as step 3. Never exceed `maxIncoming`. (With today's facts every recipe already satisfies its own requirements, so this pass is a safety net.)
   5. **Shared prefixes:** merge nodes by card type within the single-snapshot namespace, so all targets share one `SYSTEM_INPUT → MULTI_REPO → IR_HOLDER` chain and one `COMPONENT_GENERATE → COMPONENT_HOLDER` chain. Union the edges and drop duplicates.
   6. **Input:** every target is reachable from `SYSTEM_INPUT`, the canonical input of the templates. Starting from `UPLOAD_IR` instead is deferred (§10).
-  7. **No optional enrichment:** the composer adds only required structure. It doesn't add optional edges such as `FORMAL_VERIFY → SCENARIO_GENERATE` filtering (§10).
-  8. **Deterministic output:** node keys come from card type (`system_input`, `ir_holder`, …, suffixed `_2` in the second-snapshot namespace of P60-M1-018). Node order is topological with catalog-order tie-break, and edge order is sorted. The same option always produces byte-identical output.
+  7. **No optional enrichment:** the composer adds only the minimum canonical structure (§4). It doesn't add optional edges such as `FORMAL_VERIFY → SCENARIO_GENERATE` filtering, `SECURITY_REGRESSION → FORMAL_VIZ`, or `CHANGE_IMPACT → SCENARIO_GENERATE`, even where a template contains them (§10).
+  8. **Deterministic output:** node keys are the lowercase card type (`system_input`, `ir_holder`, …), suffixed `_compare` in the comparison namespace of P60-M1-018 (e.g. `formal_verify_compare`). Node order is topological, base namespace before comparison namespace, then catalog order; edges are sorted by (source position, target position). The same option, in any capability order and with duplicates, produces byte-identical output.
   9. **Size:** if the result exceeds the validator's `SIZE_LIMIT`, return `COMPOSITION_TOO_LARGE`. Never truncate.
-  10. **Fail closed:** run `validatePipelineSpec` on every result. If it fails, return `COMPOSITION_INVALID` with the issues and log a developer-facing error. An invalid graph never leaves the composer.
-  - Title, summary, and rationale come from the intent option (text only). `specVersion: 1`.
-- Two-snapshot targets (`CHANGE_IMPACT`, `SECURITY_REGRESSION`) return `COMPOSITION_UNSUPPORTED` until P60-M1-018 lands.
+  10. **Fail closed:** run `parsePipelineSpec` and `validatePipelineSpec` on every result, and check that every requested capability is present. If anything fails, return `COMPOSITION_INVALID` with the issues; the caller (P60-M1-006) logs it as a developer-facing error, since the composer itself is pure. An invalid graph never leaves the composer.
+  - Title and rationale come from the intent option (text only) and never affect topology. **Summary** is generated deterministically from the requested capabilities' catalog display titles, never from CardType enums or model text: "Includes A, B and C. AridNova adds the required inputs and intermediate steps." `specVersion: 1`. No positions are encoded.
+- Two-snapshot targets (`CHANGE_IMPACT`, `SECURITY_REGRESSION`) were `COMPOSITION_UNSUPPORTED` only until P60-M1-018; both stories were implemented together, so this state never shipped.
 
 **Acceptance criteria**
 - Given each single-snapshot analysis capability on its own, when composed, then the result is valid, and its structural signature equals that capability's template ancestor closure. For Quick Compare, it equals the union of the Formal Verification and Scenario Generation recipes plus the two required edges.
@@ -1018,6 +1067,17 @@ Only Quick Compare has no template, and its requirements (Formal Verification + 
 
 ### P60-M1-018 — Composer: two-snapshot recipes and exhaustive composition test
 
+> **Status: done (Revision 8).** Implemented in `pipelineComposer.ts` (`TWO_SNAPSHOT_RECIPES`), tested in `pipelineComposer.test.ts`. Policy Drift gets exactly two role-aware Formal Verification chains with the base (`formal_verify`) listed before `formal_verify_compare`; Change Impact gets a separate comparison System Source; Change Impact and Policy Drift share one comparison System Source.
+>
+> **Combination evidence (not a product requirement).** All 2,047 non-empty subsets of the 11 analysis capabilities were composed:
+> - **1,475** compose into structurally valid pipelines;
+> - **572** are rejected with `COMPOSITION_TOO_LARGE` because the graph exceeds the 16-node `SIZE_LIMIT` (the all-11 set included);
+> - **0** accepted compositions are invalid; none are unsupported or throw.
+>
+> Every option of up to 3 capabilities composes. Some 4+ capability combinations exceed the limit; the smallest is 4 capabilities (System Visualization, Aegis, Test Executor, Policy Drift = 17 cards). So the plan does **not** promise that every 4–6 capability option composes. The counts are pinned in the test so graph growth is noticed.
+>
+> **Decision:** don't enlarge `SIZE_LIMIT` just to make every combination compose, and don't lower `MAX_ANALYSIS_PER_OPTION` (6) just because some large combinations are too large. The composer attempts composition, an oversized result fails closed, and orchestration uses the one bounded retry to ask for a smaller or different intent set (P60-M1-004/006).
+
 **User story**
 As a user who wants to compare versions (Change Impact, Policy Drift),
 I want the composer to build the special two-snapshot pipelines correctly,
@@ -1032,13 +1092,13 @@ so that comparison analyses are offered alongside the others and are always wire
   - which of the template's node keys belong to the **comparison** namespace (`sys2` for Change Impact; `sys2`, `repo2`, `ir2`, `fv2` for Policy Drift). Everything else is the base namespace.
 
   The recipe graph itself is derived from the template, as in P60-M1-017, rather than written by hand. A unit test asserts that the table matches the templates.
-- **Merge rule:** nodes are merged by `(namespace, cardType)`. The base namespace is shared with single-snapshot targets; the comparison namespace is shared between the two two-snapshot targets, since both compare the same other version.
+- **Merge rule:** nodes are merged by `(namespace, cardType)`. The base namespace is shared with single-snapshot targets; the comparison namespace (keys suffixed `_compare`) is shared between the two two-snapshot targets, since both compare the same other version.
 - **Ordering:** base-namespace nodes come before comparison-namespace nodes within each layer, so the base Formal Verification is listed first and laid out higher (P60-M1-007), which matches the runtime's y-based base/PR choice.
 - **Exhaustive property test:** for **every non-empty subset** of the catalog's analysis capabilities (2¹¹ − 1 = 2,047 at `pcat-0861a6885a178a`), `composePipeline` either:
   - returns a spec that passes `validatePipelineSpec` and contains every requested capability; or
   - returns `COMPOSITION_TOO_LARGE`.
 
-  It never returns `COMPOSITION_INVALID` or `COMPOSITION_UNSUPPORTED`, never throws, and is deterministic. The test also records how many subsets are too large, for the tunable `MAX_ANALYSIS_PER_OPTION`.
+  It never returns `COMPOSITION_INVALID` or `COMPOSITION_UNSUPPORTED`, never throws, and is deterministic. The test also records how many subsets are too large (measured: 572 of 2,047; see the status note above).
 
 **Acceptance criteria**
 - Given {Policy Drift} alone, then the composed graph's structural signature equals the `policy-drift-comparison` template's ancestor closure of `SECURITY_REGRESSION`: two snapshot chains feeding it, base first. It passes `exactUpstreamCount`.
@@ -1060,7 +1120,9 @@ so that comparison analyses are offered alongside the others and are always wire
 
 ---
 
-### P60-M1-004 — Candidate set assembly: distinct intents, distinct graphs, exactly three
+### P60-M1-004 — Candidate set assembly: tiers from the intent plan, post-composition distinctness, exactly three
+
+> **Status: done (Revision 8).** Implemented in `planning/candidateSet.ts`; 17 tests in `candidateSet.test.ts`, including the G1 architectural acceptance test. **Revision 8 replaced the Revision 7 design:** suggestions are no longer sorted or relabelled by graph size, there is no `Option A/B/C` fallback, and there is no selection among more than three candidates.
 
 **User story**
 As a non-expert user,
@@ -1068,36 +1130,44 @@ I want the three suggestions to be meaningfully different options rather than th
 so that the choice I make is a real choice between scope and depth.
 
 **Rationale**
-Small local models often repeat themselves. Under D11 the model proposes three intent options and the composer builds them, so this layer no longer picks among arbitrary model-generated graphs. It checks that the three *composed* suggestions are distinct, using the definition in §4, and that there are exactly three.
+Small local models often repeat themselves. Under D11 the model proposes three intent profiles and the composer builds them, so this layer doesn't pick among arbitrary model-generated graphs. Its job is to turn one validated intent plan into exactly three composed, validated, and distinct suggestions, or a typed failure.
+
+Different requested capability sets can compose into the same effective pipeline, because a requested analysis can pull in another analysis as a structural prerequisite (§4, "Diversity definition"; G3-1 in P60-M1-016). So distinctness is checked **after** composition.
 
 **Implementation scope**
-- **New** `frontend/src/components/pipeline/planning/candidateSet.ts`:
-  - `assembleCandidateSet(composed: ComposedCandidate[])`, where `ComposedCandidate = { option: ParsedIntentOption; suggestion: ValidatedSuggestion; analysisSet: CardType[] }`. It returns `{ ok: true; suggestions: [S,S,S] } | { ok: false; reason: 'INSUFFICIENT_DISTINCT'; distinctCount: number }`.
-  - **Duplicate graph:** same `candidateId`, so the composed graphs are identical even if the requested capabilities differ. The first occurrence wins.
-  - **Near-identical:** same composed analysis-card set as an already accepted candidate. The first occurrence wins.
-  - **More than 3 distinct** (possible only after a retry merges new options with accepted ones; at most 6): choose the triple with the largest minimum pairwise Jaccard distance between composed analysis sets, breaking ties by original order.
-  - **Tiers:**
-    1. The model's tier labels are kept when the three distinct candidates have one of each tier, and composed analysis-set sizes are non-decreasing focused ≤ balanced ≤ comprehensive, with focused < comprehensive.
-    2. If the model's labels are inconsistent with the sizes, code relabels by size (analysis-set size, node count, original index).
-    3. If the first and third have the same size, it uses `Option A/B/C`, so labels never claim a size difference that isn't there.
-
-    Tier labels stay informational (D4).
-  - Display order is focused, balanced, comprehensive (or A/B/C), so "candidate 1/2/3" is deterministic.
-  - `acceptedForRetry(accepted)` returns the accepted options' capability sets for the retry's exclusions.
+- **New** `frontend/src/components/pipeline/planning/candidateSet.ts`, `assembleCandidateSet(options: readonly ParsedIntentOption[], deps?: { compose, catalog })`. Per tier: intent option → `composePipeline` → (`validatePipelineSpec` inside) → `ValidatedSuggestion`. `compose` is injectable for tests; values that aren't real `ValidatedSuggestion`s (`isValidatedSuggestion`) are refused.
+- Result:
+  ```ts
+  | { ok: true; suggestions: [CandidateSuggestion, CandidateSuggestion, CandidateSuggestion] } // focused, balanced, comprehensive
+  | { ok: false; reason: 'INVALID_INTENT_SET' | 'COMPOSITION_FAILED' | 'INSUFFICIENT_DISTINCT';
+      issues; collisions; compositionFailures; retryFeedback: string[] }
+  // CandidateSuggestion = { tier; optionId; option; suggestion: ValidatedSuggestion;
+  //                         analysisCardTypes /* final effective analysis set */ }
+  ```
+- **Tiers:** focused, balanced, and comprehensive come from the validated intent contract and are **preserved**. Candidate assembly never reassigns a tier based on node count or analysis-set size, and no tier is preselected or treated as recommended (D4). Output order is always focused → balanced → comprehensive.
+- **Input:** exactly three options, one per tier; otherwise `INVALID_INTENT_SET`.
+- **Composition:** if any tier fails to compose (`COMPOSITION_TOO_LARGE`, `COMPOSITION_UNSUPPORTED`, `COMPOSITION_INVALID`), the whole set fails with `COMPOSITION_FAILED`.
+- **Post-composition collisions:** two suggestions collide if they have the same canonical `candidateId`/signature **or** the same final effective analysis-card set. Any collision → `INSUFFICIENT_DISTINCT`, with the colliding tiers and analysis set reported.
+- **No partial or altered results:** success always means exactly three. A failure exposes no 1–2 suggestion result, and a pipeline is never altered, renamed, or given artificial or optional cards to make it distinct.
+- **Retry feedback:** `retryFeedback` names tiers and capability IDs only (e.g. "The balanced and comprehensive options both expand to [SCENARIO_GENERATE, PROMPT_GENERATE, TEST_GENERATE] once prerequisites are added…", "The comprehensive option […] needs more than 16 cards. Choose fewer capabilities."). It never contains graph topology, titles, rationale, or other model text. P60-M1-006 sends it on the one bounded retry.
 
 **Acceptance criteria**
-- Given three composed candidates with distinct analysis sets and consistent tiers, when assembled, then `ok: true` and the model's tiers are kept.
-- Given two options that request different capabilities but compose to the same graph (e.g. {Test Executor} and {Test Executor, Test Suite Generation}), then they count as one.
-- Given three options worded differently with the same capability set, then they count as one.
-- Given inconsistent tier labels (the "focused" option is the largest), then code relabels by size.
-- Given 4–6 distinct candidates after a retry, then exactly 3 are returned, deterministically.
-- Given 0, 1, or 2 distinct candidates, then `ok: false` and no partial set is returned.
-- Given three equally sized but different candidates, then `ok: true` with `Option A/B/C`.
+- Given the G1 profiles, then `ok: true` with exactly 3 branded suggestions in focused → balanced → comprehensive order, distinct `candidateId`s, and the option titles preserved.
+- Given options in any input order, then the output is ordered by the tier labels of the intent contract.
+- Given a "focused" option whose composed graph is larger than the "comprehensive" one, then the tiers are kept as labelled.
+- Given any success, then no suggestion carries a selected, recommended, or default flag.
+- Given 0, 2, or 4 options, or a missing or duplicated tier, then `INVALID_INTENT_SET`.
+- Given one tier that is too large, then `COMPOSITION_FAILED` with that tier's requested capabilities, and no suggestions.
+- Given the G3-1 case ({Scenario Generation, Test Suite Generation} and {LLM Prompter, Test Suite Generation}), then `INSUFFICIENT_DISTINCT` with both `sameCandidate` and `sameAnalysisSet`.
+- Given two different graphs with the same final analysis-card set, then `INSUFFICIENT_DISTINCT` (`sameAnalysisSet` only).
+- Given a forged (unbranded) suggestion from an injected composer, then `COMPOSITION_FAILED`.
+- Given any failure, then `retryFeedback` contains no titles, rationale, node keys, or edges.
+- Given malformed input, then it doesn't throw; given the same input twice, then the output is identical and the input isn't mutated.
 
 **Testing**
-- Unit (Jest), `planning/candidateSet.test.ts`: every criterion above, count boundaries 0–6, and a shuffle test showing order-independence when there are no ties.
+- Unit (Jest), `planning/candidateSet.test.ts`: every criterion above, plus the **G1 architectural acceptance test**: the frozen `intent-response.valid.json` → `parseIntentPlan` → `assembleCandidateSet` → each suggestion re-validated independently as plain JSON (6, 10, 14 cards).
 
-**Dependencies** P60-M1-003, P60-M1-015 (option type). It's tested with fixture `ValidatedSuggestion`s, so it doesn't need the composer.
+**Dependencies** P60-M1-003, P60-M1-015 (option type), P60-M1-017/018 (it composes each tier; the composer is injectable for tests).
 **Priority** P0
 **Estimate** 3
 
@@ -1108,6 +1178,8 @@ Small local models often repeat themselves. Under D11 the model proposes three i
 
 ### P60-M1-005 — Intent-selection endpoint in `chatbot-backend`
 
+> **Status: next implementation story (Revision 8).** The request/response DTOs and their serialization test already exist (P60-M1-015) and are reused. Model, prompt, and runtime defaults are fixed by R1 (§0); this story implements them and doesn't reopen model selection.
+
 **User story**
 As the AridNova assistant,
 I want a dedicated endpoint that turns a goal and the capability catalog into three intent options (analysis capabilities only) using the configured local LLM,
@@ -1116,13 +1188,15 @@ so that pipeline building is an explicit action with its own contract, and the e
 **Rationale**
 `/chatbot/query` (`ChatbotController`, `ChatbotQueryService`) is built around evidence retrieval and citations, and returns free text. Intent selection needs structured JSON, JSON mode, and its own timeout. **Revision 7:** the model task is capability selection only (D11), so there is no graph-generation prompt. The prompt lists no edges, no input requirements, and no node or edge schema.
 
+**What the model is asked for (Revision 8).** `chatbot-backend` asks the model **only** for intent profiles: the focused, balanced, and comprehensive analysis capabilities, plus short descriptive metadata (`title`, optional `rationale`). It does **not** ask for, or use, a `PipelineSpec`, nodes, edges, prerequisites, IDs, coordinates, runtime config, or a summary. The backend stays shape-level and untrusted; semantic intent validation (P60-M1-015) and deterministic graph composition (P60-M1-017/018) remain frontend responsibilities.
+
 **Implementation scope**
 - **New package** `chatbot-backend/src/main/java/edu/baylor/ecs/cloudhubs/chatbot/pipeline/`:
   - `PipelineIntentController`: `@RestController @RequestMapping("/chatbot/pipeline")`, `@PostMapping("/intents")`. Error mapping:
     - `LocalLlmException` → **503** (same as `ChatbotController.query`);
     - bean-validation failure → **400**;
     - anything else → **200** with an explicit `outcome`.
-  - `model/PipelineIntentRequest`:
+  - `model/PipelineIntentRequest` (exists since P60-M1-015; reused):
     - `goal`: `@NotBlank`, `@Size(max=1000)`;
     - `suggestionSetId`: UUID pattern;
     - `attempt`: 1..2;
@@ -1130,7 +1204,7 @@ so that pipeline building is an explicit action with its own contract, and the e
     - `catalogVersion`;
     - `excludeCapabilitySets`: ≤6 lists of ≤6 IDs each;
     - `rejectionFeedback`: ≤20 strings of ≤200 characters.
-  - `model/PipelineIntentResponse`:
+  - `model/PipelineIntentResponse` (exists since P60-M1-015; reused):
     - `outcome`: `OK | INVALID_MODEL_OUTPUT | UNSUPPORTED_GOAL | MODEL_UNAVAILABLE`;
     - `suggestionSetId`, `requestId`, `catalogVersion` (echoed);
     - `options: List<JsonNode>` (0..6, shape-checked only), `parseErrors`, `unsupportedReason`;
@@ -1139,10 +1213,11 @@ so that pipeline building is an explicit action with its own contract, and the e
     **Don't reuse `ChatbotFlag`.** Its Java enum serializes as UPPERCASE while the frontend type expects lowercase. That mismatch already exists and is out of scope; the contract uses its own `outcome` enum.
   - `PipelineIntentPromptBuilder` builds the system instruction **only** from `request.catalog`, with no card names in Java:
     - only the cards with `isAnalysis = true` (`cardType`, title, purpose, outcome);
-    - the `PipelineIntentPlanV1` schema (P60-M1-015);
+    - the `PipelineIntentPlanV1` schema (P60-M1-015): per option `tier`, `title`, `rationale`, `analysisCardTypes`, and **no** `summary`;
     - "return exactly three options: focused (the fewest capabilities that serve the goal), balanced, and comprehensive; use different capabilities";
     - "list analysis capabilities only; never list inputs, prerequisites, nodes, edges, configuration, IDs, or coordinates; AridNova adds the wiring";
-    - on retry, `excludeCapabilitySets` and `rejectionFeedback`;
+    - the **prompt v2** rules measured in P60-M1-016: each capability labelled with its catalog category; copy capability IDs exactly; the focused option covers every part of the goal; use "Version Control" capabilities only for goals about versions or changes; titles under 60 characters;
+    - on retry, `excludeCapabilitySets` and `rejectionFeedback`, which are capability- and profile-level (from P60-M1-015/004); never graph-edge or wiring instructions;
     - "if unsupported, return `{"version":1,"options":[],"unsupportedReason":...}`".
 
     No edges, requirements, templates, or graph examples are included.
@@ -1151,12 +1226,13 @@ so that pipeline building is an explicit action with its own contract, and the e
     - strips Markdown fences, finds the first balanced top-level JSON object, and parses it with Jackson;
     - shape-checks options (objects with an `analysisCardTypes` array) and caps the list at 6;
     - never throws for bad model output, returning `outcome=INVALID_MODEL_OUTPUT` with `parseErrors` instead.
-- **Modify** `ChatbotConfig` and `application.properties` to add overrides bound like the existing properties (`ChatbotConfigBindingTest`). The defaults are **provisional until P60-M1-016 reports**:
-  - `chatbot.pipeline-intent.max-tokens` (default 1024; the output is three short options);
+- **Modify** `ChatbotConfig` and `application.properties` to add overrides bound like the existing properties (`ChatbotConfigBindingTest`). The defaults are the **R1 reference settings** (§0); they are runtime defaults, overridable per deployment:
+  - `chatbot.pipeline-intent.max-tokens` (default 512; P60-M1-016 peak output was 180 tokens);
   - `chatbot.pipeline-intent.temperature` (default 0.4);
   - `chatbot.pipeline-intent.timeout-ms` (default 75000, half of `PLAN_TOTAL_BUDGET_MS`);
-  - `chatbot.pipeline-intent.context-tokens` (default 8192).
-- **Prompt text:** start from the intent prompt measured in P60-M1-016, ported to Java and kept catalog-driven.
+  - `chatbot.pipeline-intent.context-tokens` (default 4096; P60-M1-016 peak prompt was 1,005 tokens including retry history);
+  - JSON mode always on for this endpoint; the model stays `CHATBOT_MODEL` (`llama3.2` in compose).
+- **Prompt text:** port intent prompt **v2** from the P60-M1-016 harness (`buildIntentSystemPrompt(catalog, 'v2')` in `__spike__/localModelFeasibility.live.test.ts`) to Java, kept catalog-driven, as the measured starting point. Reinforcing "exactly three options" near the schema remains a candidate refinement, measured in the P60-M1-011 smoke.
 - **Modify** `runtime/model/ChatbotPrompt` to add optional `boolean jsonOutput` and `Integer contextTokens`, both off by default so `/chatbot/query` is unchanged.
 - **Modify** `OllamaLocalLlmAdapter.buildPayload`: when the flags are set, send `"format":"json"` and `options.num_ctx`. P60-M1-014 showed that JSON mode matters for `llama3.2`: with it off, one of two control runs produced prose.
 - **Modify** `OpenAiStyleLocalLlmAdapter`: send `response_format: {type: "json_object"}` when `jsonOutput` is set. `LlamaCppLocalLlmAdapter`: if JSON or grammar isn't supported, ignore the flag and let the extractor handle prose. That isn't a Milestone 1 blocker (R3).
@@ -1172,7 +1248,9 @@ so that pipeline building is an explicit action with its own contract, and the e
 - Given `LocalLlmException` (`MODEL_UNAVAILABLE` or `TIMEOUT`), then 503, `outcome=MODEL_UNAVAILABLE`.
 - Given a blank or 1001-character goal, a missing catalog, or a bad UUID, then 400.
 - Given a catalog containing an analysis card `FOO_CARD` and a non-analysis card `BAR_CARD`, when the prompt is built, then `FOO_CARD` is listed, `BAR_CARD` isn't, and no edge or graph schema appears.
-- Given `jsonOutput=true` and `contextTokens=8192`, when the Ollama payload is built, then it contains `format:"json"` and `options.num_ctx=8192`. Given the defaults, then neither key is present.
+- Given `jsonOutput=true` and `contextTokens=4096`, when the Ollama payload is built, then it contains `format:"json"` and `options.num_ctx=4096`. Given the Q&A defaults, then neither key is present.
+- Given the intent prompt, then it contains the v2 rules and the per-option schema without `summary`, and contains no node, edge, prerequisite, ID, coordinate, or config schema.
+- Given a retry request, then `excludeCapabilitySets` and `rejectionFeedback` appear in the prompt as capability/profile feedback only.
 - Given the existing suite, when run, then it still passes.
 
 **Testing**
@@ -1180,9 +1258,9 @@ so that pipeline building is an explicit action with its own contract, and the e
 - Controller: `PipelineIntentControllerTest`, using standalone `MockMvcBuilders` like `ChatbotControllerTest`.
 - Command: `mvn -f chatbot-backend/pom.xml test`.
 
-**Dependencies** P60-M1-001 (catalog shape), P60-M1-012 (green baseline, done), P60-M1-015 (contract and shared fixtures). Soft dependency: P60-M1-016. DTOs, the extractor, and the controller can start before it; the prompt text and defaults are finalized from its result.
+**Dependencies** P60-M1-001 (catalog shape, done), P60-M1-012 (green baseline, done), P60-M1-015 (contract, DTOs, and shared fixtures, done), P60-M1-016 (prompt v2 and R1 settings, done). All dependencies are met.
 **Priority** P0
-**Estimate** 5 (unchanged: the prompt is simpler, but the controller, DTOs, extractor, adapter JSON-mode and `num_ctx` changes, config binding, and tests remain).
+**Estimate** 5 (unchanged: the prompt is simpler and the DTOs exist, but the controller, extractor, prompt builder, adapter JSON-mode and `num_ctx` changes, config binding, and tests remain).
 
 **Definition of Done**
 - `POST http://localhost:8081/chatbot/pipeline/intents` works under compose, and all tests are green.
@@ -1199,7 +1277,11 @@ I want the assistant to produce exactly three valid suggestions or tell me clear
 so that I never see a half-baked or invalid option.
 
 **Rationale**
-This is where untrusted model output meets the deterministic pipeline. The hook owns request intents → parse → compose → validate → assemble → one bounded retry, so the UI deals with a single typed outcome. **Revision 7:** the model is asked only for intent options (D11). Graphs are built by the composer, so the retry exists for malformed, unknown, or duplicate *intents*, never for graph wiring.
+This is where untrusted model output meets the deterministic pipeline. The hook owns the whole flow, so the UI deals with a single typed outcome:
+
+goal → request intent profiles → parse and normalize the intent plan (`parseIntentPlan`) → deterministic composition (`composePipeline`) → `validatePipelineSpec` → assemble exactly three final suggestions (`assembleCandidateSet`, which runs the compose and validate steps per tier) → **one bounded retry** if needed.
+
+**Revision 7/8:** the model is asked only for intent profiles (D11) and never owns graph topology. The retry is **required** behaviour (`MAX_PLAN_ATTEMPTS = 2`: attempt 1 plus exactly one retry; P60-M1-016 evidence). It is triggered by any unusable result: intent parsing or validation failure (fewer than three valid profiles, missing or duplicate tiers, unknown capability IDs, duplicate capability sets), composition failure (unsupported or oversized capability set), or a final post-composition collision. Retry feedback is capability- and profile-level; the model is never told how to wire edges. There are no further retries or iterative loops.
 
 **Implementation scope**
 - **Modify** `frontend/src/services/api.ts` to add `requestPipelineIntents(req, { signal })` via `CHATBOT_API.post('/chatbot/pipeline/intents', …)` (`utils/axiosSetup.ts`; base URL `env.CHATBOT_SERVICE_URL`). It reuses `normalizeChatbotError`.
@@ -1214,12 +1296,13 @@ This is where untrusted model output meets the deterministic pipeline. The hook 
   ```
   1. Build the catalog and a `suggestionSetId` (UUID). Call attempt 1.
   2. If the echoed `catalogVersion` differs from the local one, return `catalog_mismatch`.
-  3. `parseIntentPlan` (P60-M1-015). The frontend re-parses even though the backend checked the shape.
-  4. For each surviving option, `composePipeline` (P60-M1-017/018), which validates internally and fails closed. Options that fail composition are dropped and counted in `rejectedByCode`; `COMPOSITION_INVALID` is also logged as a developer error, since it's a composer bug.
-  5. `assembleCandidateSet` (P60-M1-004). If `ok`, return success.
-  6. If `outcome=UNSUPPORTED_GOAL` and nothing survived, return `unsupported_goal` without a retry.
-  7. Otherwise, if `attempt < MAX_PLAN_ATTEMPTS` (= 2), call again with `excludeCapabilitySets` (accepted options) and `rejectionFeedback` (`describeIntentIssuesForRetry`: unknown capability, missing tier, duplicate set, too large). Merge with the accepted candidates and go back to step 5.
-  8. Otherwise return `insufficient_valid_candidates`, or `invalid_model_output` if nothing ever parsed.
+  3. `parseIntentPlan` (P60-M1-015). The frontend re-parses even though the backend checked the shape. If `status: 'unsupported'` (or `outcome=UNSUPPORTED_GOAL` with no options), return `unsupported_goal` without a retry.
+  4. If `status: 'ok'`, `assembleCandidateSet(parsed.options)` (P60-M1-004), which composes each tier with `composePipeline` (P60-M1-017/018), validates it, and checks post-composition distinctness. If `ok`, return success with the three suggestions in focused → balanced → comprehensive order. Composition and collision codes are counted in `rejectedByCode`; `COMPOSITION_INVALID` is also logged as a developer error, since it's a composer bug.
+  5. Otherwise (parse `invalid`, `COMPOSITION_FAILED`, or `INSUFFICIENT_DISTINCT`), if `attempt < MAX_PLAN_ATTEMPTS` (= 2), make the one retry. It asks for a **complete replacement three-profile plan**, which is assembled on its own: options are not merged across attempts, because candidate assembly takes exactly one option per tier from one validated plan. The request carries:
+     - `rejectionFeedback`: for an invalid plan, `describeIntentIssuesForRetry(result)` (codes and unknown IDs); for a composition failure or collision, the candidate set's `retryFeedback` (tiers and capability IDs);
+     - `excludeCapabilitySets`: the requested capability sets that failed composition or took part in a collision.
+     Neither contains graph topology, node keys, or wiring instructions.
+  6. Otherwise return `insufficient_valid_candidates` (composition failure or collision after the retry), or `invalid_model_output` if no attempt produced a valid plan. Never return 1–2 suggestions.
   - **Latency budget:** `PLAN_TOTAL_BUDGET_MS` (default 150000) across all attempts. Past the budget, abort and return `timeout`. HTTP 503 returns `model_unavailable` immediately, with no retry. There is **no keyword or rule-based fallback** (§10).
   - **Concurrency:** one plan in flight. A new `plan()`, `cancel()`, or unmount aborts it through `AbortController`. Responses with a stale `suggestionSetId` are ignored.
   - The hook **never** touches canvas state.
@@ -1227,8 +1310,11 @@ This is where untrusted model output meets the deterministic pipeline. The hook 
 **Acceptance criteria**
 - Given three valid, distinct intent options, when `plan()` runs, then `success` after 1 attempt. Each suggestion's graph is the composer's output for that option, not anything the model supplied.
 - Given an option that also carries model-written `nodes`/`edges`, then those are ignored, and the suggestion's graph equals the composer's output.
-- Given attempt 1 has two valid options plus one with `UNKNOWN_CAPABILITY`, and attempt 2 supplies a new distinct option, then `success` after 2 attempts. Request 2 carries the two accepted capability sets as exclusions and feedback containing `UNKNOWN_CAPABILITY`.
-- Given attempt 1 has three options where two compose to the same graph, then the duplicate triggers the retry.
+- Given attempt 1 has two valid options plus one with `UNKNOWN_CAPABILITY`, and attempt 2 returns a complete valid plan, then `success` after 2 attempts with attempt 2's three options. Request 2 carries feedback containing `UNKNOWN_CAPABILITY` and the unknown ID, and no graph topology.
+- Given attempt 1 has fewer than three options, a missing or duplicated tier, or a duplicate capability set, then the retry is made.
+- Given attempt 1 has three options where two compose to the same pipeline (G3-1), then the collision triggers the retry, and request 2's feedback names the tiers and the expanded capability set.
+- Given attempt 1 has an option whose composition is too large, then the retry is made with feedback asking for fewer capabilities for that tier.
+- Given the tier labels of a successful plan, then the suggestions keep them unchanged and none is preselected.
 - Given both attempts yield fewer than three distinct candidates, then `insufficient_valid_candidates` with no suggestions exposed.
 - Given both attempts are unparseable, then `invalid_model_output`.
 - Given 503 or a network error, then `model_unavailable` after exactly 1 call, with no fallback classification.
@@ -1239,9 +1325,9 @@ This is where untrusted model output meets the deterministic pipeline. The hook 
 
 **Testing**
 - Hook tests (Jest + RTL `renderHook` or a small test component) with `jest.mock("../../services/api", …)`, as in `ChatbotPanel.test.tsx`. They use the real parser, composer, validator, and candidate-set modules.
-- Fixtures in `planning/__fixtures__/`: `intent-response.valid.json`, `.unknown-capability.json`, `.retry-completion.json`, `.duplicate-sets.json`, `.compose-to-same-graph.json`, `.with-model-graph.json`, `.prose.json`, `.unsupported.json`.
+- Fixtures in `planning/__fixtures__/`: `intent-response.valid.json` (exists), `.unknown-capability.json`, `.retry-completion.json` (a complete replacement plan), `.duplicate-sets.json`, `.compose-to-same-graph.json`, `.too-large.json`, `.with-model-graph.json`, `.prose.json`, `.unsupported.json`.
 
-**Dependencies** P60-M1-004, P60-M1-005, P60-M1-015, P60-M1-017, P60-M1-018. **Checkpoint:** P60-M1-016's decision must be recorded before this story starts.
+**Dependencies** P60-M1-004, P60-M1-005, P60-M1-015, P60-M1-017, P60-M1-018. **Checkpoint:** P60-M1-016's decision is recorded (Decision B → proceed), so only P60-M1-005 remains open.
 **Priority** P0
 **Estimate** 5
 
@@ -1342,8 +1428,8 @@ so that I can get a structurally valid analysis pipeline, ready to configure and
   - Leave pipeline messages out of `toHistoryMessage` and Q&A history.
   - Known behaviour: messages are cleared when the context ID changes. After applying, as soon as the user fills in *System Source* the context changes and the chat history resets. So the next-step hints also go into the success toast (P60-M1-007), and nothing depends on the chat message surviving.
 - **New** `PipelineSuggestionList.tsx` and `PipelineSuggestionCard.tsx`. Each card shows:
-  - tier label;
-  - `title` and `summary`;
+  - tier label, exactly as given by the intent plan (P60-M1-004);
+  - `title` (from the model) and `summary` (generated by the composer from capability titles);
   - "Why this fits" (`rationale`, collapsible);
   - ordered card chips using `CARD_CONFIG[type].title` and its colour classes (never raw enums);
   - card and connection counts;
@@ -1380,7 +1466,7 @@ so that I can get a structurally valid analysis pipeline, ready to configure and
 **Testing**
 - Component (Jest + RTL): extend `ChatbotPanel.test.tsx` and add `PipelineSuggestionList.test.tsx`, mocking `../../services/api` as the existing tests do. Cover each criterion, including select 1/2/3 (`it.each`) and the disabled/enabled toggle.
 
-**Dependencies** P60-M1-006, P60-M1-007, P60-M1-012. **Checkpoint:** P60-M1-016's decision is recorded (already implied by P60-M1-006).
+**Dependencies** P60-M1-006, P60-M1-007, P60-M1-012. **Checkpoint:** P60-M1-016's decision is recorded (done: Decision B → proceed).
 **Priority** P0
 **Estimate** 5
 
@@ -1458,7 +1544,7 @@ so that later milestones have data for ranking and preference learning without b
 **Implementation scope**
 - **Modify** `analytics/posthog.ts` to add to `PipelineEvent`:
   - `PLAN_REQUESTED`, with `{suggestionSetId, goalLength, canvasEmpty}`;
-  - `PLAN_SUGGESTIONS_SHOWN`, with `{suggestionSetId, attempts, latencyMs, candidateIds[3], optionIds[3], requestedCapabilities[3], tiers[3], nodeCounts[3], rejectedByCode, ignoredFieldCount}`. `rejectedByCode` includes intent codes (`UNKNOWN_CAPABILITY`, `DUPLICATE_CAPABILITY_SET`, …) and composer codes (`COMPOSITION_TOO_LARGE`, `COMPOSITION_INVALID`);
+  - `PLAN_SUGGESTIONS_SHOWN`, with `{suggestionSetId, attempts, latencyMs, candidateIds[3], optionIds[3], requestedCapabilities[3], tiers[3], nodeCounts[3], rejectedByCode, ignoredFieldCount}`. `rejectedByCode` includes intent codes (`UNKNOWN_CAPABILITY`, `DUPLICATE_CAPABILITY_SET`, …), composer codes (`COMPOSITION_TOO_LARGE`, `COMPOSITION_INVALID`), and candidate-set collision codes (`DUPLICATE_CANDIDATE`, `DUPLICATE_ANALYSIS_SET`);
   - `PLAN_FAILED`, with `{suggestionSetId, reason, attempts, rejectedByCode}`;
   - `PLAN_SUGGESTION_SELECTED`, with `{suggestionSetId, candidateId, position, tier}`;
   - `PLAN_SUGGESTIONS_DISMISSED`, with `{suggestionSetId}`;
@@ -1496,7 +1582,7 @@ so that we can show the milestone confidently and catch regressions.
 The stories are unit-tested, but the milestone's promise only holds end to end. This story answers *"Is the finished Milestone 1 reliable enough to demonstrate and sign off?"* Two earlier questions are already answered by the time it starts:
 
 - P60-M1-013 settled **how** the end-to-end path can be tested;
-- P60-M1-014 settled **which** model and prompt approach is viable.
+- P60-M1-014 and P60-M1-016 settled **which** model and prompt approach is viable (intent selection with `llama3.2` and prompt v2; R1).
 
 This story doesn't repeat either investigation.
 
@@ -1519,10 +1605,10 @@ This story doesn't repeat either investigation.
 - **New** `chatbot-backend/src/test/java/edu/baylor/ecs/cloudhubs/chatbot/pipeline/PipelineIntentIntegrationTest.java`, using service-level wiring with a stub `LocalLlmClient` (pattern: `ChatbotS12M2IntegrationTest`) plus standalone MockMvc. It asserts the HTTP contract for `OK`, `INVALID_MODEL_OUTPUT`, `UNSUPPORTED_GOAL`, and 503.
 - **Contract alignment:** the frontend fixtures `intent-response.*.json` and the backend test resources are identical, and a backend test deserializes them.
 - **Final live-model smoke (manual, not automated):** a release-qualification run of the *finished* system, distinct from the early P60-M1-014 feasibility signal.
-  - Setup: `docker compose --profile local-llm up --build`, then `docker exec cloudhub_ollama ollama pull <model>`. Use the model selected by P60-M1-016 (`llama3.2` unless it chose otherwise). Ollama runs only under the `local-llm` profile, and nothing pulls the model automatically.
+  - Setup: `docker compose --profile local-llm up --build`, then `docker exec cloudhub_ollama ollama pull <model>`. Use the R1 reference model `llama3.2` with the R1 settings (§0), and warm it once before measuring. Ollama runs only under the `local-llm` profile, and nothing pulls the model automatically.
   - Run goals G1–G5 (as defined in P60-M1-014, for comparability) **5 times each, 25 runs**, through the real `POST /chatbot/pipeline/intents` plus the P60-M1-006 parse → compose → validate → assemble → retry logic. The P60-M1-014/016 harness may be re-pointed at the endpoint for this; don't build a new one.
   - Record the **planning success rate** (exactly 3 structurally valid, distinct suggestions), mean attempts, p50/p95 total planning time, and top rejection codes in the PR, and compare them with the P60-M1-016 baseline. Pipeline execution isn't part of this metric.
-  - **Demo gate:** at least 70% planning success and p95 total planning time under 150 s (`PLAN_TOTAL_BUDGET_MS`) on the demo machine. If the gate isn't met, tune the prompt and examples within P60-M1-005's settings, or escalate the model choice (*team decision*).
+  - **Demo gate:** at least 70% planning success and p95 total planning time under 150 s (`PLAN_TOTAL_BUDGET_MS`) on the demo machine. If the gate isn't met, tune the prompt and examples within P60-M1-005's settings, or escalate the model choice (*team decision*; R1 is a runtime default, so this doesn't change product scope).
 - **Docs:** add a "Chatbot-assisted pipeline creation" paragraph to `CLAUDE.md`'s pipeline section, list `chatbot-backend` (8081) in its services table (currently missing), and add the Ollama profile and model-pull steps.
 
 **Acceptance criteria**
@@ -1534,7 +1620,7 @@ This story doesn't repeat either investigation.
 
 **Testing** This story is the end-to-end test work.
 
-**Dependencies** P60-M1-001 … P60-M1-009, P60-M1-012, P60-M1-013 (test strategy and harness), P60-M1-015, P60-M1-016 (selected model, harness, and baseline), P60-M1-017, and P60-M1-018. P60-M1-010 is optional (telemetry assertions).
+**Dependencies** P60-M1-001 … P60-M1-009, P60-M1-012, P60-M1-013 (test strategy and harness), P60-M1-015, P60-M1-016 (R1 model, harness, and baseline), P60-M1-017, and P60-M1-018. P60-M1-010 is optional (telemetry assertions).
 **Priority** P0
 **Estimate** 3 (down from 5, because the spike moved to P60-M1-013). Remaining work: the integration test on the existing harness, the backend integration test, contract alignment, a 25-run smoke on the existing harness, docs, and rehearsal. Under P60-M1-013 Outcome B, use the estimate recorded there.
 
@@ -1551,15 +1637,15 @@ This story doesn't repeat either investigation.
 | P60-M1-013 | PipelinePage integration-test feasibility spike | **Done** (Outcome A) | P0 | 2 | — | 011 (test strategy) |
 | P60-M1-001 | Capability catalog, input requirements, required config | **Done** | P0 | 3 | — | 002, 003, 005, 015, 016, 017 |
 | P60-M1-014 | Graph-generation feasibility spike | **Done** (Decision D → D11) | P0 | 3 | 001 | Revision 7 pivot |
-| P60-M1-016 | Intent-selection feasibility spike | New | P0 | 2 | 001 | checkpoint for 006/008; 005 defaults; 011 baseline; R1 |
-| P60-M1-002 | `PipelineSpec` v1 and parser | Revised | P0 | 2 | 001 | 003, 017 |
-| P60-M1-003 | Deterministic validator and candidate IDs | Revised (minor) | P0 | 5 | 001, 002 | 004, 007, 017 |
-| P60-M1-015 | `PipelineIntentPlan` v1 contract and parser | New | P0 | 3 | 001 | 004, 005, 006, 017 |
-| P60-M1-017 | Deterministic composer (core) | New | P0 | 5 | 001, 002, 003, 015 | 018 |
-| P60-M1-018 | Composer: two-snapshot recipes and exhaustive test | New | P0 | 3 | 017 | 006 |
-| P60-M1-004 | Candidate set: distinct intents and graphs, exactly 3 | Revised | P0 | 3 | 003, 015 | 006 |
-| P60-M1-005 | Intent-selection endpoint | Revised | P0 | 5 | 001, 012, 015; soft: 016 | 006 |
-| P60-M1-006 | Frontend planning orchestration | Revised | P0 | 5 | 004, 005, 015, 017, 018; checkpoint: 016 | 008, 009, 010 |
+| P60-M1-016 | Intent-selection feasibility spike | **Done** (Decision B → proceed; R1 resolved) | P0 | 2 | 001 | checkpoint for 006/008; 005 defaults; 011 baseline; R1 |
+| P60-M1-002 | `PipelineSpec` v1 and parser | **Done** | P0 | 2 | 001 | 003, 017 |
+| P60-M1-003 | Deterministic validator and candidate IDs | **Done** | P0 | 5 | 001, 002 | 004, 007, 017 |
+| P60-M1-015 | `PipelineIntentPlan` v1 contract and parser | **Done** (no model `summary`) | P0 | 3 | 001 | 004, 005, 006, 017 |
+| P60-M1-017 | Deterministic composer (core) | **Done** | P0 | 5 | 001, 002, 003, 015 | 004, 018 |
+| P60-M1-018 | Composer: two-snapshot recipes and exhaustive test | **Done** | P0 | 3 | 017 | 004, 006 |
+| P60-M1-004 | Candidate set: tiers preserved, post-composition distinctness, exactly 3 | **Done** (Revision 8 design) | P0 | 3 | 003, 015, 017/018 | 006 |
+| P60-M1-005 | Intent-selection endpoint | **Next** | P0 | 5 | 001, 012, 015, 016 (all done) | 006 |
+| P60-M1-006 | Frontend planning orchestration | Revised (Revision 8: required retry, replacement plan) | P0 | 5 | 004, 005, 015, 017, 018; checkpoint: 016 (passed) | 008, 009, 010 |
 | P60-M1-007 | Layout and atomic empty-canvas applier | Unchanged | P0 | 5 | 002, 003 | 008, 009, 010 |
 | P60-M1-008 | Chatbot build mode and suggestion UI | Unchanged (wording) | P0 | 5 | 006, 007, 012; checkpoint: 016 | 009, 010, 011 |
 | P60-M1-009 | Failure handling and canvas safety | Unchanged (wording) | P0 | 3 | 006, 007, 008 | 011 |
@@ -1574,22 +1660,19 @@ How to read the dependency column:
 Summary:
 
 - No cycles. No story is larger than 5 points.
-- **Total: 18 stories, 62 points.**
+- **Total: 18 stories, 62 points** (unchanged in Revision 8; no points were changed because implementation went well).
   - P0: 17 stories / 60 pts; P1: 1 story / 2 pts; P2: none.
-  - **Done:** 4 stories / 11 pts (012, 013, 001, 014).
-  - **Remaining:** 14 stories / 51 pts.
-- **Critical path (remaining, 31 pts):** 002 → 003 → 017 → 018 → 006 → 008 → 009 → 011.
-  - 015 → 005 reaches 006 after 8 pts, against 15 pts on the composer chain, so it isn't critical. 004 (after 003 + 015) isn't critical either.
-  - 016 isn't on the path: it's a 2-pt checkpoint that runs alongside 002/003.
+  - **Done:** 11 stories / 34 pts (012, 013, 001, 014, 016, 002, 003, 015, 017, 018, 004).
+  - **Remaining:** 7 stories / 28 pts (005, 006, 007, 008, 009, 010, 011).
+- **Critical path (remaining, 21 pts):** 005 → 006 → 008 → 009 → 011.
+  - 007 (5 pts; its dependencies 002 and 003 are done) runs alongside 005 → 006 (10 pts) and joins at 008, so it isn't critical.
+  - Revision 8 dependency change: 004 now depends on 017/018, because it composes each tier itself (the composer is injectable for tests). Both were implemented together, so the path is unaffected.
 - **Parallel tracks:**
-  - start immediately: 016 (spike), 015 (contract), 002 (spec);
-  - 005 after 015: DTOs, extractor, and controller first; prompt and defaults once 016 reports;
-  - 004 after 003 + 015;
-  - 007 after 003, alongside 017/018;
+  - start now: 005 (next story) and 007;
+  - 006 after 005;
+  - 008 after 006 + 007; 009 after 008;
   - 010 after 008, off the critical path.
-- **Vertical slice:**
-  1. 015 → 002 → 003 → 017 (single-snapshot capabilities only) → 004 (minimal) → 005 → 006 → 007 → 008, demoing G1 end to end once 016 is green.
-  2. Then 018 (two-snapshot cards, exhaustive test), 009 (failure states), and 011 (E2E).
+- **Vertical slice (remaining):** 005 → 006 → 007 → 008, demoing G1 end to end; then 009 (failure states) and 011 (E2E and live smoke).
 
   Every story ships its own tests.
 
@@ -1602,9 +1685,9 @@ This is a checkpoint, not a milestone. Before investing in planning orchestratio
 3. **The real pipeline capability catalog** (P60-M1-001): **done**.
 4. **Evidence that the local model can do the model's job:**
    - *Graph generation* (P60-M1-014): **done, Decision D**, which led to the Revision 7 pivot.
-   - *Intent selection* (P60-M1-016): **open**. Decision A, B, or C must be recorded before 006/008. Decision D stops the main build for replanning.
+   - *Intent selection* (P60-M1-016): **done, Decision B → proceed** (Revision 8). The local model is feasible for selecting what to analyse; R1 is resolved.
 
-Work that doesn't depend on the model (002, 003, 004, 007, 015, 017, 018, and 005's DTOs, extractor, and controller) may continue while item 4 is open.
+**The checkpoint has passed.** 006 and 008 may start once their code dependencies are done (005 for 006; 006 and 007 for 008).
 
 ## 7. Milestone Acceptance Criteria
 
@@ -1633,6 +1716,18 @@ These criteria don't require P60-M1-010 (telemetry, P1). If the team defers it, 
 
 Frontend tests use Jest + React Testing Library 13 via `react-scripts test`, with `jest.mock("../../services/api")` as in `ChatbotPanel.test.tsx`. Backend tests use JUnit 5 + AssertJ with standalone `MockMvcBuilders`, as in `ChatbotControllerTest`. Frontend paths below are relative to `frontend/src/components/`.
 
+No test expects the LLM to return graph nodes or edges. Model output is intent profiles only; graphs come from the composer.
+
+**Test groups (Revision 8).** The rows below map onto five groups:
+
+| Group | What it covers | Test IDs | Status |
+|---|---|---|---|
+| A. Intent | Valid and invalid capability IDs, non-analysis IDs dropped, tiers, duplicate sets, the one required retry | T2, T3, T6, T8, T19, T21, T39 (parser parts done: `intentPlan.test.ts`; retry parts in P60-M1-006) | Parser **done**; retry pending (006) |
+| B. Composer | All 11 singletons, all 55 pairs, all 2,047 subsets, multi-input and two-snapshot cases, deterministic output, size-limit failure, G1 compositions, fail-closed | T4, T5, T35, T36, T37, T38 (`pipelineComposer.test.ts`, 51 tests) | **Done** |
+| C. Validator | 17×17 edge matrix, every structural rule, templates, demo graphs, composed outputs, signature, brand | T3, T4, T5, T14 (unit part), T18, T43 (`pipelineValidator.test.ts`, 48 tests) | **Done** |
+| D. Candidate assembly | Tier identity preserved, exactly 3, post-composition collision, no partial result, capability-level retry feedback, G1 acceptance | T6, T7, T8, T41, T42 (`candidateSet.test.ts`, 17 tests) | **Done** |
+| E. Later end-to-end | The model selects intents, code composes graphs, and the user still sees exactly three structurally valid pipelines | T1, T9–T15, T24, T30, T33, T34 | Pending (005–011) |
+
 **Required coverage (T1–T15):**
 
 | Test ID | Scenario | Level / file | Expected result | Stories |
@@ -1642,9 +1737,9 @@ Frontend tests use Jest + React Testing Library 13 via `react-scripts test`, wit
 | T3 | Unknown card type / capability (`VECTOR_GENERATE`) | Unit: `intentPlan.test.ts` (`UNKNOWN_CAPABILITY`), `pipelineValidator.test.ts` (`UNKNOWN_CARD_TYPE`); Hook | The option is rejected at the intent gate even after passing the BE shape check; the validator still rejects unknown types in any spec | 003, 006, 015 |
 | T4 | Invalid edge (full 17×17 matrix; `SYSTEM_INPUT→FORMAL_VERIFY`) | Unit: `pipelineValidator.test.ts`; composer exhaustive test (T36) | `ILLEGAL_CONNECTION` exactly where `VALID_CONNECTIONS` forbids; the composer never emits an illegal edge | 003, 017, 018 |
 | T5 | Missing required predecessor/input (no input; orphan; Quick Compare without Scenario Generation; Policy Drift with ≠2 FVs; Scenario Generation without Component Card) | Unit: `pipelineValidator.test.ts`; composer tests | Validator reports `MISSING_INPUT` / `MISSING_UPSTREAM` / `UNREACHABLE_NODE` / `INPUT_REQUIREMENT_UNMET`; the composer always adds the required predecessors (Quick Compare → FV + Scenario Generation; Policy Drift → 2 FVs) | 001, 003, 017, 018 |
-| T6 | Only 1 or 2 distinct valid options (unknown capabilities, empty sets, duplicates, or options composing to the same graph) | Unit: `candidateSet.test.ts`; Hook | `INSUFFICIENT_DISTINCT`; one retry with exclusions; then `insufficient_valid_candidates`, nothing selectable | 004, 006, 009, 015 |
-| T7 | More than 3 options (8 from the model → BE caps at 6; 4–6 distinct after a retry merge) | Unit (BE) cap at 6; Unit (FE): `candidateSet.test.ts` | Exactly 3, chosen deterministically | 004, 005 |
-| T8 | Duplicate or equivalent options (same set, different wording; different sets composing to the same graph; graphs differing only by holder cards) | Unit: `intentPlan.test.ts` (`DUPLICATE_CAPABILITY_SET`), `candidateSet.test.ts` | Counted once by normalized set, `candidateId`, or composed analysis set | 003, 004, 015 |
+| T6 | Fewer than 3 usable options (unknown capabilities, empty sets, missing or duplicate tiers, duplicates, composition failure, or options composing to the same pipeline) | Unit: `intentPlan.test.ts`, `candidateSet.test.ts`; Hook | Parser `invalid`, or candidate set `INVALID_INTENT_SET` / `COMPOSITION_FAILED` / `INSUFFICIENT_DISTINCT`; the one required retry (complete replacement plan, capability-level feedback); then `insufficient_valid_candidates` or `invalid_model_output`, nothing selectable, never 1–2 suggestions | 004, 006, 009, 015 |
+| T7 | Wrong number of options (8 from the model → BE caps at 6; FE needs exactly 3) | Unit (BE) cap at 6; Unit (FE): `intentPlan.test.ts` (`WRONG_OPTION_COUNT`), `candidateSet.test.ts` (`INVALID_INTENT_SET` for 0, 2, 4 options) | Never more or fewer than 3 suggestions; a wrong count triggers the retry | 004, 005, 015 |
+| T8 | Duplicate or equivalent options (same set, different wording; different sets composing to the same pipeline, e.g. G3-1; graphs differing only by holder cards) | Unit: `intentPlan.test.ts` (`DUPLICATE_CAPABILITY_SET`), `candidateSet.test.ts` | Same normalized set rejected by the parser; same `candidateId` or same final analysis set after composition → `INSUFFICIENT_DISTINCT` → retry | 003, 004, 015 |
 | T9 | Model or runtime unavailable (503, network error, health `unavailable`, timeout) | Controller (BE): `PipelineIntentControllerTest`; Hook; Component: `ChatbotPanel.test.tsx` | 503 → `model_unavailable` after 1 call, **no keyword fallback**; Send disabled in build mode; `timeout` past budget | 005, 006, 009 |
 | T10 | User selects candidate 1 / 2 / 3 on an empty canvas (state A) | Component: `chatbot/PipelineSuggestionList.test.tsx` (`it.each`) | Select enabled; callback called once with the matching `candidateId`; all Select buttons then disabled | 008 |
 | T11 | User closes, cancels, or dismisses without selecting | Component; Integration | Callback never called; canvas snapshot unchanged; in-flight request aborted | 008, 009, 011 |
@@ -1662,7 +1757,7 @@ Frontend tests use Jest + React Testing Library 13 via `react-scripts test`, wit
 | T18 | All 7 `PIPELINE_TEMPLATES` validate | Unit: `pipelineValidator.test.ts` | All valid | 001, 003 |
 | T19 | Parsers strip model-supplied graph/config fields: `parseIntentPlan` drops `nodes`/`edges`/`id`/`config` and non-analysis cards; `parsePipelineSpec` strips `data`/`x`/`id`/`config` | Unit: `intentPlan.test.ts`, `pipelineSpec.test.ts` | Whitelisted fields only; dropped items reported; never throws | 002, 015 |
 | T20 | Intent prompt built only from catalog **analysis** capabilities (`FOO_CARD` listed, non-analysis `BAR_CARD` not, no edges/graph schema); Ollama payload has `format:"json"` and `num_ctx` only when requested | Unit (BE): `PipelineIntentPromptBuilderTest`, `LocalLlmAdapterTest` | As stated; Q&A payload unchanged | 005 |
-| T21 | Retry carries excluded capability sets and intent issue codes; superseded request ignored | Hook | Request 2 body asserted; stale response dropped | 006, 015 |
+| T21 | Retry carries excluded capability sets and capability/profile-level feedback (intent codes, unknown IDs, collision or size feedback), never graph topology; exactly one retry; superseded request ignored | Hook | Request 2 body asserted; no third call; stale response dropped | 004, 006, 015 |
 | T22 | Policy Drift layout: base FV above PR FV | Unit: `pipelineLayout.test.ts` | FV#1.y < FV#2.y | 007 |
 | T23 | Undo after apply on a restored or loaded-then-cleared canvas (stale history) | Integration | Undo → empty canvas, not an earlier graph | 007, 011 |
 | T24 | Non-empty canvas, then manual **Clear All** | Component: `chatbot/PipelineSuggestionList.test.tsx`, `ChatbotPanel.test.tsx`; Integration | (a) With `canvasIsEmpty=false`, generation still runs and 3 suggestions render; (b) all three Select buttons disabled and the empty-canvas guidance shown; (c) after the user's **Clear All**, the same buttons enable with **no** new `requestPipelineIntents` call; (d) Select then succeeds (re-validated on click); (e) with `isPipelineRunning=true`, buttons disabled with the run-in-progress text | 008, 011 |
@@ -1675,10 +1770,13 @@ Frontend tests use Jest + React Testing Library 13 via `react-scripts test`, wit
 | T33 | Canvas changed between generation and selection (race) | Unit: `pipelineApplier.test.ts` (handler with live state) and Integration | Suggestions generated on an empty canvas → user adds a card → apply (even with a stale `canvasIsEmpty=true`) returns `canvas_not_empty`; canvas holds exactly the user's card; `history`/`historyIndex` reflect only the user's action | 007, 011 |
 | T34 | Milestone 2 boundary: no automatic clear, save, append, or merge | Component and Integration (spies on `window.confirm`, `clearPipeline` path, and session-save API) | Across all suggestion interactions on empty and non-empty canvases, the chatbot never opens the Clear All confirmation, clears, saves, or adds next to existing nodes. No Milestone 1 test expects chatbot append, merge, or edit behaviour | 007, 008, 011 |
 | T35 | Composer: each analysis capability alone, and §2 golden outputs | Unit: `pipelineComposer.test.ts` | Each single capability composes to a valid spec equal to its template recipe (Quick Compare: FV + Scenario Generation recipes + 2 edges); §2 Focused/Balanced/Comprehensive match exactly; shared prefixes; byte-identical on repeat and on reordered input | 017 |
-| T36 | Composer exhaustive property test | Unit: `pipelineComposer.test.ts` | All 2,047 non-empty analysis subsets compose to a valid spec containing every requested capability, or `COMPOSITION_TOO_LARGE`; never invalid, unsupported, or thrown; deterministic | 018 |
+| T36 | Composer exhaustive property test (plus all 11 singletons and all 55 pairs) | Unit: `pipelineComposer.test.ts` | All 2,047 non-empty analysis subsets compose to a valid spec containing every requested capability, or `COMPOSITION_TOO_LARGE`; never invalid, unsupported, or thrown; deterministic. Measured and pinned: 1,475 valid, 572 too large; every subset of ≤ 3 capabilities composes | 017, 018 |
 | T37 | Two-snapshot recipes (Policy Drift, Change Impact) | Unit: `pipelineComposer.test.ts` | Signatures equal their templates; base FV listed and laid out first; recipe table matches the templates; combined with other capabilities stays valid | 018, 007 |
-| T38 | Composer fails closed | Unit: `pipelineComposer.test.ts` (injected broken facts) | `COMPOSITION_INVALID`, no spec escapes; orchestration drops the option and counts it | 006, 017 |
-| T39 | Intent parser capability rules | Unit: `intentPlan.test.ts` (catalog-driven) | Every `isAnalysis` card accepted; every non-analysis card dropped (`NON_ANALYSIS_DROPPED`); unknown → `UNKNOWN_CAPABILITY`; empty → `NO_ANALYSIS_CAPABILITY`; tier and length rules; stable `optionId` | 015 |
+| T38 | Composer fails closed | Unit: `pipelineComposer.test.ts` (injected broken facts) | `COMPOSITION_INVALID`, no spec escapes; candidate assembly fails the set (`COMPOSITION_FAILED`) and orchestration counts it and retries | 004, 006, 017 |
+| T39 | Intent parser capability rules | Unit: `intentPlan.test.ts` (catalog-driven) | Every `isAnalysis` card accepted; every non-analysis card dropped (`NON_ANALYSIS_DROPPED`); unknown → `UNKNOWN_CAPABILITY`; empty → `NO_ANALYSIS_CAPABILITY`; duplicates collapsed; order normalized; no `summary` required; tier and length rules; stable `optionId` | 015 |
+| T41 | Candidate assembly: tier identity and exactly three | Unit: `candidateSet.test.ts` | Tiers kept from the intent plan (a larger "focused" stays focused); output focused → balanced → comprehensive; no preselection flag; post-composition collisions by `candidateId` and by final analysis set (G3-1); no partial result; retry feedback contains no titles, rationale, or topology | 004 |
+| T42 | G1 architectural acceptance | Unit: `candidateSet.test.ts` | Frozen `intent-response.valid.json` → `parseIntentPlan` → composer → validator → 3 distinct suggestions (6, 10, 14 cards), each independently re-validated as plain JSON with matching `candidateId` and signature | 004, 015, 017 |
+| T43 | Validator identity and trust boundary | Unit: `pipelineValidator.test.ts` | Signature invariant to keys, order, title, summary, rationale; sensitive to card-type and wiring changes; `candidateId` stable; `ValidatedSuggestion` can't be built outside the module (compile-time) and look-alikes are rejected at runtime; deep-frozen | 003 |
 
 **Risk-reduction spikes** (results inform the plan; not Milestone 1 acceptance criteria):
 
@@ -1686,24 +1784,24 @@ Frontend tests use Jest + React Testing Library 13 via `react-scripts test`, wit
 |---|---|---|---|---|
 | T31 | PipelinePage testability spike | Proof test: `pipeline/PipelinePage.harness.test.tsx` + `pipeline/__testutils__/renderPipelinePage.tsx` | Probes 1–4 pass with module-level mocks only (Outcome A), or blockers are recorded with file:line and one recommendation (Outcome B); within one working day | 013 |
 | T32 | Early local-model feasibility: **graph generation** (completed) | Live harness: `pipeline/planning/__spike__/localModelFeasibility.live.test.ts` (`RUN_LIVE_LLM=1`) | Done: Decision D (`llama3.2`, `llama3.1:8b`) and post-D D20 (`gpt-oss:20b`); historical evidence for D11 | 014 |
-| T40 | Intent-selection feasibility (lightweight local model) | Live harness, intent mode (`RUN_LIVE_LLM=1`, `LIVE_LLM_TASK=intent`) | G1×5, G2–G5×3; syntax, capability, set, and relevance results kept separate; thresholds evaluated; decision A/B/C/D recorded | 016 |
+| T40 | Intent-selection feasibility (lightweight local model) (completed) | Live harness, intent mode (`RUN_LIVE_LLM=1`, `LIVE_LLM_TASK=intent`) | Done: Decision B → proceed. Prompt v2: 17/17 usable after ≤ 1 retry, G1 5/5, relevance 100%, total p95 17.2 s; baseline for T30 | 016 |
 
 ## 9. Suggested Demonstration Script
 
 About 4 minutes. **Prerequisites:**
 
 - `docker compose --profile local-llm up --build`;
-- `docker exec cloudhub_ollama ollama pull llama3.2`, or the reference model selected by P60-M1-016 and confirmed at the P60-M1-011 demo gate;
-- a warm-up plan request run once beforehand, so the model is loaded;
+- `docker exec cloudhub_ollama ollama pull llama3.2` (the R1 reference model, §0; confirmed at the P60-M1-011 demo gate);
+- a warm-up plan request run once beforehand, so the model is loaded. A cold first call is much slower (P60-M1-016 measured 63 s including a 27.6 s model load) than warm calls (p95 about 14 s);
 - the browser on `http://localhost:3000/pipeline` with an **empty** pipeline canvas (the presenter clears it beforehand with **Clear All** if needed).
 
 1. **(0:00) Pipeline screen.** "Building a pipeline today means knowing 17 card types and which ones may connect." Show the empty canvas and the toolbox.
 2. **(0:15) Open chatbot.** Click the assistant button, then switch to **Build a pipeline**.
 3. **(0:25) Type the goal.** Enter *"I want to visualize the architecture and check authorization problems."* and press Send. The progress line appears.
 4. **(0:30–1:30) Three choices.** Walk through Focused, Balanced, and Comprehensive: plain-language card names, "Why this fits", and what each needs to be configured.
-5. **(1:45) Who did what.** Expand **"Built by AridNova and checked against pipeline rules ✓"** on one card. "The assistant only chose which analyses fit your goal. AridNova built the wiring, adding every prerequisite card and connection, and checked it against the same rules the canvas uses."
+5. **(1:45) Who did what.** Expand **"Built by AridNova and checked against pipeline rules ✓"** on one card. "The local model chooses the analyses that fit the goal. AridNova constructs and validates the pipelines deterministically, adding every prerequisite card and connection and checking them against the same rules the canvas uses."
 6. **(2:00) Select.** Click **Use this pipeline** on Balanced. The cards and connections appear together. Click a card's link button to show that the canvas's own valid-target highlighting agrees with the created connections. Click the header **Undo** to show the whole addition reverts in one step, then **Redo**. Use the header buttons: keyboard Ctrl/Cmd+Z is ignored while focus is in the chat textarea.
-7. **(2:45, optional) Run normally.** Following the hint, enter the system name and the known-good demo repository in System Source, then press the existing **Run**. Watch Generate Snapshot → IR Card progress. "Execution is unchanged; the assistant constructed the graph, and the existing runtime executes it." The repository and running services are a **demo fixture**: they show this environment executing, not that every pipeline completes in every environment.
+7. **(2:45, optional) Run normally.** Following the hint, enter the system name and the known-good demo repository in System Source, then press the existing **Run**. Watch Generate Snapshot → IR Card progress. "Execution is unchanged; AridNova constructed and validated the graph deterministically, and the existing runtime executes it." The repository and running services are a **demo fixture**: they show this environment executing, not that every pipeline completes in every environment.
 8. **(3:30, optional) Failure safety.** Run `docker stop cloudhub_ollama`, ask again, and show "model isn't reachable" with **Browse templates**. The canvas is untouched.
 9. **(3:50) Close.** "Next milestone: editing an existing pipeline through chat."
 
@@ -1740,7 +1838,7 @@ About 4 minutes. **Prerequisites:**
 - **Showing partial result sets** (1–2 valid suggestions) instead of a failure.
 - **Preference ranking**, personalized defaults, preference-weight updates, and **learning from selections**, including SLM or model fine-tuning on the P60-M1-010 data.
 - **Auto-run** after selection, or chat-triggered execution.
-- **More advanced agentic planning:** multi-turn clarification ("which repo?"), tool use against IR or history, and planning that uses evidence context.
+- **More advanced agentic planning:** multi-turn clarification ("which repo?"), tool use against IR or history, planning that uses evidence context, and any retry loop beyond Milestone 1's single bounded retry.
 - Long-term personalization, memory across sessions, and sophisticated analytics.
 - A server-side copy of the validator, if a non-browser client ever needs validated plans.
 - CI for the frontend and chatbot-backend suites, and fixing the existing `ChatbotFlag` casing mismatch between Java (UPPERCASE) and TypeScript (lowercase).
@@ -1884,8 +1982,38 @@ Across 34 measured runs, no response contained three valid, distinct graphs. The
 | 14 | §7: new guarantee that no graph structure comes from the model. §8: T1–T9, T19–T21, T29, T30, T32 updated; T35–T39 (composer and intent parser) and T40 (intent spike) added |
 | 15 | §10: keyword or rule-based classification, optional enrichment edges, alternative composition roots, revisiting LLM graph generation, and optional commercial providers listed as future enhancements |
 
-**Unresolved decisions** (risk-gated; each closes when its spike reports):
+**Unresolved decisions at Revision 7** (risk-gated; each closes when its spike reports; *R1 was resolved in Revision 8, below*):
 
 1. **R1, reference and demo model:** decided by **P60-M1-016** (intent selection), starting from `llama3.2` on Ollama. P60-M1-011's demo gate confirms it. This is a runtime choice and doesn't change product scope; Milestone 1 doesn't depend on `gpt-oss:20b` or a commercial API.
 
 *Decided, no longer open:* D1–D11, R2 (resolved by P60-M1-013 Outcome A), and R3 (§0). Implementation-tunable parameters are listed in §0 and aren't tracked as decisions.
+
+**Revision 8: implementation synchronization after intent feasibility and the deterministic composer.** Documentation only. The architecture (D11) and product decisions D1–D10 are unchanged; this revision records what was measured and implemented so P60-M1-005 onward read one consistent plan. Earlier graph-generation evidence (P60-M1-014, D20) is kept as the reason for the pivot.
+
+Summary:
+
+- Intent-only `llama3.2` feasibility passed after one prompt-tuning iteration (P60-M1-016, Decision B → proceed): prompt v2, 17/17 usable three-profile plans after ≤ 1 retry, G1 5/5, focused relevance 100%, total p95 17.2 s.
+- R1 resolved; the single bounded retry made required.
+- The intent `summary` was removed from the required model contract; the composer generates `PipelineSpecV1.summary`.
+- The deterministic composer is complete: all 11 singleton capabilities and all 55 pairs validate, the size-limit behaviour over 2,047 subsets was measured, and candidate tiers are now preserved from the intent plan.
+- Post-composition collisions are handled by the retry.
+- P60-M1-005/006 are aligned to intent-only model output.
+
+| # | Change |
+|---|---|
+| 1 | §0: **R1 resolved**: `llama3.2` on Ollama (compose runtime), intent prompt v2, JSON mode, `num_ctx` 4096, `num_predict` 512, temperature 0.4, 75 s per call, 150 s total; runtime defaults, not scope. Cold-load caveat and demo warm-up kept. `MAX_PLAN_ATTEMPTS = 2` recorded as required, not tunable. D11 marked implemented through the deterministic core |
+| 2 | P60-M1-016: status complete; a "Revision 8 follow-up" block records the frozen settings, the architectural conclusion (the model selects what to analyse and never builds topology), the required retry, and the confirmed G3-1 collision. The stale "P60-M1-004 relabels by composed size" remark in the result block is annotated as superseded, not deleted |
+| 3 | P60-M1-015: `summary` removed from `PipelineIntentOption` (a model `summary` is only a parser tolerance for a missing rationale); parser result shape, `TOO_MANY_CAPABILITIES`, collapse and order normalization, exactly-three/one-per-tier/distinct-set plan rules, and `describeIntentIssuesForRetry(result, accepted?)` synchronized; status done (frontend types and backend DTOs exist) |
+| 4 | P60-M1-003: status done with evidence (pure, real config sources, 15 codes, 17×17 matrix, 7 templates, demo graphs, composed outputs, brand, signature). Signature definition updated (Weisfeiler-Lehman labels); brand described as implemented (unexported symbol + `WeakSet`); `describeIssuesForRetry` restored as a sanitized diagnostic helper that is never sent to the model |
+| 5 | P60-M1-017/018: status done with proven guarantees; actual `composePipeline` signature (no graph inputs; returns the `ValidatedSuggestion` and final analysis set); `_compare` keys (not `_2`); generated summary; path-recipe fallback; composer is pure (the caller logs `COMPOSITION_INVALID`); minimum canonical structure, no optional edges. 2,047-subset evidence recorded: 1,475 valid, 572 too large, 0 invalid; ≤ 3 capabilities always compose. `SIZE_LIMIT` and `MAX_ANALYSIS_PER_OPTION` deliberately unchanged |
+| 6 | **P60-M1-004 rewritten:** tiers come from the intent plan and are preserved (no size sorting, no relabelling, no `Option A/B/C`, no selection among >3); output always focused → balanced → comprehensive; no preselection; per-tier compose → validate; collisions by `candidateId` **and** final analysis set; typed failures `INVALID_INTENT_SET` / `COMPOSITION_FAILED` / `INSUFFICIENT_DISTINCT`, no partial result, no altered pipelines; capability-level `retryFeedback`. Now depends on 017/018 (composes each tier) |
+| 7 | §4: diagram shows intent profiles only from the model, the composer writing the summary, tier preservation, post-composition distinctness, and the required retry; P60-M1-016 evidence added; the diversity definition explains prerequisite-driven collisions; new "Minimum canonical structure" paragraph (optional edges are not requirements) |
+| 8 | P60-M1-005: marked next; the model is asked only for intent profiles (explicit not-generated list); prompt v2 as the starting text (no `summary` in the schema); R1 defaults replace the provisional 1024 / 8192 values; existing DTOs reused; capability-level retry inputs; dependencies all done; criteria updated (`num_ctx` 4096, v2 rules) |
+| 9 | P60-M1-006: flow goal → intents → parse → compose → validate → assemble → one required retry; retry triggers include intent failures, composition failure or oversize, and collisions; the retry asks for a **complete replacement plan** (no cross-attempt merging, since assembly takes one option per tier); feedback never describes wiring; criteria and fixtures updated |
+| 10 | P60-M1-008/010/011: tier labels shown as given; summary noted as composer-generated; collision codes in `rejectedByCode`; smoke uses the R1 model and settings |
+| 11 | §6: statuses updated (11 done / 34 pts; 7 remaining / 28 pts); 005 next; remaining critical path 005 → 006 → 008 → 009 → 011 (21 pts); 007 parallel; checkpoint passed. Story count (18) and points (62) unchanged |
+| 12 | §8: groups A–E (intent, composer, validator, candidate assembly, later E2E); T6, T7, T8, T21, T36, T38, T39, T40 synchronized (the "retry merge" and "chosen deterministically from 4–6" expectations removed); **T41** (tier identity, exactly three, collisions), **T42** (G1 architectural acceptance), and **T43** (validator identity and brand) added |
+| 13 | §2 and §9 wording: the model chooses the analyses; AridNova constructs and validates the pipelines deterministically. Step 7's "the assistant constructed the graph" corrected. Demo flow unchanged |
+| 14 | §10: retry loops beyond the single bounded retry listed with advanced agentic planning |
+
+**Unresolved decisions:** none. D1–D11 are frozen, and R1–R3 are resolved or non-blocking (§0). Implementation-tunable parameters are listed in §0 and aren't tracked as decisions.
