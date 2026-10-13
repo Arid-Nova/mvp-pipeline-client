@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ChatbotContext } from "../../services/types";
+import { ApplyResult } from "../pipeline/planning/pipelineApplier";
+import { ValidatedSuggestion } from "../pipeline/planning/pipelineValidator";
 import { useChatbotState } from "./useChatbotState";
 import ChatComposer from "./ChatComposer";
 import ChatMessage from "./ChatMessage";
@@ -7,6 +9,13 @@ import RuntimeStatus from "./RuntimeStatus";
 
 interface ChatbotPanelProps {
     activeContext?: ChatbotContext;
+    /**
+     * Issue #60 Build mode (P60-M1-008, not implemented yet). Applies a selected suggestion; the
+     * handler re-checks the live canvas itself, so the two flags below only drive button state.
+     */
+    onApplyPipelineSuggestion?: (suggestion: ValidatedSuggestion) => ApplyResult;
+    canvasIsEmpty?: boolean;
+    isPipelineRunning?: boolean;
 }
 
 const getContextEntries = (context?: ChatbotContext): Array<{ label: string; value: string }> => {
