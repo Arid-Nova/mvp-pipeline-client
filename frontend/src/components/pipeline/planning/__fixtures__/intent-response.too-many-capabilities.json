@@ -1,0 +1,47 @@
+{
+  "outcome": "OK",
+  "suggestionSetId": "3f2b8c1e-9a4d-4e6f-b1c2-7d8e9f0a1b2c",
+  "requestId": "req-fixture-ok",
+  "catalogVersion": "pcat-0861a6885a178a",
+  "options": [
+    {
+      "tier": "focused",
+      "title": "Architecture Visualization",
+      "analysisCardTypes": [
+        "VISUALIZATION",
+        "FORMAL_VIZ"
+      ]
+    },
+    {
+      "tier": "balanced",
+      "title": "Security Analysis",
+      "analysisCardTypes": [
+        "SCENARIO_GENERATE",
+        "FORMAL_VERIFY",
+        "PROMPT_GENERATE",
+        "TEST_EXECUTOR",
+        "VERIFICATION_COMPARISON"
+      ]
+    },
+    {
+      "tier": "comprehensive",
+      "title": "System Security Audit",
+      "analysisCardTypes": [
+        "VISUALIZATION",
+        "AEGIS",
+        "SECURITY_REGRESSION",
+        "CHANGE_IMPACT",
+        "FORMAL_VIZ",
+        "SCENARIO_GENERATE",
+        "PROMPT_GENERATE",
+        "TEST_EXECUTOR",
+        "VERIFICATION_COMPARISON"
+      ]
+    }
+  ],
+  "parseErrors": [],
+  "unsupportedReason": null,
+  "model": "llama3.2",
+  "provider": "OLLAMA",
+  "processingTimeMs": 9000
+}

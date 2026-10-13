@@ -174,6 +174,20 @@ export interface PipelineIntentResponse {
     processingTimeMs: number;
 }
 
+/**
+ * Result of calling POST /chatbot/pipeline/intents (P60-M1-006). Expected failures are values,
+ * never thrown, so the planner can decide whether to retry. `data` is the untrusted response body;
+ * only the frontend intent parser may interpret its options.
+ */
+export type PipelineIntentsCallResult =
+    | { kind: "response"; status: number; data: unknown }
+    | { kind: "model_unavailable"; status: 503; data: unknown }
+    | { kind: "request_invalid"; status: 400 }
+    | { kind: "http_error"; status: number }
+    | { kind: "network_error" }
+    | { kind: "timeout" }
+    | { kind: "cancelled" };
+
 // Session Management Types
 export interface SessionSummary {
     id: string;
