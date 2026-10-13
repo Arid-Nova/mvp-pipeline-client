@@ -67,6 +67,7 @@ jest.mock('../../../services/api', () => ({
     getChatbotHealth: jest.fn(),
     sendChatbotQuery: jest.fn(),
     refreshChatbotContext: jest.fn(),
+    requestPipelineIntents: jest.fn(),
     generateChangeImpactInsights: jest.fn(),
     executeTest: jest.fn(),
     recordUserFeedback: jest.fn(),
