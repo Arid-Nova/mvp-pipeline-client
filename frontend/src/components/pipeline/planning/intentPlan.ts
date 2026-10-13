@@ -28,8 +28,11 @@
  * Plan rules: version 1, exactly three valid options, exactly one per tier, three distinct
  * capability sets. A plan with no options and an `unsupportedReason` is "unsupported".
  *
- * `parseIntentPlan` never throws. Valid options are returned even when the plan as a whole is
- * invalid, so orchestration (P60-M1-006) can keep them across its one required retry.
+ * `parseIntentPlan` never throws. Each attempt is judged as a complete plan: only `status: 'ok'`
+ * (three valid options) is usable. Individually valid options are still reported in `validOptions`
+ * when the plan as a whole is invalid, but only for diagnostics and retry feedback: orchestration
+ * (P60-M1-006) then requests a complete replacement plan and never merges these options with it
+ * or carries them forward as partial suggestions.
  */
 import { CardType } from '../models';
 import { ContractIssue, cleanText, isPlainObject } from './contractIssue';
