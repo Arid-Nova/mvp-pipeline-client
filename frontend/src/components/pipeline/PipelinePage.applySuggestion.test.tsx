@@ -9,6 +9,7 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { mockedApi, mockedTrack, renderPipelinePage } from './__testutils__/renderPipelinePage';
 import { CardType, Connection, NodeData } from './models';
 import { ApplyResult } from './planning/pipelineApplier';
+import { captureCanvas, expectCanvasUnchanged } from './planning/__testutils__/canvasSnapshot';
 import { composePipeline } from './planning/pipelineComposer';
 import { ValidatedSuggestion, defaultValidationConfig, validatePipelineSpec } from './planning/pipelineValidator';
 
@@ -187,7 +188,9 @@ describe('PipelinePage.applyPipelineSuggestion (P60-M1-007)', () => {
         const before = latestCanvas();
         const undoEnabled = !(undoButton() as HTMLButtonElement).disabled;
 
+        const snapshot = captureCanvas();
         const result = apply(BALANCED(), staleHandler);
+        expectCanvasUnchanged(snapshot);
 
         expect(result).toEqual({
             ok: false,
@@ -223,7 +226,9 @@ describe('PipelinePage.applyPipelineSuggestion (P60-M1-007)', () => {
         await waitFor(() => expect(latestCanvas().nodes).toHaveLength(0));
         const before = latestCanvas();
 
+        const snapshot = captureCanvas();
         const result = apply(BALANCED());
+        expectCanvasUnchanged(snapshot);
 
         expect(result.ok === false && result.reason).toBe('pipeline_running');
         expect(latestCanvas().nodes).toBe(before.nodes);
@@ -240,7 +245,9 @@ describe('PipelinePage.applyPipelineSuggestion (P60-M1-007)', () => {
         const stale = validatePipelineSpec(BALANCED().spec, { ...defaultValidationConfig(), catalogVersion: 'pcat-older' });
         if (!stale.valid) throw new Error('fixture must validate');
 
+        const snapshot = captureCanvas();
         const result = apply(stale.suggestion);
+        expectCanvasUnchanged(snapshot);
 
         expect(result).toEqual({ ok: false, reason: 'catalog_mismatch', message: 'The app was updated — please reload the page.' });
         expect(latestCanvas().nodes).toBe(before.nodes);
@@ -260,7 +267,9 @@ describe('PipelinePage.applyPipelineSuggestion (P60-M1-007)', () => {
             spec: { ...real.spec, edges: [...real.spec.edges, { from: 'system_input', to: 'formal_viz' }] },
         } as unknown as ValidatedSuggestion;
 
+        const snapshot = captureCanvas();
         const result = apply(forged);
+        expectCanvasUnchanged(snapshot);
 
         expect(result).toEqual({ ok: false, reason: 'invalid', message: 'This suggestion no longer matches the pipeline rules; please regenerate.' });
         expect(latestCanvas().nodes).toBe(before.nodes);

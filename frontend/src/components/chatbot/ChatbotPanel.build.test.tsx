@@ -317,10 +317,45 @@ describe("ChatbotPanel — Build a pipeline mode (P60-M1-008)", () => {
         expect(history).not.toMatch(/Pipeline added|pc_|SYSTEM_INPUT|Architecture and authorization/);
     });
 
-    it("adds no telemetry, template fallback, health gating or clear/save/run shortcuts", () => {
+    it("unmounting while planning aborts the request and the late reply updates nothing", async () => {
+        const calls = deferredBackend();
+        const errors = jest.spyOn(console, "error");
+        const { unmount } = await openPanel({ onApply: jest.fn() });
+        switchToBuild();
+        submit(G1);
+        await waitFor(() => expect(calls).toHaveLength(1));
+        errors.mockClear();
+
+        unmount();
+
+        expect(calls[0].signal?.aborted).toBe(true);
+        await act(async () => calls[0].release("valid"));
+        expect(errors).not.toHaveBeenCalled();
+        errors.mockRestore();
+    });
+
+    it("switching to Ask while planning cancels the plan; its late reply never appears", async () => {
+        const calls = deferredBackend();
+        const onApply = jest.fn();
+        await openPanel({ onApply });
+        switchToBuild();
+        submit(G1);
+        await waitFor(() => expect(calls).toHaveLength(1));
+
+        fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+
+        expect(calls[0].signal?.aborted).toBe(true);
+        await act(async () => calls[0].release("valid"));
+        fireEvent.click(screen.getByRole("button", { name: "Build a pipeline" }));
+        expect(screen.queryByTestId("pipeline-suggestions")).toBeNull();
+        expect(screen.queryByTestId("pipeline-planning-failure")).toBeNull();
+        expect(onApply).not.toHaveBeenCalled();
+    });
+
+    it("adds no telemetry or clear/save/run shortcuts (the template fallback arrives with P60-M1-009)", () => {
         const sources = ["ChatbotPanel.tsx", "PipelineSuggestionList.tsx", "PipelineSuggestionCard.tsx", "ChatComposer.tsx"]
             .map((file) => fs.readFileSync(path.join(__dirname, file), "utf8"))
             .join("\n");
-        expect(sources).not.toMatch(/posthog|track\(|onOpenTemplateLibrary|TemplateLibrary|clearPipeline|window\.confirm|saveSession|runPipeline|requestPipelineIntents|\/chatbot\/pipeline/);
+        expect(sources).not.toMatch(/posthog|track\(|TemplateLibraryModal|applyTemplate|clearPipeline|window\.confirm|saveSession|runPipeline|requestPipelineIntents|\/chatbot\/pipeline/);
     });
 });

@@ -2090,6 +2090,7 @@ const PipelinePage: React.FC = () => {
                 onApplyPipelineSuggestion={applyPipelineSuggestion}
                 canvasIsEmpty={nodes.length === 0}
                 isPipelineRunning={isRunning}
+                onOpenTemplateLibrary={() => setIsTemplateLibraryOpen(true)}
             />
 
             <ExportModal 

@@ -8,7 +8,9 @@ export const ChatComposer: React.FC<{
     /** Disables only the Send action (the text stays editable), e.g. while a pipeline is planned. */
     submitDisabled?: boolean;
     placeholder?: string;
-}> = ({ value, onChange, onSubmit, disabled, submitDisabled, placeholder = "Ask about architecture, risks..." }) => {
+    /** ID of an element explaining why Send is disabled. */
+    submitDescribedBy?: string;
+}> = ({ value, onChange, onSubmit, disabled, submitDisabled, placeholder = "Ask about architecture, risks...", submitDescribedBy }) => {
     const busy = Boolean(disabled || submitDisabled);
     return (
         <div className="p-4 bg-slate-900/95 backdrop-blur-lg border-t border-white/5 shrink-0 w-full rounded-b-2xl">
@@ -36,6 +38,7 @@ export const ChatComposer: React.FC<{
                     onClick={onSubmit}
                     disabled={busy || !value.trim()}
                     title="Send message"
+                    aria-describedby={submitDescribedBy}
                     className="shrink-0 w-[36px] h-[36px] flex items-center justify-center rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-800/80 disabled:text-slate-600 text-white transition-all shadow-md mb-0.5 mr-0.5 group"
                 >
                     {busy ? (
