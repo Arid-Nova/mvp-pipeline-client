@@ -114,3 +114,24 @@ export const captureCanvas = (): CanvasSnapshot => {
 export const expectCanvasUnchanged = (before: CanvasSnapshot): void => {
     expect(captureCanvas()).toEqual(before);
 };
+
+/**
+ * Props of every rendered component matching `predicate`, in tree order (e.g. the
+ * PipelineSuggestionCard items, to check the exact suggestions the user can select).
+ */
+export const findRenderedProps = <T>(predicate: (props: Record<string, unknown>) => boolean): T[] => {
+    const canvasElement = document.querySelector('.tour-pipeline-canvas');
+    if (!canvasElement) throw new Error('canvasSnapshot: PipelinePage canvas is not rendered');
+    const found: T[] = [];
+    const stack: Fiber[] = [currentRoot(canvasElement)];
+    while (stack.length) {
+        const fiber = stack.pop() as Fiber;
+        const props = fiber.memoizedProps;
+        if (typeof fiber.elementType === 'function' && typeof props === 'object' && props !== null && predicate(props)) {
+            found.push(props as unknown as T);
+        }
+        if (fiber.sibling) stack.push(fiber.sibling);
+        if (fiber.child) stack.push(fiber.child);
+    }
+    return found;
+};

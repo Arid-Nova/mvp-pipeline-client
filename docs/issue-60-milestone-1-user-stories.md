@@ -1627,6 +1627,30 @@ This story doesn't repeat either investigation.
 **Definition of Done**
 - Both suites are green locally (no CI exists), the smoke results are in the PR, the §9 demo has been rehearsed once end to end with its known-good demo fixture, and `CLAUDE.md` is updated.
 
+> **Release qualification result (2026-10-13): PASS.** Measured on the finished path: real `chatbot-backend` `POST /chatbot/pipeline/intents` (intent prompt v2, JSON mode, `num_ctx` 4096, `num_predict` 512, temperature 0.4, 75 s per call) plus the real frontend planner (parse → compose → validate → candidate set, one bounded retry, 150 s budget). A run counts only if the planner returns exactly three suggestions that re-validate independently.
+>
+> - **Environment:** compose Ollama 0.23.4 (`cloudhub_ollama`, CPU-only Docker Desktop on Apple M4 / 24 GB), `llama3.2`, `catalogVersion = pcat-0861a6885a178a`. Harness: `localModelFeasibility.live.test.ts` with `LIVE_LLM_TASK=release` (`releaseQualification.ts`); it reuses the intent test slot, so the normal suite's skip count is unchanged. One unmeasured warm-up (G2): 26.5 s, 2 requests.
+> - **Results (G1–G5 × 5 = 25 operations):** 23/25 succeeded (**92%**). Per goal: G1 5/5, G2 5/5, G3 3/5, G4 5/5, G5 5/5. First-attempt success 16/25; the retry was used in 9/25 (mean 1.36 requests). Total planning time p50 **9.6 s**, p95 **19.5 s**, max 22.9 s. No timeouts and no model-unavailable results.
+> - **Rejections:** `MISSING_TIER` 11, `WRONG_OPTION_COUNT` 7 (first attempts with fewer than three options; all recovered by the retry), `COMPOSITION_TOO_LARGE` 2, `TOO_MANY_CAPABILITIES` 1, `UNKNOWN_CAPABILITY` 1, `DUPLICATE_CANDIDATE` 1 (one post-composition collision), `DUPLICATE_TIER` 1.
+> - **Both failures were G3** ("test authorization of my endpoints"), each `insufficient_valid_candidates` after the retry: one oversized composition on both attempts, one unknown ID followed by a collision. Both showed the safe failure UI path; no partial result.
+> - **Gate:** success ≥ 70% ✓ and p95 < 150 s ✓. For comparison: P60-M1-016 (direct model calls, v2) 17/17 after ≤ 1 retry with total p95 17.2 s; the P60-M1-006 G1 smoke 5/5 on the first attempt.
+> - **Automated end-to-end:** `planning/PipelinePlanning.integration.test.tsx` (goal → realistic bad first answer → retry → three suggestions → Use #2 → System Source configured through its inputs → existing Run → `fetchIRFromRepo` and Generate Snapshot completed → one Undo to the empty canvas; plus non-empty/Clear All, race, model unavailable, insufficient candidates, Dismiss, and a frontend ↔ backend DTO contract-drift check). The backend HTTP contract is covered by the existing `PipelineIntentIntegrationTest` and `PipelineIntentControllerTest`.
+> - **Browser rehearsal:** not run in this environment (no browser control); manual check required with the checklist below.
+>
+> **Manual release checklist** (frontend `npm start`, `chatbot-backend`, warmed `llama3.2`):
+>
+> | Area | Steps | Expected |
+> |---|---|---|
+> | Ask | Ask a normal question; then type "build me a pipeline" in Ask | Normal answers; the second is still Q&A, no suggestion cards |
+> | Build | Empty canvas → Build a pipeline → G1 → Send | Progress line with Cancel; exactly 3 cards (Focused, Balanced, Comprehensive), human card names, none preselected, Use enabled |
+> | Apply | Expand "Checked against pipeline rules ✓"; Use one card | Graph appears in one step; "Added to canvas ✓"; the other cards lock; status message and toast with next steps; nothing runs |
+> | Run | Enter System Source name and repository; press Run | Generate Snapshot starts through the normal Run |
+> | Undo | Press the header Undo once | The canvas returns to empty |
+> | Non-empty | Apply a template → Build → G1 | 3 cards, Use disabled, empty-canvas notice; nothing cleared |
+> | Clear All | Press toolbar Clear All yourself and confirm | The same cards become usable without a new request |
+> | Failure | Stop Ollama (`docker stop cloudhub_ollama`) → Build | Safe "model isn't reachable" message, Retry and Browse templates; canvas unchanged; Browse templates opens the library without applying |
+> | Cancel | Start a plan → Cancel, or close the panel | No suggestions appear later |
+
 ---
 
 ## 6. Story Dependency Map
@@ -1644,13 +1668,13 @@ This story doesn't repeat either investigation.
 | P60-M1-017 | Deterministic composer (core) | **Done** | P0 | 5 | 001, 002, 003, 015 | 004, 018 |
 | P60-M1-018 | Composer: two-snapshot recipes and exhaustive test | **Done** | P0 | 3 | 017 | 004, 006 |
 | P60-M1-004 | Candidate set: tiers preserved, post-composition distinctness, exactly 3 | **Done** (Revision 8 design) | P0 | 3 | 003, 015, 017/018 | 006 |
-| P60-M1-005 | Intent-selection endpoint | **Next** | P0 | 5 | 001, 012, 015, 016 (all done) | 006 |
-| P60-M1-006 | Frontend planning orchestration | Revised (Revision 8: required retry, replacement plan) | P0 | 5 | 004, 005, 015, 017, 018; checkpoint: 016 (passed) | 008, 009, 010 |
-| P60-M1-007 | Layout and atomic empty-canvas applier | Unchanged | P0 | 5 | 002, 003 | 008, 009, 010 |
-| P60-M1-008 | Chatbot build mode and suggestion UI | Unchanged (wording) | P0 | 5 | 006, 007, 012; checkpoint: 016 | 009, 010, 011 |
-| P60-M1-009 | Failure handling and canvas safety | Unchanged (wording) | P0 | 3 | 006, 007, 008 | 011 |
-| P60-M1-010 | Suggestion telemetry (non-blocking) | Unchanged (fields) | P1 | 2 | 006, 007, 008 | (Milestone 2) |
-| P60-M1-011 | End-to-end tests and demo readiness | Revised (contract names) | P0 | 3 | 001–009, 012, 013, 015–018 | Milestone 1 sign-off |
+| P60-M1-005 | Intent-selection endpoint | **Done** | P0 | 5 | 001, 012, 015, 016 (all done) | 006 |
+| P60-M1-006 | Frontend planning orchestration | **Done** (required retry, replacement plan) | P0 | 5 | 004, 005, 015, 017, 018; checkpoint: 016 (passed) | 008, 009, 010 |
+| P60-M1-007 | Layout and atomic empty-canvas applier | **Done** | P0 | 5 | 002, 003 | 008, 009, 010 |
+| P60-M1-008 | Chatbot build mode and suggestion UI | **Done** | P0 | 5 | 006, 007, 012; checkpoint: 016 | 009, 010, 011 |
+| P60-M1-009 | Failure handling and canvas safety | **Done** | P0 | 3 | 006, 007, 008 | 011 |
+| P60-M1-010 | Suggestion telemetry (non-blocking) | Not implemented (optional, P1) | P1 | 2 | 006, 007, 008 | (Milestone 2) |
+| P60-M1-011 | End-to-end tests and demo readiness | **Done** (release qualification passed) | P0 | 3 | 001–009, 012, 013, 015–018 | Milestone 1 sign-off |
 
 How to read the dependency column:
 

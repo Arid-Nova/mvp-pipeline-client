@@ -14,6 +14,15 @@ The repo's root `package.json` is a near-empty stub; do not treat the root as a 
 
 `dockerpush.sh` pushes prebuilt images to Docker Hub under the `cloudhub` org.
 
+**Local LLM (AI Assistant).** The Ollama runtime (`cloudhub_ollama`, port 11434) runs only with the `local-llm` compose profile, and nothing pulls a model automatically:
+
+```sh
+docker compose --profile local-llm up --build
+docker exec cloudhub_ollama ollama pull llama3.2
+```
+
+`llama3.2` is the reference model for both Q&A and pipeline planning (`CHATBOT_MODEL` in compose). The first call after the model loads is much slower, so warm it up (one Ask or Build request) before a demo.
+
 ## Services and their ports
 
 The compose file is the source of truth. Cross-service calls are hardcoded to `localhost:<port>` in the frontend (`frontend/src/services/api.ts`) and to compose hostnames (`cache_db`, `cloudhub_mongo`, `aegis_neo4j`) inside backends. When adding or moving a service, update both compose and the frontend's hardcoded URLs.
@@ -30,6 +39,8 @@ The compose file is the source of truth. Cross-service calls are hardcoded to `l
 | `cloudhub_testexecutor` | `testexecutor/` | Python FastAPI | 8010 |
 | `aegis_api` | `aegis/` (uvicorn `service:app`) | FastAPI + Neo4j | 8900 |
 | `aegis_dashboard` | `aegis/` (flask `frontend.py`) | Flask UI | 5600 |
+| `cloudhub_chatbot` | `chatbot-backend/` | Spring Boot 3.2 / Java 21 (AI Assistant: Q&A and pipeline intents) | 8081 |
+| `cloudhub_ollama` | image `ollama/ollama` (profile `local-llm`) | Local LLM runtime | 11434 |
 
 The `aegis/` directory builds one image used as both `aegis_api` and `aegis_dashboard` — the `command:` in compose decides which entrypoint runs.
 
@@ -48,6 +59,16 @@ The frontend's `PipelinePage` (`frontend/src/components/pipeline/`) is a visual 
 9. `ChangeImpactCard` → backend `:8080/ir/delta` computes delta between two IR snapshots.
 
 IDs threaded between cards (`indexId`, `vectorsId`, scenario IDs) are MongoDB document IDs. When debugging a broken pipeline step, check the upstream card actually returned the ID the next step expects.
+
+### Chatbot-assisted pipeline creation (Issue #60, Milestone 1)
+
+The AI Assistant (`frontend/src/components/chatbot/`) has two explicit modes. **Ask** is evidence-grounded Q&A (`POST /chatbot/query`); typing "build me a pipeline" in Ask is still just a question. **Build a pipeline** creates a new pipeline:
+
+1. The goal goes to `chatbot-backend` `POST /chatbot/pipeline/intents` (port 8081). The local model returns **analysis intent only**: three profiles (focused, balanced, comprehensive), each a list of analysis capability IDs from the capability catalog the frontend sends. The model never produces graphs, nodes, edges, prerequisites, positions or config, and the backend only shape-checks its JSON.
+2. The frontend does everything structural, deterministically (`frontend/src/components/pipeline/planning/`): `parseIntentPlan` (strict contract) → `pipelineComposer` (adds every prerequisite card and connection from `VALID_CONNECTIONS`, `CARD_INPUT_REQUIREMENTS` and the templates) → `validatePipelineSpec` → `candidateSet` (exactly three distinct suggestions), orchestrated by `pipelinePlanner` with one bounded retry and a 150 s budget.
+3. The user sees exactly three suggestions and explicitly picks one. It applies **only to an empty canvas** (`pipelineApplier` + `PipelinePage.applyPipelineSuggestion`, atomic, one Undo reverts it). The assistant never clears, saves, merges or runs anything: the user configures the required cards (e.g. System Source) and presses the normal **Run**.
+
+Failures (model unreachable, timeout, unusable output, unsupported goal) show safe messages with Retry and **Browse templates**; the canvas never changes. Design and decisions: `docs/issue-60-milestone-1-user-stories.md`.
 
 The visualization side (`/graph-visualize` route) is a separate flow: parse an IR JSON (uploaded or fetched from `/ir` history) → `parsers/getData.ts` → 3D force graph via `react-force-graph`.
 

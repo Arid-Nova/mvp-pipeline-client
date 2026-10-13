@@ -6,6 +6,11 @@
  *   - P60-M1-014: graph generation (LIVE_LLM_TASK=graph, default). Completed: Decision D.
  *   - P60-M1-016: intent selection (LIVE_LLM_TASK=intent). The model only picks analysis
  *     capabilities; it never sees or produces graph structure (Revision 7, D11).
+ *   - P60-M1-011: final release qualification (LIVE_LLM_TASK=release) of the finished path:
+ *     real chatbot-backend /chatbot/pipeline/intents + the real frontend planner (see
+ *     releaseQualification.ts). Reuses the intent test slot, so the skip count is unchanged:
+ *       RUN_LIVE_LLM=1 LIVE_LLM_TASK=release CHATBOT_BASE_URL=http://localhost:8081 \
+ *         CI=true npm test -- --watchAll=false localModelFeasibility
  *
  * SKIPPED unless RUN_LIVE_LLM=1, so normal `npm test` makes no network calls.
  *
@@ -39,12 +44,15 @@ import os from 'os';
 import path from 'path';
 import { CardType } from '../../models';
 import { PipelineCapabilityCatalog, PipelineExample, buildPipelineCapabilityCatalog } from '../pipelineCapabilities';
+import { runReleaseQualification } from './releaseQualification';
 
 const LIVE = process.env.RUN_LIVE_LLM === '1';
 /** graph = P60-M1-014 graph-generation task (default); intent = P60-M1-016 intent-selection task. */
 const TASK = process.env.LIVE_LLM_TASK || 'graph';
 const describeLive = LIVE && TASK === 'graph' ? describe : describe.skip;
-const describeIntentLive = LIVE && TASK === 'intent' ? describe : describe.skip;
+/** intent = P60-M1-016 spike; release = P60-M1-011 qualification (same test slot). */
+const describeIntentLive = LIVE && (TASK === 'intent' || TASK === 'release') ? describe : describe.skip;
+const CHATBOT_BASE_URL = process.env.CHATBOT_BASE_URL || 'http://localhost:8081';
 
 const BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
 const MODEL = process.env.OLLAMA_MODEL || 'llama3.2';
@@ -978,10 +986,15 @@ interface IntentRunRecord {
     totalPlanningMs: number;
 }
 
-describeIntentLive('P60-M1-016 live intent-selection feasibility', () => {
+describeIntentLive('P60-M1-016 live intent-selection feasibility / P60-M1-011 release qualification', () => {
     jest.setTimeout(2 * 60 * 60 * 1000);
 
-    it('measures capability selection against the real catalog', async () => {
+    it('measures intent selection (P60-M1-016) or qualifies the finished planning path (P60-M1-011, LIVE_LLM_TASK=release)', async () => {
+        if (TASK === 'release') {
+            // eslint-disable-next-line no-console
+            await runReleaseQualification({ baseUrl: CHATBOT_BASE_URL, goals: GOALS, reps: 5, resultsDir: RESULTS_DIR, log: (line) => console.log(line) });
+            return;
+        }
         const catalog = buildPipelineCapabilityCatalog();
         const systemPrompt = buildIntentSystemPrompt(catalog, PROMPT_VARIANT);
         const version = await request('GET', '/api/version');
