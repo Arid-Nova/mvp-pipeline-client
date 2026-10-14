@@ -50,6 +50,42 @@ class ChatbotApplicationPropertiesMappingTest {
             });
     }
 
+    @Test
+    void applicationPropertiesDefaultThePipelineIntentSettings() {
+        contextRunner
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                ChatbotConfig config = context.getBean(ChatbotConfig.class);
+                assertThat(config.getModel()).isEqualTo("llama3.2");
+                assertThat(config.getPipelineIntent().getMaxTokens()).isEqualTo(512);
+                assertThat(config.getPipelineIntent().getTemperature()).isEqualTo(0.4);
+                assertThat(config.getPipelineIntent().getTimeoutMs()).isEqualTo(75000);
+                assertThat(config.getPipelineIntent().getContextTokens()).isEqualTo(4096);
+                assertThat(config.getMaxTokens()).isEqualTo(1024);
+                assertThat(config.getTemperature()).isEqualTo(0.2);
+                assertThat(config.getTimeoutMs()).isEqualTo(240000);
+            });
+    }
+
+    @Test
+    void applicationPropertiesMapPipelineIntentEnvironmentVariables() {
+        contextRunner
+            .withSystemProperties(
+                "CHATBOT_PIPELINE_INTENT_MAX_TOKENS=700",
+                "CHATBOT_PIPELINE_INTENT_TEMPERATURE=0.1",
+                "CHATBOT_PIPELINE_INTENT_TIMEOUT_MS=50000",
+                "CHATBOT_PIPELINE_INTENT_CONTEXT_TOKENS=2048"
+            )
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                ChatbotConfig.PipelineIntent intent = context.getBean(ChatbotConfig.class).getPipelineIntent();
+                assertThat(intent.getMaxTokens()).isEqualTo(700);
+                assertThat(intent.getTemperature()).isEqualTo(0.1);
+                assertThat(intent.getTimeoutMs()).isEqualTo(50000);
+                assertThat(intent.getContextTokens()).isEqualTo(2048);
+            });
+    }
+
     @Configuration(proxyBeanMethods = false)
     @EnableConfigurationProperties(ChatbotConfig.class)
     static class TestConfig {

@@ -1,0 +1,40 @@
+{
+  "outcome": "OK",
+  "suggestionSetId": "3f2b8c1e-9a4d-4e6f-b1c2-7d8e9f0a1b2c",
+  "requestId": "req-fixture-ok",
+  "catalogVersion": "pcat-0861a6885a178a",
+  "options": [
+    {
+      "tier": "focused",
+      "title": "Visualize and Verify",
+      "analysisCardTypes": [
+        "FORMAL_VIZ",
+        "VISUALIZATION"
+      ]
+    },
+    {
+      "tier": "balanced",
+      "title": "Architecture Visualization and Authorization Check for All Services",
+      "analysisCardTypes": [
+        "FORMAL_VIZ",
+        "VISUALIZATION",
+        "AEGIS"
+      ]
+    },
+    {
+      "tier": "comprehensive",
+      "title": "Full Review",
+      "analysisCardTypes": [
+        "AEGIS",
+        "FORMAL_VIZ",
+        "VISUALIZATION",
+        "TEST_EXECUTOR"
+      ]
+    }
+  ],
+  "parseErrors": [],
+  "unsupportedReason": null,
+  "model": "llama3.2",
+  "provider": "OLLAMA",
+  "processingTimeMs": 9000
+}

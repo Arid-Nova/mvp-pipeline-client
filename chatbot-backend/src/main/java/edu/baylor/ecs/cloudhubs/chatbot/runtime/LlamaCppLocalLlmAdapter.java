@@ -15,4 +15,13 @@ public class LlamaCppLocalLlmAdapter extends OpenAiStyleLocalLlmAdapter {
     public ChatbotConfig.Provider supportedProvider() {
         return ChatbotConfig.Provider.LLAMA_CPP;
     }
+
+    /**
+     * llama.cpp's JSON/grammar support depends on the server build, so JSON mode is not requested;
+     * callers rely on tolerant JSON extraction instead (Issue #60, R3: not a Milestone 1 blocker).
+     */
+    @Override
+    protected boolean supportsJsonResponseFormat() {
+        return false;
+    }
 }

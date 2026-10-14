@@ -1,12 +1,39 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ChatbotContext } from "../../services/types";
+import { ApplyResult } from "../pipeline/planning/pipelineApplier";
+import { ValidatedSuggestion } from "../pipeline/planning/pipelineValidator";
 import { useChatbotState } from "./useChatbotState";
 import ChatComposer from "./ChatComposer";
 import ChatMessage from "./ChatMessage";
 import RuntimeStatus from "./RuntimeStatus";
+import { usePipelinePlanner } from "./usePipelinePlanner";
+import {
+    PipelineSuggestionList,
+    appliedStatusText,
+    suggestionSetFromOutcome,
+    withApplyResult,
+    withoutRecoverableFailure,
+} from "./PipelineSuggestionList";
+import { PipelineSuggestionItem } from "./PipelineSuggestionCard";
+import { getPipelineFailurePresentation } from "./pipelineFailurePresentation";
+import { PlanFailure } from "../pipeline/planning/pipelinePlanner";
+
+type ChatbotMode = "ask" | "build";
+
+const PLANNING_PROGRESS = "Designing three pipeline options… local models can take up to a minute";
 
 interface ChatbotPanelProps {
     activeContext?: ChatbotContext;
+    /**
+     * Issue #60 Build mode (P60-M1-008), shown only when this is provided. Applies a selected
+     * suggestion; the handler re-checks the live canvas itself, so the two flags below only drive
+     * button state and never authorize a change.
+     */
+    onApplyPipelineSuggestion?: (suggestion: ValidatedSuggestion) => ApplyResult;
+    canvasIsEmpty?: boolean;
+    isPipelineRunning?: boolean;
+    /** Opens the existing Template Library: the non-AI fallback offered after a failed plan. */
+    onOpenTemplateLibrary?: () => void;
 }
 
 const getContextEntries = (context?: ChatbotContext): Array<{ label: string; value: string }> => {
@@ -25,8 +52,18 @@ const getContextEntries = (context?: ChatbotContext): Array<{ label: string; val
         .map((entry) => ({ label: entry.label, value: entry.value }));
 };
 
-const ChatbotPanel: React.FC<ChatbotPanelProps> = ({ activeContext }) => {  
+const ChatbotPanel: React.FC<ChatbotPanelProps> = ({
+    activeContext,
+    onApplyPipelineSuggestion,
+    canvasIsEmpty = false,
+    isPipelineRunning = false,
+    onOpenTemplateLibrary,
+}) => {
     const [input, setInput] = useState("");
+    // Explicit mode (D2): Ask is Q&A only; only "Build a pipeline" plans pipelines. No keyword inference.
+    const [mode, setMode] = useState<ChatbotMode>("ask");
+    const buildAvailable = Boolean(onApplyPipelineSuggestion);
+    const isBuildMode = buildAvailable && mode === "build";
     const [isOpen, setIsOpen] = useState(false);
     const [minSpin, setMinSpin] = useState(false);
     // const [isContextExpanded, setIsContextExpanded] = useState(false);
@@ -35,17 +72,95 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({ activeContext }) => {
     const {
         messages, loading, error, health, healthLoading, healthError,
         refreshLoading, refreshResult, refreshError, localStaleContext,
-        sendQuestion, retryLastFailed, clearConversation, refreshHealth, refreshContext, canRetry
+        sendQuestion, retryLastFailed, clearConversation, refreshHealth, refreshContext, canRetry,
+        appendPipelineMessage, updatePipelineSuggestions
     } = useChatbotState(contextEntries.length > 0 ? activeContext : undefined);
+
+    // Build mode: planning needs only the goal and the capability catalog, not an analysis context.
+    const planner = usePipelinePlanner();
+    const lastGoalRef = useRef("");
+    const shownSetIdsRef = useRef(new Set<string>());
+
+    // Build mode needs the local model; Ask mode keeps its existing behaviour regardless of health.
+    const planningUnavailable = health?.status === "unavailable" || Boolean(healthError);
+
+    const startPlan = (goal: string) => {
+        lastGoalRef.current = goal;
+        void planner.plan(goal);
+    };
+
+    // After a "model unreachable" failure, re-check health so the Build gate reflects it.
+    useEffect(() => {
+        if (planner.state.status === "failure" && planner.state.outcome.reason === "model_unavailable") refreshHealth();
+    }, [planner.state, refreshHealth]);
+
+    // Each successful plan becomes exactly one suggestions message (keyed by suggestionSetId).
+    useEffect(() => {
+        if (planner.state.status !== "success") return;
+        const { outcome } = planner.state;
+        if (shownSetIdsRef.current.has(outcome.suggestionSetId)) return;
+        shownSetIdsRef.current.add(outcome.suggestionSetId);
+        const goal = lastGoalRef.current;
+        appendPipelineMessage({ role: "assistant", content: "", kind: "pipeline_suggestions", pipeline: suggestionSetFromOutcome(outcome, goal) });
+        setInput((current) => (current.trim() === goal ? "" : current));
+    }, [planner.state, appendPipelineMessage]);
+
+    // When the canvas becomes usable again, recoverable apply failures no longer apply.
+    const canApplyNow = canvasIsEmpty && !isPipelineRunning;
+    const couldApplyRef = useRef(canApplyNow);
+    useEffect(() => {
+        const becameUsable = canApplyNow && !couldApplyRef.current;
+        couldApplyRef.current = canApplyNow;
+        if (becameUsable) updatePipelineSuggestions(null, withoutRecoverableFailure);
+    }, [canApplyNow, updatePipelineSuggestions]);
+
+    const selectSuggestion = (suggestionSetId: string, item: PipelineSuggestionItem) => {
+        if (!onApplyPipelineSuggestion) return;
+        const result = onApplyPipelineSuggestion(item.suggestion);
+        updatePipelineSuggestions(suggestionSetId, (state) => withApplyResult(state, item.suggestion.candidateId, result));
+        if (result.ok) {
+            appendPipelineMessage({ role: "assistant", content: appliedStatusText(result.pendingConfiguration), kind: "pipeline_status" });
+        }
+    };
 
     useEffect(() => { refreshHealth(); }, [refreshHealth]);
     useEffect(() => { if (isOpen) refreshHealth(); }, [isOpen, refreshHealth]);
 
     const onSubmit = async () => {
-        const question = input.trim();
-        if (!question || loading) return;
-        await sendQuestion(question);
+        const text = input.trim();
+        if (isBuildMode) {
+            if (!text || planner.isPlanning || planningUnavailable) return;
+            startPlan(text);
+            return;
+        }
+        if (!text || loading) return;
+        await sendQuestion(text);
         setInput("");
+    };
+
+    const planningFailure =
+        planner.state.status === "failure" && planner.state.outcome.reason !== "cancelled" ? planner.state.outcome : null;
+    const failurePresentation = planningFailure ? getPipelineFailurePresentation(planningFailure) : null;
+
+    // Retry is a new, user-started planning operation for the same goal (new suggestionSetId,
+    // its own budget and at most two attempts), never a third attempt of the failed one.
+    const retriedFailureRef = useRef<PlanFailure | null>(null);
+    const retryPlan = () => {
+        if (!planningFailure || retriedFailureRef.current === planningFailure || planner.isPlanning || planningUnavailable) return;
+        retriedFailureRef.current = planningFailure;
+        startPlan(lastGoalRef.current);
+    };
+
+    const togglePanel = () => {
+        // Closing the panel cancels a running plan, so no result can arrive while it is hidden.
+        if (isOpen && planner.isPlanning) planner.cancel();
+        setIsOpen((prev) => !prev);
+    };
+
+    const selectMode = (next: ChatbotMode) => {
+        // Leaving Build mode cancels a running plan; a Build result never appears in Ask mode.
+        if (next !== "build" && planner.isPlanning) planner.cancel();
+        setMode(next);
     };
 
     return (
@@ -68,7 +183,7 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({ activeContext }) => {
                 {/* FAB */}
                 <button
                     data-testid="chatbot-toggle"
-                    onClick={() => setIsOpen((prev) => !prev)}
+                    onClick={togglePanel}
                     className={`w-14 h-14 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.4)] border transition-all duration-300 hover:scale-105 flex items-center justify-center relative ${
                         isOpen 
                             ? "bg-slate-800 text-slate-300 border-white/10 hover:bg-slate-700 rotate-90" 
@@ -237,7 +352,15 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({ activeContext }) => {
 
                     {/* Chat Messages Area */}
                     <div className="flex-1 min-h-0 overflow-y-auto p-5 flex flex-col gap-2 custom-scrollbar bg-slate-900/50 shadow-inner">
-                        {messages.length === 0 ? (
+                        {messages.length === 0 && isBuildMode ? (
+                            <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-3">
+                                <div className="text-lg font-bold text-slate-200">Build a pipeline</div>
+                                <div className="text-[13px] text-slate-400 leading-relaxed max-w-[260px]">
+                                    Describe what you want to analyze. The assistant chooses the analyses; AridNova builds and checks
+                                    three pipelines for you to choose from.
+                                </div>
+                            </div>
+                        ) : messages.length === 0 ? (
                             <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-4">
                                 <div className="w-14 h-14 rounded-full bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700/50 shadow-[0_0_20px_rgba(34,211,238,0.05)] flex items-center justify-center text-cyan-500/70 mb-1">
                                     <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -255,9 +378,92 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({ activeContext }) => {
                                 </div>
                             </div>
                         ) : (
-                            messages.map((message, idx) => (
-                                <ChatMessage key={`${message.role}-${idx}`} message={message} />
-                            ))
+                            messages.map((message, idx) =>
+                                message.kind === "pipeline_suggestions" && message.pipeline ? (
+                                    <PipelineSuggestionList
+                                        key={`pipeline-${message.pipeline.suggestionSetId}`}
+                                        state={message.pipeline}
+                                        canvasIsEmpty={canvasIsEmpty}
+                                        isPipelineRunning={isPipelineRunning}
+                                        onSelect={(item) => selectSuggestion(message.pipeline?.suggestionSetId ?? "", item)}
+                                        onDismiss={() =>
+                                            updatePipelineSuggestions(message.pipeline?.suggestionSetId ?? "", (state) => ({ ...state, dismissed: true }))
+                                        }
+                                    />
+                                ) : (
+                                    <ChatMessage key={`${message.role}-${idx}`} message={message} />
+                                )
+                            )
+                        )}
+
+                        {planner.isPlanning && (
+                            <div data-testid="pipeline-planning-progress" role="status" aria-live="polite" className="flex items-center justify-between gap-3 text-[12px] text-slate-300 bg-slate-800/40 border border-white/5 rounded-lg px-3 py-2 shrink-0">
+                                <span>{PLANNING_PROGRESS}</span>
+                                <button
+                                    type="button"
+                                    data-testid="pipeline-planning-cancel"
+                                    onClick={planner.cancel}
+                                    className="shrink-0 text-[11px] font-semibold text-slate-300 hover:text-white px-2 py-1 rounded-md border border-white/10 hover:bg-white/5"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        )}
+
+                        {isBuildMode && failurePresentation && (
+                            <div data-testid="pipeline-planning-failure" role="alert" className="text-xs text-rose-200 border border-rose-700/40 rounded-lg p-3 bg-rose-950/60 shrink-0 flex flex-col gap-2">
+                                {failurePresentation.unsupportedReason && (
+                                    <p data-testid="pipeline-unsupported-reason" className="break-words">{failurePresentation.unsupportedReason}</p>
+                                )}
+                                <p>{failurePresentation.message}</p>
+                                {failurePresentation.capabilityAreas && (
+                                    <ul data-testid="pipeline-capability-areas" className="list-disc pl-4 space-y-0.5 text-slate-300">
+                                        {failurePresentation.capabilityAreas.map((area) => (
+                                            <li key={area.name}>
+                                                <span className="font-semibold text-slate-200">{area.name}</span>: {area.cards.join(", ")}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                                {(failurePresentation.showRetry || (failurePresentation.showBrowseTemplates && onOpenTemplateLibrary)) && (
+                                    <div className="flex gap-2">
+                                        {failurePresentation.showRetry && (
+                                            <button
+                                                type="button"
+                                                data-testid="pipeline-planning-retry"
+                                                onClick={retryPlan}
+                                                disabled={planningUnavailable || planner.isPlanning}
+                                                className="text-[11px] font-semibold px-2.5 py-1 rounded-md border border-white/15 text-slate-100 hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
+                                            >
+                                                Retry
+                                            </button>
+                                        )}
+                                        {failurePresentation.showBrowseTemplates && onOpenTemplateLibrary && (
+                                            <button
+                                                type="button"
+                                                data-testid="pipeline-planning-browse-templates"
+                                                onClick={onOpenTemplateLibrary}
+                                                className="text-[11px] font-semibold px-2.5 py-1 rounded-md border border-white/15 text-slate-100 hover:bg-white/5"
+                                            >
+                                                Browse templates
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {isBuildMode && planningUnavailable && !planner.isPlanning && (
+                            <div id="pipeline-planning-unavailable" data-testid="pipeline-planning-unavailable" role="status" className="text-xs text-amber-300 border border-amber-600/30 rounded-lg p-3 bg-amber-950/40 shrink-0 flex items-center justify-between gap-2">
+                                <span>Pipeline planning is unavailable because the local assistant isn't reachable.</span>
+                                <button
+                                    type="button"
+                                    onClick={refreshHealth}
+                                    className="shrink-0 text-[11px] font-semibold px-2 py-1 rounded-md border border-white/15 hover:bg-white/5"
+                                >
+                                    Check again
+                                </button>
+                            </div>
                         )}
 
                         {error && (
@@ -349,12 +555,40 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({ activeContext }) => {
                         </button>
                     </div>
 
+                    {buildAvailable && (
+                        <div
+                            data-testid="chatbot-mode-toggle"
+                            role="group"
+                            aria-label="Assistant mode"
+                            className="px-4 pt-3 flex gap-1.5 bg-slate-900/95 shrink-0"
+                        >
+                            {([["ask", "Ask"], ["build", "Build a pipeline"]] as const).map(([value, label]) => (
+                                <button
+                                    key={value}
+                                    type="button"
+                                    aria-pressed={mode === value}
+                                    onClick={() => selectMode(value)}
+                                    className={`text-[11px] font-semibold px-3 py-1.5 rounded-lg border transition-colors ${
+                                        mode === value
+                                            ? "border-cyan-500/50 bg-cyan-500/15 text-cyan-200"
+                                            : "border-white/10 text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                                    }`}
+                                >
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
                     {/* Message Composer */}
                     <ChatComposer
                         value={input}
                         onChange={setInput}
                         onSubmit={onSubmit}
-                        disabled={loading}
+                        disabled={isBuildMode ? false : loading}
+                        submitDisabled={isBuildMode && (planner.isPlanning || planningUnavailable)}
+                        submitDescribedBy={isBuildMode && planningUnavailable ? "pipeline-planning-unavailable" : undefined}
+                        placeholder={isBuildMode ? "Describe what you want to analyze…" : undefined}
                     />
                 </div>
             )}

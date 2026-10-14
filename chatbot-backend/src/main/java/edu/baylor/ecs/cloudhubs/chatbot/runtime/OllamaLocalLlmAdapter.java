@@ -56,9 +56,15 @@ public class OllamaLocalLlmAdapter extends AbstractHttpLocalLlmAdapter {
         payload.put("model", config.getModel());
         payload.put("messages", messages);
         payload.put("stream", false);
+        if (prompt.isJsonOutput()) {
+            payload.put("format", "json");
+        }
         Map<String, Object> options = new LinkedHashMap<>();
         options.put("temperature", config.getTemperature());
         options.put("num_predict", config.getMaxTokens());
+        if (prompt.getContextTokens() != null) {
+            options.put("num_ctx", prompt.getContextTokens());
+        }
         payload.put("options", options);
         return payload;
     }

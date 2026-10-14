@@ -1,0 +1,43 @@
+{
+  "outcome": "OK",
+  "suggestionSetId": "3f2b8c1e-9a4d-4e6f-b1c2-7d8e9f0a1b2c",
+  "requestId": "req-fixture-ok",
+  "catalogVersion": "pcat-0861a6885a178a",
+  "options": [
+    {
+      "tier": "focused",
+      "title": "System View",
+      "rationale": "Shows the topology and the policy verification.",
+      "analysisCardTypes": [
+        "VISUALIZATION",
+        "FORMAL_VIZ"
+      ]
+    },
+    {
+      "tier": "balanced",
+      "title": "Architecture Check",
+      "rationale": "Adds authorization scenarios.",
+      "analysisCardTypes": [
+        "VISUALIZATION",
+        "SCENARIO_GENERATE",
+        "FORMAL_VERIFY"
+      ]
+    },
+    {
+      "tier": "comprehensive",
+      "title": "Security Analysis",
+      "rationale": "Adds risk analysis and executable tests.",
+      "analysisCardTypes": [
+        "AEGIS",
+        "FORMAL_VIZ",
+        "SCENARIO_GENERATE",
+        "TEST_EXECUTOR"
+      ]
+    }
+  ],
+  "parseErrors": [],
+  "unsupportedReason": null,
+  "model": "llama3.2",
+  "provider": "OLLAMA",
+  "processingTimeMs": 9000
+}

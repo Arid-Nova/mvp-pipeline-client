@@ -57,7 +57,18 @@ public class OpenAiStyleLocalLlmAdapter extends AbstractHttpLocalLlmAdapter {
         payload.put("messages", messages);
         payload.put("temperature", config.getTemperature());
         payload.put("max_tokens", config.getMaxTokens());
+        if (prompt.isJsonOutput() && supportsJsonResponseFormat()) {
+            payload.put("response_format", Map.of("type", "json_object"));
+        }
         return payload;
+    }
+
+    /**
+     * Whether this runtime accepts {@code response_format: {type: "json_object"}}. When it doesn't,
+     * a JSON-output prompt is sent as plain text and the caller's tolerant extraction handles it.
+     */
+    protected boolean supportsJsonResponseFormat() {
+        return true;
     }
 
     @Override
