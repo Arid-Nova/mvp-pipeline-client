@@ -36,6 +36,8 @@ export interface RepositoryMeta {
     repoUrl: string;
     branch: string;
     commitId: string;
+    language?: 'auto' | 'polyglot' | 'java' | 'javascript' | 'typescript' | 'python' | 'go' | 'csharp';
+    componentKind?: 'backend' | 'frontend';
 }
 
 export interface PipelinePayload {
@@ -65,6 +67,10 @@ export interface NodeData {
         changeImpactPayload?: any;
         payload?: PipelinePayload; 
         verificationResult?: VerificationResponse;
+        securityReport?: any;
+        javascriptAnalysis?: any;
+        expectedPolicy?: any;
+        fixtureSet?: string;
         scenarioPayload?: ScenarioPayload;
         selectedScenarios?: string[];
         promptPayload?: PromptPayload;

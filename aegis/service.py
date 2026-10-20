@@ -1,93 +1,89 @@
-import configparser
 from contextlib import asynccontextmanager
-
 import os
-from time import time
 from typing import Dict, Any
-from fastapi.middleware.cors import CORSMiddleware
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
-from main import AnalysisFacade
+from src.analysis.javascript_security import javascript_security_response
+from src.services.ir_reader import read_stored_ir
+from src.analysis.javascript_llm import review_javascript
 
 facade = None
 
+
+def get_java_facade():
+    """Load Java/model/database integrations only for a Java analysis request."""
+    global facade
+    if os.getenv('AEGIS_ANALYSIS_MODE') == 'javascript-only':
+        raise HTTPException(status_code=422, detail={
+            'status': 'unsupported', 'capability': 'java-security-analysis',
+            'reason': 'This image serves saved JavaScript reports. Java analysis requires the original Aegis image and configured dependencies.',
+        })
+    if facade is None:
+        from main import AnalysisFacade
+        facade = AnalysisFacade()
+    return facade
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("Checking configuration...")
-    config = configparser.ConfigParser()
-
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    files_read = config.read(os.path.join(script_dir, 'config.ini'))
-    
-    if not files_read:
-        print("WARNING: config.ini not found! Please ensure it exists in the container.")
-    
-    global facade
-    print("Initializing Aegis Analysis Engine...")
-
-    # Allow explicit env override for runtime flexibility in containers.
-    try:
-        facade = AnalysisFacade()
-        print("Aegis Engine initialized successfully.")
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        print(f"CRITICAL ERROR during startup: {e}")
-
-    yield  
-
-    print("Shutting down Aegis Engine...")
-    if facade:
+    # Saved JS evidence needs only the configured IR service, not Neo4j or models.
+    yield
+    if facade is not None:
         facade.cleanup()
-    print("Cleanup complete.")
 
-app = FastAPI(title="Aegis Security Analysis API", lifespan=lifespan)
 
-origins = [
-    "http://localhost:3000"
-]
-
+app = FastAPI(title='Aegis Security Analysis API', lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,   
+    allow_origins=['http://localhost:3000'],
     allow_credentials=True,
-    allow_methods=["*"],        
-    allow_headers=["*"],        
+    allow_methods=['*'],
+    allow_headers=['*'],
 )
 
-@app.get("/health", 
-         responses={503: {"description": "Engine not initialized"}})
+
+@app.get('/health')
 def health_check():
-    if facade:
-        return {"status": "healthy", "description": "Aegis Analysis Engine"}
-    else:
-        raise HTTPException(status_code=503, detail="Engine not initialized")
+    return {'status': 'healthy', 'description': 'Aegis Analysis API',
+            'storedIrServiceConfigured': bool(os.getenv('IR_SERVICE_URL')),
+            'javaEngineInitialized': facade is not None,
+            'openaiConfigured': bool(os.getenv('OPENAI_API_KEY_FILE') or os.getenv('OPENAI_API_KEY'))}
 
-@app.post("/analyze", 
-          responses={500: {"description": "Internal Error"}})
+
+@app.post('/analyze', responses={400: {'description': 'Missing saved IR identifier'},
+                               500: {'description': 'Analysis or IR retrieval failed'}})
 async def analyze_endpoint(payload: Dict[str, Any]):
-    global facade
-    if not facade:
-        raise HTTPException(status_code=500, detail="Analysis service not initialized. Check server logs.")
-
+    ir_id = payload.get('ir_id')
+    if not isinstance(ir_id, str) or not ir_id.strip() or len(ir_id) > 256:
+        raise HTTPException(status_code=400, detail='ir_id must identify a saved IR in at most 256 characters')
     try:
-        # Run the analysis using your existing logic
-        print("[INFO] Starting introspection!")
-        results = facade.run_analysis(payload)
+        # The caller supplies an identifier, never a source path or service URL.
+        ir = read_stored_ir(ir_id)
+        javascript = javascript_security_response(ir)
+        if javascript is not None:
+            result = {**javascript, 'ir_id': ir_id}
+            if payload.get('llmReview') is True and javascript.get('status') in ('complete', 'partial'):
+                history_id = payload.get('history_ir_id')
+                history = read_stored_ir(history_id) if history_id else None
+                result['llmReview'] = review_javascript(ir, history)
+            return result
 
+        engine = get_java_facade()
+        results = engine.run_analysis(payload, ir_data=ir)
+        if isinstance(results, dict) and results.get('status') in ('unsupported', 'partial'):
+            return results
         if 'vulnerabilities' in results:
-            return {"status": "success"}
+            return {'status': 'success'}
+        engine.get_latent_vulnerabilities(ir_id, results)
+        return {'status': 'success'}
+    except HTTPException:
+        raise
+    except Exception as error:
+        raise HTTPException(status_code=500, detail=str(error))
 
-        facade.get_latent_vulnerabilities(payload['ir_id'], results)
-        return {"status": "success"}
 
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
-
-# Use for local testing
-if __name__ == "__main__":
+if __name__ == '__main__':
     import uvicorn
-    uvicorn.run("service:app", host="0.0.0.0", port=8900)
+    uvicorn.run('service:app', host='0.0.0.0', port=8900)

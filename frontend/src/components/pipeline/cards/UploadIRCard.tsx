@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NodeData } from '../models'; 
+import { NodeData, RepositoryMeta } from '../models';
 import { InlineDropzone } from './InlineDropZone';
 import { fetchIRVersions, fetchSpecificIRs, deleteIR } from '../../../services/api';
 
@@ -7,6 +7,44 @@ interface UploadIRCardProps {
     node: NodeData;
     updateNodeData: (id: string, newData: Partial<NodeData['data']>) => void;
 }
+
+export const extractIRMetadata = (loadedIR: any, fallbackId: string): RepositoryMeta[] => {
+    const repositories = new Map<string, RepositoryMeta>();
+    const snapshots = loadedIR?.javascriptExtraction?.snapshots;
+    if (Array.isArray(snapshots)) {
+        snapshots.forEach((snapshot: any) => {
+            const component = snapshot?.component;
+            if (!component || typeof component.repositoryURL !== 'string' || typeof component.commit !== 'string'
+                || !['backend', 'frontend'].includes(component.kind)) return;
+            const metadata: RepositoryMeta = {
+                repoUrl: component.repositoryURL,
+                commitId: component.commit,
+                branch: typeof component.branch === 'string' ? component.branch : '',
+                language: 'javascript',
+                componentKind: component.kind
+            };
+            repositories.set(`${metadata.repoUrl}|${metadata.commitId}|${metadata.componentKind}`, metadata);
+        });
+    }
+    if (Array.isArray(loadedIR?.microservices)) {
+        loadedIR.microservices.forEach((service: any) => {
+            const javascript = service?.metadata?.componentKind === 'backend';
+            const declared = service?.metadata?.languages || loadedIR?.metadata?.languages || [];
+            const sourceLanguage = service?.metadata?.language || (declared.length === 1 ? declared[0] : declared.length > 1 ? 'auto' : undefined);
+            const supported = ['auto', 'polyglot', 'java', 'javascript', 'typescript', 'python', 'go', 'csharp'];
+            const metadata: RepositoryMeta = {
+                repoUrl: service.repositoryURL || 'Unknown Repo',
+                commitId: service.commitID || fallbackId,
+                branch: service.metadata?.branch || service.branch || (javascript ? '' : 'main'),
+                ...(javascript ? { language: 'javascript' as const, componentKind: 'backend' as const } : supported.includes(sourceLanguage) ? { language: sourceLanguage } : {})
+            };
+            const key = `${metadata.repoUrl}|${metadata.commitId}|${metadata.componentKind || `java|${metadata.branch}`}`;
+            if (!repositories.has(key)) repositories.set(key, metadata);
+        });
+    }
+    return repositories.size > 0 ? Array.from(repositories.values())
+        : [{ repoUrl: 'system', branch: 'main', commitId: fallbackId }];
+};
 
 export const UploadIRCard: React.FC<UploadIRCardProps> = ({ node, updateNodeData }) => {
     const [mode, setMode] = useState<'upload' | 'database'>('upload');
@@ -81,34 +119,6 @@ export const UploadIRCard: React.FC<UploadIRCardProps> = ({ node, updateNodeData
     const cancelDelete = (e: React.MouseEvent) => {
         e.stopPropagation();
         setDeleteConfirmId(null);
-    };
-
-    const extractIRMetadata = (loadedIR: any, fallbackId: string) => {
-        let extractedMetadata: { repoUrl: string; branch: string; commitId: string }[] = [];
-        
-        if (loadedIR?.microservices && Array.isArray(loadedIR.microservices)) {
-            const uniqueRepos = new Map();
-            
-            loadedIR.microservices.forEach((ms: any) => {
-                const repoUrl = ms.repositoryURL || 'Unknown Repo';
-                const commitId = ms.commitID || fallbackId;
-                const branch = ms.metadata?.branch || ms.branch || 'main';
-                
-                const uniqueKey = `${repoUrl}-${branch}-${commitId}`;
-                
-                if (!uniqueRepos.has(uniqueKey)) {
-                    uniqueRepos.set(uniqueKey, { repoUrl, branch, commitId });
-                }
-            });
-            
-            extractedMetadata = Array.from(uniqueRepos.values());
-        }
-
-        if (extractedMetadata.length === 0) {
-            extractedMetadata = [{ repoUrl: 'system', branch: 'main', commitId: fallbackId }];
-        }
-
-        return extractedMetadata;
     };
 
     const renderResultsContent = () => {

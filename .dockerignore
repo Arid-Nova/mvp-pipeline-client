@@ -1,0 +1,13 @@
+.git
+.env
+.env.*
+!.env.example
+**/node_modules
+**/target
+.cache
+**/__pycache__
+**/.pytest_cache
+backend/vendor
+componentanalysis/vendor
+*.zip
+*.mp4

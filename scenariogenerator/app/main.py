@@ -1,6 +1,7 @@
 import gzip
 import json
 import traceback
+import os
 from contextlib import asynccontextmanager
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,7 +15,6 @@ from .models.generateprompt import GeneratePromptsRequest
 from .models.generatescenarios import GenerateScenariosRequest
 
 from .prompt_generator import generate_prompts
-from .insights_generator import ImpactInsightGenerator
 
 df_service = None
 insight_gen = None
@@ -23,16 +23,20 @@ insight_gen = None
 async def lifespan(app: FastAPI):
     global df_service
     global insight_gen
+    if os.getenv("ARIDNOVA_ANALYSIS_MODE") == "javascript-only":
+        yield
+        return
     
     try:
         df_service = DataService()
-        insight_gen = ImpactInsightGenerator()
     except Exception as e:
         print(f"CRITICAL ERROR during startup: {e}")
 
     yield 
 
 app = FastAPI(title="AI Test Generator API", lifespan=lifespan)
+from .javascript_api import router as javascript_router
+app.include_router(javascript_router)
 
 origins = [
     "http://localhost:3000",
@@ -105,7 +109,11 @@ async def get_change_impact_insights(request: Request):
     Analyzes calculated blast radius data and returns AI-generated 
     architectural risk assessments.
     """
+    global insight_gen
     try:
+        if insight_gen is None:
+            from .insights_generator import ImpactInsightGenerator
+            insight_gen = ImpactInsightGenerator()
         body = await request.body()
 
         if request.headers.get("Content-Encoding") == "gzip":

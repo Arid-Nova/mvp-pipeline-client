@@ -6,5 +6,6 @@ export const API_URLS = {
     ANALYSIS: process.env.ANALYSIS_API_URL || 'http://localhost:8040',
     VERIFY: process.env.VERIFY_API_URL || 'http://localhost:9000',
     TEST: process.env.TEST_API_URL || 'http://localhost:8030',
-    AEGIS: process.env.AEGIS_API_URL || 'http://localhost:8900'
+    AEGIS: process.env.AEGIS_API_URL || 'http://localhost:8900',
+    EXECUTOR: process.env.EXECUTOR_API_URL || 'http://localhost:8010'
 };

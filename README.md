@@ -2,6 +2,14 @@
 
 A comprehensive platform for visualizing, verifying, and introspecting microservice architectures. This tool combines 3D architectural visualization with formal verification, neuro-symbolic risk analysis, and automated test generation to facilitate holistic analysis of a distributed system in one place.
 
+## Multi-language contribution
+
+The backend and component service share a source-pinned CIMET build with per-file Java,
+JavaScript/TypeScript, Python, Go and C# parsing, including mixed repositories and multiple
+repository inputs. Architecture and security coverage differ by language; unsupported policy
+stages remain explicit. See [build, requests, tests and extension guidance](docs/polyglot-integration.md)
+and [JavaScript source reports](docs/javascript-analysis.md).
+
 ## Core Modules
 ### 1. CIMET-IR Visualizer
 

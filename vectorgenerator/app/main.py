@@ -1,6 +1,7 @@
 import base64
 from contextlib import asynccontextmanager
 import traceback
+import os
 
 from fastapi import FastAPI, APIRouter, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .analyzers.role_analyzer import RoleAnalyzer
 from .generators.vector_generator import VectorGenerator
 from .services.data_service import DataService
+from .services.authorization_capability import unsupported_authorization_reason
 
 from .models.generateallrequest import GenerateAllRequest
 from .models.generateoutputdata import GeneratedOutputData
@@ -17,6 +19,9 @@ df_service = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global df_service
+    if os.getenv("ARIDNOVA_ANALYSIS_MODE") == "javascript-only":
+        yield
+        return
     
     try:
         df_service = DataService()
@@ -26,6 +31,8 @@ async def lifespan(app: FastAPI):
     yield 
 
 app = FastAPI(title="Auth-Role Vector Generator API", lifespan=lifespan)
+from .javascript_api import router as javascript_router
+app.include_router(javascript_router)
 
 origins = [
     "http://localhost:3000",
@@ -42,9 +49,20 @@ app.add_middleware(
 
 router = APIRouter(prefix="/vectors")
 
+
+def require_authorization_support(request: GenerateAllRequest):
+    reason = unsupported_authorization_reason(request.endpoints, request.components)
+    if reason:
+        raise HTTPException(status_code=422, detail={
+            "status": "unsupported",
+            "capability": "authorization",
+            "reason": reason,
+        })
+
 @router.post("/generate-all", 
              responses={
                  400: {"description": "Wrong or Missing Index ID!"},
+                 422: {"description": "Authorization extraction unsupported"},
                  500: {"description": "Generation failed"}
                  })
 async def generate_all(request: GenerateAllRequest):
@@ -57,6 +75,7 @@ async def generate_all(request: GenerateAllRequest):
         else:
             raise HTTPException(status_code=400, detail="Wrong or Missing Index ID!")
 
+        require_authorization_support(request)
         endpoints_map = request.endpoints.get("endpoints", {})
 
         # 1. Extract Roles
@@ -85,6 +104,8 @@ async def generate_all(request: GenerateAllRequest):
         
         return response_data
 
+    except HTTPException:
+        raise
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Generation failed: {str(e)}")
@@ -93,6 +114,7 @@ async def generate_all(request: GenerateAllRequest):
 @router.post("/generate/{endpoint_id}", 
              responses={
                  404: {"description": "Endpoint ID not found"}, 
+                 422: {"description": "Authorization extraction unsupported"},
                  500: {"description": "Error processing endpoint"}
                  })
 async def generate_single(endpoint_id: str, request: GenerateAllRequest):
@@ -103,6 +125,7 @@ async def generate_single(endpoint_id: str, request: GenerateAllRequest):
         if request.indexId:
             df_service.fetch_index_data(request)
 
+        require_authorization_support(request)
         endpoints_map = request.endpoints.get("endpoints", {})
 
         role_analyzer = RoleAnalyzer(request.components)
@@ -113,6 +136,8 @@ async def generate_single(endpoint_id: str, request: GenerateAllRequest):
 
         return vector.to_dict(lean=False)
 
+    except HTTPException:
+        raise
     except KeyError:
         raise HTTPException(status_code=404, detail=f"Endpoint ID '{endpoint_id}' not found in provided data.")
     except Exception as e:
@@ -123,6 +148,7 @@ async def generate_single(endpoint_id: str, request: GenerateAllRequest):
 @router.post("/chain/{endpoint_id}", 
              responses={
                  404: {"description": "Endpoint ID not found"},
+                 422: {"description": "Authorization extraction unsupported"},
                  500: {"description": "Error fetching chain"}
                  })
 async def show_chain(endpoint_id: str, request: GenerateAllRequest):
@@ -133,6 +159,7 @@ async def show_chain(endpoint_id: str, request: GenerateAllRequest):
         if request.indexId:
             df_service.fetch_index_data(request)
 
+        require_authorization_support(request)
         endpoints_map = request.endpoints.get("endpoints", {})
 
         role_analyzer = RoleAnalyzer(request.components)
@@ -162,6 +189,8 @@ async def show_chain(endpoint_id: str, request: GenerateAllRequest):
             "chain": chain_data
         }
 
+    except HTTPException:
+        raise
     except KeyError:
         raise HTTPException(status_code=404, detail=f"Endpoint ID '{endpoint_id}' not found in provided data.")
     except Exception as e:

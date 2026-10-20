@@ -7,6 +7,9 @@ export interface RepositoryInput {
       branchName: string;
     };
     commitID?: string;
+    language?: 'auto' | 'polyglot' | 'java' | 'javascript' | 'typescript' | 'python' | 'go' | 'csharp';
+    componentKind?: 'backend' | 'frontend';
+    componentName?: string;
   }[];
 }
 
@@ -32,8 +35,10 @@ export interface Suggestion {
 }
 
 export interface VerificationResponse {
-    status: "SAT" | "UNSAT";
-    is_satisfiable: boolean;
+    status: "SAT" | "UNSAT" | "UNSUPPORTED" | "UNKNOWN";
+    is_satisfiable: boolean | null;
+    reason?: string;
+    capability_status?: string;
     suggestions: Suggestion[];
     logs: string[];
     processing_time_seconds: number;

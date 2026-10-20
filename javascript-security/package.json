@@ -1,0 +1,19 @@
+{
+  "name": "aridnova-express-security",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Bounded static Express authentication and authorization evidence",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.cjs"
+  },
+  "dependencies": {
+    "typescript": "5.9.3"
+  },
+  "devDependencies": {
+    "consign": "0.1.6",
+    "express": "4.21.2"
+  }
+}

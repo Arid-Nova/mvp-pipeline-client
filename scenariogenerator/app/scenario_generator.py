@@ -135,7 +135,8 @@ def summarize_permissions(pm: Dict[str, Any], endpoint_id: str) -> Dict[str, Any
             - unknown_roles (List[str]): Roles with permission value -1
             - expected_status_by_role (Dict[str, str]): Mapping of roles to expected
               HTTP status codes (2xx, 403, UNKNOWN)
-            - is_public_endpoint (bool): True if all roles have -1 value
+            - is_public_endpoint (bool): Not inferred from the permission matrix;
+              public access requires explicit endpoint authorization evidence
             - policy_inconsistencies (List[Dict]): List of detected policy violations
               such as sensitive endpoints marked as public
     """
@@ -156,9 +157,8 @@ def summarize_permissions(pm: Dict[str, Any], endpoint_id: str) -> Dict[str, Any
                 unknown.append(role)
             expected_status_by_role[role] = StatusMap.get(v, "UNKNOWN")
 
-        # Check if all roles are -1 (fully public endpoint)
-        if all(v == -1 for v in row):
-            is_public_endpoint = True
+        # -1 means unknown. Public access cannot be inferred from missing policy
+        # evidence; explicit endpoint authorization is handled by enrichment.
 
         # Sensitivity detection (based on endpoint name)
         eid_lower = endpoint_id.lower()
@@ -495,15 +495,20 @@ def generate_scenarios(av: Dict[str, Any]) -> List[Dict[str, Any]]:
             # Public entry point - use roles that can traverse entire chain
             effective_allowed_roles = chain_perms.get("chain_allowed_roles") or perms_summary["allowed_roles"]
 
-        # Compute denied roles: roles not in effective_allowed_roles
+        # Preserve unknown policy evidence instead of inventing a denial.
         all_roles = set(pm.get("roles", []))
-        effective_denied_roles = list(all_roles - set(effective_allowed_roles))
+        effective_unknown_roles = [role for role in perms_summary["unknown_roles"]
+                                   if role not in effective_allowed_roles]
+        effective_denied_roles = sorted(all_roles - set(effective_allowed_roles)
+                                        - set(effective_unknown_roles))
 
         # Compute expected status based on entry point restrictions
         expected_status_by_role = {}
         for role in pm.get("roles", []):
             if role in effective_allowed_roles:
                 expected_status_by_role[role] = "2xx"
+            elif role in effective_unknown_roles:
+                expected_status_by_role[role] = "UNKNOWN"
             else:
                 expected_status_by_role[role] = "403"
 
@@ -517,7 +522,7 @@ def generate_scenarios(av: Dict[str, Any]) -> List[Dict[str, Any]]:
             # Permissions (based on entry point restrictions)
             "allowed_roles": effective_allowed_roles,
             "denied_roles": effective_denied_roles,
-            "unknown_roles": perms_summary["unknown_roles"],
+            "unknown_roles": effective_unknown_roles,
             "expected_status_by_role": expected_status_by_role,
             "chain_permissions": chain_perms.get("per_endpoint", {}),
 

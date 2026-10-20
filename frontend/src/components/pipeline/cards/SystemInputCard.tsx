@@ -19,7 +19,7 @@ const FETCH_DEBOUNCE_MS = 500;
 const COMMITS_PAGE_SIZE = 10;
 const REPO_METADATA_KEY = 'repoMetadata' as const;
 const BRANCH_COMMITS_KEY = 'branchCommits' as const;
-const DEFAULT_REPO: RepositoryMeta = { repoUrl: '', branch: '', commitId: '' };
+const DEFAULT_REPO: RepositoryMeta = { repoUrl: '', branch: '', commitId: '', language: 'auto' };
 
 // Convert a repo slug, e.g., "train-ticket" or "myCoolRepo" into Title Case.
 // Used as a soft default for System Name on first metadata fetch.
@@ -649,6 +649,37 @@ const RepoRow: React.FC<{
                     />
                 </div>
 
+                <label className="block text-xs text-slate-300">
+                    Extraction language
+                    <select
+                        className="mt-1 w-full bg-slate-950 border border-slate-700 rounded p-1.5"
+                        value={repo.language || 'java'}
+                        onChange={(e) => onUpdateField('language', e.target.value)}
+                    >
+                        <option value="auto">Auto / mixed languages</option>
+                        <option value="java">Java / Spring</option>
+                        <option value="javascript">JavaScript / TypeScript</option>
+                        <option value="python">Python</option>
+                        <option value="go">Go</option>
+                        <option value="csharp">C# / ASP.NET</option>
+                    </select>
+                </label>
+                <p className="text-[9px] text-slate-400">Auto scans supported source files together. Snapshot extraction supports Java, JavaScript/TypeScript, Python, Go and C#. Policy stages report unsupported language combinations explicitly.</p>
+                {['javascript', 'typescript'].includes(repo.language || '') && (
+                    <label className="block text-xs text-slate-300">
+                        Application type
+                        <select
+                            className="mt-1 w-full bg-slate-950 border border-slate-700 rounded p-1.5"
+                            value={repo.componentKind || 'backend'}
+                            onChange={(e) => onUpdateField('componentKind', e.target.value)}
+                        >
+                            <option value="backend">Backend / Express</option>
+                            <option value="frontend">Frontend / React</option>
+                        </select>
+                        <span className="block mt-1 text-slate-400">Bounded Express source-policy analysis is available when source evidence is extracted. Other frameworks remain partial.</span>
+                    </label>
+                )}
+
                 {branchInvalid && (
                     <p className="text-[9px] text-red-400 leading-snug">Branch not found on this repository.</p>
                 )}
@@ -757,6 +788,7 @@ export const SystemInputCard: React.FC<SystemInputCardProps> = ({ node, updateNo
                         repoUrl: parts[0].trim(),
                         branch: parts[1]?.trim() || '',
                         commitId: parts[2]?.trim() || '',
+                        language: 'auto',
                     });
                 }
             });
@@ -806,6 +838,7 @@ export const SystemInputCard: React.FC<SystemInputCardProps> = ({ node, updateNo
                     repoUrl: r.url,
                     branch: selectedBranch,
                     commitId: actualCommitSha,
+                    language: 'auto',
                 };
             });
 

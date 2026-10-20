@@ -67,8 +67,8 @@ public class MethodIndexer {
         return new IndexedMethod(
             "Method",
             method.getName(),
-            method.getID(),
-            method.getFullID(),
+            edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.id(method),
+            edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.fullId(method),
             microserviceName,
             className,
             method.getMetadata(),
@@ -77,7 +77,7 @@ public class MethodIndexer {
             method.getIsAbstract(),
             method.getIsStatic(),
             method.getIsFinal(),
-            method.getIsConstructor(),
+            edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.isConstructor(method),
             method.getAnnotations(),
             method.getThrownExceptions()
         );

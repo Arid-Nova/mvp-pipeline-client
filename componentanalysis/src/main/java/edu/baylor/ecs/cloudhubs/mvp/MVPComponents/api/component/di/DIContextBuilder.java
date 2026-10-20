@@ -60,7 +60,7 @@ public class DIContextBuilder {
             BeanInfo beanInfo = extractBeanInfo(jClass);
 
             if (beanInfo.isBean) {
-                String classId = jClass.getID();
+                String classId = edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.id(jClass);
                 String fullyQualifiedName = jClass.getPackageName() + "." + jClass.getName();
                 Set<String> interfaces = resolveInterfaces(jClass, microservice);
 
