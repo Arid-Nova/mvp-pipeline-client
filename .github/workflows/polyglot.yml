@@ -2,7 +2,7 @@ name: Polyglot pipeline
 on:
   pull_request:
   push:
-    branches: [development]
+    branches: [main, development]
 permissions:
   contents: read
 jobs:

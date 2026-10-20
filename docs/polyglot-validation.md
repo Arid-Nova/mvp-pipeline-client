@@ -138,7 +138,7 @@ npm test -- --watchAll=false --runInBand --testMatch='**/ChatbotPanel.test.tsx' 
 ## Source pin, JVM integration and containers
 
 The final engine source pin is `aa4baa3dab4bafb0be2a97d8c2ff9d1eadc8aafb`
-(companion extraction-library PR #28). A fresh remote source checkout was built
+(companion extraction-library PR #29). A fresh remote source checkout was built
 successfully with `python scripts/build_cimet.py`, without the development override.
 Both JVM services then passed `mvn verify`: 10 backend and 12 component tests.
 
