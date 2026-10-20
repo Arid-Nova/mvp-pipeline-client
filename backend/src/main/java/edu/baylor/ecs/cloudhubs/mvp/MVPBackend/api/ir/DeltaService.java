@@ -21,6 +21,7 @@ import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.ir.DeltaRepository;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.ir.MicroserviceEntity;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.request.SystemRepository;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.request.DeltaRequestModel;
+import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.request.IRRequestModel;
 import edu.baylor.ecs.cloudhubs.mvp.MVPBackend.persistence.ir.MicroserviceIRRepository;
 
 import edu.university.ecs.lab.common.config.Config;
@@ -41,6 +42,9 @@ public class DeltaService {
     @Autowired
     private DeltaRepository deltaRepository;
 
+    @Autowired
+    private JavaScriptIRService javaScriptIRService;
+
     private final ObjectMapper objectMapper;
 
     @Autowired
@@ -57,10 +61,41 @@ public class DeltaService {
     public byte[] retrieveDelta(DeltaRequestModel requestModel)
             throws Exception {
 
+        if (requestModel == null || requestModel.getId() == null || requestModel.getId().isBlank())
+            throw new IllegalArgumentException("A saved base IR ID is required");
+        JsonNode saved = getRawIRById(requestModel.getId());
+        if ("per-file-registry".equals(saved.path("metadata").path("languagePolicy").asText())
+                && !"cimet-javascript".equals(saved.path("metadata").path("extractor").asText())) {
+            if (requestModel.comparingRepositories == null || requestModel.comparingRepositories.length == 0)
+                throw new IllegalArgumentException("Comparison repositories are required");
+            IRRequestModel comparisonRequest = new IRRequestModel();
+            comparisonRequest.systemName = requestModel.systemName;
+            comparisonRequest.systemRepositories = requestModel.comparingRepositories;
+            ObjectNode next = new IRService(null, javaScriptIRService).extractIR(comparisonRequest);
+            ObjectNode comparison = compareSnapshots(saved,next);
+            comparison.put("baseIrId",requestModel.getId());
+            return saveDelta(comparison,requestModel);
+        }
+        if (saved.has("javascriptExtraction")) {
+            requireJavaScriptOnly(requestModel.comparingRepositories);
+            JsonNode extraction = saved.path("javascriptExtraction");
+            int backendSnapshots = 0;
+            for (JsonNode snapshot : extraction.path("snapshots"))
+                if ("backend".equals(snapshot.path("component").path("kind").asText())) backendSnapshots++;
+            if (saved.path("microservices").size() > backendSnapshots)
+                throw new IllegalArgumentException("Compare Java and JavaScript histories separately; the source models have different coverage");
+            ObjectNode next = javaScriptIRService.extract(requestModel.systemName, Arrays.asList(requestModel.comparingRepositories));
+            ObjectNode comparison = new JavaScriptAnalysisDelta().compare(saved, next);
+            comparison.put("baseIrId", requestModel.getId());
+            return saveDelta(comparison, requestModel);
+        }
+        rejectJavaScriptDelta(requestModel.systemRepositories);
+        rejectJavaScriptDelta(requestModel.comparingRepositories);
+
         // 1. Retrieves the base IR using the IR to compare with.
         MicroserviceSystem intermediateSystem = null;
         if(requestModel.getId() != null)
-            intermediateSystem = getIRById(requestModel.getId());
+            intermediateSystem = objectMapper.treeToValue(saved, MicroserviceSystem.class);
         else throw new IllegalArgumentException("ID not found to retrieve IR!");
 
         // 2. Configuration of the original IR in concern.
@@ -89,16 +124,55 @@ public class DeltaService {
         return saveDelta(objectMapper.valueToTree(result), requestModel);
     }
 
-    private MicroserviceSystem getIRById(String id) throws IOException {
+    /** Source-structural comparison; no target application or security proof is executed. */
+    ObjectNode compareSnapshots(JsonNode before, JsonNode after) throws IOException {
+        MicroserviceSystem base = objectMapper.treeToValue(before,MicroserviceSystem.class);
+        MicroserviceSystem next = objectMapper.treeToValue(after,MicroserviceSystem.class);
+        MicroserviceSystem.setParentReferencesRecursively(base,null);
+        MicroserviceSystem.setParentReferencesRecursively(next,null);
+        ObjectNode result = objectMapper.valueToTree(edu.university.ecs.lab.delta.services.SnapshotDeltaService.compare(base,next));
+        result.withObject("/metadata").put("analysis","polyglot-structural-snapshot-delta");
+        result.withObject("/metadata").put("behavioralEquivalence","unsupported");
+        result.withObject("/metadata").set("languages",objectMapper.valueToTree(IRService.detectedLanguages(after)));
+        if (before.has("javascriptExtraction") && after.has("javascriptExtraction")) {
+            try { result.set("javascriptAnalysisDelta",new JavaScriptAnalysisDelta().compare(before,after)); }
+            catch(IOException incompatible) {
+                result.putObject("javascriptAnalysisDelta").put("analysis","javascript-system-change").put("status","partial")
+                        .put("reason","JavaScript component identities/boundaries changed or report coverage is incompatible; the native structural delta and target snapshot remain available.");
+            }
+        }
+        return result;
+    }
+
+    private JsonNode getRawIRById(String id) throws IOException {
         Optional<MicroserviceEntity> optionalEntity = repository.findById(id);
 
         if (optionalEntity.isPresent()) {
             MicroserviceEntity entity = optionalEntity.get();
             try (GZIPInputStream gzis = new GZIPInputStream(new ByteArrayInputStream(entity.getPayload()))) {
-                return objectMapper.readValue(gzis, MicroserviceSystem.class);
+                JsonNode source = objectMapper.readTree(gzis);
+                return source;
             }
         } else {
             throw new IllegalArgumentException("No microservice system found with ID: " + id);
+        }
+    }
+
+    private static void requireJavaScriptOnly(SystemRepository[] repositories) {
+        if (repositories == null || repositories.length == 0)
+            throw new IllegalArgumentException("Pinned comparison repositories are required");
+        for (SystemRepository source : repositories)
+            if (source == null || source.language == null || !Set.of("javascript", "typescript").contains(source.language.toLowerCase(Locale.ROOT)))
+                throw new IllegalArgumentException("A JavaScript saved IR requires explicit JavaScript comparison repositories");
+    }
+
+    private static void rejectJavaScriptDelta(SystemRepository[] repositories) {
+        if (repositories == null) return;
+        for (SystemRepository repository : repositories) {
+            if (repository != null && repository.language != null
+                    && !"java".equalsIgnoreCase(repository.language)) {
+                throw new IllegalArgumentException("This delta endpoint supports Java repositories only; compare JavaScript snapshots using the JavaScript study workflow");
+            }
         }
     }
 
@@ -107,7 +181,7 @@ public class DeltaService {
         String id = new org.bson.types.ObjectId().toString();
         objectNode.put("id", id);
 
-        ObjectNode metadata = objectNode.putObject("metadata");
+        ObjectNode metadata = objectNode.withObject("/metadata");
         metadata.put("createDate", new Date().toString());
         metadata.put("modifyDate", new Date().toString());
 

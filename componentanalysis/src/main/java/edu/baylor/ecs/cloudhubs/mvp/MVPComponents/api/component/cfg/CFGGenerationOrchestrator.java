@@ -105,7 +105,7 @@ public class CFGGenerationOrchestrator {
 
         for (Method method : abstractClass.getMethods()) {
             // Find the indexed method in components
-            String methodId = method.getID();
+            String methodId = edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.id(method);
             IndexedComponent component = components.get(methodId);
 
             if (component == null) {
@@ -144,7 +144,7 @@ public class CFGGenerationOrchestrator {
      */
     private EnhancedICFG generateEnhancedICFG(Method method, Map<String, IndexedComponent> components,
                                              AbstractClass context) {
-        String methodId = method.getID();
+        String methodId = edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.id(method);
         EnhancedICFG icfg = new EnhancedICFG(methodId);
 
         // Create entry node with source location
@@ -296,17 +296,7 @@ public class CFGGenerationOrchestrator {
      * @return MethodDeclaration, or null if not found
      */
     private MethodDeclaration findMethodDeclaration(CompilationUnit cu, Method method) {
-        String methodName = method.getName();
-        int paramCount = method.getParameters().size();
-
-        for (MethodDeclaration methodDecl : cu.findAll(MethodDeclaration.class)) {
-            if (methodDecl.getNameAsString().equals(methodName) &&
-                methodDecl.getParameters().size() == paramCount) {
-                return methodDecl;
-            }
-        }
-
-        return null;
+        return edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.declaration(method);
     }
 
     /**

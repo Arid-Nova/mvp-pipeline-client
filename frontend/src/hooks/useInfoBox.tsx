@@ -37,7 +37,7 @@ export const useInfoBox = (graphData: any, setFocusNode: any) => {
             setDestination(node.target.displayName);
 
             if (node.source.nodeType == "microservice"){    
-                if(node.target.nodeType == "controller" || node.target.nodeType == "service") {
+                if(node.target.nodeType == "controller" || node.target.nodeType == "service" || node.target.nodeType == "module") {
                     setType("sublink");
                 } else setType("link");
             }
@@ -63,6 +63,12 @@ export const useInfoBox = (graphData: any, setFocusNode: any) => {
             case 'microservice':
                 // No specific details like methods or parent source to set
                 break;
+
+            case 'module': {
+                setSource(node.parentMicroservice);
+                setMethods(node.methods || graphData.nodes.filter((item: any) => item.parentModule === node.nodeName));
+                break;
+            }
 
             case 'service': {
                 // Set the parent microservice name

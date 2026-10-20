@@ -104,6 +104,21 @@ const VerificationResultPage = () => {
         );
     }
 
+    if (result.status !== "SAT" && result.status !== "UNSAT") {
+        return (
+            <main className="min-h-screen bg-slate-900 text-white p-8">
+                <h1 className="text-2xl font-bold mb-4">Authorization verification unavailable</h1>
+                <p className="max-w-2xl text-slate-300">
+                    {result.reason || 'The analyzer could not establish authorization policies for this input.'}
+                </p>
+                <p className="max-w-2xl text-slate-300 mt-3">
+                    No security verdict or permission changes were produced. Architecture results remain available.
+                </p>
+                <button onClick={handleBack} className="mt-6 px-4 py-2 rounded bg-purple-600">Back to analysis</button>
+            </main>
+        );
+    }
+
     const isSat = result.status === "SAT";
     const hasRegression = !!regressionPayload;
 

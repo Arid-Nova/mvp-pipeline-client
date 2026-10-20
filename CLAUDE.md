@@ -87,3 +87,15 @@ LLM credentials for `testgenerator` are passed via `OPENAI_API_KEY` / `ANTHROPIC
 - Cross-service IDs are MongoDB ObjectIds passed as strings; do not assume integer IDs anywhere in the pipeline.
 - The frontend's pipeline canvas validates connections against `pipelineConfig.tsx` (`VALID_CONNECTIONS`); when adding a card type, register it there or the edge will be rejected silently in the UI.
 - The Aegis dashboard and API share the same image and `requirements.txt`; if you add a Python dep for one, it lands in both.
+
+## Polyglot extraction changes
+
+Build `python scripts/build_cimet.py` before either JVM service: both use the immutable source
+pin in `cimet-source.lock.json`. Do not commit generated engine JARs, `vendor/`, dependencies,
+source registries, credentials or analysis outputs. Build Docker images from the repository
+root with the service Dockerfile. See `docs/polyglot-integration.md`.
+
+The request language is a validated hint; the engine registry selects per file. Preserve
+`metadata.languages`, parser diagnostics and capability metadata through persistence and
+indexing. Never apply Java/Spring security defaults to non-Java or mixed inputs. Add a parser
+through the engine contract, and validate downstream capability support separately.

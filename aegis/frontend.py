@@ -210,6 +210,7 @@ def visualize():
         existing = mongo_service.find(
             os.getenv('MONGO_COLLECTION_NAME'), 
             mongo_query)
+        existing = sorted(existing, key=lambda row: row.get('timestamp', 0), reverse=True)
         
         if existing:
             return render_template('visualize.html', irID=ir_id)
@@ -235,6 +236,7 @@ def get_results():
         existing = mongo_service.find(
             os.getenv('MONGO_COLLECTION_NAME'), 
             mongo_query)
+        existing = sorted(existing, key=lambda row: row.get('timestamp', 0), reverse=True)
         
         if existing:
             result_doc = existing[0]

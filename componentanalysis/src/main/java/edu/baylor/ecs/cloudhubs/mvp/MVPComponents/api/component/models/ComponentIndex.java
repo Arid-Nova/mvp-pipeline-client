@@ -65,6 +65,8 @@ public class ComponentIndex {
      * Metadata about the index
      */
     private IndexMetadata metadata;
+    /** Native JS snapshots and architecture report retain source coverage and limitations. */
+    private com.fasterxml.jackson.databind.JsonNode javascriptExtraction;
     
     // ============== JSON SERIALIZATION GETTERS ==============
 
@@ -72,6 +74,7 @@ public class ComponentIndex {
     public Map<String, EndpointInfo> getEndpoints() { return endpoints; }
     public Set<String> getRoles() { return roles; }
     public IndexMetadata getMetadata() { return metadata; }
+    public com.fasterxml.jackson.databind.JsonNode getJavascriptExtraction() { return javascriptExtraction; }
     
     // ============== UTILITY METHODS ==============
     

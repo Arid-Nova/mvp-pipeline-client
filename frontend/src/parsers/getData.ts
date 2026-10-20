@@ -21,9 +21,12 @@ export interface MethodCall {
     name: string;
     parameterContents: any[];
     antiPattern: string | null;
+    metadata?: { extractor?: string; target?: string };
 }
 
 export interface Controller {
+    type?: string;
+    metadata?: { language?: string; sourceFile?: string; sourcePath?: string; declaredType?: string };
     methods: Method[];
     implementedTypes: string[];
     name: string;
@@ -37,6 +40,7 @@ export interface Microservice {
     name: string;
     controllers: Controller[];
     services: Service[]; // Services have the same structure as controllers
+    unknowns?: Controller[];
     antiPattern: string | null;
 }
 
@@ -46,6 +50,12 @@ export interface IRData {
     createDate: string | null;
     modifyDate: string | null;
     antiPattern: string | null;
+}
+
+export function sourceModuleNodeName(microservice: string, module: Controller): string {
+    const source = module.metadata?.sourceFile || module.metadata?.sourcePath;
+    const declaration = module.metadata?.declaredType || module.name;
+    return `${microservice}.${source ? `${source}#${declaration}` : declaration}`;
 }
 
 function findMethodByUrl(callUrl: string, methodsDict: { [key: string]: any }): any | null {
@@ -75,7 +85,11 @@ export default function getData(myData: IRData | null, nodes_array?: string[] | 
             displayName: string;
             parentMicroservice: string | null;
             parentController: string | null;
-            parentService: string | null; 
+            parentService: string | null;
+            parentModule?: string | null;
+            sourceType?: string;
+            sourceLanguage?: string;
+            methods?: Method[];
             parameters: any[] | null;
             returnType: string | null;
             antiPattern: string | null; }> = [];
@@ -214,6 +228,23 @@ export default function getData(myData: IRData | null, nodes_array?: string[] | 
                     });
                 }
             }
+
+            // UNKNOWN source containers remain modules; no service/controller role is inferred.
+            for (const module of microservice.unknowns || []) {
+                const moduleName = sourceModuleNodeName(nodeName, module);
+                nodes.push({ nodeName: moduleName, displayName: module.name, nodeType: 'module',
+                    parentMicroservice: nodeName, parentController: null, parentService: null,
+                    parameters: null, returnType: null, antiPattern: module.antiPattern || null,
+                    sourceType: module.type, sourceLanguage: module.metadata?.language, methods: module.methods || [] });
+                (module.methods || []).forEach((method, index) => {
+                    const methodName = `${moduleName}.${method.name}._${index}`;
+                    nodes.push({ nodeName: methodName, displayName: method.name, nodeType: 'method',
+                        parentMicroservice: nodeName, parentController: null, parentService: null, parentModule: moduleName,
+                        parameters: method.parameters, returnType: method.returnType, antiPattern: method.antiPattern || null });
+                    if (method.url) methods[method.url] = { microservice: nodeName, parameters: method.parameters,
+                        returnType: method.returnType, className: module.name, methodName: method.name, httpMethod: method.httpMethod };
+                });
+            }
         }
 
         // Second pass - identifying links between all different nodes.
@@ -248,6 +279,12 @@ export default function getData(myData: IRData | null, nodes_array?: string[] | 
                 nodes.filter(n => n.nodeType === 'method' && n.parentService === service.nodeName)
                      .forEach(method => links.push({ source: service.nodeName, target: method.nodeName, nodeType: "hierarchy" }));
             });
+
+            for (const module of nodes.filter(node => node.nodeType === 'module' && node.parentMicroservice === msName)) {
+                links.push({ source: msName, target: module.nodeName, nodeType: 'hierarchy', antiPattern: null });
+                nodes.filter(node => node.nodeType === 'method' && node.parentModule === module.nodeName)
+                    .forEach(method => links.push({ source: module.nodeName, target: method.nodeName, nodeType: 'hierarchy', antiPattern: null }));
+            }
 
             // Creating Entity nodes and "uses" links (Service/Controller -> Entity).
             const processImports = (component: Controller | Service) => {
@@ -294,7 +331,8 @@ export default function getData(myData: IRData | null, nodes_array?: string[] | 
             const processMethodCalls = (componentArray: (Controller | Service)[]) => {
                 for (let component of componentArray) {
                     for (let func of component.methods) {
-                        for (let methodCall of func.methodCalls) {
+                        for (let methodCall of func.methodCalls || []) {
+                            if (methodCall.metadata?.extractor === 'cimet-javascript' && ['external', 'unknown'].includes(methodCall.metadata.target || '')) continue;
                             const destinationMethod = findMethodByUrl(methodCall.url!, methods);
                             if (!destinationMethod) continue;
 
@@ -338,6 +376,7 @@ export default function getData(myData: IRData | null, nodes_array?: string[] | 
             
             processMethodCalls(microservice.controllers);
             processMethodCalls(microservice.services);
+            processMethodCalls(microservice.unknowns || []);
         }
 
         return {

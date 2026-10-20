@@ -18,6 +18,8 @@
 	<properties>
 		<java.version>21</java.version>
 		<lombok.version>1.18.30</lombok.version>
+		<cimet.version>1.3.0-polyglot-SNAPSHOT</cimet.version>
+		<jackson-bom.version>2.19.1</jackson-bom.version>
 	</properties>
 
 	<!-- CIMET package is available either via GitHub or JitPack -->
@@ -28,13 +30,6 @@
             <url>https://maven.pkg.github.com/arid-nova/mvp-cimet-extraction-library</url>
         </repository>
     </repositories> -->
-
-	<repositories>
-		<repository>
-		    <id>jitpack.io</id>
-		    <url>https://jitpack.io</url>
-		</repository>
-	</repositories>
 
 	<dependencies>
 		<dependency>
@@ -50,6 +45,7 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
+            <exclusions><exclusion><groupId>com.vaadin.external.google</groupId><artifactId>android-json</artifactId></exclusion></exclusions>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -91,26 +87,20 @@
 		<dependency>
 			<groupId>com.fasterxml.jackson.datatype</groupId>
 			<artifactId>jackson-datatype-json-org</artifactId>
-			<version>2.15.2</version>
 		</dependency>
 		<dependency>
     		<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-actuator</artifactId>
 		</dependency>
 		
-		<!-- GitHub Dependency -->
-		<!-- <dependency>
+		<!-- Build the source-pinned engine with scripts/build_cimet.py before Maven. -->
+		<dependency>
 			<groupId>edu.university.ecs.lab</groupId>
 			<artifactId>cimet-extract-lib</artifactId>
-			<version>1.2.1</version>
-		</dependency> -->
-
-		<!-- Jitack Dependency -->
-		<dependency>
-	    	<groupId>com.github.Arid-Nova</groupId>
-			<artifactId>mvp-cimet-extraction-library</artifactId>
-			<version>v1.2.1</version>
+			<version>${cimet.version}</version>
 		</dependency>
+        <!-- Match the engine's JSON API; Spring Boot's managed version lacks newer overloads. -->
+        <dependency><groupId>org.json</groupId><artifactId>json</artifactId><version>20250517</version></dependency>
     </dependencies>
 
 	<build>

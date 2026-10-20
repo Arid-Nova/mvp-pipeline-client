@@ -20,6 +20,7 @@ const NODE_COLORS = {
     "controller": LINK_TO_HOVER,
     "service": ORANGE,
     "method": HOVER_BLUE,
+    "module": LIGHT_GRAY,
     "entity": NEWGREEN
 }
 

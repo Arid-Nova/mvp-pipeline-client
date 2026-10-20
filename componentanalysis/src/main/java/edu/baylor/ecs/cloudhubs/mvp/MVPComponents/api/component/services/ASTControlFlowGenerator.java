@@ -655,8 +655,8 @@ public class ASTControlFlowGenerator extends VoidVisitorAdapter<ASTControlFlowGe
      * Resolve target method ID (simplified - could use IndexerService logic)
      */
     private String resolveTargetMethodId(MethodCall methodCall) {
-        if (methodCall.getTargetMethodId() != null) {
-            return methodCall.getTargetMethodId();
+        if (edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.targetId(methodCall) != null) {
+            return edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.targetId(methodCall);
         }
         
         // Simple lookup by method name
@@ -676,8 +676,8 @@ public class ASTControlFlowGenerator extends VoidVisitorAdapter<ASTControlFlowGe
      * Resolve canonical ID from target method
      */
     private String resolveCanonicalId(MethodCall methodCall, String targetMethodId) {
-        if (methodCall.getTargetMethodCanonicalId() != null) {
-            return methodCall.getTargetMethodCanonicalId();
+        if (edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.targetCanonicalId(methodCall) != null) {
+            return edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.targetCanonicalId(methodCall);
         }
         
         if (targetMethodId != null) {

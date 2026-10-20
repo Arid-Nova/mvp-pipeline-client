@@ -267,7 +267,15 @@ public class IndexerService {
         }
         
         // Extract IR from the configured repository at specific commit using the static method
-        MicroserviceSystem system = IRExtractionService.create(config, commitID);
+        Config pinnedConfig;
+        try {
+            pinnedConfig = new Config(config.getSystemName(), config.getSystemRepositories().stream()
+                    .map(repository -> new edu.university.ecs.lab.common.config.RepositoryConfig(
+                            repository.repoBranchPair(), commitID)).toList());
+        } catch (Exception invalid) {
+            throw new IllegalArgumentException("Invalid pinned extraction configuration", invalid);
+        }
+        MicroserviceSystem system = IRExtractionService.create(pinnedConfig);
         
         // Generate index from the extracted IR
         return generateIndex(system);
@@ -371,7 +379,10 @@ public class IndexerService {
         // Create metadata
         IndexMetadata metadata = new IndexMetadata();
         metadata.setSystemName(system.getName());
-        metadata.setCommitId(system.getCommitID());
+        // CIMET now records revisions per microservice; do not invent a system-wide commit.
+        metadata.setCommitId(system.getMicroservices().stream().map(Microservice::getCommitID)
+                .filter(java.util.Objects::nonNull).distinct().sorted()
+                .collect(java.util.stream.Collectors.joining(",")));
         metadata.setIndexedAt(Instant.now().toString());
         metadata.setTotalComponents(components.size());
         metadata.setComponentCounts(componentCounts);
@@ -484,8 +495,8 @@ public class IndexerService {
         return new IndexedField(
             "Field",
             field.getName(),
-            field.getID(),
-            field.getFullID(),
+            edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.id(field),
+            edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.fullId(field),
             microserviceName,
             className,
             field.getMetadata(),
@@ -508,8 +519,8 @@ public class IndexerService {
         return new IndexedMethod(
             "Method",
             method.getName(),
-            method.getID(),
-            method.getFullID(),
+            edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.id(method),
+            edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.fullId(method),
             microserviceName,
             className,
             method.getMetadata(),
@@ -518,7 +529,7 @@ public class IndexerService {
             method.getIsAbstract(),
             method.getIsStatic(),
             method.getIsFinal(),
-            method.getIsConstructor(),
+            edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.isConstructor(method),
             method.getAnnotations(),
             method.getThrownExceptions()
         );
@@ -536,8 +547,8 @@ public class IndexerService {
         return new IndexedAnnotation(
             "Annotation",
             annotation.getName(),
-            annotation.getID(),
-            annotation.getFullID(),
+            edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.id(annotation),
+            edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.fullId(annotation),
             microserviceName,
             className,
             annotation.getMetadata(),
@@ -574,7 +585,7 @@ public class IndexerService {
      */
     private String detectTargetService(MethodCall methodCall, String currentService) {
         // If the method call has a target method ID, we can extract the service from it
-        String targetId = methodCall.getTargetMethodId();
+        String targetId = edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.targetId(methodCall);
         if (targetId != null && targetId.contains(":")) {
             String targetService = targetId.substring(0, targetId.indexOf(":"));
             if (!targetService.equals(currentService)) {
@@ -923,8 +934,8 @@ public class IndexerService {
         return new IndexedClass(
             "Class",
             abstractClass.getName(),
-            abstractClass.getID(),
-            abstractClass.getFullID(),
+            edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.id(abstractClass),
+            edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.fullId(abstractClass),
             microserviceName,
             abstractClass.getName(), // className same as name for classes
             abstractClass.getMetadata(),
@@ -1055,8 +1066,8 @@ public class IndexerService {
         }
 
         // Check for @Autowired and resolve via Spring DI
-        if (field.getAnnotations() != null) {
-            for (Annotation annotation : field.getAnnotations()) {
+        if (edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.annotations(field) != null) {
+            for (Annotation annotation : edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.annotations(field)) {
                 if (annotation.getName().equals("Autowired")) {
                     indexedField.setAutowired(true);
 
@@ -1204,9 +1215,9 @@ public class IndexerService {
             fullyQualifiedGenericType,
             parameter.getAnnotations(),
             parameter.getIsVariableParameter(),
-            parameter.getParameterTypeForSignature(),
-            parameter.getFullID(),
-            parameter.getID()
+            edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.parameterType(parameter),
+            edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.fullId(parameter),
+            edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.id(parameter)
         );
     }
     
@@ -1240,7 +1251,7 @@ public class IndexerService {
      * @return The generated enhanced ICFG
      */
     private EnhancedICFG generateEnhancedICFG(Method method, Map<String, IndexedComponent> components, AbstractClass context) {
-        String methodId = method.getID();
+        String methodId = edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.id(method);
         EnhancedICFG icfg = new EnhancedICFG(methodId);
 
         // Create entry node with source location
@@ -1357,13 +1368,7 @@ public class IndexerService {
      * Find the method declaration in the compilation unit that matches the IR method
      */
     private MethodDeclaration findMethodDeclaration(CompilationUnit cu, Method method) {
-        for (MethodDeclaration methodDecl : cu.findAll(MethodDeclaration.class)) {
-            if (methodDecl.getNameAsString().equals(method.getName())) {
-                // Basic matching by name - could be enhanced with parameter matching
-                return methodDecl;
-            }
-        }
-        return null;
+        return edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.declaration(method);
     }
     
     
@@ -1433,7 +1438,7 @@ public class IndexerService {
 
         for (Method method : abstractClass.getMethods()) {
             // Find the indexed method in components
-            String methodId = method.getID();
+            String methodId = edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.id(method);
             IndexedComponent component = components.get(methodId);
 
             if (component == null) {
@@ -1519,7 +1524,7 @@ public class IndexerService {
                 // If this is a Spring bean, register it
                 if (isBean) {
                     // Get the class ID from components
-                    String classId = jClass.getID();
+                    String classId = edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.id(jClass);
 
                     // Get fully qualified name
                     String fullyQualifiedName = jClass.getPackageName() + "." + jClass.getName();
@@ -1702,8 +1707,8 @@ public class IndexerService {
      */
     private String resolveTargetMethodId(MethodCall methodCall, Map<String, IndexedComponent> components) {
         // Use existing target method ID if already resolved
-        if (methodCall.getTargetMethodId() != null) {
-            return methodCall.getTargetMethodId();
+        if (edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.targetId(methodCall) != null) {
+            return edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.targetId(methodCall);
         }
         
         // Try to find the target method in the components index
@@ -1720,7 +1725,7 @@ public class IndexerService {
      */
     private String resolveCanonicalId(MethodCall methodCall, String targetMethodId, Map<String, IndexedComponent> components) {
         // First check if the method call already has a canonical ID
-        String existingCanonicalId = methodCall.getTargetMethodCanonicalId();
+        String existingCanonicalId = edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.targetCanonicalId(methodCall);
         if (existingCanonicalId != null && !existingCanonicalId.isEmpty()) {
             return existingCanonicalId;
         }
@@ -2539,10 +2544,10 @@ public class IndexerService {
     private EndpointInfo createEndpointInfo(Endpoint endpoint, Method method, String microserviceName, 
                                           String controllerClass, Map<String, IndexedComponent> components) {
         // Generate endpoint ID (service-scoped)
-        String endpointId = endpoint.getID();
+        String endpointId = edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.id(endpoint);
         
         // Find the corresponding method ID in components
-        String methodId = method.getID();
+        String methodId = edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.id(method);
         
         // Extract HTTP method and URL
         String httpMethod = endpoint.getHttpMethod() != null ? endpoint.getHttpMethod().toString() : "GET";

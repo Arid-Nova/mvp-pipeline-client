@@ -129,6 +129,10 @@ public class EndpointInfo {
      */
     private String urlDerivedServiceName;
 
+    /** Static JavaScript route/contract evidence, without invented Java annotations. */
+    private com.fasterxml.jackson.databind.JsonNode sourceEvidence;
+    private String securityAnalysisStatus;
+
     // ============== JSON SERIALIZATION GETTERS ==============
 
     public String getId() { return id; }
@@ -151,6 +155,8 @@ public class EndpointInfo {
     public String getCurlExample() { return curlExample; }
     public String getPhysicalServiceName() { return physicalServiceName; }
     public String getUrlDerivedServiceName() { return urlDerivedServiceName; }
+    public com.fasterxml.jackson.databind.JsonNode getSourceEvidence() { return sourceEvidence; }
+    public String getSecurityAnalysisStatus() { return securityAnalysisStatus; }
 
     // ============== UTILITY METHODS ==============
     

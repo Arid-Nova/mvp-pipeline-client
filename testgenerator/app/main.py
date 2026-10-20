@@ -12,11 +12,12 @@ from .models.schemas import (
     TestSuiteItem,
     GenerationFailure,
 )
-from .services.llm_factory import LLMFactory
 
 load_dotenv()
 
 app = FastAPI(title="Test Suite Generation Service")
+from .javascript_api import router as javascript_router
+app.include_router(javascript_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -55,6 +56,7 @@ async def process_single_prompt(provider, item):
                      500: {"description": "Internal Server Error"}})
 async def generate_testsuites(request: TestGenerationRequest):
     try:
+        from .services.llm_factory import LLMFactory
         # 1. Instantiate the correct provider using the Factory
         provider = LLMFactory.get_provider(request.llm_model)
         

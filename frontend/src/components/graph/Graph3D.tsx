@@ -450,6 +450,8 @@ const Graph: React.FC<Props> = ({
                     } else {
                         geometry = new THREE.SphereGeometry(4 * sizeScale);
                     }
+                } else if (nodeType === "MODULE") {
+                    geometry = new THREE.BoxGeometry(7 * sizeScale, 7 * sizeScale, 7 * sizeScale);
                 } else if (nodeType === "ENTITY") {
                     geometry = new THREE.BoxGeometry(10 * sizeScale, 10 * sizeScale, 10 * sizeScale);
                 }

@@ -108,7 +108,7 @@ export default function filterNodes(
 
                     finalNodes.push({
                         "nodeName": componentName,
-                        "nodeType": component.classRole || type.toUpperCase(),
+                        "nodeType": type === 'module' ? 'module' : component.classRole || type.toUpperCase(),
                         "microserviceName": msName,
                         "packageName": component.packageName,
                         "color": COLORS[colorIndex % COLORS.length],
@@ -119,6 +119,7 @@ export default function filterNodes(
 
             processComponents(microservice.services, 'service');
             processComponents(microservice.controllers, 'controller');
+            processComponents(microservice.unknowns || [], 'module');
             processComponents((microservice as any).entities, 'entity');
             processComponents((microservice as any).repositories, 'repository');
 
