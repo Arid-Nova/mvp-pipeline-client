@@ -1,3 +1,4 @@
+import { sourceModuleNodeName } from './getData';
 import type { IRData, Controller, Service} from './getData';
 import { showError } from '../utils/notifications';
 
@@ -45,6 +46,15 @@ function getComparisonData(irData: IRData, nodes_array?: string[]): ComparisonGr
             };
             collectMethods(microservice.controllers);
             collectMethods(microservice.services);
+            collectMethods(microservice.unknowns || []);
+            for (const module of microservice.unknowns || []) {
+                const moduleName = sourceModuleNodeName(microservice.name, module);
+                nodes.push({ nodeName: moduleName, displayName: module.name, nodeType: 'module',
+                    parentMicroservice: microservice.name, parentController: null, parentService: null,
+                    sourceType: module.type, sourceLanguage: module.metadata?.language, methods: module.methods || [] });
+                internalLinks.push({ source: microservice.name, target: moduleName, nodeType: 'hierarchy',
+                    name: `${microservice.name}-->${moduleName}`, requests: [] });
+            }
         }
         
         // Second pass: Creating links for inter-service communication.
@@ -52,7 +62,8 @@ function getComparisonData(irData: IRData, nodes_array?: string[]): ComparisonGr
             const processMethodCalls = (components: (Controller | Service)[]) => {
                 for (const component of components) {
                     for (const func of component.methods) {
-                        for (const methodCall of func.methodCalls) {
+                        for (const methodCall of func.methodCalls || []) {
+                            if (methodCall.metadata?.extractor === 'cimet-javascript' && ['external', 'unknown'].includes(methodCall.metadata.target || '')) continue;
                             if (!methodCall.url || !methods[methodCall.url]) 
                                 continue;
                             
@@ -86,6 +97,7 @@ function getComparisonData(irData: IRData, nodes_array?: string[]): ComparisonGr
             };
             processMethodCalls(microservice.controllers);
             processMethodCalls(microservice.services);
+            processMethodCalls(microservice.unknowns || []);
         }
 
         return {

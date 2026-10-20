@@ -101,11 +101,11 @@ jobs:
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Typecheck frontend and test source-evidence report
+      - name: Typecheck frontend and test graph/source-evidence compatibility
         working-directory: frontend
         run: |
           npx --no-install tsc --noEmit
-          npm test -- --watchAll=false --runInBand --testMatch='**/ExpressSecurityReport.test.tsx' --testPathIgnorePatterns='node_modules'
+          npm test -- --watchAll=false --runInBand --testMatch='**/ExpressSecurityReport.test.tsx' '**/polyglotGraph.test.ts' --testPathIgnorePatterns='node_modules'
       - name: Build production frontend
         working-directory: frontend
         # Upstream source-map, lint and bundle warnings are documented in docs/polyglot-validation.md.

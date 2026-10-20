@@ -77,11 +77,32 @@ Run in `frontend`:
 
 ```sh
 npx --no-install tsc --noEmit
-npm test -- --watchAll=false --runInBand --testMatch='**/ExpressSecurityReport.test.tsx' --testPathIgnorePatterns='node_modules'
+npm test -- --watchAll=false --runInBand --testMatch='**/ExpressSecurityReport.test.tsx' '**/polyglotGraph.test.ts' --testPathIgnorePatterns='node_modules'
 ```
 
-Both source-evidence report tests passed. The explicit match also works when a
-Windows checkout path contains mixed separators from the surrounding workspace.
+The two source-evidence report tests and ten graph parser tests passed (12 total).
+The graph tests invoke the real snapshot/comparison parsers with native-IR-shaped
+JSModule/JClass fixtures: neutral UNKNOWN containers and methods, calls originating
+in those containers, source-module additions/removals, multiple classes in one
+physical C# file, distinct source paths, external/unknown target exclusion, and
+unchanged Java controller/service behavior. The detailed component view also keeps
+neutral modules. No service role is inferred from an UNKNOWN container.
+
+Module graph identity uses physical source path plus declared type/name, so the
+engine's portable per-type path representation does not collapse multiple classes
+from one file. Modules have a neutral gray source-module visual and retain their
+native type/language for inspection.
+
+JavaScript native paths consistently project `{param}` to `{?}` for endpoints and
+calls. The existing graph correlation remains exact-URL based; this small
+compatibility change does not introduce new verb, host or runtime resolution.
+Calls explicitly classified `external` or `unknown` by the JavaScript extractor
+cannot create backend edges. Older saved calls without target metadata retain
+their previous matching behavior. Graph links remain source observations rather
+than proof of runtime communication.
+
+The explicit test match also works when a Windows checkout path contains mixed
+separators from the surrounding workspace.
 
 For the production build, use `CI=false npm run build` on POSIX, or in PowerShell:
 
