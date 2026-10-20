@@ -113,3 +113,20 @@ To reproduce that separate baseline check from `frontend`:
 ```sh
 npm test -- --watchAll=false --runInBand --testMatch='**/ChatbotPanel.test.tsx' --testPathIgnorePatterns='node_modules'
 ```
+
+## Source pin, JVM integration and containers
+
+The final engine source pin is `aa4baa3dab4bafb0be2a97d8c2ff9d1eadc8aafb`
+(companion extraction-library PR #28). A fresh remote source checkout was built
+successfully with `python scripts/build_cimet.py`, without the development override.
+Both JVM services then passed `mvn verify`: 10 backend and 12 component tests.
+
+`docker compose --progress plain build backend components` built both images from
+that pin. Runtime probes confirmed UID 10001, writable `/app`, Java 21, Node 22,
+and the locked TypeScript 5.9.3 parser in each image. A read-only synthetic source
+mount with Express router prefixes, a false `.get()` candidate, aliased Axios and
+a top-level execution sentinel produced the expected single route and outbound
+call with networking disabled. The target module was not executed.
+
+These checks cover the extraction/runtime integration. The complete deployed
+AridNova database and model-service stack was not started by this validation.

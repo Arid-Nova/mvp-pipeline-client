@@ -28,6 +28,13 @@ jobs:
       - run: npm --prefix javascript-security test
       - run: python scripts/sync_javascript_workflow.py --check
       - run: python javascript-policy/sync.py --check
+      - name: Build source-pinned runtime images
+        run: docker compose --progress plain build backend components
+      - name: Check unprivileged Java and Node runtimes
+        run: |
+          for image in aridnova-toolkit-backend aridnova-toolkit-components; do
+            docker run --rm --network none --entrypoint sh "$image" -c 'test "$(id -u)" = 10001 && java -version && node --version && test -w /app && test -f /app/vendor/javascript/node_modules/typescript/lib/typescript.js'
+          done
       - uses: actions/upload-artifact@v4
         if: always()
         with:
