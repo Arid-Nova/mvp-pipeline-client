@@ -76,7 +76,7 @@ public class DeltaService {
             comparison.put("baseIrId",requestModel.getId());
             return saveDelta(comparison,requestModel);
         }
-        if (saved.has("javascriptExtraction")) {
+        if (saved.hasNonNull("javascriptExtraction")) {
             requireJavaScriptOnly(requestModel.comparingRepositories);
             JsonNode extraction = saved.path("javascriptExtraction");
             int backendSnapshots = 0;
@@ -89,8 +89,18 @@ public class DeltaService {
             comparison.put("baseIrId", requestModel.getId());
             return saveDelta(comparison, requestModel);
         }
-        rejectJavaScriptDelta(requestModel.systemRepositories);
-        rejectJavaScriptDelta(requestModel.comparingRepositories);
+        if ((javaScriptIRService != null && javaScriptIRService.hasLocalSources())
+                || usesDiscovery(requestModel.systemRepositories) || usesDiscovery(requestModel.comparingRepositories)) {
+            // Pre-registry Java histories remain comparable with the new default discovery hint.
+            // Preserve unchanged base repositories when only a subset has a comparison revision.
+            IRRequestModel comparisonRequest = new IRRequestModel();
+            comparisonRequest.systemName = requestModel.systemName;
+            comparisonRequest.systemRepositories = legacyComparisonRepositories(requestModel);
+            ObjectNode next = new IRService(null, javaScriptIRService).extractIR(comparisonRequest);
+            ObjectNode comparison = compareSnapshots(saved, next);
+            comparison.put("baseIrId", requestModel.getId());
+            return saveDelta(comparison, requestModel);
+        }
 
         // 1. Retrieves the base IR using the IR to compare with.
         MicroserviceSystem intermediateSystem = null;
@@ -134,7 +144,7 @@ public class DeltaService {
         result.withObject("/metadata").put("analysis","polyglot-structural-snapshot-delta");
         result.withObject("/metadata").put("behavioralEquivalence","unsupported");
         result.withObject("/metadata").set("languages",objectMapper.valueToTree(IRService.detectedLanguages(after)));
-        if (before.has("javascriptExtraction") && after.has("javascriptExtraction")) {
+        if (before.hasNonNull("javascriptExtraction") && after.hasNonNull("javascriptExtraction")) {
             try { result.set("javascriptAnalysisDelta",new JavaScriptAnalysisDelta().compare(before,after)); }
             catch(IOException incompatible) {
                 result.putObject("javascriptAnalysisDelta").put("analysis","javascript-system-change").put("status","partial")
@@ -166,14 +176,46 @@ public class DeltaService {
                 throw new IllegalArgumentException("A JavaScript saved IR requires explicit JavaScript comparison repositories");
     }
 
-    private static void rejectJavaScriptDelta(SystemRepository[] repositories) {
-        if (repositories == null) return;
+    private static boolean usesDiscovery(SystemRepository[] repositories) {
+        if (repositories == null) return false;
         for (SystemRepository repository : repositories) {
-            if (repository != null && repository.language != null
-                    && !"java".equalsIgnoreCase(repository.language)) {
-                throw new IllegalArgumentException("This delta endpoint supports Java repositories only; compare JavaScript snapshots using the JavaScript study workflow");
-            }
+            if (repository != null && !"java".equals(RepositoryLanguage.normalize(repository.language))) return true;
         }
+        return false;
+    }
+
+    private static SystemRepository[] legacyComparisonRepositories(DeltaRequestModel request) {
+        if (request.systemRepositories == null || request.systemRepositories.length == 0
+                || request.comparingRepositories == null || request.comparingRepositories.length == 0)
+            throw new IllegalArgumentException("Base and comparison repositories are required");
+        Map<RepositoryBranchPair, SystemRepository> targets = new LinkedHashMap<>();
+        for (SystemRepository source : request.systemRepositories) {
+            RepositoryBranchPair identity = repositoryIdentity(source);
+            if (targets.putIfAbsent(identity, source) != null)
+                throw new IllegalArgumentException("Base repository identities must be unique");
+        }
+        Set<RepositoryBranchPair> compared = new HashSet<>();
+        for (SystemRepository source : request.comparingRepositories) {
+            RepositoryBranchPair identity = repositoryIdentity(source);
+            SystemRepository base = targets.get(identity);
+            if (base == null) throw new IllegalArgumentException("A comparison repository was not present in the base configuration");
+            if (!compared.add(identity)) throw new IllegalArgumentException("One target revision per repository is required");
+            SystemRepository target = new SystemRepository();
+            target.repoBranchPair = source.repoBranchPair;
+            target.commitID = source.commitID;
+            target.language = source.language;
+            target.componentName = source.componentName == null ? base.componentName : source.componentName;
+            target.componentKind = source.componentKind == null ? base.componentKind : source.componentKind;
+            targets.put(identity, target);
+        }
+        return targets.values().toArray(SystemRepository[]::new);
+    }
+
+    private static RepositoryBranchPair repositoryIdentity(SystemRepository source) {
+        if (source == null || source.repoBranchPair == null)
+            throw new IllegalArgumentException("Repository configuration is required");
+        RepositoryLanguage.normalize(source.language);
+        return new RepositoryBranchPair(source.repoBranchPair.repositoryURL, source.repoBranchPair.branchName);
     }
 
     private  byte[] saveDelta(JsonNode rootNode, DeltaRequestModel requestModel) throws IOException {
