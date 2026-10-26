@@ -56,6 +56,29 @@ class PolyglotComponentIntegrationTest {
         assertEquals("partial",result.endpointIndex().getMetadata().getStatus());
     }
 
+    @Test void backendLanguageHintsDoNotExcludeOtherLanguagesFromTheRegisteredRoot() throws Exception {
+        Path source=Files.createDirectory(temporary.resolve("hinted-mixed"));
+        Files.writeString(source.resolve("app.js"),"const express=require('express');const app=express();throw new Error('SOURCE_MUST_NOT_EXECUTE');app.get('/js-items',(req,res)=>res.json([]));");
+        Files.writeString(source.resolve("app.py"),"from flask import Flask\napp=Flask(__name__)\n@app.route('/python-items')\ndef items():\n    return []\n");
+        IndexBundle automatic=extract(source,"auto","backend");
+        Set<String> languages=Set.of("javascript","python");
+        Set<String> routes=Set.of("/js-items","/python-items");
+        assertEquals(languages,new HashSet<>(automatic.componentIndex().getMetadata().getLanguages()));
+        assertEquals(routes,new HashSet<>(automatic.endpointIndex().getEndpoints().values().stream().map(EndpointInfo::getFullUri).toList()));
+        assertEquals(2,automatic.endpointIndex().getEndpoints().size());
+        for(String hint:List.of("javascript","typescript")) {
+            IndexBundle hinted=extract(source,hint,"backend");
+            assertEquals(languages,new HashSet<>(hinted.componentIndex().getMetadata().getLanguages()),hint);
+            assertEquals(automatic.componentIndex().getMetadata().getComponentCounts(),hinted.componentIndex().getMetadata().getComponentCounts(),hint);
+            assertEquals(automatic.componentIndex().getComponents().keySet(),hinted.componentIndex().getComponents().keySet(),hint);
+            assertEquals(automatic.endpointIndex().getEndpoints().keySet(),hinted.endpointIndex().getEndpoints().keySet(),hint);
+            assertEquals(routes,new HashSet<>(hinted.endpointIndex().getEndpoints().values().stream().map(EndpointInfo::getFullUri).toList()),hint);
+            assertEquals(1,hinted.componentIndex().getMetadata().getMicroserviceCount(),hint);
+            assertTrue(hinted.componentIndex().getJavascriptExtraction().path("securityAnalysis").isObject(),hint);
+            assertEquals("unsupported",hinted.componentIndex().getMetadata().getAnalysisCapabilities().get("authorizationPolicy"),hint);
+        }
+    }
+
     @Test void autoFrontendProducesClientComponentsWithoutABackendService() throws Exception {
         Path source=Files.createDirectory(temporary.resolve("frontend"));Files.writeString(source.resolve("client.ts"),"export const items=()=>fetch('/items');");
         IndexBundle result=extract(source,"auto","frontend");
@@ -64,6 +87,24 @@ class PolyglotComponentIntegrationTest {
         assertTrue(result.endpointIndex().getEndpoints().isEmpty());
         assertTrue(result.componentIndex().getComponents().values().stream().allMatch(component->component.getMicroservice()==null));
         assertTrue(result.componentIndex().getMetadata().getLanguages().contains("typescript"));
+    }
+
+    @Test void javascriptHintRetainsOtherLanguageParseFailuresAndPartialCoverage() throws Exception {
+        Path source=Files.createDirectory(temporary.resolve("hinted-malformed"));
+        Files.writeString(source.resolve("app.js"),"const express=require('express');const app=express();app.get('/js-items',(req,res)=>res.json([]));");
+        Files.writeString(source.resolve("broken.py"),"def broken(\n");
+        for(String hint:List.of("auto","javascript","typescript")) {
+            IndexBundle result=extract(source,hint,"backend");
+            assertEquals("partial",result.componentIndex().getMetadata().getStatus(),hint);
+            assertEquals("partial",result.endpointIndex().getMetadata().getStatus(),hint);
+            assertTrue(result.componentIndex().getMetadata().getLanguages().contains("python"),hint);
+            assertFalse(result.componentIndex().getMetadata().getDiagnostics().isEmpty(),hint);
+            assertTrue(result.componentIndex().getMetadata().getDiagnostics().stream()
+                    .anyMatch(diagnostic->"broken.py".equals(diagnostic.get("file"))),hint);
+            assertEquals("partial",result.componentIndex().getMetadata().getAnalysisCapabilities().get("sourceCompleteness"),hint);
+            assertTrue(result.endpointIndex().getEndpoints().values().stream().anyMatch(endpoint->"/js-items".equals(endpoint.getFullUri())),hint);
+            assertNotNull(result.componentIndex().getJavascriptExtraction(),hint);
+        }
     }
 
     @Test void repeatedPythonRouteDecoratorsAndSecondaryCsharpTypesKeepDistinctIdentities() throws Exception {

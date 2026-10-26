@@ -58,7 +58,8 @@ class JavaScriptIRServiceTest {
         assertEquals("Endpoint", endpoint.path("type").asText());
         assertEquals("GET", endpoint.path("httpMethod").asText());
         assertEquals("/items/{?}", endpoint.path("url").asText());
-        assertEquals("cimet-javascript", ir.path("metadata").path("extractor").asText(), "Persistence must preserve extractor metadata");
+        assertEquals("per-file-registry", ir.path("metadata").path("languagePolicy").asText());
+        assertEquals("deterministic-static-source", ir.path("metadata").path("extraction").asText(), "Persistence must preserve native extraction metadata");
         assertFalse(ir.path("javascriptExtraction").path("authorizationPolicy").path("supported").asBoolean(true));
         assertEquals("static-javascript-architecture", ir.path("javascriptExtraction").path("architecture").path("analysis").asText());
         assertTrue(ir.path("javascriptExtraction").path("architecture").has("cohesion"));
@@ -79,9 +80,9 @@ class JavaScriptIRServiceTest {
         verify(database).save(any());
     }
 
-    @Test void explicitJavaAndOmittedLanguageUseLegacyJavaExtractorWithoutRequiringManifest() throws Exception {
+    @Test void remoteRepositoryHintsUseNativeRegistryWithoutRequiringManifest() throws Exception {
         JavaScriptIRService javascript = new JavaScriptIRService("vendor/javascript", "node", "", "");
-        for (String language : new String[] {null, "java"}) {
+        for (String language : new String[] {null, "java", "javascript", "typescript"}) {
             SystemRepository request = request("backend");
             request.language = language;
             try (MockedConstruction<IRExtractionService> legacy = mockConstruction(IRExtractionService.class)) {

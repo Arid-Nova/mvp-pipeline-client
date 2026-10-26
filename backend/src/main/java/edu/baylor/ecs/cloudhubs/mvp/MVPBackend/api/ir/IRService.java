@@ -69,21 +69,18 @@ public class IRService {
             throw new IllegalArgumentException("A system name and 1 to 8 repositories are required");
         }
         List<SystemRepository> repositories = Arrays.asList(request.systemRepositories);
-        boolean explicitJavaScript = true;
         for (SystemRepository source : repositories) {
             if (source == null || source.repoBranchPair == null) throw new IllegalArgumentException("Repository configuration is required");
-            String language = RepositoryLanguage.normalize(source.language);
+            RepositoryLanguage.normalize(source.language);
             if (source.componentKind != null && !Set.of("backend","frontend").contains(source.componentKind))
                 throw new IllegalArgumentException("componentKind must be backend or frontend");
             if ("frontend".equals(source.componentKind) && !javaScriptIRService.hasLocalSources())
                 throw new IllegalArgumentException("Frontend source reports require registered local exports");
-            explicitJavaScript &= RepositoryLanguage.javascript(language) && source.componentKind != null;
         }
         ObjectNode result;
-        if (explicitJavaScript) {
-            javaScriptIRService.validateSources(repositories);
-            result = javaScriptIRService.extract(request.systemName, repositories);
-        } else if (javaScriptIRService.hasLocalSources()) {
+        if (javaScriptIRService.hasLocalSources()) {
+            // Language hints never exclude another supported language in a backend root.
+            // The registry extraction attaches rich JS reports and keeps frontend roots as orphans.
             result = javaScriptIRService.extractPolyglot(request.systemName, repositories);
         } else {
             result = objectMapper.valueToTree(basicCreate(request));
@@ -109,9 +106,8 @@ public class IRService {
     /** Derive actual observed languages, never treat a repository hint as proven coverage. */
     static Set<String> detectedLanguages(JsonNode root) {
         Set<String> result = new TreeSet<>();
-        root.path("metadata").path("languages").forEach(language -> { try { result.add(RepositoryLanguage.normalize(language.asText())); } catch (IllegalArgumentException ignored) { } });
         collectLanguages(root, result);
-        if (root.has("javascriptExtraction")) {
+        if (root.hasNonNull("javascriptExtraction")) {
             for (JsonNode snapshot : root.path("javascriptExtraction").path("snapshots")) {
                 for (JsonNode file : snapshot.path("files")) addPathLanguage(file.path("path").asText(), result);
             }
@@ -121,15 +117,28 @@ public class IRService {
     }
     private static void collectLanguages(JsonNode node, Set<String> result) {
         if (node.isObject()) {
-            String language = node.path("metadata").path("language").asText();
-            if (!language.isBlank()) {
-                try { String normalized = RepositoryLanguage.normalize(language); if (!Set.of("auto", "polyglot").contains(normalized)) result.add(normalized); }
-                catch (IllegalArgumentException ignored) { }
+            JsonNode metadata = node.path("metadata");
+            addObservedLanguage(metadata.path("language").asText(), result);
+            metadata.path("languages").forEach(language -> addObservedLanguage(language.asText(), result));
+            String physicalPath = metadata.path("sourcePath").asText();
+            String sourceFile = metadata.path("sourceFile").asText();
+            addPathLanguage(physicalPath, result);
+            addPathLanguage(sourceFile, result);
+            if (physicalPath.isBlank() && sourceFile.isBlank()
+                    && Set.of("JClass", "JEnum", "JInterface", "JRecord", "JSModule", "ProjectFile", "ConfigFile")
+                    .contains(node.path("type").asText())) {
+                // Older saved source nodes lack language metadata. Endpoint/RestCall paths are URLs.
+                addPathLanguage(node.path("path").asText(), result);
             }
-            addPathLanguage(node.path("path").asText(), result);
-            addPathLanguage(node.path("file").asText(), result);
             node.elements().forEachRemaining(child -> collectLanguages(child, result));
         } else if (node.isArray()) node.forEach(child -> collectLanguages(child, result));
+    }
+    private static void addObservedLanguage(String language, Set<String> result) {
+        if (language.isBlank()) return;
+        try {
+            String normalized = RepositoryLanguage.normalize(language);
+            if (!Set.of("auto", "polyglot").contains(normalized)) result.add(normalized);
+        } catch (IllegalArgumentException ignored) { }
     }
     private static void addPathLanguage(String path, Set<String> result) {
         String name = path.toLowerCase(Locale.ROOT);

@@ -26,19 +26,13 @@ public class ComponentExtractionService {
             throw new IllegalArgumentException("A system name and between 1 and 8 repositories are required");
         }
         List<SystemRepository> repositories = Arrays.asList(request.getSystemRepositories());
-        boolean explicitJavaScript = true;
         for (SystemRepository repository : repositories) {
             if (repository == null || repository.getRepoBranchPair() == null) throw new IllegalArgumentException("Repository configuration is required");
-            String language = RepositoryLanguage.normalize(repository.getLanguage());
+            RepositoryLanguage.normalize(repository.getLanguage());
             if (repository.getComponentKind() != null && !Set.of("backend","frontend").contains(repository.getComponentKind()))
                 throw new IllegalArgumentException("componentKind must be backend or frontend");
             if ("frontend".equals(repository.getComponentKind()) && !javascript.hasLocalSources())
                 throw new IllegalArgumentException("Frontend source reports require registered local exports");
-            explicitJavaScript &= RepositoryLanguage.javascript(language) && repository.getComponentKind() != null;
-        }
-        if (explicitJavaScript) {
-            javascript.validateSources(repositories);
-            return new JavaScriptComponentIndexer().index(request.getSystemName(), javascript.extract(repositories));
         }
         List<RepositoryConfig> configurations = repositories.stream().map(repository -> new RepositoryConfig(
                 new RepositoryBranchPair(repository.getRepoBranchPair().getRepositoryURL(), repository.getRepoBranchPair().getBranchName()), repository.getCommitID())).toList();
@@ -50,6 +44,12 @@ public class ComponentExtractionService {
         IndexBundle result = indexPolyglot(system,config,request,provenance);
         var snapshots = javascript.extractAvailableSnapshots(repositories);
         if (!snapshots.isEmpty()) {
+            // Request language values are hints. Only a complete native scan can establish
+            // that the rich JavaScript projection covers every observed backend language.
+            var observed=result.componentIndex().getMetadata().getLanguages();
+            if(observed!=null && !observed.isEmpty() && Set.of("javascript","typescript").containsAll(observed)
+                    && !"partial".equals(result.componentIndex().getMetadata().getStatus()))
+                return new JavaScriptComponentIndexer().index(request.getSystemName(),snapshots);
             var clients=snapshots.stream().filter(snapshot->"frontend".equals(snapshot.path("component").path("kind").asText())).toList();
             if(!clients.isEmpty()) result=merge(result,new JavaScriptComponentIndexer().index(request.getSystemName(),clients));
             result.componentIndex().setJavascriptExtraction(
