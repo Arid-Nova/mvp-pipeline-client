@@ -80,9 +80,11 @@ use the per-file registry. Accepted named hints are `java`, `javascript`, `types
 `python`, `go`, `csharp`; aliases `js`, `ts`, `c#` and `c-sharp` normalize to these names.
 The actual observed languages appear in IR `metadata.languages` and component-index
 `metadata.languages`. Existing Java request fields and Java-only source analysis remain
-available; a Java-only scan does not require Node. Requests containing JavaScript/TypeScript
-with an explicit `componentKind` use the existing richer source-report workflow described
-in [JavaScript analysis](javascript-analysis.md).
+available; a Java-only scan does not require Node. Backend roots always use native per-file
+extraction, including when their hint is JavaScript or TypeScript. Registered sources also
+retain the richer reports described in [JavaScript analysis](javascript-analysis.md).
+Component indexing uses the richer JS/TS-only projection only after a complete native scan
+confirms its language coverage; mixed and partial results retain native indexes and diagnostics.
 
 Without a source registry, the engine retains normal Git clone/checkout handling.
 With `CIMET_LOCAL_SOURCES_FILE` configured, every requested URL and exact commit must match

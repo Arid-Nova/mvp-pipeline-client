@@ -80,7 +80,7 @@ npx --no-install tsc --noEmit
 npm test -- --watchAll=false --runInBand --testMatch='**/ExpressSecurityReport.test.tsx' '**/polyglotGraph.test.ts' --testPathIgnorePatterns='node_modules'
 ```
 
-The two source-evidence report tests and ten graph parser tests passed (12 total).
+The six source-evidence report tests and thirteen graph parser tests passed (19 total).
 The graph tests invoke the real snapshot/comparison parsers with native-IR-shaped
 JSModule/JClass fixtures: neutral UNKNOWN containers and methods, calls originating
 in those containers, source-module additions/removals, multiple classes in one
@@ -151,3 +151,21 @@ call with networking disabled. The target module was not executed.
 
 These checks cover the extraction/runtime integration. The complete deployed
 AridNova database and model-service stack was not started by this validation.
+
+## Review regression checks (2026-10-26)
+
+Both JVM `mvn verify` builds passed after the review fixes: 15 backend tests and
+14 component tests, with no failures, errors or skipped tests. The Aegis suite
+passed 25 tests; frontend TypeScript checking, the 19 focused graph/report tests
+above and the standard production build passed. Existing frontend warnings and
+the unrelated chatbot baseline described above remain separate.
+
+The added cases cover null JavaScript addons on Java IRs; module source paths
+versus nested endpoint URLs; legacy persisted Java comparisons with omitted,
+`auto` and `polyglot` hints; unchanged repositories in partial comparisons; HTTP
+route suffixes excluded from language detection; named JS/TS hints retaining all
+backend languages; malformed non-JavaScript sources preserving partial coverage;
+detail-view module identities across files/services; and report-dialog keyboard
+focus containment and restoration. Existing pure-Java dispatch, rich JavaScript
+security projections, frontend orphans and saved JavaScript comparisons remain
+covered. These regressions use authored source fixtures and no target execution.

@@ -24,7 +24,8 @@ see [security coverage](javascript-security.md) and the [policy API](../javascri
 ```
 
 `componentKind` is `backend` or `frontend`. `componentName` defaults to the repository name.
-JavaScript and TypeScript hints parse the supported JS/JSX/TS/TSX/module extensions together.
+Backend roots scan every supported source language even with a JavaScript or TypeScript
+hint. Registered sources additionally retain the richer JS/JSX/TS/TSX/module reports.
 Frontend source modules become IR orphans; backend boundaries are declared by the operator.
 The server must configure `CIMET_LOCAL_SOURCES_FILE` as described in the general integration
 guide. Requests select registered URL/commit identities, never arbitrary source directories.
