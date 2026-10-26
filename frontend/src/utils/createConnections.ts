@@ -1,4 +1,5 @@
 import type { IRData, Method } from '../parsers/getData';
+import { sourceModuleNodeName } from '../parsers/getData';
 import { showError } from './notifications';
 
 interface FilteredNode {
@@ -93,7 +94,11 @@ export default function filterNodes(
 
                 type MethodMap = { [key: string]: any };
                 for (const component of components) {
-                    const componentName = component.implementedTypes?.[0] || component.name;
+                    // Neutral modules are declarations in source files, not
+                    // globally named Java services or implementation aliases.
+                    const componentName = type === 'module'
+                        ? sourceModuleNodeName(msName, component)
+                        : component.implementedTypes?.[0] || component.name;
                     const methods: MappedMethod[] = component.methods.map((m: Method) => ({
                         name: m.name,
                         parameters: m.parameters,

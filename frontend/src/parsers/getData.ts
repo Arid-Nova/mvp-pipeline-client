@@ -26,6 +26,7 @@ export interface MethodCall {
 
 export interface Controller {
     type?: string;
+    path?: string;
     metadata?: { language?: string; sourceFile?: string; sourcePath?: string; declaredType?: string };
     methods: Method[];
     implementedTypes: string[];
@@ -53,7 +54,7 @@ export interface IRData {
 }
 
 export function sourceModuleNodeName(microservice: string, module: Controller): string {
-    const source = module.metadata?.sourceFile || module.metadata?.sourcePath;
+    const source = module.metadata?.sourceFile || module.metadata?.sourcePath || module.path;
     const declaration = module.metadata?.declaredType || module.name;
     return `${microservice}.${source ? `${source}#${declaration}` : declaration}`;
 }

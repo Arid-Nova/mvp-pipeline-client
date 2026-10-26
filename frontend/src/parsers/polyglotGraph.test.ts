@@ -70,7 +70,62 @@ test('detailed component view retains UNKNOWN modules without assigning a servic
     expect(result).not.toBeNull();
     expect(result[0].nodes).toHaveLength(2);
     expect(result[0].nodes.every(node => node.nodeType === 'module')).toBe(true);
-    expect(result[0].nodes.find(node => node.nodeName === 'Worker')?.methods[0].name).toBe('Worker.run');
+    expect(result[0].nodes.find(node => node.nodeName === 'workers.src/jobs.py#Worker')?.methods[0].name).toBe('Worker.run');
+});
+
+test('detailed modules retain service, physical source and declaration identities rather than implementation aliases', () => {
+    const ir = fixture();
+    const original = ir.microservices[0].unknowns![0];
+    original.implementedTypes = ['SharedInterface'];
+    const second = JSON.parse(JSON.stringify(original));
+    second.metadata.sourcePath = 'other/jobs.py';
+    ir.microservices[0].unknowns!.push(second);
+    const otherService = JSON.parse(JSON.stringify(ir.microservices[0]));
+    otherService.name = 'other-workers';
+    ir.microservices.push(otherService);
+
+    const graph = filterNodes(ir, ['workers', 'other-workers'])![0];
+    expect(graph.nodes.map(node => node.nodeName)).toEqual([
+        'workers.src/jobs.py#Worker', 'workers.other/jobs.py#Worker',
+        'other-workers.src/jobs.py#Worker', 'other-workers.other/jobs.py#Worker'
+    ]);
+    expect(new Set(graph.nodes.map(node => node.nodeName)).size).toBe(graph.nodes.length);
+    expect(graph.links).toEqual([]);
+});
+
+test('same-named neutral modules cannot overwrite Java service methods or become guessed dependency targets', () => {
+    const ir = fixture();
+    const service: any = { name: 'Worker', implementedTypes: [], packageName: 'legacy',
+        methods: [{ name: 'run', parameters: [], returnType: 'JavaResult' }] };
+    const caller: any = { name: 'Caller', implementedTypes: [], packageName: 'legacy', methods: [],
+        methodCalls: [
+            { objectType: 'Worker', name: 'run', calledFrom: 'call', parameterContents: [] },
+            { objectType: 'client.ts', name: 'fetch-user', calledFrom: 'call', parameterContents: [] }
+        ] };
+    ir.microservices[0].services.push(service);
+    ir.microservices[0].controllers.push(caller);
+    const graph = filterNodes(ir, ['workers', 'client'])![0];
+    expect(graph.nodes.some(node => node.nodeName === 'Worker' && node.nodeType === 'SERVICE')).toBe(true);
+    expect(graph.links).toEqual([expect.objectContaining({
+        source: 'Caller', target: 'Worker', sourceMicroservice: 'workers', destinationMicroservice: 'workers',
+        requests: [expect.objectContaining({ endpointFunction: 'run', msReturn: 'JavaResult' })]
+    })]);
+});
+
+test('legacy generic modules use their top-level physical path when source metadata is absent', () => {
+    const ir = fixture();
+    const first = ir.microservices[0].unknowns![0];
+    first.path = 'src/jobs.py';
+    delete first.metadata;
+    const second = JSON.parse(JSON.stringify(first));
+    second.path = 'other/jobs.py';
+    ir.microservices[0].unknowns!.push(second);
+    const expected = ['workers.src/jobs.py#Worker', 'workers.other/jobs.py#Worker'];
+    expect(filterNodes(ir, ['workers'])![0].nodes.map(node => node.nodeName)).toEqual(expected);
+    expect(getData(ir)!.nodes.filter(node => node.nodeType === 'module' && node.parentMicroservice === 'workers')
+        .map(node => node.nodeName)).toEqual(expected);
+    expect(compareChanges(ir, ir)!.nodes.filter(node => node.nodeType === 'module' && node.parentMicroservice === 'workers'))
+        .toHaveLength(2);
 });
 
 test('same-named source containers in different files retain distinct graph identities', () => {
@@ -110,6 +165,8 @@ test('multiple generic classes in one physical C# file retain distinct neutral m
     const graph = getData(ir)!;
     const modules = graph.nodes.filter(node => node.parentMicroservice === 'workers' && node.nodeType === 'module');
     expect(modules.map(node => node.nodeName)).toEqual(['workers.Worker.cs#Processor', 'workers.Worker.cs#Observer']);
+    expect(filterNodes(ir, ['workers'])![0].nodes.map(node => node.nodeName))
+        .toEqual(['workers.Worker.cs#Processor', 'workers.Worker.cs#Observer']);
     const comparison = compareChanges(ir, ir)!;
     expect(comparison.nodes.filter(node => node.nodeType === 'module' && node.parentMicroservice === 'workers')).toHaveLength(2);
     expect(showError).not.toHaveBeenCalled();
