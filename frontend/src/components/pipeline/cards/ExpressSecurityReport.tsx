@@ -1,9 +1,41 @@
-import React, { useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 export const ExpressSecurityReport: React.FC<{ report: any; onClose: () => void }> = ({ report, onClose }) => {
     const [query, setQuery] = useState('');
     const [tab, setTab] = useState<'findings' | 'endpoints'>('findings');
+    const dialogRef = useRef<HTMLElement>(null);
+    const closeRef = useRef<HTMLButtonElement>(null);
+    useLayoutEffect(() => {
+        const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        closeRef.current?.focus();
+        return () => { if (opener?.isConnected) opener.focus(); };
+    }, []);
+    const handleKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            event.stopPropagation();
+            onClose();
+        } else if (event.key === 'Tab') {
+            const dialog = dialogRef.current;
+            if (!dialog) return;
+            const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(
+                'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])'
+            )).filter(element => element.tabIndex >= 0 && !element.closest('[hidden], [inert]'));
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (!first) {
+                event.preventDefault();
+                dialog.focus();
+            } else if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
+                event.preventDefault();
+                first.focus();
+            }
+        }
+    };
     const findings: any[] = Array.isArray(report.findings) ? report.findings : [];
     const endpoints: any[] = Array.isArray(report.endpoints) ? report.endpoints : [];
     const rows = (tab === 'findings' ? findings : endpoints).filter(row =>
@@ -20,15 +52,15 @@ export const ExpressSecurityReport: React.FC<{ report: any; onClose: () => void 
     return createPortal(
         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 p-4"
             onClick={event => { event.stopPropagation(); if (event.target === event.currentTarget) onClose(); }}>
-            <section role="dialog" aria-modal="true" aria-labelledby="express-security-title"
+            <section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="express-security-title" tabIndex={-1}
                 className="max-h-[90vh] w-full max-w-5xl overflow-auto rounded-xl border border-slate-600 bg-slate-900 p-6 text-slate-100"
-                onKeyDown={event => { if (event.key === 'Escape') onClose(); }}>
+                onKeyDown={handleKeyDown}>
                 <div className="flex items-start justify-between gap-4">
                     <div>
                         <h2 id="express-security-title" className="text-xl font-semibold">Express security analysis</h2>
                         <p className="mt-1 text-sm text-amber-300">{report.status === 'complete' ? 'Declared source checks complete' : 'Partial source analysis'} · runtime behavior is assessed separately</p>
                     </div>
-                    <button autoFocus onClick={onClose} className="rounded border border-slate-600 px-3 py-1">Close</button>
+                    <button ref={closeRef} onClick={onClose} className="rounded border border-slate-600 px-3 py-1">Close</button>
                 </div>
                 <p className="my-4 text-sm text-slate-300">
                     {endpoints.length} endpoint records · {findings.length} findings and review candidates.
