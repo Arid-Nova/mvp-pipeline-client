@@ -9,7 +9,7 @@ def unsupported_source_analysis(ir_data: Dict[str, Any]) -> Optional[Dict[str, A
         return {'status': 'unsupported', 'capability': 'source-security-analysis', 'findings': [],
                 'reason': 'Security analysis is unsupported for these extracted languages. No Java source analysis, graph replacement or model call was performed.',
                 'languages': sorted(languages)}
-    javascript = bool(languages & {'javascript', 'typescript'}) or 'javascriptExtraction' in ir_data
+    javascript = bool(languages & {'javascript', 'typescript'}) or ir_data.get('javascriptExtraction') is not None
     metadata = ir_data.get('metadata') or {}
     javascript = javascript or metadata.get('extractor') == 'cimet-javascript'
     modules = list(ir_data.get('orphans') or [])

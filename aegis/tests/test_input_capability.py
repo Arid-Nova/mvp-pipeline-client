@@ -7,6 +7,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from src.analysis.input_capability import unsupported_source_analysis
+from src.analysis.source_scope import source_languages
 from security_fixture import javascript_ir
 
 
@@ -25,6 +26,27 @@ class InputCapabilityTests(unittest.TestCase):
     def test_java_ir_is_not_rejected(self):
         self.assertIsNone(unsupported_source_analysis({'microservices': [
             {'controllers': [{'type': 'JClass', 'metadata': {'language': 'Java'}}]}]}))
+
+    def test_null_javascript_addon_does_not_reject_java_ir(self):
+        ir = {'javascriptExtraction': None, 'microservices': [
+            {'controllers': [{'type': 'JClass', 'path': 'src/Controller.java'}]}]}
+        self.assertEqual(source_languages(ir), {'java'})
+        self.assertIsNone(unsupported_source_analysis(ir))
+
+    def test_null_javascript_addon_does_not_bypass_javascript_guard(self):
+        ir = {'javascriptExtraction': None, 'metadata': {'languages': ['javascript']}}
+        self.assertEqual(unsupported_source_analysis(ir)['status'], 'unsupported')
+
+    def test_module_source_path_is_distinct_from_nested_endpoint_url(self):
+        controller = {'type': 'JClass', 'path': 'src/DownloadController.java',
+                      'methods': [{'type': 'Endpoint', 'url': '/downloads/client.py'}]}
+        ir = {'microservices': [{'controllers': [controller]}]}
+        self.assertEqual(source_languages(ir), {'java'})
+        self.assertIsNone(unsupported_source_analysis(ir))
+
+        controller['path'] = 'src/controller.py'
+        self.assertEqual(source_languages(ir), {'python'})
+        self.assertEqual(unsupported_source_analysis(ir)['status'], 'unsupported')
 
     def test_facade_checks_capability_before_cache_clone_graph_or_model(self):
         # Isolate optional integrations only for import; execute the actual facade method.
