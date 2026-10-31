@@ -556,27 +556,30 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({
                     </div>
 
                     {buildAvailable && (
-                        <div
-                            data-testid="chatbot-mode-toggle"
-                            role="group"
-                            aria-label="Assistant mode"
-                            className="px-4 pt-3 flex gap-1.5 bg-slate-900/95 shrink-0"
-                        >
-                            {([["ask", "Ask"], ["build", "Build a pipeline"]] as const).map(([value, label]) => (
-                                <button
-                                    key={value}
-                                    type="button"
-                                    aria-pressed={mode === value}
-                                    onClick={() => selectMode(value)}
-                                    className={`text-[11px] font-semibold px-3 py-1.5 rounded-lg border transition-colors ${
-                                        mode === value
-                                            ? "border-cyan-500/50 bg-cyan-500/15 text-cyan-200"
-                                            : "border-white/10 text-slate-400 hover:text-slate-200 hover:bg-white/5"
-                                    }`}
-                                >
-                                    {label}
-                                </button>
-                            ))}
+                        <div className="px-4 py-3 flex bg-slate-900/95 shrink-0">
+                            <div
+                                data-testid="chatbot-mode-toggle"
+                                role="radiogroup"
+                                aria-label="Assistant mode"
+                                className="flex p-1 bg-slate-800/50 rounded-lg w-fit"
+                            >
+                                {([["ask", "Ask"], ["build", "Build a pipeline"]] as const).map(([value, label]) => (
+                                    <button
+                                        key={value}
+                                        type="button"
+                                        role="radio"
+                                        aria-checked={mode === value}
+                                        onClick={() => selectMode(value)}
+                                        className={`text-xs font-medium px-4 py-1.5 rounded-md transition-all duration-200 ${
+                                            mode === value
+                                                ? "bg-cyan-500/20 text-cyan-300 shadow-sm"
+                                                : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/30"
+                                        }`}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     )}
 
