@@ -37,8 +37,8 @@ public final class LocalExtractionCli {
             Files.createDirectories(output.toAbsolutePath().getParent());
 
         Files.write(output, mapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(result), StandardOpenOption.CREATE_NEW);
-        System.out.println("IR extracted locally: " + result.path("microservices").size() + " backend components, "
-                + result.path("orphans").size() + " orphan modules; no downstream pipeline stages were invoked.");
+        // System.out.println("IR extracted locally: " + result.path("microservices").size() + " backend components, "
+        //         + result.path("orphans").size() + " orphan modules; no downstream pipeline stages were invoked.");
     }
 
     private static String setting(String name, String fallback) {
