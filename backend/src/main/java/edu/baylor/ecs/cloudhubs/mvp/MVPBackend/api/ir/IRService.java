@@ -68,16 +68,23 @@ public class IRService {
                 || request.systemRepositories.length == 0 || request.systemRepositories.length > 8) {
             throw new IllegalArgumentException("A system name and 1 to 8 repositories are required");
         }
+
         List<SystemRepository> repositories = Arrays.asList(request.systemRepositories);
+
         for (SystemRepository source : repositories) {
-            if (source == null || source.repoBranchPair == null) throw new IllegalArgumentException("Repository configuration is required");
+            if (source == null || source.repoBranchPair == null) 
+                throw new IllegalArgumentException("Repository configuration is required");
+           
             RepositoryLanguage.normalize(source.language);
+            
             if (source.componentKind != null && !Set.of("backend","frontend").contains(source.componentKind))
                 throw new IllegalArgumentException("componentKind must be backend or frontend");
+            
             if ("frontend".equals(source.componentKind) && !javaScriptIRService.hasLocalSources())
                 throw new IllegalArgumentException("Frontend source reports require registered local exports");
         }
         ObjectNode result;
+
         if (javaScriptIRService.hasLocalSources()) {
             // Language hints never exclude another supported language in a backend root.
             // The registry extraction attaches rich JS reports and keeps frontend roots as orphans.
@@ -85,20 +92,28 @@ public class IRService {
         } else {
             result = objectMapper.valueToTree(basicCreate(request));
         }
+
         Set<String> languages = detectedLanguages(result);
+        
         ObjectNode metadata = result.withObject("/metadata");
         metadata.put("languagePolicy", "per-file-registry");
         metadata.set("languages", objectMapper.valueToTree(languages));
+        
         ObjectNode capabilities = metadata.putObject("capabilities");
         boolean partial="partial".equals(metadata.path("status").asText());
-        for(JsonNode snapshot:result.path("javascriptExtraction").path("snapshots")) partial |= !snapshot.path("diagnostics").isEmpty();
+        
+        for(JsonNode snapshot:result.path("javascriptExtraction").path("snapshots")) 
+            partial |= !snapshot.path("diagnostics").isEmpty();
+
         metadata.put("status",partial?"partial":"complete-for-supported-source-patterns");
         capabilities.put("snapshotExtraction", partial?"partial":"supported");
         capabilities.put("architecture", "partial");
         capabilities.put("authorizationPolicy", languages.equals(Set.of("java")) ? "partial" : "unsupported");
         capabilities.put("formalVerification", "unsupported");
         capabilities.put("polyglotDelta", "partial");
-        if (languages.equals(Set.of("java"))) enrichWithAntiPatterns(result);
+
+        if (languages.equals(Set.of("java"))) 
+            enrichWithAntiPatterns(result);
 
         return result;
     }
@@ -107,31 +122,42 @@ public class IRService {
     static Set<String> detectedLanguages(JsonNode root) {
         Set<String> result = new TreeSet<>();
         collectLanguages(root, result);
+        
         if (root.hasNonNull("javascriptExtraction")) {
             for (JsonNode snapshot : root.path("javascriptExtraction").path("snapshots")) {
-                for (JsonNode file : snapshot.path("files")) addPathLanguage(file.path("path").asText(), result);
+                for (JsonNode file : snapshot.path("files")) 
+                    addPathLanguage(file.path("path").asText(), result);
             }
-            if (result.isEmpty()) result.add("javascript");
+
+            if (result.isEmpty()) 
+                result.add("javascript");
         }
+
         return result;
     }
+
     private static void collectLanguages(JsonNode node, Set<String> result) {
         if (node.isObject()) {
             JsonNode metadata = node.path("metadata");
             addObservedLanguage(metadata.path("language").asText(), result);
             metadata.path("languages").forEach(language -> addObservedLanguage(language.asText(), result));
+            
             String physicalPath = metadata.path("sourcePath").asText();
             String sourceFile = metadata.path("sourceFile").asText();
             addPathLanguage(physicalPath, result);
             addPathLanguage(sourceFile, result);
+            
             if (physicalPath.isBlank() && sourceFile.isBlank()
                     && Set.of("JClass", "JEnum", "JInterface", "JRecord", "JSModule", "ProjectFile", "ConfigFile")
                     .contains(node.path("type").asText())) {
                 // Older saved source nodes lack language metadata. Endpoint/RestCall paths are URLs.
                 addPathLanguage(node.path("path").asText(), result);
             }
+
             node.elements().forEachRemaining(child -> collectLanguages(child, result));
-        } else if (node.isArray()) node.forEach(child -> collectLanguages(child, result));
+        } else if (node.isArray()){
+            node.forEach(child -> collectLanguages(child, result));
+        } 
     }
     private static void addObservedLanguage(String language, Set<String> result) {
         if (language.isBlank()) return;
@@ -142,12 +168,18 @@ public class IRService {
     }
     private static void addPathLanguage(String path, Set<String> result) {
         String name = path.toLowerCase(Locale.ROOT);
-        if (name.endsWith(".java")) result.add("java");
-        else if (name.matches(".*\\.(?:ts|tsx|mts|cts)$")) result.add("typescript");
-        else if (name.matches(".*\\.(?:js|jsx|mjs|cjs)$")) result.add("javascript");
-        else if (name.endsWith(".py")) result.add("python");
-        else if (name.endsWith(".go")) result.add("go");
-        else if (name.endsWith(".cs")) result.add("csharp");
+        if (name.endsWith(".java")) 
+            result.add("java");
+        else if (name.matches(".*\\.(?:ts|tsx|mts|cts)$")) 
+            result.add("typescript");
+        else if (name.matches(".*\\.(?:js|jsx|mjs|cjs)$")) 
+            result.add("javascript");
+        else if (name.endsWith(".py")) 
+            result.add("python");
+        else if (name.endsWith(".go")) 
+            result.add("go");
+        else if (name.endsWith(".cs")) 
+            result.add("csharp");
     }
 
     /** This method is used to retrieve metadata for an IR by its name.
@@ -167,6 +199,7 @@ public class IRService {
         // 2. Searching based on generic pattern
         if (getIRMetaByName(flexiblePattern)) 
             return "We found versioned IRs for this system!";
+        
         throw new IllegalArgumentException("No microservice system found with name pattern: " + irRequestModel.getSystemName());
     }
 
@@ -471,7 +504,9 @@ public class IRService {
                     repo.commitID
             ));
         }
+
         Config config = new Config(irRequestModel.systemName, systemRepositories);
+        
         return new IRExtractionService(config);
     }
 

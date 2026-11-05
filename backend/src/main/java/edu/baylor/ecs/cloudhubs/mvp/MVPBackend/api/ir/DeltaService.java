@@ -28,6 +28,7 @@ import edu.university.ecs.lab.common.config.Config;
 import edu.university.ecs.lab.delta.models.SystemChange;
 import edu.university.ecs.lab.common.config.RepositoryConfig;
 import edu.university.ecs.lab.common.config.RepositoryBranchPair;
+import edu.university.ecs.lab.delta.services.SnapshotDeltaService;
 import edu.university.ecs.lab.delta.services.DeltaExtractionService;
 
 import lombok.extern.log4j.Log4j2;
@@ -63,32 +64,46 @@ public class DeltaService {
 
         if (requestModel == null || requestModel.getId() == null || requestModel.getId().isBlank())
             throw new IllegalArgumentException("A saved base IR ID is required");
+        
         JsonNode saved = getRawIRById(requestModel.getId());
+        
         if ("per-file-registry".equals(saved.path("metadata").path("languagePolicy").asText())
                 && !"cimet-javascript".equals(saved.path("metadata").path("extractor").asText())) {
+            
             if (requestModel.comparingRepositories == null || requestModel.comparingRepositories.length == 0)
                 throw new IllegalArgumentException("Comparison repositories are required");
+
             IRRequestModel comparisonRequest = new IRRequestModel();
             comparisonRequest.systemName = requestModel.systemName;
             comparisonRequest.systemRepositories = requestModel.comparingRepositories;
+            
             ObjectNode next = new IRService(null, javaScriptIRService).extractIR(comparisonRequest);
             ObjectNode comparison = compareSnapshots(saved,next);
             comparison.put("baseIrId",requestModel.getId());
+            
             return saveDelta(comparison,requestModel);
         }
+        
         if (saved.hasNonNull("javascriptExtraction")) {
             requireJavaScriptOnly(requestModel.comparingRepositories);
+            
             JsonNode extraction = saved.path("javascriptExtraction");
             int backendSnapshots = 0;
+            
             for (JsonNode snapshot : extraction.path("snapshots"))
-                if ("backend".equals(snapshot.path("component").path("kind").asText())) backendSnapshots++;
+                if ("backend".equals(snapshot.path("component").path("kind").asText())) 
+                    backendSnapshots++;
+            
             if (saved.path("microservices").size() > backendSnapshots)
                 throw new IllegalArgumentException("Compare Java and JavaScript histories separately; the source models have different coverage");
+            
             ObjectNode next = javaScriptIRService.extract(requestModel.systemName, Arrays.asList(requestModel.comparingRepositories));
             ObjectNode comparison = new JavaScriptAnalysisDelta().compare(saved, next);
             comparison.put("baseIrId", requestModel.getId());
+            
             return saveDelta(comparison, requestModel);
         }
+        
         if ((javaScriptIRService != null && javaScriptIRService.hasLocalSources())
                 || usesDiscovery(requestModel.systemRepositories) || usesDiscovery(requestModel.comparingRepositories)) {
             // Pre-registry Java histories remain comparable with the new default discovery hint.
@@ -96,9 +111,11 @@ public class DeltaService {
             IRRequestModel comparisonRequest = new IRRequestModel();
             comparisonRequest.systemName = requestModel.systemName;
             comparisonRequest.systemRepositories = legacyComparisonRepositories(requestModel);
+            
             ObjectNode next = new IRService(null, javaScriptIRService).extractIR(comparisonRequest);
             ObjectNode comparison = compareSnapshots(saved, next);
             comparison.put("baseIrId", requestModel.getId());
+            
             return saveDelta(comparison, requestModel);
         }
 
@@ -138,17 +155,24 @@ public class DeltaService {
     ObjectNode compareSnapshots(JsonNode before, JsonNode after) throws IOException {
         MicroserviceSystem base = objectMapper.treeToValue(before,MicroserviceSystem.class);
         MicroserviceSystem next = objectMapper.treeToValue(after,MicroserviceSystem.class);
+        
         MicroserviceSystem.setParentReferencesRecursively(base,null);
         MicroserviceSystem.setParentReferencesRecursively(next,null);
-        ObjectNode result = objectMapper.valueToTree(edu.university.ecs.lab.delta.services.SnapshotDeltaService.compare(base,next));
+        
+        ObjectNode result = objectMapper.valueToTree(SnapshotDeltaService.compare(base,next));
         result.withObject("/metadata").put("analysis","polyglot-structural-snapshot-delta");
         result.withObject("/metadata").put("behavioralEquivalence","unsupported");
         result.withObject("/metadata").set("languages",objectMapper.valueToTree(IRService.detectedLanguages(after)));
+        
         if (before.hasNonNull("javascriptExtraction") && after.hasNonNull("javascriptExtraction")) {
-            try { result.set("javascriptAnalysisDelta",new JavaScriptAnalysisDelta().compare(before,after)); }
+            try { 
+                result.set("javascriptAnalysisDelta",new JavaScriptAnalysisDelta().compare(before,after)); 
+            }
             catch(IOException incompatible) {
-                result.putObject("javascriptAnalysisDelta").put("analysis","javascript-system-change").put("status","partial")
-                        .put("reason","JavaScript component identities/boundaries changed or report coverage is incompatible; the native structural delta and target snapshot remain available.");
+                result.putObject("javascriptAnalysisDelta")
+                    .put("analysis","javascript-system-change")
+                    .put("status","partial")
+                    .put("reason","JavaScript component identities/boundaries changed or report coverage is incompatible; the native structural delta and target snapshot remain available.");
             }
         }
         return result;
@@ -188,18 +212,28 @@ public class DeltaService {
         if (request.systemRepositories == null || request.systemRepositories.length == 0
                 || request.comparingRepositories == null || request.comparingRepositories.length == 0)
             throw new IllegalArgumentException("Base and comparison repositories are required");
+        
         Map<RepositoryBranchPair, SystemRepository> targets = new LinkedHashMap<>();
+
         for (SystemRepository source : request.systemRepositories) {
             RepositoryBranchPair identity = repositoryIdentity(source);
+            
             if (targets.putIfAbsent(identity, source) != null)
                 throw new IllegalArgumentException("Base repository identities must be unique");
         }
+
         Set<RepositoryBranchPair> compared = new HashSet<>();
+
         for (SystemRepository source : request.comparingRepositories) {
             RepositoryBranchPair identity = repositoryIdentity(source);
             SystemRepository base = targets.get(identity);
-            if (base == null) throw new IllegalArgumentException("A comparison repository was not present in the base configuration");
-            if (!compared.add(identity)) throw new IllegalArgumentException("One target revision per repository is required");
+            
+            if (base == null) 
+                throw new IllegalArgumentException("A comparison repository was not present in the base configuration");
+            
+            if (!compared.add(identity)) 
+                throw new IllegalArgumentException("One target revision per repository is required");
+
             SystemRepository target = new SystemRepository();
             target.repoBranchPair = source.repoBranchPair;
             target.commitID = source.commitID;
@@ -208,13 +242,16 @@ public class DeltaService {
             target.componentKind = source.componentKind == null ? base.componentKind : source.componentKind;
             targets.put(identity, target);
         }
+
         return targets.values().toArray(SystemRepository[]::new);
     }
 
     private static RepositoryBranchPair repositoryIdentity(SystemRepository source) {
         if (source == null || source.repoBranchPair == null)
             throw new IllegalArgumentException("Repository configuration is required");
+        
         RepositoryLanguage.normalize(source.language);
+        
         return new RepositoryBranchPair(source.repoBranchPair.repositoryURL, source.repoBranchPair.branchName);
     }
 
