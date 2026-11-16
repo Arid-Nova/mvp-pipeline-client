@@ -137,7 +137,7 @@ npm test -- --watchAll=false --runInBand --testMatch='**/ChatbotPanel.test.tsx' 
 
 ## Source pin, JVM integration and containers
 
-The final engine source pin is `aa4baa3dab4bafb0be2a97d8c2ff9d1eadc8aafb`
+The initial engine source pin was `aa4baa3dab4bafb0be2a97d8c2ff9d1eadc8aafb`
 (companion extraction-library PR #29). A fresh remote source checkout was built
 successfully with `python scripts/build_cimet.py`, without the development override.
 Both JVM services then passed `mvn verify`: 10 backend and 12 component tests.
@@ -169,3 +169,27 @@ detail-view module identities across files/services; and report-dialog keyboard
 focus containment and restoration. Existing pure-Java dispatch, rich JavaScript
 security projections, frontend orphans and saved JavaScript comparisons remain
 covered. These regressions use authored source fixtures and no target execution.
+
+## Maintainer review integration (2026-11-16)
+
+The current immutable engine source pin is
+`b095c17e8ca19bc23afd5b0aa65d10c8568796cb`. A clean remote checkout built
+through `scripts/build_cimet.py` without a development override; both generated
+service manifests matched the lock and the same built JAR hash. The extraction
+library's Windows and Ubuntu CI passed on that commit.
+
+Both JVM services passed `mvn verify`: 15 backend and 17 component tests, with
+zero failures, errors or skipped tests. The new source fixture covers seven
+declarations in one Java file, repeated nested `Worker` names, distinct native
+and component identities, source-bound constructors/annotations, four routes,
+different ADMIN/EDITOR roles and 201/202 response codes, and actual nested method
+CFG bodies beside a record. Two configuration parity cases ensure that adding a
+sibling record preserves existing security rules and observed authentication.
+
+Component extraction now resolves physical source separately from synthetic
+declaration identities and reuses exact owner-bound Java 21 ASTs. Active source
+configuration parsers also use isolated Java 21 configuration. Unresolved response
+argument types retain the existing `Object` placeholder without discarding
+directly observed response status; no global symbol solver or runtime reachability
+is inferred. The engine's versioned full-target delta bindings require older
+deltas to be regenerated; existing saved base IRs remain usable.

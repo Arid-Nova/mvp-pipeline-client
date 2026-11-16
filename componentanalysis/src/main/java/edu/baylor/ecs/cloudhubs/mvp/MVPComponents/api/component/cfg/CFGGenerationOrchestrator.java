@@ -1,7 +1,5 @@
 package edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.cfg;
 
-import com.github.javaparser.StaticJavaParser;
-import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.MethodDeclaration;
 
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.EndpointIndex;
@@ -17,15 +15,11 @@ import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.Enhance
 
 import edu.university.ecs.lab.common.models.ir.*;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Map;
 
 public class CFGGenerationOrchestrator {
 
     private final EndpointPatternIndex patternIndex;
-
-    private String systemName;
 
     public CFGGenerationOrchestrator(EndpointIndex endpointIndex) {
         this.patternIndex = endpointIndex != null ? new EndpointPatternIndex(endpointIndex) : null;
@@ -42,9 +36,6 @@ public class CFGGenerationOrchestrator {
     public int generateCFGs(MicroserviceSystem system,
                            Map<String, IndexedComponent> components,
                            Map<String, SpringDIContext> diContexts) {
-        // Store system name for path resolution
-        this.systemName = system.getName();
-
         int cfgCount = 0;
         int totalMethods = 0;
         int enhancedCFGs = 0;
@@ -178,28 +169,8 @@ public class CFGGenerationOrchestrator {
                                                        Map<String, IndexedComponent> components,
                                                        AbstractClass context) {
         try {
-            // Get the source file path from the context class
-            Path sourcePath = context.getPath();
-
-            if (sourcePath == null) {
-                return false;
-            }
-
-            if (!Files.exists(sourcePath)) {
-                // Try to resolve the file path
-                Path originalPath = sourcePath;
-                sourcePath = resolveSourcePath(context);
-
-                if (sourcePath == null || !Files.exists(sourcePath)) {
-                    return false;
-                }
-            }
-
-            // Parse the source file
-            CompilationUnit cu = StaticJavaParser.parse(sourcePath.toFile());
-
-            // Find the specific method declaration
-            MethodDeclaration methodDecl = findMethodDeclaration(cu, method);
+            // Reuse the owner-bound Java 21 AST recovered for this extraction.
+            MethodDeclaration methodDecl = edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.declaration(method);
 
             if (methodDecl == null) {
                 return false;
@@ -215,88 +186,6 @@ public class CFGGenerationOrchestrator {
         } catch (Exception e) {
             return false;
         }
-    }
-
-    /**
-     * Resolves the source path for a class, handling relative paths.
-     *
-     * @param clazz The class to resolve the path for
-     * @return Resolved absolute path, or null if not resolvable
-     */
-    private Path resolveSourcePath(AbstractClass clazz) {
-        Path path = clazz.getPath();
-        if (path == null) {
-            return null;
-        }
-
-        // If already absolute and exists, return as-is
-        if (path.isAbsolute() && Files.exists(path)) {
-            return path;
-        }
-
-        Path userDir = Path.of(System.getProperty("user.dir"));
-
-        // Strip leading slash if present (common in IR paths)
-        String pathStr = path.toString();
-        if (pathStr.startsWith("/") || pathStr.startsWith("\\")) {
-            pathStr = pathStr.substring(1);
-        }
-
-        // Try to resolve relative to clone/system-name directory
-        // Pattern: clone/<system-name>/ts-service-name/src/...
-        Path cloneDir = userDir.resolve("clone");
-        if (Files.exists(cloneDir)) {
-            // First, try using the system name directly
-            if (systemName != null && !systemName.isEmpty()) {
-                Path systemDir = cloneDir.resolve(systemName);
-                if (Files.exists(systemDir)) {
-                    Path resolved = systemDir.resolve(pathStr);
-                    if (Files.exists(resolved)) {
-                        return resolved;
-                    }
-                }
-            }
-
-            // Fallback: try each subdirectory in clone/
-            try {
-                for (Path systemDir : Files.list(cloneDir)
-                        .filter(Files::isDirectory)
-                        .toList()) {
-                    Path resolved = systemDir.resolve(pathStr);
-                    if (Files.exists(resolved)) {
-                        return resolved;
-                    }
-                }
-            } catch (Exception ignored) { }
-        }
-
-        // Try to resolve relative to current directory
-        Path resolved = userDir.resolve(pathStr);
-        if (Files.exists(resolved)) {
-            return resolved;
-        }
-
-        // Try parent directory (common in multi-module projects)
-        Path parent = userDir.getParent();
-        if (parent != null) {
-            resolved = parent.resolve(pathStr);
-            if (Files.exists(resolved)) {
-                return resolved;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Finds a method declaration in a compilation unit.
-     *
-     * @param cu The compilation unit
-     * @param method The method to find
-     * @return MethodDeclaration, or null if not found
-     */
-    private MethodDeclaration findMethodDeclaration(CompilationUnit cu, Method method) {
-        return edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.declaration(method);
     }
 
     /**

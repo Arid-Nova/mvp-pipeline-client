@@ -1,6 +1,6 @@
 package edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.endpoint.extractors;
 
-import com.github.javaparser.StaticJavaParser;
+import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.utils.JavaSourceSupport;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.NodeList;
@@ -40,7 +40,7 @@ public class SecurityConfigParser {
 
         try {
             // Parse the file
-            CompilationUnit cu = StaticJavaParser.parse(securityConfigPath.toFile());
+            CompilationUnit cu = JavaSourceSupport.parse(securityConfigPath);
 
             // Build variable value map for resolving constants
             Map<String, String> variableValues = extractVariableValues(cu);

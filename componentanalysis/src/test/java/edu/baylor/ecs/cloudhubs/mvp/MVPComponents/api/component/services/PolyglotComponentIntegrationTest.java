@@ -118,6 +118,87 @@ class PolyglotComponentIntegrationTest {
         assertFalse(result.componentIndex().getMetadata().getLanguages().contains("unknown"));
     }
 
+    @Test void secondaryAndNestedJavaDeclarationsBindTheirOwnPhysicalSourceAndConstructors() throws Exception {
+        Path source=Files.createDirectory(temporary.resolve("java-declarations"));
+        Files.writeString(source.resolve("CombinedController.java"), """
+                package example;
+                import java.util.List;
+                @RestController public class CombinedController {
+                    private List<String> values;
+                    public CombinedController(){ initialize(); }
+                    private void initialize(){}
+                    public void local(){ class SecondaryController { void ignored(){} } }
+                    @GetMapping("/primary") public int size(){ return values.size(); }
+                    @RestController @PreAuthorize("hasRole('ADMIN')") static class Worker { @Deprecated Worker(){ initialize(); } private void initialize(){} @GetMapping("/nested-a") public ResponseEntity<String> value(){ return ResponseEntity.status(201).body("a"); } }
+                }
+                @RestController class SecondaryController {
+                    public SecondaryController(){ initialize(); }
+                    private void initialize(){}
+                    @GetMapping("/secondary") public String value(){ return "secondary"; }
+                    @RestController @PreAuthorize("hasRole('EDITOR')") static class Worker { @SuppressWarnings("unused") Worker(){ initialize(); } private void initialize(){} @GetMapping("/nested-b") public ResponseEntity<String> value(){ return ResponseEntity.status(202).body("b"); } }
+                }
+                @Service enum State { READY; public String label(){ return name(); } }
+                @Service record Payload(String value) { public String display(){ return value; } }
+                @Service interface Reader { String read(); }
+                """);
+        var mapper=new ObjectMapper();var registry=mapper.createObjectNode();
+        registry.putArray("inputs").addObject().put("url","https://github.com/example/declarations.git")
+                .put("commit","a".repeat(40)).put("source",source.toString());
+        Path manifest=temporary.resolve("declarations-registry.json");mapper.writeValue(manifest.toFile(),registry);
+        SystemRepository repository=new SystemRepository();repository.setLanguage("java");repository.setComponentKind("backend");
+        repository.setComponentName("declarations");repository.setCommitID("a".repeat(40));
+        RepoBranch branch=new RepoBranch();branch.setRepositoryURL("https://github.com/example/declarations.git");branch.setBranchName("main");repository.setRepoBranchPair(branch);
+        IRRequestModel request=new IRRequestModel();request.setSystemName("declarations");request.setSystemRepositories(new SystemRepository[]{repository});
+        var sources=new JavaScriptSourceService("vendor/javascript","node",manifest.toString(),"");
+        var nativeIr=sources.extractNative("declarations",List.of(repository));
+        assertEquals(7,nativeIr.getMicroservices().iterator().next().getClasses().size());
+        var nativeTypes=nativeIr.getMicroservices().iterator().next().getClasses();
+        Map<String,String> nativeIds=new HashMap<>();
+        nativeTypes.forEach(type->nativeIds.put(type.getMetadata().getString("declaredType"),type.getID()));
+        try {
+            CimetModelCompatibility.prepare(nativeIr);
+            assertEquals(7,nativeTypes.stream().map(type->type.getID()).distinct().count(),"Source binding must preserve native synthetic declaration identities");
+            nativeTypes.forEach(type->assertEquals(nativeIds.get(type.getMetadata().getString("declaredType")),type.getID()));
+        } finally { CimetModelCompatibility.clear(); }
+        var listCall=nativeIr.getMicroservices().iterator().next().getClasses().stream()
+                .filter(type->"CombinedController".equals(type.getName())).flatMap(type->type.getMethods().stream())
+                .flatMap(method->method.getMethodCalls().stream()).filter(call->"size".equals(call.getName())).findFirst().orElseThrow();
+        assertEquals("List",listCall.getObjectType(),"Existing short objectType consumers remain compatible");
+        assertEquals("java.util.List",listCall.getMetadata().getString("qualifiedObjectType"));
+        IndexBundle result=new ComponentExtractionService(sources).extract(request);
+        assertEquals(Set.of("/primary","/secondary","/nested-a","/nested-b"),
+                new HashSet<>(result.endpointIndex().getEndpoints().values().stream().map(EndpointInfo::getFullUri).toList()));
+        var methods=result.componentIndex().getComponents().values().stream()
+                .filter(IndexedMethod.class::isInstance).map(IndexedMethod.class::cast).toList();
+        var constructors=methods.stream().filter(method->Boolean.TRUE.equals(method.getIsConstructor())).toList();
+        assertEquals(4,constructors.size());
+        assertEquals(4,constructors.stream().map(IndexedMethod::getId).distinct().count());
+        for(String owner:List.of("CombinedController.Worker","SecondaryController.Worker")) {
+            var constructor=constructors.stream().filter(method->method.getFullID().contains("#example."+owner+"#constructor:")).findFirst().orElseThrow();
+            String annotation=owner.startsWith("Combined")?"Deprecated":"SuppressWarnings";
+            assertTrue(constructor.getAnnotations().stream().anyMatch(value->annotation.equals(value.getName())),owner);
+            var valueMethod=methods.stream().filter(method->method.getFullID().contains("#example."+owner+"#method:value()")).findFirst().orElseThrow();
+            String returned=owner.startsWith("Combined")?"a":"b";
+            int status=owner.startsWith("Combined")?201:202;
+            assertNotNull(valueMethod.getControlFlowGraph());
+            assertTrue(valueMethod.getControlFlowGraph().getNodes().stream()
+                    .anyMatch(node->("return ResponseEntity.status("+status+").body(\""+returned+"\");").equals(node.getSourceCode())),
+                    "CFG must use the owning declaration even when its file contains Java records: "+owner);
+            String route=owner.startsWith("Combined")?"/nested-a":"/nested-b";
+            String role=owner.startsWith("Combined")?"ADMIN":"EDITOR";
+            var endpoint=result.endpointIndex().getEndpoints().values().stream().filter(value->route.equals(value.getFullUri())).findFirst().orElseThrow();
+            assertTrue(endpoint.getAuthentication().isRequired(),"Sibling records must not turn protected endpoints into public defaults");
+            assertEquals(List.of(role),endpoint.getAuthentication().getRequiredRoles(),"Repeated nested names must use the exact declaring type's security annotations");
+            assertTrue(endpoint.getResponseSchema().hasStatusCode(String.valueOf(status)),"Response analysis must reuse the owning Java 21 AST");
+            assertFalse(endpoint.getResponseSchema().hasStatusCode(String.valueOf(status==201?202:201)),"A neighboring declaration's response must not leak into this endpoint");
+        }
+        assertTrue(methods.stream().anyMatch(method->method.getFullID().contains("#example.Payload#method:display()")));
+        assertTrue(methods.stream().anyMatch(method->method.getFullID().contains("#example.State#method:label()")));
+        assertTrue(methods.stream().anyMatch(method->method.getFullID().contains("#example.Reader#method:read()")));
+        assertEquals(4,methods.stream().filter(method->"initialize".equals(method.getName())).count());
+        assertFalse(methods.stream().anyMatch(method->"ignored".equals(method.getName())),"Local declarations are outside the engine's named-member scope");
+    }
+
     private IndexBundle extract(Path source,String language,String kind) throws Exception {
         var mapper=new ObjectMapper();var registry=mapper.createObjectNode();
         registry.putArray("inputs").addObject().put("url","https://github.com/example/fixture.git").put("commit","a".repeat(40)).put("source",source.toString());

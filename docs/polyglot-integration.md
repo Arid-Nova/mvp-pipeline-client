@@ -130,6 +130,17 @@ only when their static same-class target is unique; ambiguous, dynamic and exter
 remain unknown. Control-flow coverage remains partial. Component IDs use a service-scoped
 signature format; regenerate dependent indexes together rather than mixing old and new IDs.
 
+Named secondary and nested Java declarations retain their physical source in
+`metadata.sourcePath` and their ownership chain in `metadata.declaredType`. Source
+recovery binds the exact declaration with an isolated Java 21 parser; equal short
+names in different nested owners must remain distinct. The engine also exposes
+resolved call namespaces in `metadata.qualifiedObjectType` while retaining the
+legacy short `objectType` value.
+
+Full-target delta fingerprints now use the engine's `cimet-snapshot-v2:` format.
+Regenerate older full-target deltas; saved base IRs remain usable to create new
+comparisons. Do not mix old and new fingerprint formats or component indexes.
+
 ## Extending languages
 
 Implement the engine's `LanguageParser` contract and register it in `ParserRegistry`.

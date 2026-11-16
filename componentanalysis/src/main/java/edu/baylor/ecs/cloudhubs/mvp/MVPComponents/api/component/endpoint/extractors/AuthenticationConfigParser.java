@@ -1,7 +1,7 @@
 package edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.endpoint.extractors;
 
 import com.github.javaparser.ast.expr.*;
-import com.github.javaparser.StaticJavaParser;
+import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.utils.JavaSourceSupport;
 import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.MethodDeclaration;
@@ -34,7 +34,7 @@ public class AuthenticationConfigParser {
         }
 
         try {
-            CompilationUnit cu = StaticJavaParser.parse(securityConfigPath.toFile());
+            CompilationUnit cu = JavaSourceSupport.parse(securityConfigPath);
 
             // Extract authentication mechanism
             config.authenticationMechanism = extractAuthenticationMechanism(cu);

@@ -1,14 +1,15 @@
 package edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services;
 
-import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.ConstructorDeclaration;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.expr.AnnotationExpr;
 import com.github.javaparser.ast.expr.Expression;
 import edu.university.ecs.lab.common.models.ir.*;
+import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.utils.JavaSourceSupport;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -28,7 +29,8 @@ public final class CimetModelCompatibility {
 
     private static final ThreadLocal<Map<Method, ConstructorDeclaration>> CONSTRUCTORS = ThreadLocal.withInitial(IdentityHashMap::new);
     private static final ThreadLocal<Map<MethodCall, Method>> TARGETS = ThreadLocal.withInitial(IdentityHashMap::new);
-    public static void clear() { SOURCES.remove(); CONSTRUCTORS.remove(); TARGETS.remove(); }
+    private static final ThreadLocal<Map<AbstractClass, Path>> SOURCE_PATHS = ThreadLocal.withInitial(IdentityHashMap::new);
+    public static void clear() { SOURCES.remove(); CONSTRUCTORS.remove(); TARGETS.remove(); SOURCE_PATHS.remove(); }
 
     /** Restore source-backed method metadata which Endpoint's base-IR copy omits. */
     public static void prepare(MicroserviceSystem system) {
@@ -41,13 +43,18 @@ public final class CimetModelCompatibility {
                 if (Files.isDirectory(resolved)) service.setPath(resolved.toAbsolutePath().normalize());
             }
             for (AbstractClass type : service.getClasses()) {
-                if (!Files.isRegularFile(type.getPath())) {
-                    if (type.getPath().isAbsolute() && !Files.isDirectory(clone))
+                Path physical = physicalSourcePath(type);
+                if (!Files.isRegularFile(physical)) {
+                    if (physical.isAbsolute() && !Files.isDirectory(clone))
                         throw new IllegalStateException("Java source is required for component indexing");
-                    Path resolved = Path.of(edu.university.ecs.lab.common.utils.FileUtils.gitPathToLocalPath(type.getPath().toString(), repoName));
+                    Path resolved = Path.of(edu.university.ecs.lab.common.utils.FileUtils.gitPathToLocalPath(physical.toString(), repoName));
                     if (!Files.isRegularFile(resolved)) throw new IllegalStateException("Java source is required for component indexing");
-                    type.setPath(resolved.toAbsolutePath().normalize());
+                    physical = resolved;
                 }
+                physical = physical.toAbsolutePath().normalize();
+                SOURCE_PATHS.get().put(type, physical);
+                // Bind the native identity locally without replacing a synthetic declaration ID.
+                type.setPath(physical.resolveSibling(type.getPath().getFileName()));
                 recoverConstructors(type);
                 for (Method method : type.getMethods()) {
                     MethodDeclaration declaration = declaration(method);
@@ -62,6 +69,8 @@ public final class CimetModelCompatibility {
         for (Microservice service : system.getMicroservices()) for (AbstractClass type : service.getClasses())
             for (Method method : type.getMethods()) for (MethodCall call : method.getMethodCalls()) {
                 List<MethodCallExpr> observations = source(owner(call)).findAll(MethodCallExpr.class).stream()
+                        .filter(candidate -> candidate.findAncestor(TypeDeclaration.class)
+                                .map(parent -> parent == typeDeclaration(type)).orElse(false))
                         .filter(candidate -> candidate.getNameAsString().equals(call.getName()))
                         .filter(candidate -> call.getLocation() != null && candidate.getBegin().map(position -> position.line == call.getLocation().getStartLine()).orElse(false))
                         .filter(candidate -> candidate.getArguments().stream().map(Object::toString).collect(Collectors.joining(",")).equals(call.getParameterContents()))
@@ -77,13 +86,11 @@ public final class CimetModelCompatibility {
     }
 
     private static void recoverConstructors(AbstractClass type) {
-        CompilationUnit unit = source(type);
-        if (unit == null) return;
-        var declaration = unit.findAll(com.github.javaparser.ast.body.ClassOrInterfaceDeclaration.class).stream()
-                .filter(candidate -> candidate.getNameAsString().equals(type.getName())).findFirst().orElse(null);
+        var declaration = typeDeclaration(type);
         if (declaration == null) return;
         Set<Method> methods = new LinkedHashSet<>(type.getMethods());
-        for (ConstructorDeclaration constructor : declaration.getConstructors()) {
+        for (ConstructorDeclaration constructor : declaration.getMembers().stream()
+                .filter(ConstructorDeclaration.class::isInstance).map(ConstructorDeclaration.class::cast).toList()) {
             Method value = new Method(type,constructor.getNameAsString(),new Location(constructor.getRange().orElseThrow()));
             value.setParameters(constructor.getParameters().stream().map(parameter -> new Parameter(value,parameter)).collect(Collectors.toCollection(LinkedHashSet::new)));
             value.setAnnotations(constructor.getAnnotations().stream().map(annotation -> new Annotation(value,annotation)).collect(Collectors.toCollection(LinkedHashSet::new)));
@@ -98,9 +105,9 @@ public final class CimetModelCompatibility {
 
     public static Set<Annotation> annotations(Field field) {
         AbstractClass owner = owner(field);
-        CompilationUnit source = source(owner);
-        if (source == null) return Set.of();
-        for (FieldDeclaration declaration : source.findAll(FieldDeclaration.class)) {
+        var ownerDeclaration = typeDeclaration(owner);
+        if (ownerDeclaration == null) return Set.of();
+        for (FieldDeclaration declaration : ownerDeclaration.getFields()) {
             boolean sameLine = field.getLocation() == null || declaration.getRange().map(range ->
                     range.begin.line <= field.getLocation().getStartLine() && range.end.line >= field.getLocation().getStartLine()).orElse(false);
             if (sameLine && declaration.getVariables().stream().anyMatch(variable -> variable.getNameAsString().equals(field.getName()))) {
@@ -131,12 +138,14 @@ public final class CimetModelCompatibility {
                 if(service.getMetadata()!=null && service.getMetadata().has("sourceServicePath")) root=service.getMetadata().getString("sourceServicePath");
                 serviceIdentity = service.getName() + "@" + root;
             }
-            String source = type.getPath().toString().replace('\\', '/');
+            Path physical = physicalSourcePath(type);
+            String source = physical.toString().replace('\\', '/');
             if (context instanceof Microservice service && service.getPath() != null
-                    && type.getPath().toAbsolutePath().normalize().startsWith(service.getPath().toAbsolutePath().normalize())) {
-                source = service.getPath().toAbsolutePath().normalize().relativize(type.getPath().toAbsolutePath().normalize()).toString().replace('\\', '/');
+                    && physical.toAbsolutePath().normalize().startsWith(service.getPath().toAbsolutePath().normalize())) {
+                source = service.getPath().toAbsolutePath().normalize().relativize(physical.toAbsolutePath().normalize()).toString().replace('\\', '/');
             }
-            return repository + "#service:" + serviceIdentity + "#" + source + "#" + Objects.toString(type.getPackageName(), "") + "." + type.getName();
+            String declaredType = type.getMetadata() == null ? type.getName() : type.getMetadata().optString("declaredType", type.getName());
+            return repository + "#service:" + serviceIdentity + "#" + source + "#" + Objects.toString(type.getPackageName(), "") + "." + declaredType;
         }
         if (node instanceof Method method) {
             MethodDeclaration declaration = declaration(method);
@@ -211,9 +220,9 @@ public final class CimetModelCompatibility {
             compatible.setThrownExceptions(constructor.getThrownExceptions().stream().map(com.github.javaparser.ast.type.ReferenceType::clone).collect(com.github.javaparser.ast.NodeList.toNodeList())); compatible.setRange(constructor.getRange().orElse(null));
             return compatible;
         }
-        CompilationUnit source = source(owner(method));
-        if (source == null) return null;
-        List<MethodDeclaration> candidates = source.findAll(MethodDeclaration.class).stream()
+        var ownerDeclaration = typeDeclaration(owner(method));
+        if (ownerDeclaration == null) return null;
+        List<MethodDeclaration> candidates = ownerDeclaration.getMethods().stream()
                 .filter(declaration -> declaration.getNameAsString().equals(method.getName()))
                 .filter(declaration -> declaration.getParameters().size() == method.getParameters().size()
                         && declaration.getParameters().stream().allMatch(parameter -> method.getParameters().stream()
@@ -227,12 +236,50 @@ public final class CimetModelCompatibility {
 
     private static CompilationUnit source(AbstractClass type) {
         if (type == null || type.getPath() == null || !type.getPath().toString().endsWith(".java")) return null;
-        Path path = type.getPath().toAbsolutePath().normalize();
+        Path path = physicalSourcePath(type).toAbsolutePath().normalize();
         if (!Files.isRegularFile(path)) return null;
         return SOURCES.get().computeIfAbsent(path, source -> {
-            try { return StaticJavaParser.parse(source); }
+            try {
+                return JavaSourceSupport.parse(source);
+            }
             catch (Exception failure) { throw new IllegalStateException("Cannot recover required Java source metadata", failure); }
         });
+    }
+
+    public static Path physicalSourcePath(AbstractClass type) {
+        Path bound = SOURCE_PATHS.get().get(type);
+        if (bound != null) return bound;
+        String physical = type.getMetadata() == null ? "" : type.getMetadata().optString("sourcePath", "");
+        if (physical.isBlank()) return type.getPath();
+        Path source = Path.of(physical);
+        // Native secondary/member identities are synthetic siblings of the physical source.
+        // Registered source exports already bind that identity to its trusted local directory.
+        Path sibling = type.getPath().resolveSibling(source.getFileName());
+        return Files.isRegularFile(sibling) ? sibling : source;
+    }
+
+    private static TypeDeclaration<?> typeDeclaration(AbstractClass type) {
+        CompilationUnit unit = source(type);
+        if (unit == null) return null;
+        String declared = type.getMetadata() == null ? "" : type.getMetadata().optString("declaredType", "");
+        List<TypeDeclaration<?>> matches = new ArrayList<>();
+        for (TypeDeclaration<?> declaration : unit.findAll(TypeDeclaration.class)) {
+            String candidateName = declaredTypeName(declaration);
+            if (candidateName.isBlank()) continue;
+            if (declared.isBlank() ? declaration.getNameAsString().equals(type.getName())
+                    : declared.equals(candidateName)) matches.add(declaration);
+        }
+        return matches.size() == 1 ? matches.getFirst() : null;
+    }
+
+    private static String declaredTypeName(TypeDeclaration<?> declaration) {
+        Deque<String> names = new ArrayDeque<>();
+        com.github.javaparser.ast.Node cursor = declaration;
+        while (cursor instanceof TypeDeclaration<?> type) {
+            names.addFirst(type.getNameAsString());
+            cursor = type.getParentNode().orElse(null);
+        }
+        return cursor instanceof CompilationUnit ? String.join(".", names) : "";
     }
     private static AbstractClass owner(Node node) {
         while (node != null && !(node instanceof AbstractClass)) node = parent(node);
