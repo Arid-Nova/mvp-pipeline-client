@@ -39,6 +39,22 @@ repository, then prepares trusted parser assets under each service's ignored `ve
 Only the trusted analyzers' lockfile dependencies are installed. Analyzed projects' packages,
 configuration hooks and scripts are never installed or executed by extraction.
 
+This source build is a temporary integration choice for the reviewed polyglot
+engine, rather than a requirement to replace JitPack permanently. The existing
+JitPack `v1.2.1` dependency predates these changes. JitPack also supports immutable
+commit versions; an unmerged branch alone is not a reason it cannot be used.
+The current build binds both the JVM artifact and the external Node/TypeScript
+parser assets to one reviewed source commit and records their provenance.
+The engine JAR alone does not contain that external parser runtime. Docker keeps
+this dependency preparation before application-source copies so ordinary backend
+edits can reuse the dependency layer.
+
+Switching back to package consumption should verify a published artifact from
+the reviewed engine commit (or a tested successor), vendor matching parser assets,
+and rerun service/image checks. Do not silently substitute `v1.2.1` or a moving
+branch version. This contribution retains the tested source lock until that
+artifact/runtime pair is verified.
+
 An existing engine checkout can be supplied with `--source PATH`; its clean HEAD must match
 the lock. `--maven-repository PATH` supports an isolated Maven cache. `--allow-dirty-local` is
 an explicit development override and records the dirty/mismatched source state in generated

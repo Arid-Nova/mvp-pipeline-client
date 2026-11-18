@@ -193,3 +193,33 @@ argument types retain the existing `Object` placeholder without discarding
 directly observed response status; no global symbol solver or runtime reachability
 is inferred. The engine's versioned full-target delta bindings require older
 deltas to be regenerated; existing saved base IRs remain usable.
+
+## Pipeline reviewer corrections (2026-11-18)
+
+Local lightweight suites passed: 42 Aegis, 34 canonical policy, 14 formal and
+6 vector-generation tests. The focused native graph suite also passed all 13
+tests. Canonical workflow/policy synchronization checks and Python compilation
+passed. Run `python -m unittest discover -s tests -v` from each Python service
+directory after installing `javascript-policy/requirements-test.txt` in a test
+environment; no model weights or live database are required by these suites.
+
+Physical source metadata now precedes synthetic source identities in the shared
+language detector. Formal API regressions verify that unsupported physical,
+root, service and unclassified-orphan language evidence cannot invoke cloning,
+the Java parser or the solver. An explicitly declared frontend remains exempt
+only beside a Java backend, including the aggregate language metadata emitted
+by actual extraction. Pure frontend inputs cannot enter an empty Java proof.
+
+Aegis uses a shared `NeuroAnalyzer` context and strategy factory for the existing
+Java pipeline, bounded JavaScript evidence and explicit unsupported results.
+The Java implementation's five class bodies were compared structurally with
+the previous version: only the strategy class name and trailing prompt whitespace
+were normalized. Actual legacy path/latent-method and attribute-delegation tests
+also pass. A fresh-process API test blocks optional Java/model/database imports
+while successfully serving JavaScript evidence.
+
+Additional regressions cover null/non-object historical evidence, component-scoped
+endpoint facts in mocked provider requests, both callers of the bounded stored-IR
+reader, single-document Mongo lookups and existing compressed-result decoding.
+All Aegis model/HTTP/database interactions in these cases use local doubles;
+no production provider, database or source-analysis deployment was exercised.
