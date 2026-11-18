@@ -1,4 +1,5 @@
 import time
+import os
 from typing import Any, Dict
 from z3 import sat, unsat
 import requests
@@ -6,15 +7,44 @@ import gzip
 import json
 from ..core.solver.auth_solver import AuthorizationConsistencySolver
 from ..services.parser import getModelFromIRAndCode
+from ..services.authorization_capability import unsupported_authorization
+from ..javascript_policy import reports_from, verify_policy
+from ..source_scope import source_languages
 
-def run_verification(ir_id: str, repo_mappings: list):
+def run_verification(ir_id: str, repo_mappings: list, ir_data=None, expected_policy=None):
     logs = []
     suggestions = []
     start_time = time.perf_counter()
 
     logs.append(f"Building System Model from {len(repo_mappings)} repositories...")
     
-    ir_data = _getIRData(ir_id) 
+    if ir_data is None:
+        ir_data = _getIRData(ir_id)
+
+    unsupported = unsupported_authorization(ir_data)
+    if unsupported:
+        try:
+            reports = reports_from(ir_data)
+        except ValueError:
+            reports = []
+        # Older reports without typed models preserve the former explicit guard.
+        if source_languages(ir_data).issubset({"java", "javascript", "typescript"}) and any(endpoint.get("policyModel") for report in reports for endpoint in report.get("endpoints", [])):
+            policy = verify_policy(ir_data, expected_policy)
+            return {"status": "JAVASCRIPT_ANALYZED", "is_satisfiable": None,
+                    "suggestions": [], "logs": ["Scoped finite JavaScript model analyzed; see property-specific verification results."],
+                    "processing_time_seconds": time.perf_counter() - start_time,
+                    "capability_status": policy["status"], "policyAnalysis": policy,
+                    "unsupported_components": unsupported.get("unsupported_components", []),
+                    "reason": "No whole-system Java authorization verdict is assigned to the JavaScript finite model."}
+        logs.append(unsupported["reason"])
+        return {
+            "status": "UNSUPPORTED",
+            "is_satisfiable": None,
+            "suggestions": [],
+            "logs": logs,
+            "processing_time_seconds": time.perf_counter() - start_time,
+            **unsupported,
+        }
 
     ms_system = getModelFromIRAndCode(ir_data, repo_mappings)
     
@@ -99,7 +129,7 @@ def roleMap(role_mask):
     return role_mask
 
 def _getIRData(ir_id: str) -> Dict[str, Any]:
-    url = "http://host.docker.internal:8080/ir/create"
+    url = os.getenv("IR_SERVICE_URL", "http://host.docker.internal:8080/ir/create")
 
     payload = {
         "id": ir_id,

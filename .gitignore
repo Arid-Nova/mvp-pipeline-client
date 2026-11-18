@@ -22,3 +22,10 @@ coordinator/dist
 
 # macOS Finder metadata
 .DS_Store
+# Source-pinned engine outputs and trusted analyzer dependencies are regenerated.
+.cache/
+**/target/
+backend/vendor/
+componentanalysis/vendor/
+**/node_modules/
+*.log

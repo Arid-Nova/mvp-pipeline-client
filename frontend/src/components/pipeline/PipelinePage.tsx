@@ -1,3 +1,6 @@
+import { runJavaScriptStage, unsupportedDownstreamReason, sourceLanguages, securityReportFromPayload } from '../../utils/javascriptWorkflow';
+import { postJavaScriptStage } from '../../services/api';
+import { JavaScriptAnalysisCard } from './cards/JavaScriptAnalysisCard';
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { 
     fetchIRFromRepo, 
@@ -1056,11 +1059,12 @@ const PipelinePage: React.FC = () => {
         const updateStatus = (id: string, status: any, log?: string, dataUpdate?: any) => {
             setNodes(prev => prev.map(n => {
                 if (n.id === id) {
+                    const evaluatedData = typeof dataUpdate === 'function' ? dataUpdate(n.data) : dataUpdate;
                     return {
                         ...n,
                         status: status,
                         logs: log ? [...n.logs, log] : n.logs,
-                        data: dataUpdate ? { ...n.data, ...dataUpdate } : n.data
+                        data: evaluatedData ? { ...n.data, ...evaluatedData } : n.data
                     };
                 }
                 return n;
@@ -1158,6 +1162,19 @@ const PipelinePage: React.FC = () => {
             updateStatus(targetNode.id, 'running', `Receiving data...`);
             
             try {
+                const liveInputs = (nodesRef.current || nodes).filter(n =>
+                    connections.some(c => c.source === n.id && c.target === targetNode.id));
+                const javascript = await runJavaScriptStage(targetNode.type, payload, {
+                    ...targetNode.data,
+                    javascriptComparisonInputs: liveInputs.map(n => ({ id: n.id, type: n.type, status: n.status, position: { y: n.y }, data: n.data }))
+                },
+                    (service, path, body) => postJavaScriptStage(service, path, body, options?.signal));
+                if (javascript) {
+                    updateStatus(targetNode.id, javascript.waiting ? 'running' : 'completed', javascript.message, javascript.data);
+                    if (javascript.waiting) continue;
+                    await processNextNodes(targetNode.id, javascript.payload, updateStatus, options);
+                    continue;
+                }
                 if (targetNode.type === 'MULTI_REPO') {
                     if (payload.type !== 'SYSTEM_PAYLOAD') throw new Error("Expected System Source");
                     const sysPayload = payload as SystemPayload;
@@ -1171,7 +1188,9 @@ const PipelinePage: React.FC = () => {
                             existingPayload.metadata!.some(cachedRepo => 
                                 (currentRepo.repoUrl || "") === cachedRepo.repoUrl &&
                                 (currentRepo.branch || "master") === cachedRepo.branch &&
-                                (currentRepo.commitId || "HEAD") === cachedRepo.commitId
+                                (currentRepo.commitId || "HEAD") === cachedRepo.commitId &&
+                                (currentRepo.language || 'java') === (cachedRepo.language || 'java') &&
+                                (currentRepo.componentKind || 'backend') === (cachedRepo.componentKind || 'backend')
                             )
                         );
 
@@ -1185,7 +1204,9 @@ const PipelinePage: React.FC = () => {
                         systemName: sysPayload.systemName,
                         systemRepositories: sysPayload.repositories.map(repo => ({
                             repoBranchPair: { repositoryURL: canonicalizeGithubUrl(repo.repoUrl), branchName: repo.branch || "master" },
-                            commitID: repo.commitId || undefined
+                            commitID: repo.commitId || undefined,
+                            language: repo.language || 'java',
+                            componentKind: ['javascript', 'typescript'].includes(repo.language || '') ? (repo.componentKind || 'backend') : undefined
                         }))
                     };
 
@@ -1198,7 +1219,9 @@ const PipelinePage: React.FC = () => {
                         metadata: sysPayload.repositories.map(repo => ({
                             repoUrl: repo.repoUrl || "",
                             branch: repo.branch || "master",
-                            commitId: repo.commitId || "HEAD"
+                            commitId: repo.commitId || "HEAD",
+                            language: repo.language,
+                            componentKind: repo.componentKind
                         }))
                     };
                     updateStatus(targetNode.id, 'completed', 'IR generated.', { payload: nextPayload });
@@ -1217,7 +1240,9 @@ const PipelinePage: React.FC = () => {
                         systemName: sysPayload.systemName,
                         systemRepositories: sysPayload.repositories.map(repo => ({
                             repoBranchPair: { repositoryURL: repo.repoUrl, branchName: repo.branch || "master" },
-                            commitID: repo.commitId || undefined
+                            commitID: repo.commitId || undefined,
+                            language: repo.language || 'java',
+                            componentKind: ['javascript', 'typescript'].includes(repo.language || '') ? (repo.componentKind || 'backend') : undefined
                         })),
                         rolePriority: rolePriorityMap,
                         defaultRolePriority: 50
@@ -1234,7 +1259,14 @@ const PipelinePage: React.FC = () => {
                     };
 
                     // Retrieves the authorization vectors
-                    const authVectors = await generateAuthVectors(generatedComponents.id, { signal: options?.signal })
+                    const scopeUnsupported = unsupportedDownstreamReason({ irJson: generatedComponents, metadata: sysPayload.repositories });
+                    const authorizationUnsupported = Boolean(scopeUnsupported) || rawResponse.analysisCapabilities?.authorization === 'unsupported'
+                        || generatedComponents.endpointIndex?.metadata?.analysisCapabilities?.authorization === 'unsupported'
+                        || generatedComponents.componentIndex?.metadata?.analysisCapabilities?.authorization === 'unsupported';
+                    const securityReport = generatedComponents.componentIndex?.javascriptExtraction?.securityAnalysis;
+                    const authVectors = scopeUnsupported ? null : securityReport
+                        ? await postJavaScriptStage('VECTOR', '/vectors/javascript', { report: securityReport, expectedPolicy: targetNode.data.expectedPolicy }, options?.signal)
+                        : authorizationUnsupported ? null : await generateAuthVectors(generatedComponents.id, { signal: options?.signal });
 
                     const nextPayload: PipelinePayload = {
                         irJson: generatedComponents,
@@ -1242,12 +1274,17 @@ const PipelinePage: React.FC = () => {
                         metadata: sysPayload.repositories.map(repo => ({
                             repoUrl: repo.repoUrl || "",
                             branch: repo.branch || "master",
-                            commitId: repo.commitId || "HEAD"
+                            commitId: repo.commitId || "HEAD",
+                            language: repo.language,
+                            componentKind: repo.componentKind
                         })),
                         additional: authVectors
                     };
 
-                    updateStatus(targetNode.id, 'completed', 'Components generated.', { payload: nextPayload });
+                    updateStatus(targetNode.id, 'completed', scopeUnsupported
+                        ? 'Components generated. Whole-system authorization is unsupported for this source scope.'
+                        : securityReport ? 'Components and scoped JavaScript policy evidence generated.'
+                        : authorizationUnsupported ? 'Components generated. Authorization is unsupported for this source scope.' : 'Components generated.', { payload: nextPayload });
                     await processNextNodes(targetNode.id, nextPayload, updateStatus, options);
                 }
 
@@ -1268,7 +1305,7 @@ const PipelinePage: React.FC = () => {
                     
                     const compPayload: ComponentPayload = {
                         id: extractedId,
-                        authvecid: authVectors._id,
+                        authvecid: authVectors?._id || authVectors?.policyId || '',
                         endpoints: endpointsData,
                         components: componentsData
                     };
@@ -1402,6 +1439,10 @@ const PipelinePage: React.FC = () => {
                     // Actually retrueving the scnarios from the API
                     const indexId = componentHolderNode?.data.componentPayload?.id;
                     const authVecId = componentHolderNode?.data.componentPayload?.authvecid;
+
+                    if (!authVecId) {
+                        throw new Error("Authorization scenarios are unavailable: this component analysis has no supported authorization-policy vectors.");
+                    }
 
                     let scenarioJson = await generateScenarios(indexId, authVecId, { signal: options?.signal });
 
@@ -1561,51 +1602,35 @@ const PipelinePage: React.FC = () => {
                 }
 
                 else if (targetNode.type === 'AEGIS') {
-                    // Type Guard
                     const irPayload = payload as PipelinePayload;
-                    if (!irPayload.irJson) throw new Error("Invalid input: Expected IR JSON");
-
-                    updateStatus(targetNode.id, 'running', 'Analyzing in Background...');
-
-                    // Constructing payload for Neuro-Symbolic Engine
-                    // This is a temporary construct until AEGIS is really ready for multi-repo
+                    if (!irPayload.irJson?.id) throw new Error('Aegis requires a saved IR identity. Save the source IR before analysis.');
+                    const sourceReport = securityReportFromPayload(payload);
+                    const javascript = Boolean(sourceReport) || sourceLanguages(payload).some(language => ['javascript', 'typescript'].includes(language));
+                    if (javascript && !['partial', 'complete'].includes(sourceReport?.status))
+                        throw new Error('This saved IR has no source-bound Express security evidence. Regenerate it with the JavaScript source-security extractor.');
+                    updateStatus(targetNode.id, 'running', 'Analyzing saved source evidence...');
                     const enginePayload = {
-                        branch: irPayload.metadata[0]?.branch,
-                        repoUrl: irPayload.metadata[0]?.repoUrl,
-                        ir_id: irPayload.irJson['id']
+                        branch: irPayload.metadata?.[0]?.branch,
+                        repoUrl: irPayload.metadata?.[0]?.repoUrl,
+                        ir_id: irPayload.irJson.id
                     };
-
-                    // Call the Python/Engine API
-                    analyzeAegis(enginePayload, { signal: options?.signal })
-                    .then(async (response) => {
-                        if (options?.killSwitch?.current) return;
-
-                        if (!response.ok) {
-                            throw new Error(`Engine Status: ${response.status}`);
-                        }
-                        
-                        // UI State Update
-                        updateStatus(targetNode.id, 'completed', 'Analysis Complete. Click to View.', { payload: irPayload });
-
-                        // Triggering the custom notification
-                        setNotification({
-                            type: 'success',
-                            message: 'Aegis Analysis Complete!',
-                            duration: 5000
-                        });
-
-                        // Triggering Browser Notification
-                        if (document.hidden && Notification.permission === 'granted') {
-                            new Notification('Aegis Analysis Complete', {
-                                body: 'You can now view the results!',
-                                icon: '/health.ico' 
-                            });
-                        }
-                    })
-                    .catch((error) => {
-                        console.error('Aegis background analysis failed:', error);
-                        updateStatus(targetNode.id, 'error', `Analysis Failed: ${error.message}`);
-                    });
+                    const response = await analyzeAegis(enginePayload, { signal: options?.signal });
+                    if (options?.killSwitch?.current) return;
+                    if (response?.ir_id !== undefined && String(response.ir_id) !== String(enginePayload.ir_id))
+                        throw new Error('Aegis returned evidence for a different saved IR identity.');
+                    if (response.status === 'unsupported')
+                        throw new Error(response.reason || 'Security analysis is unsupported for this input.');
+                    if (javascript && (response.analysis !== 'javascript-express-static-security' || !['partial', 'complete'].includes(response.status)))
+                        throw new Error('Aegis did not return the expected JavaScript source-security evidence.');
+                    if (!['success', 'partial', 'complete'].includes(response.status) && !response.ok)
+                        throw new Error(`Engine Status: ${response.status || 'unknown'}`);
+                    const expressReport = response.analysis === 'javascript-express-static-security' ? response : undefined;
+                    const next = { ...irPayload, ...(expressReport ? { javascriptReport: sourceReport, securityReport: expressReport } : { aegisResult: response }) };
+                    updateStatus(targetNode.id, 'completed', expressReport
+                        ? `Express source-security analysis: ${response.status}.`
+                        : 'Analysis complete. Click to view.', { payload: next, securityReport: expressReport });
+                    setNotification({ type: 'success', message: 'Aegis analysis complete.', duration: 5000 });
+                    await processNextNodes(targetNode.id, next, updateStatus, options);
                 }
 
                 else if (targetNode.type === 'FORMAL_VIZ') {
@@ -1691,6 +1716,11 @@ const PipelinePage: React.FC = () => {
                             return;
                         }
 
+                        if (!['SAT', 'UNSAT'].includes(verifyNode.data.verificationResult?.status || '')) {
+                            updateStatus(targetNode.id, 'failed', 'Comparison unavailable: authorization policy verification is unsupported or unknown.', { comparisonResult: undefined });
+                            return;
+                        }
+
                         updateStatus(targetNode.id, 'running', 'Calculating Statistics...');
 
                         try {
@@ -1766,11 +1796,11 @@ const PipelinePage: React.FC = () => {
                                 systemName: systemName,
                                 systemRepositories: baseMeta.map((m: any) => ({
                                     repoBranchPair: { repositoryURL: m.repoUrl, branchName: m.branch },
-                                    commitID: m.commitId
+                                    commitID: m.commitId, language: m.language || 'java', componentKind: m.componentKind
                                 })),
                                 comparingRepositories: targetMeta.map((m: any) => ({
                                     repoBranchPair: { repositoryURL: m.repoUrl, branchName: m.branch },
-                                    commitID: m.commitId
+                                    commitID: m.commitId, language: m.language || 'java', componentKind: m.componentKind
                                 }))
                             };
 
@@ -1789,6 +1819,7 @@ const PipelinePage: React.FC = () => {
 
                             updateStatus(targetNode.id, 'completed', 'Impact Analysis Complete.', {
                                 changeImpactPayload: result,
+                                ...(result.analysis === 'javascript-system-change' ? { javascriptAnalysis: result } : {}),
                                 targetedServices: Array.from(affectedSet) 
                             });
                             
@@ -1823,6 +1854,11 @@ const PipelinePage: React.FC = () => {
                         // If still missing after the flush, one is genuinely still running
                         if (!baseResult || !prResult) {
                             updateStatus(targetNode.id, 'running', 'Awaiting both Verifications to finish...');
+                            return;
+                        }
+
+                        if (![baseResult.status, prResult.status].every(status => status === 'SAT' || status === 'UNSAT')) {
+                            updateStatus(targetNode.id, 'failed', 'Security drift is unavailable: both revisions require supported authorization verification.', { regressionPayload: undefined });
                             return;
                         }
 
@@ -1876,6 +1912,7 @@ const PipelinePage: React.FC = () => {
 
     // --- Renderers ---
     const renderCardContent = (node: NodeData) => {
+        if (node.data.javascriptAnalysis) return <JavaScriptAnalysisCard node={node} updateNodeData={updateNodeData} />;
         switch (node.type) {
             case 'SYSTEM_INPUT': return <SystemInputCard node={node} updateNodeData={updateNodeData} />;
             case 'MULTI_REPO': return <IRGenerationCard node={node} />;

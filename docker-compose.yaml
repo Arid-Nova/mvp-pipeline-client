@@ -43,8 +43,8 @@ services:
 
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/dockerfile
     container_name: cloudhub_backend
     ports:
       - "8080:8080" 
@@ -164,8 +164,8 @@ services:
 
   components:
     build:
-      context: ./componentanalysis
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: componentanalysis/dockerfile
     container_name: cloudhub_components
     ports:
       - "8060:8060"

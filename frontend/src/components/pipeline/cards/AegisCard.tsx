@@ -1,11 +1,20 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NodeData } from '../models'; 
+import { ExpressSecurityReport } from './ExpressSecurityReport';
 
 interface AegisCardProps {
     node: NodeData;
 }
 
 export const AegisCard: React.FC<AegisCardProps> = ({ node }) => {
+    const [showSecurity, setShowSecurity] = useState(false);
+    if (node.data.securityReport) {
+        return <>
+            <button disabled={node.status !== 'completed'} className="mt-2 w-full rounded bg-blue-700 px-3 py-2 text-xs text-white disabled:opacity-50"
+                onClick={event => { event.stopPropagation(); setShowSecurity(true); }}>View Express security</button>
+            {showSecurity && <ExpressSecurityReport report={node.data.securityReport} onClose={() => setShowSecurity(false)} />}
+        </>;
+    }
     return (
         <button 
             disabled={!node.data.payload?.irJson || node.status !== 'completed'}

@@ -42,6 +42,8 @@ public class ComponentIndexer {
     private final EndpointIndex endpointIndex;
     private final ComponentIndexingOrchestrator componentOrchestrator;
     private final CFGGenerationOrchestrator cfgOrchestrator;
+    private final Map<String, Integer> rolePriority;
+    private final int defaultRolePriority;
 
     /**
      * Constructor with configuration and endpoint index.
@@ -50,8 +52,15 @@ public class ComponentIndexer {
      * @param endpointIndex The endpoint index from Phase 1 (may be null)
      */
     public ComponentIndexer(Config config, EndpointIndex endpointIndex) {
+        this(config, endpointIndex, null, null);
+    }
+
+    public ComponentIndexer(Config config, EndpointIndex endpointIndex,
+                            Map<String, Integer> rolePriority, Integer defaultRolePriority) {
         this.config = config;
         this.endpointIndex = endpointIndex;
+        this.rolePriority = rolePriority == null ? Map.of() : new HashMap<>(rolePriority);
+        this.defaultRolePriority = defaultRolePriority == null ? 50 : defaultRolePriority;
         this.componentOrchestrator = new ComponentIndexingOrchestrator();
         this.cfgOrchestrator = new CFGGenerationOrchestrator(endpointIndex);
     }
@@ -140,8 +149,8 @@ public class ComponentIndexer {
         // Sort roles by priority using config
         return allRoles.stream()
             .sorted((r1, r2) -> {
-                int p1 = config.getRolePriority(r1);
-                int p2 = config.getRolePriority(r2);
+                int p1 = getRolePriority(r1);
+                int p2 = getRolePriority(r2);
                 // Primary sort by priority (ascending - lower number = higher permission)
                 int priorityCompare = Integer.compare(p1, p2);
                 if (priorityCompare != 0) {
@@ -151,6 +160,19 @@ public class ComponentIndexer {
                 return r1.compareTo(r2);
             })
             .collect(Collectors.toList());
+    }
+
+    private int getRolePriority(String role) {
+        if (rolePriority.get(role) != null) return rolePriority.get(role);
+        String normalized = role.toUpperCase(Locale.ROOT);
+        // Preserve the former fork's exact default matching/order.
+        if (normalized.contains("SUPER")) return 0;
+        if (normalized.contains("ADMIN")) return 10;
+        if (normalized.contains("MANAGER")) return 20;
+        if (normalized.contains("USER")) return 50;
+        if (normalized.contains("GUEST")) return 80;
+        if (normalized.contains("ANONYMOUS")) return 90;
+        return defaultRolePriority;
     }
 
     /**

@@ -207,8 +207,8 @@ def visualize():
         mongo_query = {}
         mongo_query['irID'] = ir_id
 
-        existing = mongo_service.find(
-            os.getenv('MONGO_COLLECTION_NAME'), 
+        existing = mongo_service.find_one(
+            os.getenv('MONGO_COLLECTION_NAME'),
             mongo_query)
         
         if existing:
@@ -217,27 +217,28 @@ def visualize():
             return render_template('notfound.html')
     except Exception:
         return render_template('errorpage.html')
+    finally:
+        mongo_service.close()
 
 @app.route('/api/results')
-def get_results(): 
+def get_results():
+    ir_id = request.args.get('irID')
+    if not ir_id:
+        return []
     mongo_service = MongoService(
         uri=os.getenv('MONGO_URI'),
         db_name=os.getenv('MONGO_DB_NAME')
     )
 
     try:
-        ir_id = request.args.get('irID')
+        mongo_query = {'irID': ir_id}
 
-        mongo_query = {}
-        if ir_id:
-            mongo_query['irID'] = ir_id
-
-        existing = mongo_service.find(
-            os.getenv('MONGO_COLLECTION_NAME'), 
+        existing = mongo_service.find_one(
+            os.getenv('MONGO_COLLECTION_NAME'),
             mongo_query)
         
         if existing:
-            result_doc = existing[0]
+            result_doc = dict(existing)
             
             if '_id' in result_doc:
                 del result_doc['_id']
@@ -262,6 +263,9 @@ def get_results():
         
     except Exception as e:
         print(f"Error retrieving results: {e}")
+
+    finally:
+        mongo_service.close()
 
     return []
 

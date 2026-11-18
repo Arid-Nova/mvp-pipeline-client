@@ -52,6 +52,9 @@ public class ComponentService {
     @Autowired
     private EndpointRepository endpointRepository;
 
+    @Autowired
+    private edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.ComponentExtractionService extractionService;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Getter
@@ -69,38 +72,18 @@ public class ComponentService {
             return getData(irRequestModel.getId());
         }
 
-        // Unfortunately, the current version is mono-repo for this analysis.
-        SystemRepository[] repoList = irRequestModel.getSystemRepositories();
-
-        Config config = new Config(
-                irRequestModel.getSystemName(),
-                repoList[0].getRepoBranchPair().getRepositoryURL(),
-                repoList[0].getRepoBranchPair().getBranchName());
-        config.setDefaultRolePriority(irRequestModel.getDefaultRolePriority());
-        config.setRolePriority(irRequestModel.getRolePriority());
-
-        // 1. Library generates the base IR
-        MicroserviceSystem microserviceSystem = IRExtractionService.create(config, repoList[0].getCommitID());
-
-        // A quick configuration mapping
-        IndexClass response = new IndexClass();
-
-        // Phase 1: Index all REST API endpoints
-        EndpointIndexer endpointIndexer = new EndpointIndexer();
-        EndpointIndex result_1 = endpointIndexer.indexEndpoints(microserviceSystem, repoList[0].getCommitID());
+        var indexes = extractionService.extract(irRequestModel);
+        EndpointIndex result_1 = indexes.endpointIndex();
+        ComponentIndex result_2 = indexes.componentIndex();
         String endpointId = saveEndpoints(result_1);
-
-        // Phase 2: Index all components with endpoint resolution and CFG generation
-        ComponentIndexer componentIndexer = new ComponentIndexer(config, response.endpointIndex);
-        ComponentIndex result_2 = componentIndexer.generateIndex(microserviceSystem, repoList[0].getCommitID());
         String componentId = saveComponents(result_2);
-
         // Phase 3: Indexing the 2 response pair
         String masterId = saveIndex(componentId, endpointId);
 
         // Phase 4: Constructing the response
         ObjectNode finalResponse = objectMapper.createObjectNode();
         finalResponse.put("id", masterId);
+        finalResponse.set("analysisCapabilities", objectMapper.valueToTree(result_2.getMetadata().getAnalysisCapabilities()));
         finalResponse.put("endpointIndex", getEndpointsById(endpointId)); 
         finalResponse.put("componentIndex", getComponentById(componentId)); 
 
@@ -128,6 +111,10 @@ public class ComponentService {
             result.put("componentIndex", componentNode);
             result.put("endpointIndex", endpointNode);
             result.put("id", id);
+            try (GZIPInputStream input = new GZIPInputStream(new ByteArrayInputStream(componentNode))) {
+                JsonNode savedIndex = objectMapper.readTree(input);
+                result.set("analysisCapabilities", savedIndex.path("metadata").path("analysisCapabilities"));
+            }
 
             return result;
         } else {

@@ -1,0 +1,136 @@
+{
+  "type": "MicroserviceSystem",
+  "name": "native-polyglot",
+  "commitID": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "createDate": null,
+  "modifyDate": null,
+  "antiPattern": null,
+  "metadata": {
+    "languages": [
+      "python",
+      "typescript"
+    ]
+  },
+  "microservices": [
+    {
+      "name": "workers",
+      "repositoryURL": "https://example.invalid/workers",
+      "commitID": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "controllers": [],
+      "services": [],
+      "repositories": [],
+      "entities": [],
+      "unknowns": [
+        {
+          "type": "JClass",
+          "name": "Worker",
+          "classRole": "UNKNOWN",
+          "methods": [
+            {
+              "type": "Method",
+              "name": "Worker.run",
+              "parameters": [],
+              "returnType": "",
+              "annotations": [],
+              "methodCalls": []
+            }
+          ],
+          "fields": [],
+          "imports": [],
+          "implementedTypes": [],
+          "metadata": {
+            "language": "python",
+            "sourcePath": "src/jobs.py",
+            "declaredType": "Worker"
+          }
+        }
+      ],
+      "feignClients": []
+    },
+    {
+      "name": "client",
+      "repositoryURL": "https://example.invalid/client",
+      "commitID": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "controllers": [],
+      "services": [],
+      "repositories": [],
+      "entities": [],
+      "unknowns": [
+        {
+          "type": "JSModule",
+          "name": "client.ts",
+          "classRole": "UNKNOWN",
+          "methods": [
+            {
+              "type": "Method",
+              "name": "client-call:fetch-user",
+              "parameters": [],
+              "returnType": "",
+              "annotations": [],
+              "methodCalls": [
+                {
+                  "type": "RestCall",
+                  "name": "fetch-user",
+                  "calledFrom": "loadUser",
+                  "url": "/users/{?}",
+                  "httpMethod": "GET",
+                  "parameterContents": [],
+                  "metadata": {
+                    "extractor": "cimet-javascript",
+                    "observation": "http-call",
+                    "target": "backend",
+                    "normalizedPath": "/users/{param}"
+                  }
+                }
+              ]
+            }
+          ],
+          "fields": [],
+          "imports": [],
+          "implementedTypes": [],
+          "metadata": {
+            "language": "typescript",
+            "sourceFile": "src/client.ts"
+          }
+        }
+      ],
+      "feignClients": []
+    },
+    {
+      "name": "api",
+      "repositoryURL": "https://example.invalid/api",
+      "commitID": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "controllers": [
+        {
+          "type": "JSModule",
+          "name": "routes.ts",
+          "classRole": "CONTROLLER",
+          "methods": [
+            {
+              "type": "Endpoint",
+              "name": "users-route",
+              "parameters": [],
+              "returnType": "",
+              "annotations": [],
+              "methodCalls": [],
+              "url": "/users/{?}",
+              "httpMethod": "GET"
+            }
+          ],
+          "fields": [],
+          "imports": [],
+          "implementedTypes": [],
+          "metadata": {
+            "language": "typescript",
+            "sourceFile": "src/routes.ts"
+          }
+        }
+      ],
+      "services": [],
+      "repositories": [],
+      "entities": [],
+      "unknowns": [],
+      "feignClients": []
+    }
+  ]
+}

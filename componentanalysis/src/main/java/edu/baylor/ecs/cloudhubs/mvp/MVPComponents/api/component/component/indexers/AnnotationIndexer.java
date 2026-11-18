@@ -41,8 +41,8 @@ public class AnnotationIndexer {
         return new IndexedAnnotation(
             "Annotation",
             annotation.getName(),
-            annotation.getID(),
-            annotation.getFullID(),
+            edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.id(annotation),
+            edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.fullId(annotation),
             microserviceName,
             className,
             annotation.getMetadata(),

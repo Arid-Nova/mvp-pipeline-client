@@ -1,5 +1,24 @@
 import { api } from './utilities/api';
 import { decompressPayload } from './utilities/utils'
+import { runJavaScriptStage, securityReportFromPayload, unsupportedDownstreamReason, sourceLanguages } from './utilities/javascriptWorkflow';
+
+/** Detect restored JavaScript inputs before choosing a language-specific stage. */
+export function requiresJavaScriptWorkflow(node: any): boolean {
+    if (sourceLanguages(node.data?.payload || {}).some(language => ['javascript', 'typescript'].includes(language))) return true;
+    const repositories = node.data?.repositories || node.data?.payload?.metadata || [];
+    if (Array.isArray(repositories) && repositories.some((repository: any) =>
+        ['javascript', 'typescript'].includes(String(repository?.language || '').toLowerCase()))) return true;
+    const ir = node.data?.payload?.irJson;
+    if (!ir || typeof ir !== 'object') return false;
+    if (ir.javascriptExtraction || ir.metadata?.extractor === 'cimet-javascript') return true;
+    const isJavaScriptModule = (module: any) => module?.type === 'JSModule'
+        || ['javascript', 'typescript'].includes(String(module?.metadata?.language || '').toLowerCase());
+    if (Array.isArray(ir.orphans) && ir.orphans.some(isJavaScriptModule)) return true;
+    return Array.isArray(ir.microservices) && ir.microservices.some((service: any) =>
+        service?.metadata?.componentKind === 'backend'
+        || ['controllers', 'services', 'repositories', 'entities', 'unknowns', 'feignClients'].some(key =>
+            Array.isArray(service?.[key]) && service[key].some(isJavaScriptModule)));
+}
 
 export class PipelineCoordinator {
     private nodesMap: Map<string, any> = new Map();
@@ -34,7 +53,16 @@ export class PipelineCoordinator {
             summary.push({
                 type: node.type,
                 status: node.status,
-                logs: node.logs
+                logs: node.logs,
+                ...(node.data?.payload?.irJson?.id ? { irId: node.data.payload.irJson.id } : {}),
+                ...(node.data?.javascriptAnalysis ? {
+                    analysisStatus: node.data.javascriptAnalysis.status,
+                    policyId: node.data.javascriptAnalysis.policyId,
+                    coverage: node.data.javascriptAnalysis.coverage,
+                    counts: node.data.javascriptAnalysis.counts,
+                    count: node.data.javascriptAnalysis.count,
+                    ...(node.data.javascriptAnalysis.llmReview ? { llmReview: node.data.javascriptAnalysis.llmReview } : {})
+                } : {})
             });
         });
         return summary;
@@ -62,6 +90,8 @@ export class PipelineCoordinator {
             const inputNodes = Array.from(this.nodesMap.values()).filter(
                 n => n.type === 'SYSTEM_INPUT' || n.type === 'UPLOAD_IR'
             );
+
+            // Each stage selects its language-specific capability path; unresolved policies remain explicit.
 
             for (const node of inputNodes) {
                 this.updateStatus(node.id, 'running', 'Starting input processing...');
@@ -123,6 +153,16 @@ export class PipelineCoordinator {
             this.updateStatus(targetNode.id, 'running', 'Receiving data...');
 
             try {
+                const comparisonInputs = ['VERIFICATION_COMPARISON', 'SECURITY_REGRESSION'].includes(targetNode.type)
+                    ? Array.from(this.nodesMap.values()).filter(node => this.connections.some(connection => connection.source === node.id && connection.target === targetNode.id))
+                        .map(node => ({ id: node.id, type: node.type, status: node.status, data: node.data, position: node.position, y: node.y })) : undefined;
+                const javascript = await runJavaScriptStage(targetNode.type, payload,
+                    comparisonInputs ? { ...targetNode.data, javascriptComparisonInputs: comparisonInputs } : targetNode.data, api.postJavaScriptStage);
+                if (javascript) {
+                    this.updateStatus(targetNode.id, javascript.waiting ? 'running' : 'completed', javascript.message, javascript.data);
+                    if (!javascript.waiting) await this.processNextNodes(targetNode.id, javascript.payload);
+                    continue;
+                }
                 if (targetNode.type === 'MULTI_REPO') {
                     if (payload.type !== 'SYSTEM_PAYLOAD') throw new Error("Expected System Source");
                     
@@ -130,7 +170,10 @@ export class PipelineCoordinator {
                         systemName: payload.systemName,
                         systemRepositories: payload.repositories.map((repo: any) => ({
                             repoBranchPair: { repositoryURL: repo.repoUrl, branchName: repo.branch || "master" },
-                            commitID: repo.commitId
+                            commitID: repo.commitId,
+                            language: repo.language || 'java',
+                            componentKind: ['javascript', 'typescript'].includes(repo.language) ? (repo.componentKind || 'backend') : undefined,
+                            componentName: ['javascript', 'typescript'].includes(repo.language) ? repo.componentName : undefined
                         }))
                     };
 
@@ -156,7 +199,10 @@ export class PipelineCoordinator {
                         systemName: payload.systemName,
                         systemRepositories: payload.repositories.map((repo: any) => ({
                             repoBranchPair: { repositoryURL: repo.repoUrl, branchName: repo.branch || "master" },
-                            commitID: repo.commitId || undefined
+                            commitID: repo.commitId || undefined,
+                            language: repo.language || 'java',
+                            componentKind: ['javascript', 'typescript'].includes(repo.language) ? (repo.componentKind || 'backend') : undefined,
+                            componentName: ['javascript', 'typescript'].includes(repo.language) ? repo.componentName : undefined
                         })),
                         rolePriority: rolePriorityMap,
                         defaultRolePriority: 50
@@ -174,7 +220,13 @@ export class PipelineCoordinator {
                     };
 
                     // Retrieves the authorization vectors
-                    const authVectors = await api.generateVectors(generatedComponents.id);
+                    const securityReport = generatedComponents.componentIndex?.javascriptExtraction?.securityAnalysis;
+                    const scopeUnsupported = unsupportedDownstreamReason({ irJson: generatedComponents, metadata: payload.repositories });
+                    const authorizationUnsupported = Boolean(scopeUnsupported) || rawResponse.analysisCapabilities?.authorization === 'unsupported'
+                        || generatedComponents.componentIndex?.metadata?.analysisCapabilities?.authorization === 'unsupported';
+                    const authVectors = scopeUnsupported ? null : securityReport
+                        ? await api.postJavaScriptStage('VECTOR', '/vectors/javascript', { report: securityReport, expectedPolicy: targetNode.data.expectedPolicy })
+                        : authorizationUnsupported ? null : await api.generateVectors(generatedComponents.id);
 
                     const nextPayload = {
                         irJson: generatedComponents,
@@ -183,7 +235,7 @@ export class PipelineCoordinator {
                         additional: authVectors
                     };
 
-                    this.updateStatus(targetNode.id, 'completed', 'Components generated.', { payload: nextPayload });
+                    this.updateStatus(targetNode.id, 'completed', scopeUnsupported ? 'Components generated. Whole-system authorization is unsupported for this source scope.' : securityReport ? 'Components and scoped JavaScript policy evidence generated.' : authorizationUnsupported ? 'Components generated. Authorization is unsupported for this source scope.' : 'Components generated.', { payload: nextPayload });
                     await this.processNextNodes(targetNode.id, nextPayload);
                 }
                 
@@ -200,7 +252,7 @@ export class PipelineCoordinator {
 
                     const compPayload = {
                         id: extractedId,
-                        authvecid: authVectors._id,
+                        authvecid: authVectors?._id || authVectors?.policyId || '',
                         endpoints: endpointsData,
                         components: componentsData
                     };
@@ -419,30 +471,36 @@ export class PipelineCoordinator {
 
                 else if (targetNode.type === 'AEGIS') {
                     if (!payload.irJson) throw new Error("Invalid input: Expected IR JSON");
-
-                    this.updateStatus(targetNode.id, 'running', 'Analyzing in Background...');
-
-                    // Constructing payload for Neuro-Symbolic Engine
-                    // This is a temporary construct until AEGIS is really ready for multi-repo
+                    const javascript = requiresJavaScriptWorkflow({ data: { payload } }) || Boolean(securityReportFromPayload(payload));
+                    const sourceReport = securityReportFromPayload(payload);
+                    if (javascript && !['complete', 'partial'].includes(sourceReport?.status))
+                        throw new Error('Regenerate JavaScript extraction to obtain source-bound security evidence.');
+                    if (!payload.irJson.id) throw new Error('Aegis requires the saved IR identity. Save the source IR before analysis.');
+                    this.updateStatus(targetNode.id, 'running', 'Analyzing saved source evidence...');
                     const enginePayload = {
-                        branch: payload.metadata[0]?.branch,
-                        repoUrl: payload.metadata[0]?.repoUrl,
-                        ir_id: payload.irJson['id']
+                        branch: payload.metadata?.[0]?.branch,
+                        repoUrl: payload.metadata?.[0]?.repoUrl,
+                        ir_id: payload.irJson['id'],
+                        ...(targetNode.data.llmReview === true ? { llmReview: true, history_ir_id: targetNode.data.history_ir_id } : {})
                     };
-
-                    // Call the Python/Engine API
-                    api.analyzeAegis(enginePayload)
-                    .then(async (response) => {
-                        if (!response.ok) {
-                            throw new Error(`Engine Status: ${response.status}`);
-                        }
-                        console.error('Aegis analysis is successful:');
-                        this.updateStatus(targetNode.id, 'completed', 'Analysis Complete. Click to View.', { payload: payload });
-                    })
-                    .catch((error) => {
-                        console.error('Aegis background analysis failed:', error);
-                        this.updateStatus(targetNode.id, 'error', `Analysis Failed: ${error.message}`);
-                    });
+                    const response = await api.analyzeAegis(enginePayload);
+                    if (response?.ir_id !== undefined && String(response.ir_id) !== String(enginePayload.ir_id))
+                        throw new Error('Aegis returned evidence for a different saved IR identity.');
+                    if (javascript) {
+                        if (!['complete', 'partial'].includes(response?.status) || response?.analysis !== 'javascript-express-static-security')
+                            throw new Error(response?.reason || 'Aegis did not return JavaScript source-security evidence.');
+                        const next = { ...payload, javascriptReport: sourceReport, securityReport: response,
+                            javascriptAnalysis: response, javascriptResults: { ...payload.javascriptResults, AEGIS: response } };
+                        this.updateStatus(targetNode.id, 'completed', `JavaScript source-security analysis: ${response.status}.`,
+                            { securityReport: response, analysisStatus: response.status, javascriptAnalysis: response, payload: next });
+                        await this.processNextNodes(targetNode.id, next);
+                    } else {
+                        if (!response?.ok && !['complete', 'partial', 'success'].includes(response?.status))
+                            throw new Error(response?.reason || `Engine Status: ${response?.status || 'unknown'}`);
+                        const next = { ...payload, aegisResult: response };
+                        this.updateStatus(targetNode.id, 'completed', 'Analysis complete. Click to view.', { aegisResult: response, payload: next });
+                        await this.processNextNodes(targetNode.id, next);
+                    }
                 }
                 
                 else if (targetNode.type === 'VERIFICATION_COMPARISON') {
@@ -533,11 +591,13 @@ export class PipelineCoordinator {
                         systemName: systemName,
                         systemRepositories: baseMeta.map((m: any) => ({
                                     repoBranchPair: { repositoryURL: m.repoUrl, branchName: m.branch },
-                                    commitID: m.commitId
+                                    commitID: m.commitId, language: m.language || 'java', componentKind: m.componentKind,
+                                    componentName: m.componentName
                                 })),
                         comparingRepositories: targetMeta.map((m: any) => ({
                                     repoBranchPair: { repositoryURL: m.repoUrl, branchName: m.branch },
-                                    commitID: m.commitId
+                                    commitID: m.commitId, language: m.language || 'java', componentKind: m.componentKind,
+                                    componentName: m.componentName
                                 }))
                     };
 
@@ -555,7 +615,8 @@ export class PipelineCoordinator {
                     });
                     
                     this.updateStatus(targetNode.id, 'completed', 'Impact Analysis Complete.', {
-                        changeImpactPayload: result.data,
+                        changeImpactPayload: result,
+                        ...(result.analysis === 'javascript-system-change' ? { javascriptAnalysis: result } : {}),
                         targetedServices: Array.from(affectedSet) 
                     });
                     

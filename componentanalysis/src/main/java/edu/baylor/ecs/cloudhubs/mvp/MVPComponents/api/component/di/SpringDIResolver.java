@@ -71,7 +71,7 @@ public class SpringDIResolver {
     public ResolutionResult resolveField(Field field, SpringDIContext diContext,
                                         Map<String, IndexedComponent> components) {
         // Check if field has @Autowired annotation
-        boolean isAutowired = field.getAnnotations().stream()
+        boolean isAutowired = edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.annotations(field).stream()
             .anyMatch(ann -> ann.getName().equals("Autowired"));
 
         if (!isAutowired) {
@@ -189,7 +189,7 @@ public class SpringDIResolver {
      * @return The qualifier value, or null if not present
      */
     private String extractQualifier(Field field) {
-        return field.getAnnotations().stream()
+        return edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.annotations(field).stream()
             .filter(ann -> ann.getName().equals("Qualifier"))
             .findFirst()
             .map(ann -> {
