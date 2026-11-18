@@ -16,7 +16,7 @@ from src.services.mongo_service import MongoService
 from src.analysis.neuro_analyzer import NeuroAnalyzer
 from src.calculus.evidence_mapper import EvidenceMapper
 from src.analysis.symbolic_analyzer import SymbolicAnalyzer
-from src.analysis.javascript_security import javascript_security_response
+from src.analysis.analysis_strategies import AnalysisStrategyFactory
 from src.services.ir_reader import read_stored_ir
 from src.services.graph_traversal_service import GraphTraversalService
 
@@ -81,18 +81,18 @@ class AnalysisFacade:
 
         # Check source support before cache reuse, cloning, graph replacement or LLM work.
         ir = ir_data if ir_data is not None else self._get_ir_for_analysis(payload['ir_id'])
-        javascript = javascript_security_response(ir)
-        if javascript is not None:
-            return {**javascript, 'ir_id': payload['ir_id']}
+        strategy = AnalysisStrategyFactory.for_ir(ir)
+        if not strategy.uses_java_pipeline:
+            return strategy.analyze(ir, payload=payload)
         # Checking if analysis has already been performed.
-        existing = self.mongo_service.find(os.getenv('MONGO_COLLECTION_NAME'), {
+        existing = self.mongo_service.find_one(os.getenv('MONGO_COLLECTION_NAME'), {
             "irID": payload['ir_id']
         })
 
         if existing:
             # print(f"Analysis already exists for system '{payload['name']}' with commit ID '{payload['commitID']}'.")
             # print("Returning existing results.")
-            return existing[0]
+            return existing
         
         # Initalizing the GIT code fetching mechanism.
         self.code_fetcher = CodeFetcher(payload['repoUrl'], payload['branch'])
@@ -180,7 +180,7 @@ class AnalysisFacade:
     def update_results_with_vulnerabilities(self, ir_id: str, vulnerabilities: List[Dict[str, Any]]):
         # Updates the existing analysis results with the newly found latent vulnerabilities.
         try:
-            existing = self.mongo_service.find(os.getenv('MONGO_COLLECTION_NAME'), {
+            existing = self.mongo_service.find_one(os.getenv('MONGO_COLLECTION_NAME'), {
                 "irID": ir_id
             })
 
@@ -188,7 +188,7 @@ class AnalysisFacade:
                 print(f"No existing analysis found for IR ID '{ir_id}'. Cannot update vulnerabilities.")
                 return False
             
-            existing_result = existing[0]
+            existing_result = existing
 
             # Compressing before updating to DB
             vuln_json = json.dumps(vulnerabilities)

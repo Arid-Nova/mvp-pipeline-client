@@ -1,4 +1,8 @@
-"""Read saved IR through the configured backend; never accept a caller URL."""
+"""Read Mongo-backed saved IR through its backend API; never accept a caller URL.
+
+The API endpoint and Java facade share this bounded transport. The backend owns
+IR persistence; this reader neither reads nor writes an intermediate IR file.
+"""
 import gzip
 import io
 import json

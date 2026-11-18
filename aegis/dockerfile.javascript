@@ -1,3 +1,6 @@
+# Lightweight deployment profile for the same strategy-based API. This is not
+# an agent runtime: it serves stored evidence and optional bounded LLM review;
+# it does not execute target source or provision the Java graph/model stack.
 FROM python:3.12-slim
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*

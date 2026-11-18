@@ -5,9 +5,8 @@ from typing import Dict, Any
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.analysis.javascript_security import javascript_security_response
+from src.analysis.neuro_analyzer import NeuroAnalyzer
 from src.services.ir_reader import read_stored_ir
-from src.analysis.javascript_llm import review_javascript
 
 facade = None
 
@@ -61,23 +60,13 @@ async def analyze_endpoint(payload: Dict[str, Any]):
     try:
         # The caller supplies an identifier, never a source path or service URL.
         ir = read_stored_ir(ir_id)
-        javascript = javascript_security_response(ir)
-        if javascript is not None:
-            result = {**javascript, 'ir_id': ir_id}
-            if payload.get('llmReview') is True and javascript.get('status') in ('complete', 'partial'):
-                history_id = payload.get('history_ir_id')
-                history = read_stored_ir(history_id) if history_id else None
-                result['llmReview'] = review_javascript(ir, history)
-            return result
-
-        engine = get_java_facade()
-        results = engine.run_analysis(payload, ir_data=ir)
-        if isinstance(results, dict) and results.get('status') in ('unsupported', 'partial'):
-            return results
-        if 'vulnerabilities' in results:
-            return {'status': 'success'}
-        engine.get_latent_vulnerabilities(ir_id, results)
-        return {'status': 'success'}
+        analyzer = NeuroAnalyzer.for_ir(ir, java_facade_factory=get_java_facade)
+        history = None
+        if payload.get('llmReview') is True and analyzer.supports_history_review:
+            history_id = payload.get('history_ir_id')
+            history = read_stored_ir(history_id) if history_id else None
+        return analyzer.analyze(ir, payload=payload, history=history,
+                                llm_review=payload.get('llmReview') is True)
     except HTTPException:
         raise
     except Exception as error:

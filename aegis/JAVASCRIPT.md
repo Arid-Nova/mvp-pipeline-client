@@ -1,5 +1,24 @@
 # Stored JavaScript security reports
 
+## Shared analyzer and language strategies
+
+`NeuroAnalyzer` is the common analysis context. `AnalysisStrategyFactory` selects
+the Java stored-IR pipeline, JavaScript evidence review, or an explicit unsupported
+result using the same validated source-capability contract. The existing Java
+constructor, execution-path analysis and latent-vulnerability methods remain
+available; their implementation loads only when the Java path is selected.
+JavaScript's evidence formatter and provider helper belong to its strategy rather
+than a separate request pipeline. Deterministic observations stay separate from
+optional LLM recommendations.
+
+Python, Go and C# currently select the unsupported strategy. To add analysis for a
+language, provide a strategy with an explicit evidence contract, register its
+selection in the factory, and test valid/invalid/mixed source, lazy dependency
+loading and unsupported downstream operations. Extraction support alone never
+enables Java graph or model analysis. The optional lightweight image runs this
+same context/factory; separation concerns dependencies and deployment, not agentic
+execution or a second analysis architecture.
+
 ## Optional OpenAI evidence review
 
 Set `OPENAI_API_KEY_FILE` to a server-mounted secret file and `LLM_MODEL` to
@@ -19,6 +38,12 @@ source semantic audit or classic design-pattern detector. Strict metric coverage
 and finite-model verdicts are not changed by LLM output. Generated test plans are
 advice and are not executed.
 
+LLM endpoint fact keys are independently namespaced by component provenance and
+the original endpoint ID; endpoint IDs such as `ep1` therefore reach the database,
+security and test-planning prompts without requiring a prefix in the saved IR.
+The original ID stays in the evidence. Null or absent historical JavaScript
+evidence is reported as unavailable rather than crashing or inventing changes.
+
 Provider errors have explicit status/code, with no raw credential-bearing error
 messages. A failed request stops subsequent category calls. Completion records
 include model, response ID, input hash and token usage; failed quota requests do
@@ -29,6 +54,12 @@ saved IR from the configured `IR_SERVICE_URL` using the backend's gzip transport
 Caller-provided source paths and service URLs are not used.
 Identifiers are limited to 256 characters. The configured service URL must use
 HTTP(S); streamed responses are capped at 64 MiB compressed and 128 MiB decompressed.
+
+The backend retrieves saved IRs from MongoDB. Both the API and the Java facade
+reuse `read_stored_ir`; neither persists an intermediate IR file. The explicit
+offline verification script below is a developer tool, separate from that runtime
+flow. The legacy dashboard also queries its saved analysis results by exact IR ID
+with a single-document lookup instead of listing/sorting them.
 
 For JavaScript inputs, the service validates
 `javascriptExtraction.securityAnalysis` version 1 from
