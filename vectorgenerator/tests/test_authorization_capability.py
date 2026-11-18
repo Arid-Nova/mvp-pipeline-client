@@ -54,3 +54,30 @@ class PolyglotCapabilityTests(unittest.TestCase):
         for language in ('python', 'go', 'csharp', 'javascript'):
             with self.subTest(language=language):
                 self.assertIsNotNone(unsupported_authorization_reason({'metadata': {'languages': [language]}}))
+
+    def test_physical_source_metadata_blocks_all_java_generation_routes(self):
+        for field in ('sourcePath', 'sourceFile'):
+            for operation in (main.generate_all, main.generate_single, main.show_chain):
+                with self.subTest(field=field, operation=operation.__name__):
+                    request = GenerateAllRequest(indexId='local-fixture', components={}, endpoints={})
+                    data_service = Mock()
+                    def populate(actual_request):
+                        actual_request.components = {'microservices': [{'unknowns': [{
+                            'type': 'JClass', 'path': 'synthetic/Worker.java',
+                            'metadata': {field: 'src/worker.py'},
+                        }]}]}
+                        actual_request.endpoints = {'endpoints': {}}
+                    data_service.fetch_index_data.side_effect = populate
+                    with patch.object(main, 'df_service', data_service), \
+                         patch.object(main, 'RoleAnalyzer') as roles, \
+                         patch.object(main, 'VectorGenerator') as vectors:
+                        with self.assertRaises(HTTPException) as caught:
+                            if operation == main.generate_all:
+                                asyncio.run(operation(request))
+                            else:
+                                asyncio.run(operation('endpoint', request))
+                    self.assertEqual(caught.exception.status_code, 422)
+                    self.assertEqual(caught.exception.detail['status'], 'unsupported')
+                    roles.assert_not_called()
+                    vectors.assert_not_called()
+                    data_service.add_auth_vectors.assert_not_called()

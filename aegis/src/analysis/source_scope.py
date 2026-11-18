@@ -18,12 +18,17 @@ def source_languages(ir: Any) -> set[str]:
         add('javascript')
     def add_module(module, context):
         explicit = (module.get('metadata') or {}).get('language')
-        if explicit:
+        if isinstance(explicit, str) and explicit.lower() not in ('', 'auto', 'polyglot'):
             add(explicit)
             return
-        filename = str(module.get('filePath') or module.get('fileName') or module.get('path') or '').lower()
+        module_metadata = module.get('metadata') or {}
+        # Native polyglot containers can retain a synthetic .java identity. The
+        # physical source record describes their language; nested endpoint URLs
+        # are deliberately outside this module-level lookup.
+        filename = str(module_metadata.get('sourcePath') or module_metadata.get('sourceFile')
+                       or module.get('filePath') or module.get('fileName') or module.get('path') or '').lower()
         extension = filename.rsplit('.', 1)[-1] if '.' in filename else ''
-        extensions = {'java': 'java', 'py': 'python', 'go': 'go', 'cs': 'csharp', 'js': 'javascript', 'jsx': 'javascript', 'mjs': 'javascript', 'cjs': 'javascript', 'ts': 'typescript', 'tsx': 'typescript'}
+        extensions = {'java': 'java', 'py': 'python', 'go': 'go', 'cs': 'csharp', 'js': 'javascript', 'jsx': 'javascript', 'mjs': 'javascript', 'cjs': 'javascript', 'ts': 'typescript', 'tsx': 'typescript', 'mts': 'typescript', 'cts': 'typescript'}
         if extension in extensions:
             add(extensions[extension])
         elif module.get('type') == 'JSModule':

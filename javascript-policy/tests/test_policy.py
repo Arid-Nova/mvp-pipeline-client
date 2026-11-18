@@ -347,3 +347,36 @@ class SourceLanguageScopeTests(unittest.TestCase):
                 ir = {'microservices': [{'unknowns': [{'type': 'JClass', 'metadata': {'language': language}}]}]}
                 self.assertEqual(source_languages(ir), {language})
         self.assertEqual(source_languages({'microservices': [{'controllers': [{'type': 'JClass'}]}]}), {'java'})
+
+    def test_physical_metadata_precedes_native_container_identity(self):
+        from source_scope import source_languages
+        for field in ('sourcePath', 'sourceFile'):
+            for extension, language in (('py', 'python'), ('go', 'go'), ('cs', 'csharp'),
+                                        ('js', 'javascript'), ('ts', 'typescript'),
+                                        ('mts', 'typescript'), ('cts', 'typescript')):
+                with self.subTest(field=field, extension=extension):
+                    module = {'type': 'JClass', 'path': 'synthetic/Worker.java',
+                              'filePath': 'synthetic/Worker.java', 'fileName': 'Worker.java',
+                              'metadata': {field: f'src/worker.{extension}'}}
+                    self.assertEqual(source_languages({'microservices': [{'unknowns': [module]}]}), {language})
+
+    def test_explicit_language_remains_authoritative(self):
+        from source_scope import source_languages
+        module = {'type': 'JClass', 'path': 'synthetic/Worker.java',
+                  'metadata': {'language': 'TS', 'sourcePath': 'src/worker.py'}}
+        self.assertEqual(source_languages({'orphans': [module]}), {'typescript'})
+
+    def test_discovery_hint_does_not_hide_observed_physical_language(self):
+        from source_scope import source_languages
+        for hint in ('auto', 'polyglot'):
+            with self.subTest(hint=hint):
+                module = {'type': 'JClass', 'path': 'synthetic/Worker.java',
+                          'metadata': {'language': hint, 'sourcePath': 'src/worker.py'}}
+                self.assertEqual(source_languages({'microservices': [{'unknowns': [module]}]}), {'python'})
+
+    def test_physical_java_source_does_not_infer_language_from_endpoint_urls(self):
+        from source_scope import source_languages
+        module = {'type': 'JClass', 'path': 'synthetic/Controller.py',
+                  'metadata': {'sourcePath': 'src/Controller.java'},
+                  'methods': [{'type': 'Endpoint', 'path': '/downloads/client.py'}]}
+        self.assertEqual(source_languages({'microservices': [{'controllers': [module]}]}), {'java'})

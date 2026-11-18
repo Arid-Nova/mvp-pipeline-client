@@ -8,9 +8,7 @@ from ..source_scope import source_languages
 from typing import Any, Dict, List, Optional
 
 
-_JS_LANGUAGES = {"javascript", "typescript", "jsx", "tsx"}
-_CLASS_COLLECTIONS = ("controllers", "services", "repositories", "entities",
-                      "unknowns", "feignClients")
+_JS_LANGUAGES = {"javascript", "typescript"}
 
 
 def _observed_security_summary(extraction):
@@ -87,10 +85,6 @@ def _observed_security_summary(extraction):
             'limitation': 'Stored AST observations only; no complete role-policy model, satisfiability verdict or permission changes are inferred.'}
 
 
-def _javascript_language(value: Any) -> bool:
-    return isinstance(value, str) and value.lower() in _JS_LANGUAGES
-
-
 def unsupported_authorization(ir_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Return a capability limitation for JS backend inputs, including mixed IR.
 
@@ -102,6 +96,9 @@ A support flag cannot enable a parser implementation that does not exist.
         return {'capability_status': 'unsupported', 'unsupported_components': sorted(languages - {'java'}),
                 'reason': 'Whole-system authorization verification is unsupported for these extracted languages. No Java policy model or SAT/UNSAT security verdict was computed.'}
     components: List[str] = []
+    backend_languages: set[str] = set()
+    frontend_languages: set[str] = set()
+    frontend_evidence = False
     extraction = ir_data.get("javascriptExtraction") or {}
     snapshots = extraction.get("snapshots", []) if isinstance(extraction, dict) else []
     for snapshot in snapshots:
@@ -110,22 +107,45 @@ A support flag cannot enable a parser implementation that does not exist.
         component = snapshot.get("component") or {}
         if component.get("kind") == "backend":
             components.append(component.get("name") or "unnamed-javascript-backend")
+        elif component.get("kind") == "frontend":
+            frontend_evidence = True
+            for file in snapshot.get('files', []):
+                if isinstance(file, dict):
+                    frontend_languages.update(source_languages({'orphans': [{'filePath': file.get('path')}]}))
 
     for service in ir_data.get("microservices", []):
-        metadata = service.get("metadata") or {}
-        javascript = _javascript_language(metadata.get("language"))
-        for collection in _CLASS_COLLECTIONS:
-            for module in service.get(collection, []) or []:
-                module_metadata = module.get("metadata") or {}
-                if (module.get("type") == "JSModule"
-                        or _javascript_language(module_metadata.get("language"))):
-                    javascript = True
-        if javascript:
+        # Apply the same normalized evidence rules as the other service guards,
+        # including physical source paths and service-level language arrays.
+        service_languages = source_languages({'microservices': [service]})
+        backend_languages.update(service_languages)
+        if service_languages & _JS_LANGUAGES:
             components.append(service.get("name") or "unnamed-javascript-backend")
 
+    for orphan in ir_data.get('orphans', []):
+        orphan_languages = source_languages({'orphans': [orphan]}) & _JS_LANGUAGES
+        if not orphan_languages:
+            continue
+        # An orphan is not inherently frontend code. The native projection
+        # carries this explicit boundary marker for registered frontend roots.
+        if (orphan.get('metadata') or {}).get('componentKind') == 'frontend':
+            frontend_evidence = True
+            frontend_languages.update(orphan_languages)
+        else:
+            components.append(orphan.get('name') or 'unclassified-javascript-source')
+
     root_metadata = ir_data.get("metadata") or {}
-    explicit_js_extractor = root_metadata.get("extractor") == "cimet-javascript" or any(_javascript_language(value) for value in root_metadata.get("languages", []))
-    if not components and not explicit_js_extractor:
+    # The plural field is an aggregate over backend AND frontend files in
+    # IRService. Exempt only languages accounted for by frontend observations;
+    # scalar/legacy extractor markers still declare an unsupported source scope.
+    aggregate_languages = source_languages({'metadata': {'languages': root_metadata.get('languages', [])}})
+    scalar_languages = source_languages({'metadata': {'language': root_metadata.get('language')}})
+    explicit_js_extractor = (root_metadata.get("extractor") == "cimet-javascript"
+                             or bool(scalar_languages & _JS_LANGUAGES))
+    unexplained_root_languages = (aggregate_languages & _JS_LANGUAGES) - frontend_languages
+    javascript_observed = bool(languages & _JS_LANGUAGES) or explicit_js_extractor
+    frontend_only = frontend_evidence and backend_languages == {'java'}
+    if (not components and not explicit_js_extractor and not unexplained_root_languages
+            and (not javascript_observed or frontend_only)):
         return None
 
     response = {
@@ -133,7 +153,7 @@ A support flag cannot enable a parser implementation that does not exist.
         "unsupported_components": sorted(set(components)),
         "reason": (
             "Complete authorization-policy modeling is unavailable for JavaScript/TypeScript "
-            "backends in the current formal verifier. Authentication, role-check and middleware "
+            "source outside a declared frontend-only scope in the current formal verifier. Authentication, role-check and middleware "
             "observations do not establish the complete policies required by this solver. No SAT/UNSAT security "
             "verdict or authorization changes were computed."
         ),

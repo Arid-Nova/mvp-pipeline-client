@@ -128,3 +128,80 @@ class NativeJavaScriptCapabilityTests(unittest.TestCase):
             response = run_verification('fixture', [], ir_data={'metadata': {'languages': ['javascript']}})
         self.assertEqual(response['status'], 'UNSUPPORTED')
         parser.assert_not_called()
+
+    def test_normalized_root_service_and_native_source_evidence_block_before_cloning(self):
+        inputs = [
+            {'metadata': {'language': 'TS'}},
+            {'metadata': {'languages': ['js']}},
+            {'microservices': [{'name': 'api', 'metadata': {'languages': ['TypeScript']}}]},
+            {'microservices': [{'name': 'api', 'unknowns': [{'type': 'JClass', 'path': 'src/server.js'}]}]},
+            {'microservices': [{'name': 'api', 'controllers': [{'type': 'JClass',
+                'path': 'synthetic/Worker.java', 'metadata': {'sourcePath': 'src/server.ts'}}]}]},
+            {'microservices': [{'name': 'api', 'controllers': [{'type': 'JClass',
+                'path': 'synthetic/Worker.java', 'metadata': {'sourceFile': 'src/server.js'}}]}]},
+            {'microservices': [{'name': 'api', 'unknowns': [{'type': 'JClass',
+                'path': 'synthetic/Worker.java', 'metadata': {'sourcePath': 'src/worker.py'}}]}]},
+            {'microservices': [{'name': 'api', 'unknowns': [{'type': 'JClass',
+                'path': 'synthetic/Worker.java', 'metadata': {'sourceFile': 'src/worker.py'}}]}]},
+            {'microservices': [{'name': 'api', 'unknowns': [{'type': 'JClass',
+                'path': 'synthetic/Worker.java', 'metadata': {'language': 'auto', 'sourcePath': 'src/worker.py'}}]}]},
+            {'microservices': [{'name': 'java', 'controllers': [{'type': 'JClass'}]}],
+             'orphans': [{'type': 'JClass', 'metadata': {'sourcePath': 'src/server.ts'}}],
+             'javascriptExtraction': {'snapshots': [{'component': {'kind': 'frontend', 'name': 'unrelated'},
+                                                    'files': [{'path': 'web/client.ts'}]}]}},
+            {'metadata': {'languages': ['typescript']},
+             'orphans': [{'type': 'JSModule', 'metadata': {'componentKind': 'frontend', 'sourceFile': 'web/client.ts'}}],
+             'javascriptExtraction': {'snapshots': [{'component': {'kind': 'frontend', 'name': 'web'},
+                                                    'files': [{'path': 'web/client.ts'}]}]}},
+        ]
+        git_module = ModuleType('app.services.git_manager')
+        git_module.GitManager = Mock()
+        source = Path(__file__).resolve().parents[1] / 'app' / 'main.py'
+        with patch.dict(sys.modules, {'app.services.git_manager': git_module}):
+            spec = importlib.util.spec_from_file_location('app.normalized_scope_api_test', source)
+            api = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(api)
+        for ir in inputs:
+            with self.subTest(ir=ir), patch.object(api, '_getIRData', return_value=ir), \
+                 patch('app.services.verifier.getModelFromIRAndCode') as parser, \
+                 patch('app.services.verifier.AuthorizationConsistencySolver') as solver:
+                api.git_manager.reset_mock()
+                result = api.verify(api.VerificationRequest(ir_id='local-fixture', systemName='fixture', repos=[]), None)
+                self.assertEqual(result['status'], 'UNSUPPORTED')
+                self.assertIsNone(result['is_satisfiable'])
+                api.git_manager.clone_repos_concurrently.assert_not_called()
+                parser.assert_not_called()
+                solver.assert_not_called()
+
+    def test_named_backend_is_reported_for_physical_javascript_source(self):
+        result = unsupported_authorization({'microservices': [
+            {'name': 'java', 'controllers': [{'type': 'JClass'}]},
+            {'name': 'api', 'unknowns': [{'type': 'JClass', 'path': 'synthetic/Worker.java',
+                                         'metadata': {'sourceFile': 'src/server.js'}}]},
+        ]})
+        self.assertEqual(result['unsupported_components'], ['api'])
+
+    def test_java_backend_still_accepts_frontend_only_javascript_evidence(self):
+        self.assertIsNone(unsupported_authorization({
+            'metadata': {'languages': ['java', 'typescript']},
+            'microservices': [{'name': 'java', 'controllers': [{'type': 'JClass',
+                'metadata': {'sourcePath': 'src/Controller.java'}}]}],
+            'orphans': [{'type': 'JSModule', 'path': 'frontend/web-f11e/web/index.ts', 'metadata': {
+                'componentKind': 'frontend', 'componentName': 'web', 'sourceFile': 'web/index.ts',
+                'repositoryURL': 'https://example.invalid/web.git', 'commit': 'a' * 40}}],
+            'javascriptExtraction': {'snapshots': [{'component': {'name': 'web', 'kind': 'frontend',
+                'repositoryURL': 'https://example.invalid/web.git', 'commit': 'a' * 40},
+                'files': [{'path': 'web/index.ts'}]}]},
+        }))
+
+    def test_unexplained_root_language_is_not_masked_by_a_frontend_snapshot(self):
+        java_backend = {'name': 'java', 'controllers': [{'type': 'JClass'}]}
+        frontend = {'type': 'JSModule', 'metadata': {
+            'componentKind': 'frontend', 'language': 'typescript', 'sourceFile': 'web/client.ts'}}
+        for metadata in ({'language': 'javascript'}, {'languages': ['java', 'javascript', 'typescript']}):
+            with self.subTest(metadata=metadata):
+                self.assertIsNotNone(unsupported_authorization({
+                    'metadata': metadata, 'microservices': [java_backend], 'orphans': [frontend],
+                    'javascriptExtraction': {'snapshots': [{'component': {'kind': 'frontend', 'name': 'web'},
+                                                           'files': [{'path': 'web/client.ts'}]}]},
+                }))
