@@ -88,24 +88,38 @@ def evidence_packets(ir, history=None):
     add('semantics', arch.get('semantics', {}))
     security = js.get('securityAnalysis', {})
     add('security-coverage', security.get('coverage', {}))
-    endpoints = [e for c in security.get('components', []) for e in c.get('endpoints', [])]
+    observations = [(c.get('component', {}), e)
+                    for c in security.get('components', []) for e in c.get('endpoints', [])]
+    endpoints = [e for _, e in observations]
     add('security-counts', dict(Counter(e.get('authentication', {}).get('status', 'unknown') for e in endpoints)))
     # Prioritize known study endpoint families, then bounded unresolved models.
-    selected = sorted(endpoints, key=lambda e: (
-        not any(x.lower() in e.get('path', '').lower() for x in
+    selected = sorted(observations, key=lambda observation: (
+        not any(x.lower() in observation[1].get('path', '').lower() for x in
                 ('diet', 'article', 'emailsphones', 'report', 'discount', 'video', 'payment')),
-        e.get('path', '')))[:50]
-    for e in selected:
-        add(e['endpointId'], {
-            k: e.get(k) for k in ('method', 'path', 'location', 'reachability', 'authentication')}
+        observation[1].get('path', '')))[:50]
+    for component, e in selected:
+        # Fact identities are scoped independently of the upstream ID spelling.
+        # Real endpoint IDs need not start with endpoint-, and separate source
+        # components may reuse them. Preserve both the original ID and provenance.
+        identity = json.dumps({'component': component, 'endpointId': e['endpointId']}, sort_keys=True)
+        identifier = 'endpoint-' + hashlib.sha256(identity.encode()).hexdigest()[:24]
+        add(identifier, {
+            k: e.get(k) for k in ('endpointId', 'method', 'path', 'location', 'reachability', 'authentication')}
+            | {'component': component}
             | {'roleCheckCount': len(e.get('roleChecks', [])),
                'ownershipCheckCount': len(e.get('ownershipChecks', [])),
                'policyStatus': e.get('policyModel', {}).get('status'),
                'unknownReasons': e.get('policyModel', {}).get('unknownReasons', [])})
     for i, f in enumerate(security.get('findings', [])[:20]):
         add('security-finding-' + str(i), f)
-    if history:
-        before = {f['id']: f for f in history.get('javascriptExtraction', {}).get('architecture', {}).get('functions', [])}
+    previous_js = (history or {}).get('javascriptExtraction') or {}
+    if not isinstance(previous_js, dict):
+        previous_js = {}
+    previous_architecture = previous_js.get('architecture') or {}
+    if not isinstance(previous_architecture, dict):
+        previous_architecture = {}
+    if isinstance(previous_architecture.get('functions'), list):
+        before = {f['id']: f for f in previous_architecture['functions']}
         after = {f['id']: f for f in arch.get('functions', [])}
         changed = []
         for id in sorted(before.keys() | after.keys()):
@@ -114,7 +128,9 @@ def evidence_packets(ir, history=None):
                                 'location': {k: (after.get(id) or before[id]).get(k) for k in ('file', 'line', 'name')}})
         add('history', {'previousIrId': history.get('id'), 'changedFunctionCount': len(changed), 'representatives': changed[:20]})
     else:
-        add('history', {'status': 'unavailable', 'reason': 'No saved historical IR supplied for this LLM review'})
+        reason = ('Historical IR has no extracted JavaScript function history' if history
+                  else 'No saved historical IR supplied for this LLM review')
+        add('history', {'status': 'unavailable', 'reason': reason})
     categories = {}
     for category in CATEGORIES:
         prefixes = {
