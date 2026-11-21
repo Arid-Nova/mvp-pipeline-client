@@ -33,6 +33,7 @@ class ChatbotApplicationPropertiesMappingTest {
                 "CHATBOT_TEMPERATURE=0.7",
                 "CHATBOT_CONTEXT_BUDGET_MAX_EVIDENCE_ITEMS=12",
                 "CHATBOT_CONTEXT_BUDGET_MAX_EVIDENCE_CHARS=6000",
+                "CHATBOT_HISTORY_MAX_MESSAGES=6",
                 "CHATBOT_STRICT_EVIDENCE_ONLY=false"
             )
             .run(context -> {
@@ -46,7 +47,45 @@ class ChatbotApplicationPropertiesMappingTest {
                 assertThat(config.getTemperature()).isEqualTo(0.7);
                 assertThat(config.getContextBudgetMaxEvidenceItems()).isEqualTo(12);
                 assertThat(config.getContextBudgetMaxEvidenceChars()).isEqualTo(6000);
+                assertThat(config.getHistoryMaxMessages()).isEqualTo(6);
                 assertThat(config.isStrictEvidenceOnly()).isFalse();
+            });
+    }
+
+    @Test
+    void applicationPropertiesDefaultThePipelineIntentSettings() {
+        contextRunner
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                ChatbotConfig config = context.getBean(ChatbotConfig.class);
+                assertThat(config.getModel()).isEqualTo("llama3.2");
+                assertThat(config.getPipelineIntent().getMaxTokens()).isEqualTo(512);
+                assertThat(config.getPipelineIntent().getTemperature()).isEqualTo(0.4);
+                assertThat(config.getPipelineIntent().getTimeoutMs()).isEqualTo(75000);
+                assertThat(config.getPipelineIntent().getContextTokens()).isEqualTo(4096);
+                assertThat(config.getMaxTokens()).isEqualTo(1024);
+                assertThat(config.getTemperature()).isEqualTo(0.2);
+                assertThat(config.getTimeoutMs()).isEqualTo(240000);
+                assertThat(config.getHistoryMaxMessages()).isEqualTo(4);
+            });
+    }
+
+    @Test
+    void applicationPropertiesMapPipelineIntentEnvironmentVariables() {
+        contextRunner
+            .withSystemProperties(
+                "CHATBOT_PIPELINE_INTENT_MAX_TOKENS=700",
+                "CHATBOT_PIPELINE_INTENT_TEMPERATURE=0.1",
+                "CHATBOT_PIPELINE_INTENT_TIMEOUT_MS=50000",
+                "CHATBOT_PIPELINE_INTENT_CONTEXT_TOKENS=2048"
+            )
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                ChatbotConfig.PipelineIntent intent = context.getBean(ChatbotConfig.class).getPipelineIntent();
+                assertThat(intent.getMaxTokens()).isEqualTo(700);
+                assertThat(intent.getTemperature()).isEqualTo(0.1);
+                assertThat(intent.getTimeoutMs()).isEqualTo(50000);
+                assertThat(intent.getContextTokens()).isEqualTo(2048);
             });
     }
 

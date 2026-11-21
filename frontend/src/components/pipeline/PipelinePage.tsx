@@ -65,6 +65,16 @@ import { SummaryPrompt } from './summary/SummaryPrompt'
 // Utilities
 import { decompressPayload } from '../../utils/decompress';
 import { ExportModal } from './export/ExportModal';
+import { ValidatedSuggestion } from './planning/pipelineValidator';
+import {
+    APPLY_FAILURE_MESSAGES,
+    ApplyError,
+    ApplyFailureReason,
+    ApplyResult,
+    MaterializedSuggestion,
+    historyAfterApply,
+    materializeSuggestion,
+} from './planning/pipelineApplier';
 
 // In-browser cache to avoid data resetting
 let inMemoryPipelineCache: { 
@@ -654,6 +664,52 @@ const PipelinePage: React.FC = () => {
     const [isRunning, setIsRunning] = useState(false);
     const [pipelineRunId, setPipelineRunId] = useState<string>();
     const runCounterRef = useRef<number>(1);
+
+    // Issue #60 (P60-M1-007): apply a selected ValidatedSuggestion, on an EMPTY canvas only.
+    // The handler reads live state through this ref, never the UI's rendered `canvasIsEmpty`,
+    // so even a stale handler reference cannot add a pipeline next to existing work.
+    const liveCanvasRef = useRef({ nodes, connections, isRunning, history, historyIndex });
+    liveCanvasRef.current = { nodes, connections, isRunning, history, historyIndex };
+
+    const applyPipelineSuggestion = (suggestion: ValidatedSuggestion): ApplyResult => {
+        const live = liveCanvasRef.current;
+        const fail = (reason: ApplyFailureReason): ApplyResult => ({ ok: false, reason, message: APPLY_FAILURE_MESSAGES[reason] });
+
+        // Guards, before anything is computed or changed. Never clears, saves, confirms or runs.
+        if (live.nodes.length > 0) return fail('canvas_not_empty');
+        if (live.isRunning) return fail('pipeline_running');
+
+        // Compute everything first: graph, history, viewport and notification.
+        let materialized: MaterializedSuggestion;
+        try {
+            materialized = materializeSuggestion(suggestion);
+        } catch (error) {
+            return fail(error instanceof ApplyError ? error.reason : 'invalid');
+        }
+        const next = historyAfterApply(
+            live.history,
+            live.historyIndex,
+            { nodes: live.nodes, connections: live.connections },
+            { nodes: materialized.nodes, connections: materialized.connections },
+            MAX_HISTORY_STATES
+        );
+        const toConfigure = materialized.pendingConfiguration.filter((p) => p.kind === 'before_run').map((p) => p.cardTitle);
+        const message = toConfigure.length
+            ? `Pipeline added. Next: configure ${toConfigure.join(', ')}, then press Run.`
+            : 'Pipeline added. Press Run when you are ready.';
+
+        // Commit in one synchronous step (React batches these into a single render).
+        setNodes(materialized.nodes);
+        setConnections(materialized.connections);
+        setHistory(next.history);
+        setHistoryIndex(next.historyIndex);
+        setScale(1);
+        setOffset({ x: 0, y: 0 });
+        setNotification({ type: 'success', message, duration: 5000 });
+        liveCanvasRef.current = { ...live, nodes: materialized.nodes, connections: materialized.connections, history: next.history, historyIndex: next.historyIndex };
+
+        return { ok: true, addedNodeIds: materialized.addedNodeIds, pendingConfiguration: materialized.pendingConfiguration };
+    };
 
     // Pipeline Stoppage States     
     const abortControllerRef = useRef<AbortController | null>(null);
@@ -2029,7 +2085,13 @@ const PipelinePage: React.FC = () => {
                 summarySteps={summarySteps} 
             />
 
-            <ChatbotPanel activeContext={chatbotContext} />
+            <ChatbotPanel
+                activeContext={chatbotContext}
+                onApplyPipelineSuggestion={applyPipelineSuggestion}
+                canvasIsEmpty={nodes.length === 0}
+                isPipelineRunning={isRunning}
+                onOpenTemplateLibrary={() => setIsTemplateLibraryOpen(true)}
+            />
 
             <ExportModal 
                 isOpen={isExportModalOpen}

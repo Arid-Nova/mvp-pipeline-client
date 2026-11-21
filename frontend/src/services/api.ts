@@ -12,7 +12,7 @@ import {
     RepoMetadata, CommitPageResponse,
     ChatbotQueryRequest, ChatbotResponse, ChatbotHealthResponse,
     ChatbotContextRefreshRequest, ChatbotContextRefreshResponse,
-    UserFeedback,
+    UserFeedback, PipelineIntentRequest, PipelineIntentsCallResult,
 } from './types';
 import { PromptItem, NodeData, Connection } from '../components/pipeline/models';
 import { decompressPayload, decompressGzipResponse } from '../utils/decompress';
@@ -612,6 +612,27 @@ export const refreshChatbotContext = async (request: ChatbotContextRefreshReques
         const msg = normalizeChatbotError(error);
         showError(msg);
         throw new Error(msg);
+    }
+};
+
+export const requestPipelineIntents = async (
+    request: PipelineIntentRequest,
+    options?: { signal?: AbortSignal; timeoutMs?: number }
+): Promise<PipelineIntentsCallResult> => {
+    try {
+        const response = await CHATBOT_API.post('/chatbot/pipeline/intents', request, {
+            signal: options?.signal,
+            timeout: options?.timeoutMs,
+        });
+        return { kind: 'response', status: response.status, data: response.data };
+    } catch (error: any) {
+        if (axios.isCancel(error) || options?.signal?.aborted) return { kind: 'cancelled' };
+        if (error?.code === 'ECONNABORTED' || error?.code === 'ETIMEDOUT') return { kind: 'timeout' };
+        const status = error?.response?.status;
+        if (status === 503) return { kind: 'model_unavailable', status: 503, data: error.response.data };
+        if (status === 400) return { kind: 'request_invalid', status: 400 };
+        if (typeof status === 'number') return { kind: 'http_error', status };
+        return { kind: 'network_error' };
     }
 };
 
