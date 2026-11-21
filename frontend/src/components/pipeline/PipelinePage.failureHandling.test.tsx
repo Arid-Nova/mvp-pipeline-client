@@ -184,7 +184,7 @@ describe('PipelinePage failure handling (P60-M1-009)', () => {
     it('health unavailable: Build Send is disabled with an explanation; Ask still sends', async () => {
         await renderPipelinePage();
         mockedApi.getChatbotHealth.mockResolvedValue({
-            status: 'unavailable', provider: 'OLLAMA', model: 'llama3.2', baseUrl: 'x', message: 'down', checkedAt: new Date(0).toISOString(), latencyMs: null,
+            status: 'unavailable', provider: 'OLLAMA', model: 'llama3.2', baseUrl: 'x', historyMaxMessages: 4, message: 'down', checkedAt: new Date(0).toISOString(), latencyMs: null,
         });
         mockedApi.sendChatbotQuery.mockResolvedValue({
             answer: 'Unavailable answer.', citations: [], confidence: 'LOW', flags: ['model_unavailable'], requestId: 'r', processingTimeMs: 0, model: 'llama3.2', provider: 'OLLAMA',

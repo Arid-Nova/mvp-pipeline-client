@@ -17,6 +17,7 @@ public class ChatbotHealthResponse {
     private String provider;
     private String model;
     private String baseUrl;
+    private int historyMaxMessages;
     private String message;
 
     @JsonFormat(shape = JsonFormat.Shape.STRING)

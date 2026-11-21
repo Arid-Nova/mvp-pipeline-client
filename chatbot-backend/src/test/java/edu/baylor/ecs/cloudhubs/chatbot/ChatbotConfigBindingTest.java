@@ -32,6 +32,7 @@ class ChatbotConfigBindingTest {
                 "chatbot.temperature=0.2",
                 "chatbot.context-budget-max-evidence-items=20",
                 "chatbot.context-budget-max-evidence-chars=12000",
+                "chatbot.history-max-messages=6",
                 "chatbot.strict-evidence-only=true"
             )
             .run(context -> {
@@ -43,6 +44,7 @@ class ChatbotConfigBindingTest {
                 assertThat(chatbotConfig.getTimeoutMs()).isEqualTo(30000);
                 assertThat(chatbotConfig.getMaxTokens()).isEqualTo(1024);
                 assertThat(chatbotConfig.getTemperature()).isEqualTo(0.2);
+                assertThat(chatbotConfig.getHistoryMaxMessages()).isEqualTo(6);
                 assertThat(chatbotConfig.isStrictEvidenceOnly()).isTrue();
             });
     }
@@ -188,6 +190,22 @@ class ChatbotConfigBindingTest {
                     .contains("chatbot.timeout-ms must be positive")
                     .contains("chatbot.max-tokens must be positive")
                     .contains("chatbot.temperature must be <= 2.0");
+            });
+    }
+
+    @Test
+    void failsWhenHistoryMaxMessagesExceedsQueryLimit() {
+        contextRunner
+            .withPropertyValues(
+                "chatbot.provider=OLLAMA",
+                "chatbot.model=llama3.2",
+                "chatbot.base-url=http://ollama:11434",
+                "chatbot.history-max-messages=9"
+            )
+            .run(context -> {
+                assertThat(context).hasFailed();
+                String rootCauseMessage = NestedExceptionUtils.getMostSpecificCause(context.getStartupFailure()).getMessage();
+                assertThat(rootCauseMessage).contains("chatbot.history-max-messages must be between 0 and 8");
             });
     }
 

@@ -29,7 +29,7 @@ const statusMessage: ChatMessageModel = { role: "assistant", content: "Pipeline 
 
 describe("chat history for Q&A", () => {
     it("keeps ordinary questions and answers exactly as before", () => {
-        const history = buildHistoryMessages([{ role: "user", content: "Which services changed?" }, answer("Two services changed.")], "ctx-1");
+        const history = buildHistoryMessages([{ role: "user", content: "Which services changed?" }, answer("Two services changed.")], "ctx-1", 4);
         expect(history).toEqual([
             { role: "user", content: "PREV_USER_QUESTION: Which services changed?\nACTIVE_CONTEXT_ID: ctx-1" },
             { role: "assistant", content: "PREV_ANSWER_SUMMARY: Two services changed.\nCITED_ENTITIES: order-service, svc-1\nACTIVE_CONTEXT_ID: ctx-1" },
@@ -46,7 +46,7 @@ describe("chat history for Q&A", () => {
             answer("A2"),
         ];
 
-        const history = buildHistoryMessages(messages, "ctx");
+        const history = buildHistoryMessages(messages, "ctx", 4);
 
         expect(history).toHaveLength(4);
         expect(JSON.stringify(history)).not.toMatch(/Pipeline added|set-1|pc_0123456789|secret goal|PREV_ANSWER_SUMMARY: n\/a/);
@@ -65,11 +65,23 @@ describe("chat history for Q&A", () => {
             suggestionsMessage,
             statusMessage,
         ];
-        expect(buildHistoryMessages(messages, "ctx").map((m) => m.content.split("\n")[0])).toEqual([
+        expect(buildHistoryMessages(messages, "ctx", 4).map((m) => m.content.split("\n")[0])).toEqual([
             "PREV_USER_QUESTION: Q1",
             "PREV_ANSWER_SUMMARY: A1",
             "PREV_USER_QUESTION: Q2",
             "PREV_ANSWER_SUMMARY: A2",
         ]);
+    });
+
+    it("uses the runtime history limit and allows history to be disabled", () => {
+        const messages: ChatMessageModel[] = [
+            { role: "user", content: "Q1" },
+            answer("A1"),
+            { role: "user", content: "Q2" },
+            answer("A2"),
+        ];
+
+        expect(buildHistoryMessages(messages, "ctx", 2)).toHaveLength(2);
+        expect(buildHistoryMessages(messages, "ctx", 0)).toEqual([]);
     });
 });

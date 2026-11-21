@@ -109,6 +109,7 @@ export const resetApiMocks = (): void => {
         provider: 'OLLAMA',
         model: 'llama3.2',
         baseUrl: 'http://localhost:11434',
+        historyMaxMessages: 4,
         message: 'ok',
         checkedAt: new Date(0).toISOString(),
         latencyMs: 1,

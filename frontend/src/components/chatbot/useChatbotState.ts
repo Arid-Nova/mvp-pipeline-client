@@ -18,14 +18,14 @@ export type ChatMessageModel = {
 export const isConversationalMessage = (message: ChatMessageModel): boolean =>
     message.kind === undefined || message.kind === "answer";
 
-const MAX_MESSAGES = 20;
-const HISTORY_MESSAGES = 4;
+/** UI retention only; model history is controlled by the backend runtime configuration. */
+const MAX_UI_MESSAGES = 20;
 
 const trimMessages = (messages: ChatMessageModel[]): ChatMessageModel[] => {
-    if (messages.length <= MAX_MESSAGES) {
+    if (messages.length <= MAX_UI_MESSAGES) {
         return messages;
     }
-    return messages.slice(messages.length - MAX_MESSAGES);
+    return messages.slice(messages.length - MAX_UI_MESSAGES);
 };
 
 const toRequestContext = (context?: ChatbotContext): ChatbotContext | undefined => {
@@ -94,8 +94,17 @@ const toHistoryMessage = (msg: ChatMessageModel, contextId: string): { role: str
 };
 
 /** The Q&A history sent with a question: the last conversational turns only. */
-export const buildHistoryMessages = (messages: ChatMessageModel[], contextId: string): { role: string; content: string }[] =>
-    messages.filter(isConversationalMessage).slice(-HISTORY_MESSAGES).map((msg) => toHistoryMessage(msg, contextId));
+export const buildHistoryMessages = (
+    messages: ChatMessageModel[],
+    contextId: string,
+    historyMaxMessages: number
+): { role: string; content: string }[] => {
+    if (historyMaxMessages <= 0) return [];
+    return messages
+        .filter(isConversationalMessage)
+        .slice(-historyMaxMessages)
+        .map((msg) => toHistoryMessage(msg, contextId));
+};
 
 export const useChatbotState = (activeContext?: ChatbotContext) => {
     const [messages, setMessages] = useState<ChatMessageModel[]>([]);
@@ -114,7 +123,10 @@ export const useChatbotState = (activeContext?: ChatbotContext) => {
     const contextId = useMemo(() => toContextId(context), [context]);
     const lastContextIdRef = useRef(contextId);
 
-    const historyMessages = useMemo(() => buildHistoryMessages(messages, contextId), [messages, contextId]);
+    const historyMessages = useMemo(
+        () => buildHistoryMessages(messages, contextId, health?.historyMaxMessages ?? 0),
+        [messages, contextId, health?.historyMaxMessages]
+    );
 
     // Refresh the chatbot context and update the state
     const refreshContext = useCallback(async () => {

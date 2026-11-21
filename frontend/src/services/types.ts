@@ -140,6 +140,7 @@ export interface ChatbotHealthResponse {
     provider: string;
     model: string;
     baseUrl: string;
+    historyMaxMessages: number;
     message: string;
     checkedAt: string;
     latencyMs: number | null;

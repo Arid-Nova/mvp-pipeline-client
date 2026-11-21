@@ -33,6 +33,7 @@ class ChatbotApplicationPropertiesMappingTest {
                 "CHATBOT_TEMPERATURE=0.7",
                 "CHATBOT_CONTEXT_BUDGET_MAX_EVIDENCE_ITEMS=12",
                 "CHATBOT_CONTEXT_BUDGET_MAX_EVIDENCE_CHARS=6000",
+                "CHATBOT_HISTORY_MAX_MESSAGES=6",
                 "CHATBOT_STRICT_EVIDENCE_ONLY=false"
             )
             .run(context -> {
@@ -46,6 +47,7 @@ class ChatbotApplicationPropertiesMappingTest {
                 assertThat(config.getTemperature()).isEqualTo(0.7);
                 assertThat(config.getContextBudgetMaxEvidenceItems()).isEqualTo(12);
                 assertThat(config.getContextBudgetMaxEvidenceChars()).isEqualTo(6000);
+                assertThat(config.getHistoryMaxMessages()).isEqualTo(6);
                 assertThat(config.isStrictEvidenceOnly()).isFalse();
             });
     }
@@ -64,6 +66,7 @@ class ChatbotApplicationPropertiesMappingTest {
                 assertThat(config.getMaxTokens()).isEqualTo(1024);
                 assertThat(config.getTemperature()).isEqualTo(0.2);
                 assertThat(config.getTimeoutMs()).isEqualTo(240000);
+                assertThat(config.getHistoryMaxMessages()).isEqualTo(4);
             });
     }
 

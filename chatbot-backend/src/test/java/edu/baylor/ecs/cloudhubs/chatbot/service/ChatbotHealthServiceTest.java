@@ -26,6 +26,7 @@ class ChatbotHealthServiceTest {
         assertThat(response.getProvider()).isEqualTo("OLLAMA");
         assertThat(response.getModel()).isEqualTo("llama3.2");
         assertThat(response.getBaseUrl()).isEqualTo("http://ollama:11434/api");
+        assertThat(response.getHistoryMaxMessages()).isEqualTo(4);
         assertThat(response.getMessage()).isEqualTo("runtime reachable");
         assertThat(response.getLatencyMs()).isEqualTo(17L);
         assertThat(response.getCheckedAt()).isEqualTo(checkedAt);

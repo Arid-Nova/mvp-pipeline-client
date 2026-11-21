@@ -3,6 +3,8 @@ package edu.baylor.ecs.cloudhubs.chatbot;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -43,6 +45,10 @@ public class ChatbotConfig {
     private int contextBudgetMaxEvidenceChars;
 
     private boolean strictEvidenceOnly;
+
+    @Min(value = 0, message = "chatbot.history-max-messages must be between 0 and 8.")
+    @Max(value = 8, message = "chatbot.history-max-messages must be between 0 and 8.")
+    private int historyMaxMessages = 4;
 
     /** Settings for POST /chatbot/pipeline/intents only; Q&A keeps the settings above. */
     @Valid
@@ -132,6 +138,14 @@ public class ChatbotConfig {
 
     public void setStrictEvidenceOnly(boolean strictEvidenceOnly) {
         this.strictEvidenceOnly = strictEvidenceOnly;
+    }
+
+    public int getHistoryMaxMessages() {
+        return historyMaxMessages;
+    }
+
+    public void setHistoryMaxMessages(int historyMaxMessages) {
+        this.historyMaxMessages = historyMaxMessages;
     }
 
     public PipelineIntent getPipelineIntent() {

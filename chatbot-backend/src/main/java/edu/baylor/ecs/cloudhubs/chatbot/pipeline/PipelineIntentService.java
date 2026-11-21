@@ -134,6 +134,7 @@ public class PipelineIntentService {
         config.setContextBudgetMaxEvidenceItems(base.getContextBudgetMaxEvidenceItems());
         config.setContextBudgetMaxEvidenceChars(base.getContextBudgetMaxEvidenceChars());
         config.setStrictEvidenceOnly(base.isStrictEvidenceOnly());
+        config.setHistoryMaxMessages(base.getHistoryMaxMessages());
         config.setPipelineIntent(intent);
         config.setTimeoutMs(intent.getTimeoutMs());
         config.setMaxTokens(intent.getMaxTokens());
