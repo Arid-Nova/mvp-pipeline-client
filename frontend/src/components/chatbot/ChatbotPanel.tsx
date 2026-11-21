@@ -26,8 +26,9 @@ interface ChatbotPanelProps {
     activeContext?: ChatbotContext;
     /**
      * Issue #60 Build mode (P60-M1-008), shown only when this is provided. Applies a selected
-     * suggestion; the handler re-checks the live canvas itself, so the two flags below only drive
-     * button state and never authorize a change.
+     * suggestion. The two flags below are read-only projections of PipelinePage's canonical
+     * `nodes` and `isRunning` state; they are never stored locally. They only drive button state,
+     * while the handler re-checks the live canvas before making any change.
      */
     onApplyPipelineSuggestion?: (suggestion: ValidatedSuggestion) => ApplyResult;
     canvasIsEmpty?: boolean;
