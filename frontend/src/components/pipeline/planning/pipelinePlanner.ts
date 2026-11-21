@@ -373,6 +373,7 @@ export const planPipelineSuggestions = async (
                 attempt,
                 catalog,
                 catalogVersion: catalog.catalogVersion,
+                maxAnalysisPerOption: MAX_ANALYSIS_PER_OPTION,
                 excludeCapabilitySets: exclude,
                 rejectionFeedback: feedback,
             };

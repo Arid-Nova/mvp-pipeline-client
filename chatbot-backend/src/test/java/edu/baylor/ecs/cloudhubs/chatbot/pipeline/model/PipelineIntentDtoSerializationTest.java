@@ -90,6 +90,7 @@ class PipelineIntentDtoSerializationTest {
             2,
             catalog,
             "pcat-0861a6885a178a",
+            6,
             List.of(List.of("VISUALIZATION", "FORMAL_VIZ")),
             List.of("Problem: UNKNOWN_CAPABILITY")
         );
@@ -100,6 +101,7 @@ class PipelineIntentDtoSerializationTest {
         assertThat(restored.getAttempt()).isEqualTo(2);
         assertThat(restored.getCatalog()).isEqualTo(catalog);
         assertThat(restored.getCatalogVersion()).isEqualTo("pcat-0861a6885a178a");
+        assertThat(restored.getMaxAnalysisPerOption()).isEqualTo(6);
         assertThat(restored.getExcludeCapabilitySets()).containsExactly(List.of("VISUALIZATION", "FORMAL_VIZ"));
         assertThat(restored.getRejectionFeedback()).containsExactly("Problem: UNKNOWN_CAPABILITY");
     }

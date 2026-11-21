@@ -157,6 +157,8 @@ export interface PipelineIntentRequest {
     /** The serialized capability catalog (buildPipelineCapabilityCatalog()). */
     catalog: unknown;
     catalogVersion: string;
+    /** Frontend intent-plan contract limit; the backend includes it in the model prompt. */
+    maxAnalysisPerOption: number;
     excludeCapabilitySets?: string[][];
     rejectionFeedback?: string[];
 }

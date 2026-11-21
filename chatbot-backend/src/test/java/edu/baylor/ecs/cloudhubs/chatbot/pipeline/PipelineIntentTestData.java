@@ -45,7 +45,7 @@ final class PipelineIntentTestData {
     }
 
     static PipelineIntentRequest request() {
-        return new PipelineIntentRequest(GOAL, SUGGESTION_SET_ID, 1, catalog(), CATALOG_VERSION, new ArrayList<>(), new ArrayList<>());
+        return new PipelineIntentRequest(GOAL, SUGGESTION_SET_ID, 1, catalog(), CATALOG_VERSION, 6, new ArrayList<>(), new ArrayList<>());
     }
 
     static PipelineIntentRequest retryRequest(List<List<String>> exclude, List<String> feedback) {

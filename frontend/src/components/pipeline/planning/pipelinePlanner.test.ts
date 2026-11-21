@@ -5,6 +5,7 @@ import { assembleCandidateSet } from './candidateSet';
 import { buildPipelineCapabilityCatalog } from './pipelineCapabilities';
 import {
     FAILURE_MESSAGES,
+    MAX_ANALYSIS_PER_OPTION,
     MAX_PLAN_ATTEMPTS,
     PLAN_CALL_TIMEOUT_MS,
     PLAN_TOTAL_BUDGET_MS,
@@ -118,6 +119,7 @@ describe('planPipelineSuggestions — happy path', () => {
             attempt: 1,
             catalog: JSON.parse(JSON.stringify(catalog)),
             catalogVersion: catalog.catalogVersion,
+            maxAnalysisPerOption: MAX_ANALYSIS_PER_OPTION,
             excludeCapabilitySets: [],
             rejectionFeedback: [],
         });

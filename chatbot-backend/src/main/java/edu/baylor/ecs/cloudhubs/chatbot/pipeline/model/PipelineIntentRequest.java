@@ -33,8 +33,8 @@ public class PipelineIntentRequest {
     public static final int MAX_CATALOG_CARDS = 64;
     public static final int MAX_CATALOG_TEXT_CHARS = 2000;
     public static final int MAX_CATALOG_JSON_CHARS = 200_000;
+    public static final int MAX_REQUESTED_ANALYSIS_PER_OPTION = 32;
     public static final int MAX_EXCLUDED_SETS = 6;
-    public static final int MAX_IDS_PER_SET = 6;
     public static final int MAX_FEEDBACK_LINES = 20;
     public static final int MAX_FEEDBACK_CHARS = 200;
 
@@ -61,10 +61,19 @@ public class PipelineIntentRequest {
     @Size(max = 64, message = "catalogVersion must be at most 64 characters.")
     private String catalogVersion;
 
+    /** Frontend-owned intent-plan contract limit, also included in the model prompt. */
+    @NotNull(message = "maxAnalysisPerOption is required.")
+    @Min(value = 1, message = "maxAnalysisPerOption must be between 1 and 32.")
+    @Max(value = MAX_REQUESTED_ANALYSIS_PER_OPTION, message = "maxAnalysisPerOption must be between 1 and 32.")
+    private Integer maxAnalysisPerOption;
+
     @Size(max = MAX_EXCLUDED_SETS, message = "excludeCapabilitySets supports at most 6 sets.")
     private List<
         @NotNull(message = "excludeCapabilitySets entries must be lists.")
-        @Size(max = MAX_IDS_PER_SET, message = "each excluded capability set holds at most 6 IDs.")
+        @Size(
+            max = MAX_REQUESTED_ANALYSIS_PER_OPTION,
+            message = "each excluded capability set holds at most 32 IDs."
+        )
         List<@NotBlank(message = "excluded capability IDs must be non-empty.")
             @Size(max = 64, message = "excluded capability IDs must be at most 64 characters.") String>
         > excludeCapabilitySets = new ArrayList<>();

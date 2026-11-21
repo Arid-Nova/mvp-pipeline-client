@@ -27,8 +27,6 @@ import java.util.regex.Pattern;
 @Component
 public class PipelineIntentPromptBuilder {
 
-    /** Same limit as the frontend contract (intentPlan.ts MAX_ANALYSIS_PER_OPTION). */
-    static final int MAX_ANALYSIS_PER_OPTION = 6;
     /** Catalog category whose capabilities compare versions (prompt v2 rule). */
     static final String VERSION_CATEGORY = "Version Control";
 
@@ -44,10 +42,16 @@ public class PipelineIntentPromptBuilder {
     private static final Pattern CONTROL_CHARS = Pattern.compile("[\\p{Cc}&&[^\\n\\t]]");
 
     public ChatbotPrompt build(PipelineIntentRequest request, int contextTokens) {
-        return new ChatbotPrompt(systemInstruction(request.getCatalog()), userMessage(request), List.of(), true, contextTokens);
+        return new ChatbotPrompt(
+            systemInstruction(request.getCatalog(), request.getMaxAnalysisPerOption()),
+            userMessage(request),
+            List.of(),
+            true,
+            contextTokens
+        );
     }
 
-    String systemInstruction(JsonNode catalog) {
+    String systemInstruction(JsonNode catalog, int maxAnalysisPerOption) {
         List<String> capabilities = new ArrayList<>();
         Set<String> analysisCategories = new LinkedHashSet<>();
         JsonNode cards = catalog == null ? null : catalog.get("cards");
@@ -75,7 +79,7 @@ public class PipelineIntentPromptBuilder {
         lines.add("- \"balanced\": the focused capabilities plus the most useful related analysis;");
         lines.add("- \"comprehensive\": a broader set of related analyses.");
         lines.add("Each option must use a different set of capabilities.");
-        lines.add("Use at most " + MAX_ANALYSIS_PER_OPTION + " capabilities per option.");
+        lines.add("Use at most " + maxAnalysisPerOption + " capabilities per option.");
         lines.add("List analysis capability IDs only. Do NOT list data sources, inputs, intermediate or prerequisite steps, "
             + "nodes, edges, connections, configuration, repositories, IDs or positions. AridNova adds all wiring and "
             + "prerequisites automatically.");

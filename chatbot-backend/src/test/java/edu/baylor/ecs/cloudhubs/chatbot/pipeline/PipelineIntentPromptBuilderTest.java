@@ -32,7 +32,7 @@ class PipelineIntentPromptBuilderTest {
 
     @Test
     void offersOnlyTheAnalysisCapabilitiesOfTheSuppliedCatalog() {
-        String system = builder.systemInstruction(catalog());
+        String system = builder.systemInstruction(catalog(), 6);
 
         assertThat(system).contains(
             "- FOO_ANALYSIS (\"Foo Analysis\", category: Visualization): Draws the foo. Produces: A foo picture.",
@@ -49,7 +49,7 @@ class PipelineIntentPromptBuilderTest {
             .put("cardType", "NEW_THING").put("title", "New Thing").put("category", "Processes")
             .put("purpose", "Does new things.").put("outcome", "New results.").put("isAnalysis", true);
 
-        String system = builder.systemInstruction(other);
+        String system = builder.systemInstruction(other, 6);
 
         assertThat(system).contains("- NEW_THING (\"New Thing\", category: Processes): Does new things. Produces: New results.");
         assertThat(system).doesNotContain("FOO_ANALYSIS");
@@ -73,7 +73,7 @@ class PipelineIntentPromptBuilderTest {
 
     @Test
     void requiresExactlyThreeOptionsOnePerTier() {
-        String system = builder.systemInstruction(catalog());
+        String system = builder.systemInstruction(catalog(), 6);
 
         assertThat(system)
             .contains("Return EXACTLY THREE options for the user's goal, one for each tier:")
@@ -85,8 +85,18 @@ class PipelineIntentPromptBuilderTest {
     }
 
     @Test
+    void usesTheFrontendContractLimitFromTheRequest() {
+        PipelineIntentRequest request = request();
+        request.setMaxAnalysisPerOption(4);
+
+        assertThat(builder.build(request, 4096).getSystemInstruction())
+            .contains("Use at most 4 capabilities per option.")
+            .doesNotContain("Use at most 6 capabilities per option.");
+    }
+
+    @Test
     void includesThePromptV2Rules() {
-        String system = builder.systemInstruction(catalog());
+        String system = builder.systemInstruction(catalog(), 6);
 
         assertThat(system)
             .contains("Copy capability IDs exactly, character for character, from the list above.")
@@ -101,12 +111,12 @@ class PipelineIntentPromptBuilderTest {
         ObjectNode other = (ObjectNode) catalog();
         ((ObjectNode) other.withArray("cards").get(3)).put("category", "Processes");
 
-        assertThat(builder.systemInstruction(other)).doesNotContain("Version Control");
+        assertThat(builder.systemInstruction(other, 6)).doesNotContain("Version Control");
     }
 
     @Test
     void asksForIntentOnlyAndNeverForGraphsOrConfiguration() {
-        String system = builder.systemInstruction(catalog());
+        String system = builder.systemInstruction(catalog(), 6);
 
         assertThat(system).contains(
             "List analysis capability IDs only. Do NOT list data sources, inputs, intermediate or prerequisite steps, "

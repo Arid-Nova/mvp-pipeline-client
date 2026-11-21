@@ -31,6 +31,7 @@ curl -s http://localhost:8081/chatbot/pipeline/intents \
     "attempt": 1,
     "catalogVersion": "pcat-0861a6885a178a",
     "catalog": { "catalogVersion": "pcat-0861a6885a178a", "cards": [ { "cardType": "VISUALIZATION", "title": "System Visualization", "category": "Visualization", "purpose": "…", "outcome": "…", "isAnalysis": true } ] },
+    "maxAnalysisPerOption": 6,
     "excludeCapabilitySets": [],
     "rejectionFeedback": []
   }'
@@ -63,9 +64,9 @@ In the app, `catalog` is the full output of the frontend's `buildPipelineCapabil
 | Unusable model output (prose, malformed or truncated JSON, no well-shaped option) | 200 | `INVALID_MODEL_OUTPUT` (see `parseErrors`) |
 | Model says the goal can't be served (`options: []` + `unsupportedReason`) | 200 | `UNSUPPORTED_GOAL` |
 | Model runtime unreachable, erroring, or timed out | 503 | `MODEL_UNAVAILABLE` |
-| Invalid request (blank or >1000-char goal, bad UUID, attempt not 1–2, missing or oversized catalog, oversized retry lists) | 400 | — |
+| Invalid request (blank or >1000-char goal, bad UUID, attempt not 1–2, missing or oversized catalog, invalid analysis limit, oversized retry lists) | 400 | — |
 
-On the frontend's single retry (`attempt: 2`), `rejectionFeedback` (≤ 20 lines of ≤ 200 characters) and `excludeCapabilitySets` (≤ 6 sets of ≤ 6 IDs) are added to the prompt as capability/profile-level guidance; graph-wiring feedback is never forwarded.
+On the frontend's single retry (`attempt: 2`), `rejectionFeedback` (≤ 20 lines of ≤ 200 characters) and `excludeCapabilitySets` (≤ 6 sets of ≤ 32 IDs) are added to the prompt as capability/profile-level guidance; graph-wiring feedback is never forwarded.
 
 **Model and settings.** The reference model is `llama3.2` on Ollama (`CHATBOT_MODEL`, `CHATBOT_BASE_URL`), with the measured intent prompt v2 and JSON mode. Ollama must be running with the model pulled:
 

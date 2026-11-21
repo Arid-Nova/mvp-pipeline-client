@@ -17,6 +17,7 @@ const request = (overrides: Partial<PipelineIntentRequest> = {}): PipelineIntent
     attempt: 1,
     catalog: { catalogVersion: 'pcat-0861a6885a178a', cards: [] },
     catalogVersion: 'pcat-0861a6885a178a',
+    maxAnalysisPerOption: 6,
     excludeCapabilitySets: [],
     rejectionFeedback: [],
     ...overrides,
@@ -59,6 +60,7 @@ describe('requestPipelineIntents', () => {
             attempt: 2,
             catalog: retry.catalog,
             catalogVersion: 'pcat-0861a6885a178a',
+            maxAnalysisPerOption: 6,
             excludeCapabilitySets: [['VISUALIZATION', 'AEGIS']],
             rejectionFeedback: ['Problem: DUPLICATE_TIER'],
         });

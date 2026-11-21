@@ -43,6 +43,7 @@ import http from 'http';
 import os from 'os';
 import path from 'path';
 import { CardType } from '../../models';
+import { MAX_ANALYSIS_PER_OPTION } from '../intentPlan';
 import { PipelineCapabilityCatalog, PipelineExample, buildPipelineCapabilityCatalog } from '../pipelineCapabilities';
 import { runReleaseQualification } from './releaseQualification';
 
@@ -774,7 +775,6 @@ describeLive('P60-M1-014 live local-model feasibility', () => {
 // written against the planned P60-M1-015 contract; it is not production parsing.
 
 const INTENT_TIERS = ['focused', 'balanced', 'comprehensive'];
-const MAX_ANALYSIS_PER_OPTION = 6;
 const GRAPH_OR_CONFIG_FIELDS = ['nodes', 'edges', 'connections', 'prerequisites', 'inputs', 'config', 'id', 'x', 'y', 'position'];
 
 /**

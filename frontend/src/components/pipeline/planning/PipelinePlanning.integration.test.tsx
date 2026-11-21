@@ -287,7 +287,8 @@ describe('intent contract drift (frontend ↔ chatbot-backend)', () => {
 
     it('the request DTO carries no graph fields', () => {
         expect(javaFields(backendDto('PipelineIntentRequest.java')).sort()).toEqual(
-            ['attempt', 'catalog', 'catalogVersion', 'excludeCapabilitySets', 'goal', 'rejectionFeedback', 'suggestionSetId']
+            ['attempt', 'catalog', 'catalogVersion', 'excludeCapabilitySets', 'goal', 'maxAnalysisPerOption',
+                'rejectionFeedback', 'suggestionSetId']
         );
     });
 });

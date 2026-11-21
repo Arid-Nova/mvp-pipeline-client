@@ -15,7 +15,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -55,6 +54,7 @@ class PipelineIntentRequestValidationTest {
             1,
             catalog(17),
             "pcat-0861a6885a178a",
+            6,
             new ArrayList<>(),
             new ArrayList<>()
         );
@@ -117,6 +117,23 @@ class PipelineIntentRequestValidationTest {
         assertThat(messages(request).isEmpty()).isEqualTo(valid);
     }
 
+    @ParameterizedTest
+    @CsvSource({"0,false", "1,true", "6,true", "32,true", "33,false"})
+    void boundsMaxAnalysisPerOption(int maxAnalysisPerOption, boolean valid) {
+        PipelineIntentRequest request = valid();
+        request.setMaxAnalysisPerOption(maxAnalysisPerOption);
+
+        assertThat(messages(request).isEmpty()).isEqualTo(valid);
+    }
+
+    @Test
+    void requiresMaxAnalysisPerOption() {
+        PipelineIntentRequest request = valid();
+        request.setMaxAnalysisPerOption(null);
+
+        assertThat(messages(request)).containsExactly("maxAnalysisPerOption is required.");
+    }
+
     @Test
     void requiresAttemptCatalogAndCatalogVersion() {
         PipelineIntentRequest request = valid();
@@ -174,8 +191,8 @@ class PipelineIntentRequestValidationTest {
         request.setExcludeCapabilitySets(new ArrayList<>(Collections.nCopies(7, List.of("A"))));
         assertThat(messages(request)).containsExactly("excludeCapabilitySets supports at most 6 sets.");
 
-        request.setExcludeCapabilitySets(List.of(Arrays.asList("A", "B", "C", "D", "E", "F", "G")));
-        assertThat(messages(request)).containsExactly("each excluded capability set holds at most 6 IDs.");
+        request.setExcludeCapabilitySets(List.of(new ArrayList<>(Collections.nCopies(33, "A"))));
+        assertThat(messages(request)).containsExactly("each excluded capability set holds at most 32 IDs.");
 
         request.setExcludeCapabilitySets(List.of(List.of(" ")));
         assertThat(messages(request)).containsExactly("excluded capability IDs must be non-empty.");
@@ -187,6 +204,7 @@ class PipelineIntentRequestValidationTest {
 
         assertThat(json.has("catalogWithinLimits")).isFalse();
         assertThat(json.fieldNames()).toIterable().containsExactlyInAnyOrder(
-            "goal", "suggestionSetId", "attempt", "catalog", "catalogVersion", "excludeCapabilitySets", "rejectionFeedback");
+            "goal", "suggestionSetId", "attempt", "catalog", "catalogVersion", "maxAnalysisPerOption",
+            "excludeCapabilitySets", "rejectionFeedback");
     }
 }
