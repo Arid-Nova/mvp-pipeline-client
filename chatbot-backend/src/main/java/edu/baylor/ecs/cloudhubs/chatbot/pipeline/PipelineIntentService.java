@@ -46,47 +46,65 @@ public class PipelineIntentService {
         return UUID.randomUUID().toString();
     }
 
-    /** Throws {@link LocalLlmException} when the runtime is unavailable or times out. */
+    /** Returns MODEL_UNAVAILABLE when the runtime is unavailable or times out. */
     public PipelineIntentResponse selectIntents(PipelineIntentRequest request, String requestId) {
         long start = System.currentTimeMillis();
         ChatbotConfig runtimeConfig = intentRuntimeConfig(chatbotConfig);
         ChatbotPrompt prompt = promptBuilder.build(request, chatbotConfig.getPipelineIntent().getContextTokens());
         int promptChars = prompt.getSystemInstruction().length() + prompt.getUserQuestion().length();
 
-        LocalLlmResult result = localLlmClient.generate(prompt, runtimeConfig);
-        PipelineIntentJsonExtractor.Extraction extraction = extractor.extract(result.getText());
+        try {
+            LocalLlmResult result = localLlmClient.generate(prompt, runtimeConfig);
+            PipelineIntentJsonExtractor.Extraction extraction = extractor.extract(result.getText());
 
-        PipelineIntentResponse response = baseResponse(request, requestId);
-        response.setOutcome(extraction.outcome());
-        response.setOptions(new ArrayList<>(extraction.options()));
-        response.setParseErrors(new ArrayList<>(extraction.parseErrors()));
-        response.setUnsupportedReason(extraction.unsupportedReason());
-        if (result.getModel() != null && !result.getModel().isBlank()) {
-            response.setModel(result.getModel());
+            PipelineIntentResponse response = baseResponse(request, requestId);
+            response.setOutcome(extraction.outcome());
+            response.setOptions(new ArrayList<>(extraction.options()));
+            response.setParseErrors(new ArrayList<>(extraction.parseErrors()));
+            response.setUnsupportedReason(extraction.unsupportedReason());
+            if (result.getModel() != null && !result.getModel().isBlank()) {
+                response.setModel(result.getModel());
+            }
+            if (result.getProvider() != null && !result.getProvider().isBlank()) {
+                response.setProvider(result.getProvider());
+            }
+            response.setProcessingTimeMs(System.currentTimeMillis() - start);
+            log.info(
+                "chatbot.pipeline_intent.completed requestId={} suggestionSetId={} attempt={} outcome={} options={} "
+                    + "parseErrors={} latencyMs={} model={} provider={} promptChars={} finishReason={}",
+                requestId,
+                request.getSuggestionSetId(),
+                request.getAttempt(),
+                response.getOutcome(),
+                response.getOptions().size(),
+                response.getParseErrors().size(),
+                response.getProcessingTimeMs(),
+                response.getModel(),
+                response.getProvider(),
+                promptChars,
+                result.getFinishReason()
+            );
+            return response;
+        } catch (LocalLlmException ex) {
+            PipelineIntentResponse response = unavailableResponse(
+                request, requestId, System.currentTimeMillis() - start);
+            log.warn(
+                "chatbot.pipeline_intent.failed requestId={} suggestionSetId={} attempt={} outcome={} failureCode={} "
+                    + "latencyMs={} model={} provider={}",
+                requestId,
+                request.getSuggestionSetId(),
+                request.getAttempt(),
+                response.getOutcome(),
+                ex.getCode(),
+                response.getProcessingTimeMs(),
+                response.getModel(),
+                response.getProvider()
+            );
+            return response;
         }
-        if (result.getProvider() != null && !result.getProvider().isBlank()) {
-            response.setProvider(result.getProvider());
-        }
-        response.setProcessingTimeMs(System.currentTimeMillis() - start);
-        log.info(
-            "chatbot.pipeline_intent.completed requestId={} suggestionSetId={} attempt={} outcome={} options={} "
-                + "parseErrors={} latencyMs={} model={} provider={} promptChars={} finishReason={}",
-            requestId,
-            request.getSuggestionSetId(),
-            request.getAttempt(),
-            response.getOutcome(),
-            response.getOptions().size(),
-            response.getParseErrors().size(),
-            response.getProcessingTimeMs(),
-            response.getModel(),
-            response.getProvider(),
-            promptChars,
-            result.getFinishReason()
-        );
-        return response;
     }
 
-    public PipelineIntentResponse unavailableResponse(PipelineIntentRequest request, String requestId, long latencyMs) {
+    private PipelineIntentResponse unavailableResponse(PipelineIntentRequest request, String requestId, long latencyMs) {
         PipelineIntentResponse response = baseResponse(request, requestId);
         response.setOutcome(PipelineIntentOutcome.MODEL_UNAVAILABLE);
         response.setProcessingTimeMs(latencyMs);

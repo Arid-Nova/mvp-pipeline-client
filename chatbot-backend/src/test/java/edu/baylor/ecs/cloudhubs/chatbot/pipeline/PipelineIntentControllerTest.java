@@ -3,8 +3,6 @@ package edu.baylor.ecs.cloudhubs.chatbot.pipeline;
 import edu.baylor.ecs.cloudhubs.chatbot.pipeline.model.PipelineIntentOutcome;
 import edu.baylor.ecs.cloudhubs.chatbot.pipeline.model.PipelineIntentRequest;
 import edu.baylor.ecs.cloudhubs.chatbot.pipeline.model.PipelineIntentResponse;
-import edu.baylor.ecs.cloudhubs.chatbot.runtime.LocalLlmException;
-import edu.baylor.ecs.cloudhubs.chatbot.runtime.model.LocalLlmFailureCode;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -46,16 +44,6 @@ class PipelineIntentControllerTest {
             return response;
         }
 
-        @Override
-        public PipelineIntentResponse unavailableResponse(PipelineIntentRequest request, String requestId, long latencyMs) {
-            PipelineIntentResponse response = new PipelineIntentResponse();
-            response.setOutcome(PipelineIntentOutcome.MODEL_UNAVAILABLE);
-            response.setRequestId(requestId);
-            response.setSuggestionSetId(request.getSuggestionSetId());
-            response.setCatalogVersion(request.getCatalogVersion());
-            response.setProcessingTimeMs(latencyMs);
-            return response;
-        }
     }
 
     private static MockMvc mockMvc(PipelineIntentService service) {
@@ -119,19 +107,15 @@ class PipelineIntentControllerTest {
     }
 
     @Test
-    void returns503WhenTheModelIsUnavailableOrTimesOut() throws Exception {
-        for (LocalLlmFailureCode code : List.of(LocalLlmFailureCode.MODEL_UNAVAILABLE, LocalLlmFailureCode.TIMEOUT)) {
-            StubService service = new StubService(r -> {
-                throw new LocalLlmException(code, "runtime down");
-            });
+    void returns503ForTheModelUnavailableOutcome() throws Exception {
+        StubService service = new StubService(r -> response(PipelineIntentOutcome.MODEL_UNAVAILABLE, 0, List.of(), null));
 
-            mockMvc(service).perform(post("/chatbot/pipeline/intents").contentType(MediaType.APPLICATION_JSON).content(body(request())))
-                .andExpect(status().isServiceUnavailable())
-                .andExpect(jsonPath("$.outcome").value("MODEL_UNAVAILABLE"))
-                .andExpect(jsonPath("$.suggestionSetId").value(SUGGESTION_SET_ID))
-                .andExpect(jsonPath("$.catalogVersion").value(CATALOG_VERSION))
-                .andExpect(jsonPath("$.options.length()").value(0));
-        }
+        mockMvc(service).perform(post("/chatbot/pipeline/intents").contentType(MediaType.APPLICATION_JSON).content(body(request())))
+            .andExpect(status().isServiceUnavailable())
+            .andExpect(jsonPath("$.outcome").value("MODEL_UNAVAILABLE"))
+            .andExpect(jsonPath("$.suggestionSetId").value(SUGGESTION_SET_ID))
+            .andExpect(jsonPath("$.catalogVersion").value(CATALOG_VERSION))
+            .andExpect(jsonPath("$.options.length()").value(0));
     }
 
     @Test
