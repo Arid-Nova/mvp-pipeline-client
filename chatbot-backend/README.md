@@ -84,7 +84,7 @@ The first call after a model load is much slower; warm the model once before dem
 | `chatbot.pipeline-intent.timeout-ms` (per call) | `CHATBOT_PIPELINE_INTENT_TIMEOUT_MS` | `75000` |
 | `chatbot.pipeline-intent.context-tokens` (Ollama `num_ctx`) | `CHATBOT_PIPELINE_INTENT_CONTEXT_TOKENS` | `4096` |
 
-OpenAI-compatible runtimes get `response_format: {"type": "json_object"}`; llama.cpp gets no JSON mode and relies on tolerant extraction. Logs contain operational metadata only (request and suggestion-set IDs, attempt, outcome, counts, latency, model); never the goal, prompt, or model output.
+OpenAI-compatible runtimes get `response_format: {"type": "json_object"}`; llama.cpp gets no JSON mode and relies on tolerant extraction. Successful-call metadata is logged at `DEBUG`; model failures remain at `WARN`. Logs contain operational metadata only (request and suggestion-set IDs, attempt, outcome, counts, latency, model); never the goal, prompt, or model output.
 
 ## Test
 

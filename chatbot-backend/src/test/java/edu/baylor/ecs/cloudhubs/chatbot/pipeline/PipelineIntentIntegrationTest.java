@@ -1,5 +1,6 @@
 package edu.baylor.ecs.cloudhubs.chatbot.pipeline;
 
+import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
@@ -57,8 +58,9 @@ class PipelineIntentIntegrationTest {
         }
     }
 
+    private final Logger serviceLogger = (Logger) LoggerFactory.getLogger(PipelineIntentService.class);
     private final List<Logger> loggers = List.of(
-        (Logger) LoggerFactory.getLogger(PipelineIntentService.class),
+        serviceLogger,
         (Logger) LoggerFactory.getLogger(PipelineIntentController.class)
     );
     private final ListAppender<ILoggingEvent> logs = new ListAppender<>();
@@ -209,8 +211,14 @@ class PipelineIntentIntegrationTest {
             throw new LocalLlmException(LocalLlmFailureCode.MODEL_UNAVAILABLE, "down");
         });
 
-        mockMvc(ok).perform(post("/chatbot/pipeline/intents").contentType(MediaType.APPLICATION_JSON).content(body(request())));
-        mockMvc(down).perform(post("/chatbot/pipeline/intents").contentType(MediaType.APPLICATION_JSON).content(body(request())));
+        Level previousLevel = serviceLogger.getLevel();
+        serviceLogger.setLevel(Level.DEBUG);
+        try {
+            mockMvc(ok).perform(post("/chatbot/pipeline/intents").contentType(MediaType.APPLICATION_JSON).content(body(request())));
+            mockMvc(down).perform(post("/chatbot/pipeline/intents").contentType(MediaType.APPLICATION_JSON).content(body(request())));
+        } finally {
+            serviceLogger.setLevel(previousLevel);
+        }
 
         String logText = allLogText();
         assertThat(logText)

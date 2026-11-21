@@ -51,7 +51,6 @@ public class PipelineIntentService {
         long start = System.currentTimeMillis();
         ChatbotConfig runtimeConfig = intentRuntimeConfig(chatbotConfig);
         ChatbotPrompt prompt = promptBuilder.build(request, chatbotConfig.getPipelineIntent().getContextTokens());
-        int promptChars = prompt.getSystemInstruction().length() + prompt.getUserQuestion().length();
 
         try {
             LocalLlmResult result = localLlmClient.generate(prompt, runtimeConfig);
@@ -69,21 +68,24 @@ public class PipelineIntentService {
                 response.setProvider(result.getProvider());
             }
             response.setProcessingTimeMs(System.currentTimeMillis() - start);
-            log.info(
-                "chatbot.pipeline_intent.completed requestId={} suggestionSetId={} attempt={} outcome={} options={} "
-                    + "parseErrors={} latencyMs={} model={} provider={} promptChars={} finishReason={}",
-                requestId,
-                request.getSuggestionSetId(),
-                request.getAttempt(),
-                response.getOutcome(),
-                response.getOptions().size(),
-                response.getParseErrors().size(),
-                response.getProcessingTimeMs(),
-                response.getModel(),
-                response.getProvider(),
-                promptChars,
-                result.getFinishReason()
-            );
+            if (log.isDebugEnabled()) {
+                int promptChars = prompt.getSystemInstruction().length() + prompt.getUserQuestion().length();
+                log.debug(
+                    "chatbot.pipeline_intent.completed requestId={} suggestionSetId={} attempt={} outcome={} options={} "
+                        + "parseErrors={} latencyMs={} model={} provider={} promptChars={} finishReason={}",
+                    requestId,
+                    request.getSuggestionSetId(),
+                    request.getAttempt(),
+                    response.getOutcome(),
+                    response.getOptions().size(),
+                    response.getParseErrors().size(),
+                    response.getProcessingTimeMs(),
+                    response.getModel(),
+                    response.getProvider(),
+                    promptChars,
+                    result.getFinishReason()
+                );
+            }
             return response;
         } catch (LocalLlmException ex) {
             PipelineIntentResponse response = unavailableResponse(
