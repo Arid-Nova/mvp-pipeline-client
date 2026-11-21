@@ -5,13 +5,15 @@ export const ChatComposer: React.FC<{
     onChange: (value: string) => void;
     onSubmit: () => void;
     disabled?: boolean;
-    /** Disables only the Send action (the text stays editable), e.g. while a pipeline is planned. */
+    /** Disables only the Send action (the text stays editable); does not control the spinner. */
     submitDisabled?: boolean;
+    /** Shows the spinner only while a request or plan is actively running. */
+    busy?: boolean;
     placeholder?: string;
     /** ID of an element explaining why Send is disabled. */
     submitDescribedBy?: string;
-}> = ({ value, onChange, onSubmit, disabled, submitDisabled, placeholder = "Ask about architecture, risks...", submitDescribedBy }) => {
-    const busy = Boolean(disabled || submitDisabled);
+}> = ({ value, onChange, onSubmit, disabled, submitDisabled, busy = false, placeholder = "Ask about architecture, risks...", submitDescribedBy }) => {
+    const blocked = Boolean(disabled || submitDisabled || busy);
     return (
         <div className="p-4 bg-slate-900/95 backdrop-blur-lg border-t border-white/5 shrink-0 w-full rounded-b-2xl">
             {/* Unified Input Capsule */}
@@ -36,7 +38,7 @@ export const ChatComposer: React.FC<{
                 <button
                     data-testid="chatbot-submit"
                     onClick={onSubmit}
-                    disabled={busy || !value.trim()}
+                    disabled={blocked || !value.trim()}
                     title="Send message"
                     aria-describedby={submitDescribedBy}
                     className="shrink-0 w-[36px] h-[36px] flex items-center justify-center rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-800/80 disabled:text-slate-600 text-white transition-all shadow-md mb-0.5 mr-0.5 group"

@@ -591,6 +591,7 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({
                         onSubmit={onSubmit}
                         disabled={isBuildMode ? false : loading}
                         submitDisabled={isBuildMode && (planner.isPlanning || planningUnavailable)}
+                        busy={isBuildMode ? planner.isPlanning : loading}
                         submitDescribedBy={isBuildMode && planningUnavailable ? "pipeline-planning-unavailable" : undefined}
                         placeholder={isBuildMode ? "Describe what you want to analyze…" : undefined}
                     />
