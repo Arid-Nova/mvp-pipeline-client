@@ -172,7 +172,7 @@ covered. These regressions use authored source fixtures and no target execution.
 
 ## Maintainer review integration (2026-11-16)
 
-The current immutable engine source pin is
+The immutable engine source pin for that review was
 `b095c17e8ca19bc23afd5b0aa65d10c8568796cb`. A clean remote checkout built
 through `scripts/build_cimet.py` without a development override; both generated
 service manifests matched the lock and the same built JAR hash. The extraction
@@ -223,3 +223,33 @@ endpoint facts in mocked provider requests, both callers of the bounded stored-I
 reader, single-document Mongo lookups and existing compressed-result decoding.
 All Aegis model/HTTP/database interactions in these cases use local doubles;
 no production provider, database or source-analysis deployment was exercised.
+
+## Final reviewer follow-up (2026-11-22)
+
+The current source lock consumes engine
+`86f69788676ab5cd24af3c5446366f6889ab2e25`, including the reviewer's readability
+changes, enforced formatting and current multi-repository schema regressions.
+A clean exact-commit source build succeeded; both generated service manifests
+matched the lock and the same JAR hash. Full `mvn verify` passed with 22 backend
+and 24 component tests, zero failures/errors/skips, and both WARs packaged.
+The engine's Windows/Ubuntu CI passed with 184 JVM tests and 52 parser tests.
+
+The policy/executor suite passed 40 tests. Six new isolation cases include actual
+spawned workers executing authored loopback HTTP suites, verifying noninterleaved
+setup/request/before-after observations. Repeated worker runs, bounded contention,
+failure/process-exit release, origin aliases and independent ports are covered.
+Executors sharing a fixture across containers must use the same lock-capable
+`ARIDNOVA_JS_FIXTURE_LOCK_DIR` mount; this is not an automatic distributed lock.
+
+Fourteen new Java regressions cover both auxiliary JavaScript presence probes:
+100,000 visited entries and 64 directory levels, existing exclusions and no link
+following, early positive discovery, and explicit incomplete-inspection errors
+for depth/entry/read failures. Actual callers propagate incomplete inspection
+before invoking Node. These bounds apply to this auxiliary probe, not every
+stage of native source traversal.
+
+Six upload regressions exercise both local-file and saved-IR loading plus source
+identity cases. Native services reuse a matching URL/commit backend snapshot
+mapping while distinct frontend mappings, revisions, repositories and legacy
+branches remain separate. TypeScript checking passed; the focused CI command
+now includes `UploadIRCard.test.tsx` alongside the existing graph/report suites.
