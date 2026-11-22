@@ -45,6 +45,12 @@ import { buildPipelineCapabilityCatalog } from './pipelineCapabilities';
 import { PipelineSpecV1, SpecIssue } from './pipelineSpec';
 import { hashString, stableStringify } from './stableHash';
 
+/**
+ * Milestone 1 reviewability and safety budget, not an API contract. Exhaustive composer tests show
+ * every option with up to three analysis capabilities fits; the smallest oversized supported
+ * combination needs 17 cards. The edge cap leaves room for normal branching and merging while
+ * keeping validation, layout, and rendering work bounded. These values may be tuned with evidence.
+ */
 export const MIN_NODES = 2;
 export const MAX_NODES = 16;
 export const MAX_EDGES = 24;
