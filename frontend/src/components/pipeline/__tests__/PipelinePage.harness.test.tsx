@@ -5,7 +5,7 @@
  * documented in ./__testutils__/renderPipelinePage.tsx. No Issue #60 functionality is involved.
  */
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { mockedApi, renderPipelinePage } from './__testutils__/renderPipelinePage';
+import { mockedApi, renderPipelinePage } from '../__testutils__/renderPipelinePage';
 
 const getCanvas = (container: HTMLElement): HTMLElement => {
     const canvas = container.querySelector<HTMLElement>('.tour-pipeline-canvas');

@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import { CardType } from '../models';
-import { VALID_CONNECTIONS } from '../pipelineConfig';
-import { PIPELINE_TEMPLATES } from '../configs/PipelineTemplates';
+import { CardType } from '../../models';
+import { VALID_CONNECTIONS } from '../../pipelineConfig';
+import { PIPELINE_TEMPLATES } from '../../configs/PipelineTemplates';
 import {
     ComposeResult,
     ComposerFacts,
@@ -12,10 +12,10 @@ import {
     defaultComposerFacts,
     recipeSourceFor,
     supportedAnalysisCapabilities,
-} from './pipelineComposer';
-import { buildPipelineCapabilityCatalog } from './pipelineCapabilities';
-import { PipelineSpecV1 } from './pipelineSpec';
-import { isValidatedSuggestion, validatePipelineSpec } from './pipelineValidator';
+} from '../pipelineComposer';
+import { buildPipelineCapabilityCatalog } from '../pipelineCapabilities';
+import { PipelineSpecV1 } from '../pipelineSpec';
+import { isValidatedSuggestion, validatePipelineSpec } from '../pipelineValidator';
 
 const catalog = buildPipelineCapabilityCatalog();
 const ANALYSIS = catalog.cards.filter((card) => card.isAnalysis).map((card) => card.cardType);
@@ -479,7 +479,7 @@ describe('composePipeline — rejected input and original failure modes', () => 
 
 describe('composePipeline — sources of truth', () => {
     it('does not keep its own connection matrix', () => {
-        const source = fs.readFileSync(path.join(__dirname, 'pipelineComposer.ts'), 'utf8');
+        const source = fs.readFileSync(path.join(__dirname, "..", 'pipelineComposer.ts'), 'utf8');
         expect(source).toContain("from '../pipelineConfig'");
         expect(source).not.toMatch(/Record<CardType,\s*CardType\[\]>/);
         // No literal adjacency lists such as ['MULTI_REPO', 'IR_HOLDER', ...] outside the two-snapshot table.

@@ -1,7 +1,7 @@
-import { CardType } from '../models';
-import { composePipeline } from './pipelineComposer';
-import { COLUMN_GAP, DEFAULT_LAYOUT_ORIGIN, PipelineLayoutError, ROW_GAP, layoutPipelineSpec } from './pipelineLayout';
-import { PipelineSpecV1 } from './pipelineSpec';
+import { CardType } from '../../models';
+import { composePipeline } from '../pipelineComposer';
+import { COLUMN_GAP, DEFAULT_LAYOUT_ORIGIN, PipelineLayoutError, ROW_GAP, layoutPipelineSpec } from '../pipelineLayout';
+import { PipelineSpecV1 } from '../pipelineSpec';
 
 /** Collapsed card footprint (PipelineCanvas: `w-80`, i.e. 320 px; collapsed cards stay well under 300 px tall). */
 const CARD_WIDTH = 320;

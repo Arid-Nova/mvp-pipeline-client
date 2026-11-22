@@ -6,9 +6,9 @@
 import fs from 'fs';
 import path from 'path';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
-import { mockedApi, renderPipelinePage } from './__testutils__/renderPipelinePage';
-import { Connection, NodeData } from './models';
-import { PipelineIntentRequest } from '../../services/types';
+import { mockedApi, renderPipelinePage } from '../__testutils__/renderPipelinePage';
+import { Connection, NodeData } from '../models';
+import { PipelineIntentRequest } from '../../../services/types';
 
 interface CanvasRender {
     nodes: NodeData[];
@@ -16,9 +16,9 @@ interface CanvasRender {
 }
 const mockCanvasRenders: CanvasRender[] = [];
 
-jest.mock('./canvas/PipelineCanvas', () => {
+jest.mock('../canvas/PipelineCanvas', () => {
     const React = jest.requireActual('react');
-    const actual = jest.requireActual('./canvas/PipelineCanvas');
+    const actual = jest.requireActual('../canvas/PipelineCanvas');
     return {
         ...actual,
         PipelineCanvas: (props: CanvasRender) => {
@@ -30,7 +30,7 @@ jest.mock('./canvas/PipelineCanvas', () => {
 
 const G1 = 'I want to visualize the architecture and check authorization problems.';
 const validResponse = JSON.parse(
-    fs.readFileSync(path.join(__dirname, 'planning', '__fixtures__', 'intent-response.valid.json'), 'utf8')
+    fs.readFileSync(path.join(__dirname, "..", 'planning', '__fixtures__', 'intent-response.valid.json'), 'utf8')
 );
 const latestCanvas = (): CanvasRender => mockCanvasRenders[mockCanvasRenders.length - 1];
 
@@ -44,7 +44,7 @@ const answerIntentsWithG1 = () =>
 const buildSuggestions = async () => {
     fireEvent.click(screen.getByTestId('chatbot-toggle'));
     await screen.findByTestId('chatbot-panel');
-    fireEvent.click(screen.getByRole('button', { name: 'Build a pipeline' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Build a pipeline' }));
     fireEvent.change(screen.getByTestId('chatbot-input'), { target: { value: G1 } });
     fireEvent.click(screen.getByTestId('chatbot-submit'));
     await screen.findByTestId('pipeline-suggestions');

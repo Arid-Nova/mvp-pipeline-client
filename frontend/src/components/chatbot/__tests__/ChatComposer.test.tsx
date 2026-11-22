@@ -1,6 +1,6 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
-import ChatComposer from "./ChatComposer";
+import ChatComposer from "../ChatComposer";
 
 const renderComposer = (props: { submitDisabled?: boolean; busy?: boolean }) =>
     render(

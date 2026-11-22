@@ -1,9 +1,9 @@
-import { CHATBOT_API } from '../utils/axiosSetup';
-import { requestPipelineIntents } from './api';
-import { PipelineIntentRequest } from './types';
+import { CHATBOT_API } from '../../utils/axiosSetup';
+import { requestPipelineIntents } from '../api';
+import { PipelineIntentRequest } from '../types';
 
 // axios 1.x ships ESM that Jest 27 can't load, so the configured instances are replaced here.
-jest.mock('../utils/axiosSetup', () => ({
+jest.mock('../../utils/axiosSetup', () => ({
     __esModule: true,
     default: { isCancel: (error: { __CANCEL__?: boolean }) => Boolean(error?.__CANCEL__) },
     CHATBOT_API: { post: jest.fn(), get: jest.fn() },

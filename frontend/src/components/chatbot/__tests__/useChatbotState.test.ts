@@ -1,8 +1,8 @@
-import { ChatbotResponse } from "../../services/types";
-import { ChatMessageModel, buildHistoryMessages, isConversationalMessage } from "./useChatbotState";
+import { ChatbotResponse } from "../../../services/types";
+import { ChatMessageModel, buildHistoryMessages, isConversationalMessage } from "../useChatbotState";
 
 // The hook module imports services/api (axios ESM); only the pure history helpers are tested here.
-jest.mock("../../services/api", () => ({ getChatbotHealth: jest.fn(), sendChatbotQuery: jest.fn(), refreshChatbotContext: jest.fn() }));
+jest.mock("../../../services/api", () => ({ getChatbotHealth: jest.fn(), sendChatbotQuery: jest.fn(), refreshChatbotContext: jest.fn() }));
 
 const answer = (text: string): ChatMessageModel => ({
     role: "assistant",

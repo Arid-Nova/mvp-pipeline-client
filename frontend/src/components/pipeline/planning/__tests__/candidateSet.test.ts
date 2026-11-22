@@ -1,12 +1,12 @@
 import fs from 'fs';
 import path from 'path';
-import { CardType } from '../models';
-import { CandidateSetResult, assembleCandidateSet } from './candidateSet';
-import { INTENT_TIERS, IntentTier, ParsedIntentOption, intentOptionId, parseIntentPlan } from './intentPlan';
-import { buildPipelineCapabilityCatalog } from './pipelineCapabilities';
-import { ComposableIntent, ComposeResult, composePipeline } from './pipelineComposer';
-import { PipelineSpecV1 } from './pipelineSpec';
-import { canonicalSignature, isValidatedSuggestion, validatePipelineSpec } from './pipelineValidator';
+import { CardType } from '../../models';
+import { CandidateSetResult, assembleCandidateSet } from '../candidateSet';
+import { INTENT_TIERS, IntentTier, ParsedIntentOption, intentOptionId, parseIntentPlan } from '../intentPlan';
+import { buildPipelineCapabilityCatalog } from '../pipelineCapabilities';
+import { ComposableIntent, ComposeResult, composePipeline } from '../pipelineComposer';
+import { PipelineSpecV1 } from '../pipelineSpec';
+import { canonicalSignature, isValidatedSuggestion, validatePipelineSpec } from '../pipelineValidator';
 
 const catalog = buildPipelineCapabilityCatalog();
 const ANALYSIS = catalog.cards.filter((card) => card.isAnalysis).map((card) => card.cardType);
@@ -219,7 +219,7 @@ describe('assembleCandidateSet — failures are typed and never partial', () => 
 
 describe('G1 architectural acceptance (intent JSON -> parser -> composer -> validator -> three suggestions)', () => {
     it('turns the frozen G1 intent fixture into three distinct, independently valid suggestions', () => {
-        const fixture = JSON.parse(fs.readFileSync(path.join(__dirname, '__fixtures__', 'intent-response.valid.json'), 'utf8'));
+        const fixture = JSON.parse(fs.readFileSync(path.join(__dirname, "..", '__fixtures__', 'intent-response.valid.json'), 'utf8'));
         const parsed = parseIntentPlan({ version: 1, options: fixture.options }, catalog);
         expect(parsed.status).toBe('ok');
         const result = assembleCandidateSet(parsed.options ?? []);

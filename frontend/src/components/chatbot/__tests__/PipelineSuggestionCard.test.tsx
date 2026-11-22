@@ -2,12 +2,12 @@ import fs from "fs";
 import path from "path";
 import React from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { CardType } from "../pipeline/models";
-import { CARD_CONFIG, REQUIRED_USER_CONFIG } from "../pipeline/pipelineConfig";
-import { composePipeline } from "../pipeline/planning/pipelineComposer";
-import { IntentTier } from "../pipeline/planning/intentPlan";
-import { ValidatedSuggestion, defaultValidationConfig, validatePipelineSpec } from "../pipeline/planning/pipelineValidator";
-import { CHECKED_RULE_GROUPS, PipelineSuggestionCard, PipelineSuggestionItem, previewSuggestion } from "./PipelineSuggestionCard";
+import { CardType } from "../../pipeline/models";
+import { CARD_CONFIG, REQUIRED_USER_CONFIG } from "../../pipeline/pipelineConfig";
+import { composePipeline } from "../../pipeline/planning/pipelineComposer";
+import { IntentTier } from "../../pipeline/planning/intentPlan";
+import { ValidatedSuggestion, defaultValidationConfig, validatePipelineSpec } from "../../pipeline/planning/pipelineValidator";
+import { CHECKED_RULE_GROUPS, PipelineSuggestionCard, PipelineSuggestionItem, previewSuggestion } from "../PipelineSuggestionCard";
 
 const ALL_CARD_TYPES = Object.keys(CARD_CONFIG) as CardType[];
 
@@ -159,12 +159,12 @@ describe("PipelineSuggestionCard", () => {
 
     it("contains no dangerouslySetInnerHTML in the suggestion UI", () => {
         ["PipelineSuggestionCard.tsx", "PipelineSuggestionList.tsx", "ChatbotPanel.tsx", "ChatMessage.tsx"].forEach((file) => {
-            expect(fs.readFileSync(path.join(__dirname, file), "utf8")).not.toContain("dangerouslySetInnerHTML");
+            expect(fs.readFileSync(path.join(__dirname, "..", file), "utf8")).not.toContain("dangerouslySetInnerHTML");
         });
     });
 });
 
 function isValidated(value: unknown): boolean {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    return require("../pipeline/planning/pipelineValidator").isValidatedSuggestion(value);
+    return require("../../pipeline/planning/pipelineValidator").isValidatedSuggestion(value);
 }

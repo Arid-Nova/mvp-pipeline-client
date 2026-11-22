@@ -1,10 +1,10 @@
 import React from "react";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import ChatbotPanel from "./ChatbotPanel";
-import { getChatbotHealth, refreshChatbotContext, sendChatbotQuery } from "../../services/api";
-import CitationList from "./CitationList";
+import ChatbotPanel from "../ChatbotPanel";
+import { getChatbotHealth, refreshChatbotContext, sendChatbotQuery } from "../../../services/api";
+import CitationList from "../CitationList";
 
-jest.mock("../../services/api", () => ({
+jest.mock("../../../services/api", () => ({
     getChatbotHealth: jest.fn(),
     sendChatbotQuery: jest.fn(),
     refreshChatbotContext: jest.fn()
@@ -34,6 +34,7 @@ describe("ChatbotPanel", () => {
             provider: "OLLAMA",
             model: "llama3.2",
             baseUrl: "http://localhost:8080",
+            historyMaxMessages: 4,
             message: "ok",
             checkedAt: new Date().toISOString(),
             latencyMs: 20
@@ -67,6 +68,7 @@ describe("ChatbotPanel", () => {
             provider: "OLLAMA",
             model: "llama3.2",
             baseUrl: "http://localhost:8080",
+            historyMaxMessages: 4,
             message: "ok",
             checkedAt: new Date().toISOString(),
             latencyMs: 20
@@ -121,6 +123,7 @@ describe("ChatbotPanel", () => {
             provider: "OLLAMA",
             model: "llama3.2",
             baseUrl: "http://localhost:8080",
+            historyMaxMessages: 4,
             message: "ok",
             checkedAt: new Date().toISOString(),
             latencyMs: 20
@@ -155,6 +158,7 @@ describe("ChatbotPanel", () => {
             provider: "OLLAMA",
             model: "llama3.2",
             baseUrl: "http://localhost:8080",
+            historyMaxMessages: 4,
             message: "ok",
             checkedAt: new Date().toISOString(),
             latencyMs: 20
@@ -198,6 +202,7 @@ describe("ChatbotPanel", () => {
             provider: "OLLAMA",
             model: "llama3.2",
             baseUrl: "http://localhost:8080",
+            historyMaxMessages: 4,
             message: "ok",
             checkedAt: new Date().toISOString(),
             latencyMs: 20
@@ -268,6 +273,7 @@ describe("ChatbotPanel", () => {
             provider: "OLLAMA",
             model: "llama3.2",
             baseUrl: "http://localhost:8080",
+            historyMaxMessages: 4,
             message: "ok",
             checkedAt: new Date().toISOString(),
             latencyMs: 20
@@ -296,6 +302,7 @@ describe("ChatbotPanel", () => {
             provider: "OLLAMA",
             model: "llama3.2",
             baseUrl: "http://localhost:8080",
+            historyMaxMessages: 4,
             message: "ok",
             checkedAt: new Date().toISOString(),
             latencyMs: 20
@@ -338,6 +345,7 @@ describe("ChatbotPanel", () => {
             provider: "OLLAMA",
             model: "llama3.2",
             baseUrl: "http://localhost:8080",
+            historyMaxMessages: 4,
             message: "ok",
             checkedAt: new Date().toISOString(),
             latencyMs: 20
@@ -375,6 +383,7 @@ describe("ChatbotPanel", () => {
             provider: "OLLAMA",
             model: "llama3.2",
             baseUrl: "http://localhost:8080",
+            historyMaxMessages: 4,
             message: "ok",
             checkedAt: new Date().toISOString(),
             latencyMs: 20
@@ -399,6 +408,7 @@ describe("ChatbotPanel", () => {
             provider: "OLLAMA",
             model: "llama3.2",
             baseUrl: "http://localhost:8080",
+            historyMaxMessages: 4,
             message: "ok",
             checkedAt: new Date().toISOString(),
             latencyMs: 20
@@ -441,6 +451,7 @@ describe("ChatbotPanel", () => {
             provider: "OLLAMA",
             model: "llama3.2",
             baseUrl: "http://localhost:8080",
+            historyMaxMessages: 4,
             message: "ok",
             checkedAt: new Date().toISOString(),
             latencyMs: 20

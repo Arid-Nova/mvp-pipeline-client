@@ -1,19 +1,19 @@
 import fs from "fs";
 import path from "path";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { requestPipelineIntents } from "../../services/api";
-import { PipelineIntentRequest, PipelineIntentsCallResult } from "../../services/types";
-import { validatePipelineSpec } from "../pipeline/planning/pipelineValidator";
-import { PlanOutcome } from "../pipeline/planning/pipelinePlanner";
-import { usePipelinePlanner } from "./usePipelinePlanner";
+import { requestPipelineIntents } from "../../../services/api";
+import { PipelineIntentRequest, PipelineIntentsCallResult } from "../../../services/types";
+import { validatePipelineSpec } from "../../pipeline/planning/pipelineValidator";
+import { PlanOutcome } from "../../pipeline/planning/pipelinePlanner";
+import { usePipelinePlanner } from "../usePipelinePlanner";
 
-jest.mock("../../services/api", () => ({ requestPipelineIntents: jest.fn() }));
+jest.mock("../../../services/api", () => ({ requestPipelineIntents: jest.fn() }));
 
 const mockRequest = requestPipelineIntents as jest.MockedFunction<typeof requestPipelineIntents>;
 const G1 = "I want to visualize the architecture and check authorization problems.";
 
 const fixture = (name: string): Record<string, unknown> =>
-    JSON.parse(fs.readFileSync(path.join(__dirname, "../pipeline/planning/__fixtures__", `intent-response.${name}.json`), "utf8"));
+    JSON.parse(fs.readFileSync(path.join(__dirname, "..", "../pipeline/planning/__fixtures__", `intent-response.${name}.json`), "utf8"));
 
 const reply = (name: string, request: PipelineIntentRequest): PipelineIntentsCallResult => ({
     kind: "response",

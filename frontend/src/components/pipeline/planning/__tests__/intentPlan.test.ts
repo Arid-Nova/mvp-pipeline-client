@@ -7,9 +7,9 @@ import {
     describeIntentIssuesForRetry,
     intentOptionId,
     parseIntentPlan,
-} from './intentPlan';
-import { buildPipelineCapabilityCatalog } from './pipelineCapabilities';
-import { createRandom, randomJsonValue } from './testRandomJson';
+} from '../intentPlan';
+import { buildPipelineCapabilityCatalog } from '../pipelineCapabilities';
+import { createRandom, randomJsonValue } from '../testRandomJson';
 
 const catalog = buildPipelineCapabilityCatalog();
 const ANALYSIS = catalog.cards.filter((c) => c.isAnalysis).map((c) => c.cardType as string);
@@ -332,8 +332,8 @@ describe('describeIntentIssuesForRetry', () => {
 });
 
 describe('contract fixture shared with chatbot-backend', () => {
-    const frontendFixture = path.join(__dirname, '__fixtures__', 'intent-response.valid.json');
-    const backendFixture = path.join(__dirname, '../../../../../chatbot-backend/src/test/resources/pipeline/intent-response.valid.json');
+    const frontendFixture = path.join(__dirname, "..", '__fixtures__', 'intent-response.valid.json');
+    const backendFixture = path.join(__dirname, "..", '../../../../../chatbot-backend/src/test/resources/pipeline/intent-response.valid.json');
 
     it('is byte-identical to the backend test resource', () => {
         expect(fs.readFileSync(frontendFixture, 'utf8')).toBe(fs.readFileSync(backendFixture, 'utf8'));

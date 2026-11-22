@@ -4,12 +4,12 @@
  */
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { getChatbotHealth, refreshChatbotContext, sendChatbotQuery } from "../../services/api";
-import { PlanFailure, PlanOutcome } from "../pipeline/planning/pipelinePlanner";
-import ChatbotPanel from "./ChatbotPanel";
-import { PipelinePlannerState } from "./usePipelinePlanner";
+import { getChatbotHealth, refreshChatbotContext, sendChatbotQuery } from "../../../services/api";
+import { PlanFailure, PlanOutcome } from "../../pipeline/planning/pipelinePlanner";
+import ChatbotPanel from "../ChatbotPanel";
+import { PipelinePlannerState } from "../usePipelinePlanner";
 
-jest.mock("../../services/api", () => ({
+jest.mock("../../../services/api", () => ({
     getChatbotHealth: jest.fn(),
     sendChatbotQuery: jest.fn(),
     refreshChatbotContext: jest.fn(),
@@ -22,7 +22,7 @@ const mockPlanner: {
     cancel: jest.Mock;
 } = { state: { status: "idle" }, plan: jest.fn(), cancel: jest.fn() };
 
-jest.mock("./usePipelinePlanner", () => ({
+jest.mock("../usePipelinePlanner", () => ({
     usePipelinePlanner: () => ({
         state: mockPlanner.state,
         isPlanning: mockPlanner.state.status === "planning",
@@ -37,7 +37,7 @@ const mockedSendQuery = sendChatbotQuery as jest.Mock;
 const mockedRefresh = refreshChatbotContext as jest.Mock;
 
 const GOAL = "I want to visualize the architecture and check authorization problems.";
-const healthy = { status: "healthy", provider: "OLLAMA", model: "llama3.2", baseUrl: "x", message: "ok", checkedAt: "", latencyMs: 1 };
+const healthy = { status: "healthy", provider: "OLLAMA", model: "llama3.2", baseUrl: "x", historyMaxMessages: 4, message: "ok", checkedAt: "", latencyMs: 1 };
 const unavailable = { ...healthy, status: "unavailable", message: "down" };
 
 const failure = (reason: string, cause: string, extra: Partial<PlanFailure> = {}): PlanFailure =>
@@ -57,7 +57,7 @@ const startInBuild = async (panelProps = props()) => {
     fireEvent.click(screen.getByTestId("chatbot-toggle"));
     await screen.findByTestId("chatbot-panel");
     await waitFor(() => expect(mockedHealth).toHaveBeenCalled());
-    fireEvent.click(screen.getByRole("button", { name: "Build a pipeline" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Build a pipeline" }));
     await waitFor(() => expect(screen.queryByTestId("pipeline-planning-unavailable")).toBeNull());
     fireEvent.change(screen.getByTestId("chatbot-input"), { target: { value: GOAL } });
     fireEvent.click(screen.getByTestId("chatbot-submit"));
@@ -228,7 +228,7 @@ describe("ChatbotPanel — planning failures (P60-M1-009)", () => {
         const { rerenderWith } = await startInBuild();
         rerenderWith({ status: "planning" });
 
-        fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+        fireEvent.click(screen.getByRole("radio", { name: "Ask" }));
 
         expect(mockPlanner.cancel).toHaveBeenCalledTimes(1);
     });
@@ -237,7 +237,7 @@ describe("ChatbotPanel — planning failures (P60-M1-009)", () => {
         const { rerenderWith } = await startInBuild();
         rerenderWith({ status: "failure", outcome: failure("model_unavailable", "MODEL_UNAVAILABLE") });
 
-        fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+        fireEvent.click(screen.getByRole("radio", { name: "Ask" }));
         fireEvent.change(screen.getByTestId("chatbot-input"), { target: { value: "What does the IR card do?" } });
         fireEvent.click(screen.getByTestId("chatbot-submit"));
         await waitFor(() => expect(mockedSendQuery).toHaveBeenCalledTimes(1));

@@ -1,4 +1,4 @@
-import { hashString, stableStringify } from './stableHash';
+import { hashString, stableStringify } from '../stableHash';
 
 describe('stableHash', () => {
     it('keeps the cyrb53 output stable (golden values)', () => {

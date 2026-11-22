@@ -1,7 +1,7 @@
-import { CARD_CONFIG, CATEGORIES } from "../pipeline/pipelineConfig";
-import { CardType } from "../pipeline/models";
-import { PlanFailure } from "../pipeline/planning/pipelinePlanner";
-import { PLANNING_FAILURE_COPY, capabilityAreas, getPipelineFailurePresentation } from "./pipelineFailurePresentation";
+import { CARD_CONFIG, CATEGORIES } from "../../pipeline/pipelineConfig";
+import { CardType } from "../../pipeline/models";
+import { PlanFailure } from "../../pipeline/planning/pipelinePlanner";
+import { PLANNING_FAILURE_COPY, capabilityAreas, getPipelineFailurePresentation } from "../pipelineFailurePresentation";
 
 const failure = (reason: string, cause = "X", unsupportedReason?: string) =>
     ({ reason, cause, unsupportedReason } as unknown as Pick<PlanFailure, "reason" | "cause" | "unsupportedReason">);

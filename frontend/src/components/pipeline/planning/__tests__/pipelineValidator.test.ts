@@ -7,9 +7,9 @@ import {
     CATEGORIES,
     INPUT_CARD_TYPES,
     VALID_CONNECTIONS,
-} from '../pipelineConfig';
-import { buildPipelineCapabilityCatalog } from './pipelineCapabilities';
-import { PipelineSpecV1 } from './pipelineSpec';
+} from '../../pipelineConfig';
+import { buildPipelineCapabilityCatalog } from '../pipelineCapabilities';
+import { PipelineSpecV1 } from '../pipelineSpec';
 import {
     MAX_EDGES,
     MAX_NODES,
@@ -23,7 +23,7 @@ import {
     describeIssuesForRetry,
     isValidatedSuggestion,
     validatePipelineSpec,
-} from './pipelineValidator';
+} from '../pipelineValidator';
 
 const catalog = buildPipelineCapabilityCatalog();
 const ALL_TYPES = Object.keys(CARD_CONFIG);
@@ -142,7 +142,7 @@ describe('validatePipelineSpec — real configuration', () => {
             const result = validatePipelineSpec(spec(example.nodes.map((n) => [n.key, n.cardType]), example.edges.map((e) => [e.from, e.to])));
             expect(result.valid).toBe(true);
         });
-        const source = fs.readFileSync(path.join(__dirname, 'pipelineValidator.ts'), 'utf8');
+        const source = fs.readFileSync(path.join(__dirname, "..", 'pipelineValidator.ts'), 'utf8');
         ['REQUIRED_USER_CONFIG', 'RUNTIME_INTERACTION_HINTS', 'pipelineComposer', 'react', 'fetch(', 'axios', 'Math.random', 'Date'].forEach(
             (forbidden) => expect(source.replace(/\/\*[\s\S]*?\*\//g, '')).not.toContain(forbidden)
         );

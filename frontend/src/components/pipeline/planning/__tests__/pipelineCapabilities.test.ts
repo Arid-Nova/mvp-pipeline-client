@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { CardType } from '../models';
+import { CardType } from '../../models';
 import {
     ANALYSIS_CATEGORIES,
     CARD_CONFIG,
@@ -10,18 +10,18 @@ import {
     REQUIRED_USER_CONFIG,
     RUNTIME_INTERACTION_HINTS,
     VALID_CONNECTIONS,
-} from '../pipelineConfig';
-import { PIPELINE_TEMPLATES } from '../configs/PipelineTemplates';
+} from '../../pipelineConfig';
+import { PIPELINE_TEMPLATES } from '../../configs/PipelineTemplates';
 import {
     CatalogSource,
     DEFAULT_CATALOG_SOURCE,
     buildPipelineCapabilityCatalog,
-} from './pipelineCapabilities';
+} from '../pipelineCapabilities';
 
 const ALL_CARD_TYPES = Object.keys(CARD_CONFIG) as CardType[];
 
 const readSource = (relativePath: string): string =>
-    fs.readFileSync(path.join(__dirname, relativePath), 'utf8');
+    fs.readFileSync(path.join(__dirname, "..", relativePath), 'utf8');
 
 const cloneSource = (): CatalogSource => ({
     ...DEFAULT_CATALOG_SOURCE,

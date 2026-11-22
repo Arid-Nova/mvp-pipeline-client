@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import { PipelineIntentRequest } from '../../../services/types';
-import { assembleCandidateSet } from './candidateSet';
-import { buildPipelineCapabilityCatalog } from './pipelineCapabilities';
+import { PipelineIntentRequest } from '../../../../services/types';
+import { assembleCandidateSet } from '../candidateSet';
+import { buildPipelineCapabilityCatalog } from '../pipelineCapabilities';
 import {
     FAILURE_MESSAGES,
     MAX_ANALYSIS_PER_OPTION,
@@ -16,15 +16,15 @@ import {
     PlannerDeps,
     newSuggestionSetId,
     planPipelineSuggestions,
-} from './pipelinePlanner';
-import { isValidatedSuggestion, validatePipelineSpec } from './pipelineValidator';
+} from '../pipelinePlanner';
+import { isValidatedSuggestion, validatePipelineSpec } from '../pipelineValidator';
 
 const G1 = 'I want to visualize the architecture and check authorization problems.';
 const SET_ID = '3f2b8c1e-9a4d-4e6f-b1c2-7d8e9f0a1b2c';
 const catalog = buildPipelineCapabilityCatalog();
 
 const fixture = (name: string): Record<string, unknown> =>
-    JSON.parse(fs.readFileSync(path.join(__dirname, '__fixtures__', `intent-response.${name}.json`), 'utf8'));
+    JSON.parse(fs.readFileSync(path.join(__dirname, "..", '__fixtures__', `intent-response.${name}.json`), 'utf8'));
 
 type Step = (request: PipelineIntentRequest, options: { signal: AbortSignal; timeoutMs: number }) => PipelineIntentsCall | Promise<PipelineIntentsCall>;
 
@@ -337,7 +337,7 @@ describe('planPipelineSuggestions — no retry', () => {
         const h = harness([() => ({ kind: 'model_unavailable', status: 503, data: {} })]);
         const failure = expectFailure(await plan(h, 'visualize architecture and check authorization'));
         expect(failure.reason).toBe('model_unavailable');
-        const source = fs.readFileSync(path.join(__dirname, 'pipelinePlanner.ts'), 'utf8');
+        const source = fs.readFileSync(path.join(__dirname, "..", 'pipelinePlanner.ts'), 'utf8');
         expect(source).not.toMatch(/\/chatbot\/query|sendChatbotQuery|PIPELINE_TEMPLATES|keyword/i);
     });
 });
@@ -412,7 +412,7 @@ describe('planPipelineSuggestions — catalog and suggestion set', () => {
         const h = harness([reply('valid')], { buildCatalog: () => synthetic });
         expectThreeValid(expectSuccess(await plan(h)));
         expect(h.requests[0].catalogVersion).toBe('pcat-synthetic');
-        const source = fs.readFileSync(path.join(__dirname, 'pipelinePlanner.ts'), 'utf8');
+        const source = fs.readFileSync(path.join(__dirname, "..", 'pipelinePlanner.ts'), 'utf8');
         catalog.cards.forEach((card) => expect(source).not.toContain(`'${card.cardType}'`));
     });
 
@@ -628,7 +628,7 @@ describe('planPipelineSuggestions — no partial success, no silent repair', () 
     });
 
     it('reads no graph or config fields from model output', () => {
-        const source = fs.readFileSync(path.join(__dirname, 'pipelinePlanner.ts'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+        const source = fs.readFileSync(path.join(__dirname, "..", 'pipelinePlanner.ts'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
         expect(source).not.toMatch(/\.(nodes|edges|prerequisites|config|x|y)\b/);
     });
 });

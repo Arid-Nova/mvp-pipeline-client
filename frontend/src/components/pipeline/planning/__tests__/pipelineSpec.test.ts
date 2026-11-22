@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { NODE_KEY_PATTERN, PipelineSpecV1, parsePipelineSpec } from './pipelineSpec';
-import { createRandom, randomJsonValue } from './testRandomJson';
+import { NODE_KEY_PATTERN, PipelineSpecV1, parsePipelineSpec } from '../pipelineSpec';
+import { createRandom, randomJsonValue } from '../testRandomJson';
 
 const validSpec = (): Record<string, unknown> => ({
     specVersion: 1,
@@ -169,7 +169,7 @@ describe('parsePipelineSpec', () => {
     });
 
     it('is independent of the intent contract', () => {
-        const source = fs.readFileSync(path.join(__dirname, 'pipelineSpec.ts'), 'utf8');
+        const source = fs.readFileSync(path.join(__dirname, "..", 'pipelineSpec.ts'), 'utf8');
         expect(source).not.toMatch(/from '\.\/intentPlan'/);
     });
 });

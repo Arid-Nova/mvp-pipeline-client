@@ -8,13 +8,13 @@
 import fs from 'fs';
 import path from 'path';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
-import { mockedApi, renderPipelinePage } from './__testutils__/renderPipelinePage';
-import { CanvasSnapshot, captureCanvas, expectCanvasUnchanged } from './planning/__testutils__/canvasSnapshot';
-import { PipelineIntentRequest, PipelineIntentsCallResult } from '../../services/types';
+import { mockedApi, renderPipelinePage } from '../__testutils__/renderPipelinePage';
+import { CanvasSnapshot, captureCanvas, expectCanvasUnchanged } from '../planning/__testutils__/canvasSnapshot';
+import { PipelineIntentRequest, PipelineIntentsCallResult } from '../../../services/types';
 
 const G1 = 'I want to visualize the architecture and check authorization problems.';
 const fixture = (name: string) =>
-    JSON.parse(fs.readFileSync(path.join(__dirname, 'planning', '__fixtures__', `intent-response.${name}.json`), 'utf8'));
+    JSON.parse(fs.readFileSync(path.join(__dirname, "..", 'planning', '__fixtures__', `intent-response.${name}.json`), 'utf8'));
 const reply = (name: string) => async (request: PipelineIntentRequest): Promise<PipelineIntentsCallResult> => ({
     kind: 'response',
     status: 200,
@@ -24,7 +24,7 @@ const reply = (name: string) => async (request: PipelineIntentRequest): Promise<
 const openBuildMode = async () => {
     fireEvent.click(screen.getByTestId('chatbot-toggle'));
     await screen.findByTestId('chatbot-panel');
-    fireEvent.click(screen.getByRole('button', { name: 'Build a pipeline' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Build a pipeline' }));
 };
 const submitGoal = (goal = G1) => {
     fireEvent.change(screen.getByTestId('chatbot-input'), { target: { value: goal } });
@@ -197,7 +197,7 @@ describe('PipelinePage failure handling (P60-M1-009)', () => {
         expect(screen.getByTestId('chatbot-submit')).toBeDisabled();
         expect(screen.getByTestId('chatbot-submit')).toHaveAttribute('aria-describedby', 'pipeline-planning-unavailable');
 
-        fireEvent.click(screen.getByRole('button', { name: 'Ask' }));
+        fireEvent.click(screen.getByRole('radio', { name: 'Ask' }));
         expect(screen.getByTestId('chatbot-submit')).toBeEnabled();
         fireEvent.click(screen.getByTestId('chatbot-submit'));
         await waitFor(() => expect(mockedApi.sendChatbotQuery).toHaveBeenCalledTimes(1));

@@ -45,7 +45,7 @@ import path from 'path';
 import { CardType } from '../../models';
 import { MAX_ANALYSIS_PER_OPTION } from '../intentPlan';
 import { PipelineCapabilityCatalog, PipelineExample, buildPipelineCapabilityCatalog } from '../pipelineCapabilities';
-import { runReleaseQualification } from './releaseQualification';
+import { runReleaseQualification } from '../__spike__/releaseQualification';
 
 const LIVE = process.env.RUN_LIVE_LLM === '1';
 /** graph = P60-M1-014 graph-generation task (default); intent = P60-M1-016 intent-selection task. */

@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { CardType } from "../pipeline/models";
-import { ApplyResult } from "../pipeline/planning/pipelineApplier";
-import { composePipeline } from "../pipeline/planning/pipelineComposer";
-import { IntentTier } from "../pipeline/planning/intentPlan";
-import { ValidatedSuggestion, defaultValidationConfig, validatePipelineSpec } from "../pipeline/planning/pipelineValidator";
-import { PipelineSuggestionItem } from "./PipelineSuggestionCard";
+import { CardType } from "../../pipeline/models";
+import { ApplyResult } from "../../pipeline/planning/pipelineApplier";
+import { composePipeline } from "../../pipeline/planning/pipelineComposer";
+import { IntentTier } from "../../pipeline/planning/intentPlan";
+import { ValidatedSuggestion, defaultValidationConfig, validatePipelineSpec } from "../../pipeline/planning/pipelineValidator";
+import { PipelineSuggestionItem } from "../PipelineSuggestionCard";
 import {
     EMPTY_CANVAS_NOTICE,
     PipelineSuggestionList,
@@ -13,7 +13,7 @@ import {
     RUNNING_NOTICE,
     appliedStatusText,
     withApplyResult,
-} from "./PipelineSuggestionList";
+} from "../PipelineSuggestionList";
 
 const composed = (types: CardType[], title: string): ValidatedSuggestion => {
     const result = composePipeline({ title, analysisCardTypes: types });

@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { CardType, Connection, NodeData } from '../models';
-import { CARD_CONFIG, REQUIRED_USER_CONFIG, RUNTIME_INTERACTION_HINTS, VALID_CONNECTIONS } from '../pipelineConfig';
+import { CardType, Connection, NodeData } from '../../models';
+import { CARD_CONFIG, REQUIRED_USER_CONFIG, RUNTIME_INTERACTION_HINTS, VALID_CONNECTIONS } from '../../pipelineConfig';
 import {
     APPLY_FAILURE_MESSAGES,
     ApplyError,
@@ -9,12 +9,12 @@ import {
     historyAfterApply,
     materializeSuggestion,
     pendingConfigurationFor,
-} from './pipelineApplier';
-import { buildPipelineCapabilityCatalog } from './pipelineCapabilities';
-import { composePipeline } from './pipelineComposer';
-import { layoutPipelineSpec } from './pipelineLayout';
-import { PipelineSpecV1 } from './pipelineSpec';
-import { ValidatedSuggestion, defaultValidationConfig, validatePipelineSpec } from './pipelineValidator';
+} from '../pipelineApplier';
+import { buildPipelineCapabilityCatalog } from '../pipelineCapabilities';
+import { composePipeline } from '../pipelineComposer';
+import { layoutPipelineSpec } from '../pipelineLayout';
+import { PipelineSpecV1 } from '../pipelineSpec';
+import { ValidatedSuggestion, defaultValidationConfig, validatePipelineSpec } from '../pipelineValidator';
 
 const suggestionFor = (types: CardType[], title = 'Applier test'): ValidatedSuggestion => {
     const result = composePipeline({ title, analysisCardTypes: types });
@@ -198,7 +198,7 @@ describe('materializeSuggestion — trust checks', () => {
 
     it('knows nothing about how the suggestion was planned', () => {
         const source = ['pipelineApplier.ts', 'pipelineLayout.ts']
-            .map((file) => fs.readFileSync(path.join(__dirname, file), 'utf8'))
+            .map((file) => fs.readFileSync(path.join(__dirname, "..", file), 'utf8'))
             .join('\n')
             .replace(/\/\*[\s\S]*?\*\//g, '');
         expect(source).not.toMatch(/llama|prompt|attempt|rejectionFeedback|PipelineIntentOption|\/chatbot\/|goal|focused|balanced|comprehensive|composePipeline|assembleCandidateSet/i);

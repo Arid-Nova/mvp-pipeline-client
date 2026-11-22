@@ -6,12 +6,12 @@
  * record the nodes/connections of every render. Everything else is the real page.
  */
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
-import { mockedApi, mockedTrack, renderPipelinePage } from './__testutils__/renderPipelinePage';
-import { CardType, Connection, NodeData } from './models';
-import { ApplyResult } from './planning/pipelineApplier';
-import { captureCanvas, expectCanvasUnchanged } from './planning/__testutils__/canvasSnapshot';
-import { composePipeline } from './planning/pipelineComposer';
-import { ValidatedSuggestion, defaultValidationConfig, validatePipelineSpec } from './planning/pipelineValidator';
+import { mockedApi, mockedTrack, renderPipelinePage } from '../__testutils__/renderPipelinePage';
+import { CardType, Connection, NodeData } from '../models';
+import { ApplyResult } from '../planning/pipelineApplier';
+import { captureCanvas, expectCanvasUnchanged } from '../planning/__testutils__/canvasSnapshot';
+import { composePipeline } from '../planning/pipelineComposer';
+import { ValidatedSuggestion, defaultValidationConfig, validatePipelineSpec } from '../planning/pipelineValidator';
 
 interface PanelProps {
     onApplyPipelineSuggestion?: (suggestion: ValidatedSuggestion) => ApplyResult;
@@ -29,7 +29,7 @@ interface CanvasRender {
 const mockPanel: { props: PanelProps | null } = { props: null };
 const mockCanvasRenders: CanvasRender[] = [];
 
-jest.mock('../chatbot/ChatbotPanel', () => ({
+jest.mock('../../chatbot/ChatbotPanel', () => ({
     __esModule: true,
     default: (props: PanelProps) => {
         mockPanel.props = props;
@@ -37,9 +37,9 @@ jest.mock('../chatbot/ChatbotPanel', () => ({
     },
 }));
 
-jest.mock('./canvas/PipelineCanvas', () => {
+jest.mock('../canvas/PipelineCanvas', () => {
     const React = jest.requireActual('react');
-    const actual = jest.requireActual('./canvas/PipelineCanvas');
+    const actual = jest.requireActual('../canvas/PipelineCanvas');
     return {
         ...actual,
         PipelineCanvas: (props: CanvasRender) => {

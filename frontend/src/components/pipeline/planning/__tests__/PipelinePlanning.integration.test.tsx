@@ -12,18 +12,18 @@
 import fs from 'fs';
 import path from 'path';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
-import { mockedApi, renderPipelinePage } from '../__testutils__/renderPipelinePage';
-import { CardType } from '../models';
-import { VALID_CONNECTIONS } from '../pipelineConfig';
-import { PipelineIntentRequest, PipelineIntentsCallResult } from '../../../services/types';
-import { CanvasSnapshot, captureCanvas, expectCanvasUnchanged, findRenderedProps } from './__testutils__/canvasSnapshot';
-import { PipelineSuggestionItem } from '../../chatbot/PipelineSuggestionCard';
-import { isValidatedSuggestion, validatePipelineSpec } from './pipelineValidator';
+import { mockedApi, renderPipelinePage } from '../../__testutils__/renderPipelinePage';
+import { CardType } from '../../models';
+import { VALID_CONNECTIONS } from '../../pipelineConfig';
+import { PipelineIntentRequest, PipelineIntentsCallResult } from '../../../../services/types';
+import { CanvasSnapshot, captureCanvas, expectCanvasUnchanged, findRenderedProps } from '../__testutils__/canvasSnapshot';
+import { PipelineSuggestionItem } from '../../../chatbot/PipelineSuggestionCard';
+import { isValidatedSuggestion, validatePipelineSpec } from '../pipelineValidator';
 
 const G1 = 'I want to visualize the architecture and check authorization problems.';
 const REPO_URL = 'https://github.com/example-org/demo-system';
 
-const fixtureText = (name: string) => fs.readFileSync(path.join(__dirname, '__fixtures__', `intent-response.${name}.json`), 'utf8');
+const fixtureText = (name: string) => fs.readFileSync(path.join(__dirname, "..", '__fixtures__', `intent-response.${name}.json`), 'utf8');
 const fixture = (name: string) => JSON.parse(fixtureText(name));
 const reply = (name: string) => async (request: PipelineIntentRequest): Promise<PipelineIntentsCallResult> => ({
     kind: 'response',
@@ -39,7 +39,7 @@ const intentRequests = (): PipelineIntentRequest[] => mockedApi.requestPipelineI
 const openBuildMode = async () => {
     fireEvent.click(screen.getByTestId('chatbot-toggle'));
     await screen.findByTestId('chatbot-panel');
-    fireEvent.click(screen.getByRole('button', { name: 'Build a pipeline' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Build a pipeline' }));
 };
 const submitGoal = (goal = G1) => {
     fireEvent.change(screen.getByTestId('chatbot-input'), { target: { value: goal } });
@@ -267,7 +267,7 @@ describe('Issue #60 Milestone 1 — chatbot-assisted pipeline creation (P60-M1-0
 describe('intent contract drift (frontend ↔ chatbot-backend)', () => {
     const backendDto = (file: string) =>
         fs.readFileSync(
-            path.join(__dirname, `../../../../../chatbot-backend/src/main/java/edu/baylor/ecs/cloudhubs/chatbot/pipeline/model/${file}`),
+            path.join(__dirname, "..", `../../../../../chatbot-backend/src/main/java/edu/baylor/ecs/cloudhubs/chatbot/pipeline/model/${file}`),
             'utf8'
         );
     /** Instance field names of a Lombok DTO: each `private ... name [= ...];` statement (may span lines). */

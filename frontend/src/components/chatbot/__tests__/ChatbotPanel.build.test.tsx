@@ -6,13 +6,13 @@ import fs from "fs";
 import path from "path";
 import React from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { getChatbotHealth, refreshChatbotContext, requestPipelineIntents, sendChatbotQuery } from "../../services/api";
-import { PipelineIntentRequest, PipelineIntentsCallResult } from "../../services/types";
-import { ApplyResult } from "../pipeline/planning/pipelineApplier";
-import { ValidatedSuggestion, isValidatedSuggestion } from "../pipeline/planning/pipelineValidator";
-import ChatbotPanel from "./ChatbotPanel";
+import { getChatbotHealth, refreshChatbotContext, requestPipelineIntents, sendChatbotQuery } from "../../../services/api";
+import { PipelineIntentRequest, PipelineIntentsCallResult } from "../../../services/types";
+import { ApplyResult } from "../../pipeline/planning/pipelineApplier";
+import { ValidatedSuggestion, isValidatedSuggestion } from "../../pipeline/planning/pipelineValidator";
+import ChatbotPanel from "../ChatbotPanel";
 
-jest.mock("../../services/api", () => ({
+jest.mock("../../../services/api", () => ({
     getChatbotHealth: jest.fn(),
     sendChatbotQuery: jest.fn(),
     refreshChatbotContext: jest.fn(),
@@ -26,7 +26,7 @@ const mockedIntents = requestPipelineIntents as jest.MockedFunction<typeof reque
 
 const G1 = "I want to visualize the architecture and check authorization problems.";
 const fixture = (name: string): Record<string, unknown> =>
-    JSON.parse(fs.readFileSync(path.join(__dirname, "../pipeline/planning/__fixtures__", `intent-response.${name}.json`), "utf8"));
+    JSON.parse(fs.readFileSync(path.join(__dirname, "..", "../pipeline/planning/__fixtures__", `intent-response.${name}.json`), "utf8"));
 const reply = (name: string, request: PipelineIntentRequest): PipelineIntentsCallResult => ({
     kind: "response",
     status: 200,
@@ -70,7 +70,7 @@ const openPanel = async (props: PanelProps) => {
     return utils;
 };
 
-const switchToBuild = () => fireEvent.click(screen.getByRole("button", { name: "Build a pipeline" }));
+const switchToBuild = () => fireEvent.click(screen.getByRole("radio", { name: "Build a pipeline" }));
 
 const submit = (text: string) => {
     fireEvent.change(screen.getByTestId("chatbot-input"), { target: { value: text } });
@@ -91,7 +91,7 @@ const planSuccessfully = async (calls: ReturnType<typeof deferredBackend>, fixtu
 describe("ChatbotPanel — Build a pipeline mode (P60-M1-008)", () => {
     beforeEach(() => {
         jest.clearAllMocks();
-        mockedHealth.mockResolvedValue({ status: "healthy", provider: "OLLAMA", model: "llama3.2", baseUrl: "x", message: "ok", checkedAt: "", latencyMs: 1 });
+        mockedHealth.mockResolvedValue({ status: "healthy", provider: "OLLAMA", model: "llama3.2", baseUrl: "x", historyMaxMessages: 4, message: "ok", checkedAt: "", latencyMs: 1 });
         mockedRefresh.mockResolvedValue({ success: true, refreshedArtifactCountsByType: {}, unavailableProviders: [], refreshedAt: "", refreshVersion: "", message: "ok", staleContext: false });
         mockedSendQuery.mockResolvedValue({ answer: "A normal answer.", citations: [], confidence: "HIGH", flags: [], requestId: "r", processingTimeMs: 1, model: "llama3.2", provider: "OLLAMA" });
     });
@@ -105,13 +105,13 @@ describe("ChatbotPanel — Build a pipeline mode (P60-M1-008)", () => {
     it("shows the toggle with Ask selected by default; switching to Build changes the placeholder and plans nothing", async () => {
         await openPanel({ onApply: jest.fn() });
         const toggle = screen.getByTestId("chatbot-mode-toggle");
-        expect(toggle).toHaveAttribute("role", "group");
-        expect(screen.getByRole("button", { name: "Ask" })).toHaveAttribute("aria-pressed", "true");
-        expect(screen.getByRole("button", { name: "Build a pipeline" })).toHaveAttribute("aria-pressed", "false");
+        expect(toggle).toHaveAttribute("role", "radiogroup");
+        expect(screen.getByRole("radio", { name: "Ask" })).toHaveAttribute("aria-checked", "true");
+        expect(screen.getByRole("radio", { name: "Build a pipeline" })).toHaveAttribute("aria-checked", "false");
 
         switchToBuild();
 
-        expect(screen.getByRole("button", { name: "Build a pipeline" })).toHaveAttribute("aria-pressed", "true");
+        expect(screen.getByRole("radio", { name: "Build a pipeline" })).toHaveAttribute("aria-checked", "true");
         expect(screen.getByTestId("chatbot-input")).toHaveAttribute("placeholder", "Describe what you want to analyze…");
         expect(mockedIntents).not.toHaveBeenCalled();
     });
@@ -309,7 +309,7 @@ describe("ChatbotPanel — Build a pipeline mode (P60-M1-008)", () => {
         await planSuccessfully(calls);
         fireEvent.click(screen.getByTestId("pipeline-suggestion-select-1"));
 
-        fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+        fireEvent.click(screen.getByRole("radio", { name: "Ask" }));
         submit("What does the IR card do?");
 
         await waitFor(() => expect(mockedSendQuery).toHaveBeenCalledTimes(1));
@@ -342,11 +342,11 @@ describe("ChatbotPanel — Build a pipeline mode (P60-M1-008)", () => {
         submit(G1);
         await waitFor(() => expect(calls).toHaveLength(1));
 
-        fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+        fireEvent.click(screen.getByRole("radio", { name: "Ask" }));
 
         expect(calls[0].signal?.aborted).toBe(true);
         await act(async () => calls[0].release("valid"));
-        fireEvent.click(screen.getByRole("button", { name: "Build a pipeline" }));
+        fireEvent.click(screen.getByRole("radio", { name: "Build a pipeline" }));
         expect(screen.queryByTestId("pipeline-suggestions")).toBeNull();
         expect(screen.queryByTestId("pipeline-planning-failure")).toBeNull();
         expect(onApply).not.toHaveBeenCalled();
@@ -354,7 +354,7 @@ describe("ChatbotPanel — Build a pipeline mode (P60-M1-008)", () => {
 
     it("adds no telemetry or clear/save/run shortcuts (the template fallback arrives with P60-M1-009)", () => {
         const sources = ["ChatbotPanel.tsx", "PipelineSuggestionList.tsx", "PipelineSuggestionCard.tsx", "ChatComposer.tsx"]
-            .map((file) => fs.readFileSync(path.join(__dirname, file), "utf8"))
+            .map((file) => fs.readFileSync(path.join(__dirname, "..", file), "utf8"))
             .join("\n");
         expect(sources).not.toMatch(/posthog|track\(|TemplateLibraryModal|applyTemplate|clearPipeline|window\.confirm|saveSession|runPipeline|requestPipelineIntents|\/chatbot\/pipeline/);
     });
