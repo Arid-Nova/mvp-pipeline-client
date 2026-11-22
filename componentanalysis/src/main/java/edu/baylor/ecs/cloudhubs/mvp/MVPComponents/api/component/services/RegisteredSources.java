@@ -52,22 +52,78 @@ final class RegisteredSources {
         }
         return sources;
     }
+    static final int JAVASCRIPT_PROBE_ENTRY_LIMIT = 100_000;
+    static final int JAVASCRIPT_PROBE_DEPTH_LIMIT = 64;
+    private static final Set<String> PROBE_EXCLUDED_DIRECTORIES =
+            Set.of("node_modules", ".git", "dist", "build", "target", "vendor");
+
+    /**
+     * An absence result requires a complete inspection. Exhausted or unreadable
+     * exports fail explicitly, rather than silently omitting JavaScript reports.
+     */
     static boolean containsJavaScript(Path directory) throws IOException {
+        return containsJavaScript(directory, JAVASCRIPT_PROBE_ENTRY_LIMIT, JAVASCRIPT_PROBE_DEPTH_LIMIT);
+    }
+
+    // Smaller trusted limits are useful for regression tests; callers cannot raise the hard caps.
+    static boolean containsJavaScript(Path directory, int entryLimit, int depthLimit) throws IOException {
+        if (entryLimit < 1 || entryLimit > JAVASCRIPT_PROBE_ENTRY_LIMIT
+                || depthLimit < 0 || depthLimit > JAVASCRIPT_PROBE_DEPTH_LIMIT)
+            throw new IllegalArgumentException("JavaScript presence probe limits are outside their hard caps");
         boolean[] found = {false};
-        Files.walkFileTree(directory,new SimpleFileVisitor<>() {
-            @Override public FileVisitResult preVisitDirectory(Path path,java.nio.file.attribute.BasicFileAttributes attributes) {
-                return !path.equals(directory) && Set.of("node_modules",".git","dist","build","target","vendor").contains(path.getFileName().toString())
+        int[] visited = {0};
+        Files.walkFileTree(directory, EnumSet.noneOf(FileVisitOption.class), depthLimit + 1,
+                new SimpleFileVisitor<>() {
+            private void admit() throws IOException {
+                if (++visited[0] > entryLimit) throw incomplete("ENTRY_LIMIT");
+            }
+
+            @Override
+            public FileVisitResult preVisitDirectory(Path path, java.nio.file.attribute.BasicFileAttributes attributes)
+                    throws IOException {
+                admit();
+                return !path.equals(directory) && excluded(path)
                         ? FileVisitResult.SKIP_SUBTREE : FileVisitResult.CONTINUE;
             }
-            @Override public FileVisitResult visitFile(Path file,java.nio.file.attribute.BasicFileAttributes attributes) {
-                if (attributes.isRegularFile() && file.toString().matches(".*\\.(?:js|jsx|mjs|cjs|ts|tsx|mts|cts)$")) {
-                    found[0]=true; return FileVisitResult.TERMINATE;
+
+            @Override
+            public FileVisitResult visitFile(Path file, java.nio.file.attribute.BasicFileAttributes attributes)
+                    throws IOException {
+                admit();
+                // walkFileTree presents a directory at its maximum depth as a
+                // file. Its contents were not inspected, so absence is unknown.
+                if (attributes.isDirectory() && !excluded(file)) throw incomplete("DEPTH_LIMIT");
+                if (attributes.isRegularFile()
+                        && file.getFileName().toString().toLowerCase(Locale.ROOT)
+                        .matches(".*\\.(?:js|jsx|mjs|cjs|ts|tsx|mts|cts)$")) {
+                    found[0] = true;
+                    return FileVisitResult.TERMINATE;
                 }
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFileFailed(Path file, IOException failure) throws IOException {
+                throw incomplete("READ_FAILURE");
+            }
+
+            @Override
+            public FileVisitResult postVisitDirectory(Path path, IOException failure) throws IOException {
+                if (failure != null) throw incomplete("READ_FAILURE");
                 return FileVisitResult.CONTINUE;
             }
         });
         return found[0];
     }
+
+    private static boolean excluded(Path path) {
+        return PROBE_EXCLUDED_DIRECTORIES.contains(path.getFileName().toString());
+    }
+
+    private static IOException incomplete(String reason) {
+        return new IOException("JAVASCRIPT_PRESENCE_INCOMPLETE: " + reason);
+    }
+
     private static String url(String value) {
         if (value == null || value.length() > 512 || !URL.matcher(value).matches())
             throw new IllegalArgumentException("Repository identity must be a GitHub HTTPS owner/repository URL without credentials or query parameters");
