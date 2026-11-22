@@ -147,6 +147,23 @@ At most 500 selected cases execute per call, with 5-second request and 1 MiB bod
 bounds. Container use requires the isolated fixture to share the executor's network
 namespace; external targets deliberately are not silently enabled.
 
+The executor holds an OS file lock over the whole suite, including every setup,
+request and before/after observation. Threads and worker processes sharing the
+lock filesystem cannot interleave suites against the same fixture. All loopback
+addresses on one effective port share a lock, conservatively covering aliases
+that reach a dual-stack or wildcard listener. Different ports remain independent.
+Lock contention waits at most 30 seconds and then returns an explicit busy error;
+lock configuration failures are errors, not successful test results. Process exit
+releases the OS lock. Persistent lock files must not be deleted while workers run.
+
+By default locks live in `aridnova-fixture-locks` beneath the OS temporary directory.
+`ARIDNOVA_JS_FIXTURE_LOCK_DIR` sets a server-owned writable lock directory. Executor
+containers sharing a fixture network namespace must mount the same lock-capable
+directory and set this variable consistently; separate container `/tmp` directories
+do not coordinate. All callers using one fixture must use this executor/lock scope.
+This is filesystem-backed worker coordination, not an automatically distributed
+lock service or isolation from unrelated programs that modify the fixture.
+
 Denied cases require a configured read-only state observation endpoint. The runner
 compares its response before/after and checks the explicitly reviewed HTTP status.
 A 403 response that changes the observed state fails. Observation coverage depends

@@ -3,16 +3,99 @@
 No generated code, shell, source URL, credential material, redirects, or external
 hostnames enter execution. Fixture configuration is administrator-controlled.
 """
+from contextlib import contextmanager
+import errno
 import hashlib
 import http.client
 import ipaddress
 import json
 import os
 from pathlib import Path
+import tempfile
+import time
 from urllib.parse import urlsplit, urlencode
 
 MAX_CASES = 500
 MAX_BODY = 1024 * 1024
+LOCK_WAIT_SECONDS = 30
+LOCK_POLL_SECONDS = 0.05
+
+
+def _origin_key(target):
+    # A dual-stack/wildcard fixture can be reachable through several loopback
+    # addresses. Conservatively serialize every loopback alias on this port,
+    # including explicit/default port spelling, rather than split its state.
+    origin = f"loopback-http-port:{target.port or 80}"
+    return hashlib.sha256(origin.encode("ascii")).hexdigest()
+
+
+def _try_lock(stream):
+    try:
+        if os.name == "nt":
+            import msvcrt
+            stream.seek(0)
+            msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return True
+    except OSError as error:
+        if error.errno in (errno.EACCES, errno.EAGAIN, errno.EDEADLK):
+            return False
+        raise
+
+
+def _unlock(stream):
+    if os.name == "nt":
+        import msvcrt
+        stream.seek(0)
+        msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+    else:
+        import fcntl
+        fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
+
+
+@contextmanager
+def _fixture_lock(target, timeout=None):
+    """Coordinate the complete suite across threads/processes sharing this lock directory.
+
+    Workers on different hosts/containers sharing a fixture must mount the same
+    administrator-configured lock directory. A process-local mutex is insufficient.
+    Lock files remain present: unlinking them can give waiters different inodes.
+    """
+    directory = Path(os.getenv("ARIDNOVA_JS_FIXTURE_LOCK_DIR")
+                     or Path(tempfile.gettempdir()) / "aridnova-fixture-locks")
+    try:
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
+        descriptor = os.open(directory / (_origin_key(target) + ".lock"), flags, 0o600)
+        stream = os.fdopen(descriptor, "r+b", buffering=0)
+    except OSError:
+        raise ValueError("Fixture execution isolation is unavailable; configure a working shared lock directory") from None
+    with stream:
+        acquired = False
+        try:
+            # Both OS mechanisms can lock an empty file. Never initialize a
+            # byte before locking: another worker may already own that range.
+            deadline = time.monotonic() + (LOCK_WAIT_SECONDS if timeout is None else timeout)
+            while not acquired:
+                acquired = _try_lock(stream)
+                if acquired:
+                    break
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise ValueError("Fixture origin is busy; retry after the active suite completes")
+                time.sleep(min(LOCK_POLL_SECONDS, remaining))
+        except OSError:
+            raise ValueError("Fixture execution isolation could not be established") from None
+        try:
+            yield
+        finally:
+            if acquired:
+                try:
+                    _unlock(stream)
+                except OSError:
+                    raise ValueError("Fixture execution isolation could not be released") from None
 
 
 def _target(url):
@@ -86,6 +169,13 @@ def execute_suite(payload):
             raise ValueError("Case selection contains unknown or duplicated IDs")
     if len(cases) > MAX_CASES:
         raise ValueError("Select at most 500 cases per execution")
+    # The lock spans ALL cases, from the first setup to the final observation.
+    # Another suite must not reset state between any two requests in this suite.
+    with _fixture_lock(target):
+        return _execute_cases(payload, fixture, target, suite, cases)
+
+
+def _execute_cases(payload, fixture, target, suite, cases):
     output = []
     for case in cases:
         case_id = case.get("id")
