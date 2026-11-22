@@ -38,6 +38,16 @@ export const extractIRMetadata = (loadedIR: any, fallbackId: string): Repository
                 branch: service.metadata?.branch || service.branch || (javascript ? '' : 'main'),
                 ...(javascript ? { language: 'javascript' as const, componentKind: 'backend' as const } : supported.includes(sourceLanguage) ? { language: sourceLanguage } : {})
             };
+            // Native services and a registered backend snapshot can describe the
+            // same source revision without sharing componentKind metadata.
+            const backendSnapshot = repositories.get(`${metadata.repoUrl}|${metadata.commitId}|backend`);
+            if (backendSnapshot) {
+                const nativeBranch = service.metadata?.branch || service.branch;
+                if (!backendSnapshot.branch && typeof nativeBranch === 'string') {
+                    backendSnapshot.branch = nativeBranch;
+                }
+                return;
+            }
             const key = `${metadata.repoUrl}|${metadata.commitId}|${metadata.componentKind || `java|${metadata.branch}`}`;
             if (!repositories.has(key)) repositories.set(key, metadata);
         });
