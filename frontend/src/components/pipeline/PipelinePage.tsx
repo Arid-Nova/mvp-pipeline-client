@@ -66,10 +66,9 @@ import { SummaryPrompt } from './summary/SummaryPrompt'
 import { decompressPayload } from '../../utils/decompress';
 import { ExportModal } from './export/ExportModal';
 import { ValidatedSuggestion } from './planning/pipelineValidator';
+import { APPLY_FAILURE_MESSAGES, ApplyFailureReason } from './planning/pipelineApplyFailures';
 import {
-    APPLY_FAILURE_MESSAGES,
     ApplyError,
-    ApplyFailureReason,
     ApplyResult,
     MaterializedSuggestion,
     historyAfterApply,

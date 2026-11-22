@@ -1,7 +1,8 @@
 import React, { useMemo } from "react";
 import { CardType } from "../pipeline/models";
 import { CARD_CONFIG } from "../pipeline/pipelineConfig";
-import { APPLY_FAILURE_MESSAGES, ApplyError, ApplyErrorReason, PendingConfiguration, materializeSuggestion } from "../pipeline/planning/pipelineApplier";
+import { APPLY_FAILURE_MESSAGES, ApplyErrorReason } from "../pipeline/planning/pipelineApplyFailures";
+import { ApplyError, PendingConfiguration, materializeSuggestion } from "../pipeline/planning/pipelineApplier";
 import { IntentTier } from "../pipeline/planning/intentPlan";
 import { ValidatedSuggestion } from "../pipeline/planning/pipelineValidator";
 

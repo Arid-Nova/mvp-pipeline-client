@@ -1,5 +1,6 @@
 import React from "react";
-import { APPLY_FAILURE_MESSAGES, ApplyFailureReason, ApplyResult, PendingConfiguration } from "../pipeline/planning/pipelineApplier";
+import { APPLY_FAILURE_MESSAGES, ApplyFailureReason } from "../pipeline/planning/pipelineApplyFailures";
+import { ApplyResult, PendingConfiguration } from "../pipeline/planning/pipelineApplier";
 import { PlanSuccess } from "../pipeline/planning/pipelinePlanner";
 import { PipelineSuggestionCard, PipelineSuggestionItem } from "./PipelineSuggestionCard";
 

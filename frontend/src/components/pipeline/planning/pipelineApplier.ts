@@ -13,11 +13,13 @@
  */
 import { CARD_CONFIG, REQUIRED_USER_CONFIG, RUNTIME_INTERACTION_HINTS } from '../pipelineConfig';
 import { CardType, Connection, NodeData } from '../models';
+import { ApplyErrorReason, ApplyFailureReason } from './pipelineApplyFailures';
 import { buildPipelineCapabilityCatalog } from './pipelineCapabilities';
 import { DEFAULT_LAYOUT_ORIGIN, LayoutPosition, PipelineLayout, PipelineLayoutError, layoutPipelineSpec } from './pipelineLayout';
 import { ValidatedSuggestion, ValidationConfig, defaultValidationConfig, isValidatedSuggestion, validatePipelineSpec } from './pipelineValidator';
 
-export type ApplyErrorReason = 'invalid' | 'catalog_mismatch';
+export type { ApplyErrorReason, ApplyFailureReason } from './pipelineApplyFailures';
+export { APPLY_FAILURE_MESSAGES } from './pipelineApplyFailures';
 
 export class ApplyError extends Error {
     constructor(readonly reason: ApplyErrorReason, readonly detail: string) {
@@ -45,20 +47,9 @@ export interface MaterializedSuggestion {
     pendingConfiguration: PendingConfiguration[];
 }
 
-export type ApplyFailureReason = 'canvas_not_empty' | 'pipeline_running' | ApplyErrorReason;
-
 export type ApplyResult =
     | { ok: true; addedNodeIds: string[]; pendingConfiguration: PendingConfiguration[] }
     | { ok: false; reason: ApplyFailureReason; message: string };
-
-/** Fixed, user-safe messages (P60-M1-009); never internal validator or exception text. */
-export const APPLY_FAILURE_MESSAGES: Record<ApplyFailureReason, string> = {
-    canvas_not_empty:
-        'Pipeline suggestions can be added only to an empty canvas in Milestone 1. Save your current session if needed, then use Clear All in the toolbar.',
-    pipeline_running: 'Wait for the current run to finish.',
-    invalid: 'This suggestion no longer matches the pipeline rules; please regenerate.',
-    catalog_mismatch: 'The app was updated — please reload the page.',
-};
 
 export interface MaterializeDeps {
     /** Canvas ID generator; the default matches applyTemplate's convention. */
