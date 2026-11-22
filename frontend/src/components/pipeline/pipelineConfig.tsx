@@ -267,7 +267,7 @@ export const VALID_CONNECTIONS: Record<CardType, CardType[]> = {
 // how the cards are configured.
 
 /** Cards that `runPipeline` starts execution from. */
-export const INPUT_CARD_TYPES: CardType[] = ['SYSTEM_INPUT', 'UPLOAD_IR'];
+export const INPUT_CARD_TYPES: CardType[] = CATEGORIES.Input;
 
 /** CATEGORIES buckets whose cards produce an analysis result (as opposed to inputs, generators and holders). */
 export const ANALYSIS_CATEGORIES: string[] = ['Processes', 'Execution', 'Visualization', 'Version Control'];
