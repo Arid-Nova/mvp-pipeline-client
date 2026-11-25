@@ -1,6 +1,7 @@
 import asyncio
 import subprocess
 from pathlib import Path
+from textwrap import dedent
 
 import sys
 from types import SimpleNamespace
@@ -22,7 +23,7 @@ class AnalysisStrategyTests(unittest.TestCase):
     def test_js_api_starts_and_runs_without_java_model_or_database_imports(self):
         # A fresh process prevents already-imported test doubles from hiding a
         # dependency on optional integrations absent from the lightweight image.
-        script = """
+        script = dedent("""
             import builtins
             original = builtins.__import__
             def guarded(name, *args, **kwargs):
@@ -38,7 +39,7 @@ class AnalysisStrategyTests(unittest.TestCase):
             result = asyncio.run(service.analyze_endpoint({'ir_id': 'saved'}))
             assert result['status'] == 'partial'
             assert service.facade is None
-            """
+            """)
         result = subprocess.run([sys.executable, '-c', script],
             cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
