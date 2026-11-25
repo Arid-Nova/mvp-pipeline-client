@@ -28,13 +28,17 @@ def reports_from(value):
     if not isinstance(value, dict):
         raise ValueError("report must be a JSON object")
     extraction = value.get("javascriptExtraction")
+    
     if isinstance(extraction, dict):
         return reports_from(extraction.get("securityAnalysis", {}))
+    
     if value.get("analyzer") == "aridnova-express-security" and isinstance(value.get("endpoints"), list):
         return [value]
     components = value.get("components")
+    
     if isinstance(components, list) and components:
         return components
+    
     raise ValueError("No source-bound Express security reports found; regenerate source analysis")
 
 
@@ -42,8 +46,8 @@ def _same(a, b):
     # JavaScript strict equality must not equate Python True with numeric 1.
     if type(a) in (int, float) and type(b) in (int, float):
         return a == b
+    
     return type(a) is type(b) and a == b
-
 
 def validate_predicate(node, dimensions, depth=0):
     if depth > 32 or not isinstance(node, dict):
@@ -51,18 +55,22 @@ def validate_predicate(node, dimensions, depth=0):
     op = node.get("op")
     if op in ("true", "false", "unknown"):
         return
+    
     if op == "eq":
         field = node.get("field")
         if field not in dimensions or not any(_same(node.get("value"), x) for x in dimensions[field]):
             raise ValueError("Predicate references an undeclared dimension or value")
         return
+    
     if op == "not":
         validate_predicate(node.get("arg"), dimensions, depth + 1)
         return
+    
     if op in ("and", "or") and isinstance(node.get("args"), list) and 0 < len(node["args"]) <= 128:
         for child in node["args"]:
             validate_predicate(child, dimensions, depth + 1)
         return
+    
     raise ValueError("Unsupported policy predicate operator")
 
 
@@ -115,17 +123,21 @@ def merge_expected_dimensions(dimensions, wanted):
 def _reviewed_manifest(manifest, reports):
     if manifest is None:
         return {}
+    
     if (not isinstance(manifest, dict) or manifest.get("schemaVersion") != 1
             or not isinstance(manifest.get("reviewedBy"), str) or not manifest["reviewedBy"].strip()
             or not isinstance(manifest.get("reviewedAt"), str) or not manifest["reviewedAt"].strip()):
         raise ValueError("Expected policy requires schemaVersion, reviewedBy and reviewedAt")
+    
     known = {(r["component"]["name"], r["component"].get("commit"), r["sourceDigest"]): r for r in reports}
     result = {}
+    
     for comp in manifest.get("components", []):
         key = (comp.get("name"), comp.get("commit"), comp.get("sourceDigest"))
         if key not in known:
             raise ValueError("Expected policy source digest or component revision does not match the report")
         endpoint_ids = {e["endpointId"] for e in known[key]["endpoints"]}
+        
         for endpoint in comp.get("endpoints", []):
             epkey = (key, endpoint.get("endpointId"))
             if endpoint.get("endpointId") not in endpoint_ids or epkey in result:
@@ -146,6 +158,7 @@ def _reviewed_manifest(manifest, reports):
                         or evidence.get('executionPathScope') != 'declared-synthetic-branches'):
                     raise ValueError('Native resource binding needs matching source-bound native runtime evidence')
             result[epkey] = endpoint
+    
     return result
 
 
@@ -161,13 +174,16 @@ def compile_policy(report, expected_policy=None):
     unassessed = []
     extraction = report.get("javascriptExtraction", {})
     analyzed_names = {r.get("component", {}).get("name") for r in reports}
+    
     for snapshot in extraction.get("snapshots", []):
         component = snapshot.get("component", {})
         if component.get("kind") == "backend" and component.get("name") not in analyzed_names:
             unassessed.append(component.get("name", "unnamed-backend"))
+    
     for service in report.get("microservices", []):
         if service.get("name") not in analyzed_names:
             unassessed.append(service.get("name", "unnamed-service"))
+    
     seen = set()
     total = 0
     for source in reports:
@@ -179,20 +195,25 @@ def compile_policy(report, expected_policy=None):
             raise ValueError("Invalid source report identity or digest")
         if not isinstance(source.get("endpoints"), list):
             raise ValueError("Source report requires endpoint records")
+        
         for endpoint in source["endpoints"]:
             key = (component["name"], component.get("commit"), source["sourceDigest"], endpoint.get("endpointId"))
             if not endpoint.get("endpointId") or key in seen:
                 raise ValueError("Missing or duplicate endpoint identity")
             seen.add(key)
             total += 1
+    
     if total > MAX_ENDPOINTS:
         raise ValueError("Too many endpoint records")
+    
     expected = _reviewed_manifest(expected_policy, reports)
     endpoints = []
     total_states = 0
+    
     for source in reports:
         component = source["component"]
         component_key = (component["name"], component.get("commit"), source["sourceDigest"])
+        
         for ep in source["endpoints"]:
             model = ep.get("policyModel") or {}
             wanted = expected.get((component_key, ep["endpointId"]))
@@ -208,12 +229,15 @@ def compile_policy(report, expected_policy=None):
                                 and coverage.get("registration") in ("resolved", "complete", "matched")
                                 and reachability == "active"
                                 and assembly.get("status") in ("resolved", "complete"))
+            
             if not startup_complete:
                 reasons.append("Application registration or global middleware order is unresolved")
             path_complete = model.get("admissionStatus", model.get("status")) == "complete" and not coverage.get("boundsReached")
+            
             if not path_complete:
                 reasons.append("Admission execution paths are not completely modeled")
             eligible = startup_complete and path_complete and not _has_unknown(admission)
+            
             if wanted:
                 validate_predicate(wanted["allow"], dims)
                 if _has_unknown(wanted["allow"]):
@@ -221,24 +245,30 @@ def compile_policy(report, expected_policy=None):
                 if wanted.get('stateConstraint'):
                     validate_predicate(wanted['stateConstraint'], dims)
                     if _has_unknown(wanted['stateConstraint']): raise ValueError('State constraints must be explicit')
+            
             operations = []
             operation_ids = {operation.get("id") for operation in model.get("operations", [])}
+            
             if wanted and any(key not in operation_ids for key in wanted.get("operations", {})):
                 raise ValueError("Expected policy references an operation absent from the source model")
+            
             for operation in model.get("operations", []):
                 predicate = operation.get("predicate", {"op": "unknown"})
                 validate_predicate(predicate, dims)
                 op_complete = eligible and model.get("status") == "complete" and operation.get("status", "complete") == "complete" and not _has_unknown(predicate)
                 op_expected = (wanted or {}).get("operations", {}).get(operation.get("id"))
+                
                 if op_expected:
                     validate_predicate(op_expected, dims)
                     if _has_unknown(op_expected):
                         raise ValueError("Reviewed operation policy cannot contain unknown predicates")
                 operations.append({**operation, "predicate": predicate, "eligible": op_complete, "expected": op_expected})
             state_count = 1
+            
             for domain in dims.values():
                 state_count *= len(domain)
             total_states += min(state_count, MAX_STATES)
+            
             if inactive:
                 states = []
             elif state_count > MAX_STATES or total_states > MAX_TOTAL_STATES:
@@ -249,11 +279,13 @@ def compile_policy(report, expected_policy=None):
                 states = [dict(zip(dims, row)) for row in itertools.product(*dims.values())]
                 if wanted and wanted.get('stateConstraint'):
                     states = [s for s in states if evaluate(wanted['stateConstraint'], s) is True]
+            
             records = []
             for state in states:
                 observed = evaluate(admission, state) if eligible else None
                 intended = evaluate(wanted["allow"], state) if wanted else None
                 records.append({"state": state, "observedAdmission": observed, "expectedAdmission": intended})
+            
             endpoints.append({
                 "endpointId": ep["endpointId"], "component": component, "sourceDigest": source["sourceDigest"],
                 "method": ep.get("method"), "path": ep.get("path"), "location": ep.get("location"),
@@ -265,11 +297,13 @@ def compile_policy(report, expected_policy=None):
                 "expectedPolicy": wanted, "expectedPolicyStatus": "reviewed" if wanted else "not-provided",
                 "unknownReasons": list(dict.fromkeys(str(x) for x in reasons)), "states": records,
             })
+
     eligible_count = sum(e["eligible"] for e in endpoints)
     inactive_count = sum(e["status"] == "not-applicable" for e in endpoints)
     status = "complete" if endpoints and eligible_count + inactive_count == len(endpoints) and not unassessed else ("partial" if eligible_count else "unknown")
     sources = [{"component": r["component"], "sourceDigest": r["sourceDigest"], "applicationAssembly": r.get("applicationAssembly")} for r in reports]
     identity = {"sources": sources, "endpoints": endpoints, "expectedPolicy": expected_policy}
+    
     return {"schemaVersion": 1, "analysis": SCHEMA, "policyId": digest(identity), "status": status,
             "scope": "finite-source-model", "sources": sources, "endpoints": endpoints,
             "coverage": {"endpoints": len(endpoints), "eligibleEndpoints": eligible_count,
@@ -305,12 +339,15 @@ def generate_vectors(report, expected_policy=None):
 def verify_authorization_envelope(endpoint):
     """Produce review candidates from sound upper bounds without inventing verdicts."""
     import z3
+   
     envelope, wanted = endpoint.get('authorizationEnvelope'), endpoint.get('expectedPolicy')
+    
     if not envelope or not wanted or envelope.get('scope') != 'conservative-authorization-control':
         return []
     dimensions = endpoint['dimensions']
     variables = {k: z3.Int('envelope_d' + str(i)) for i, k in enumerate(dimensions)}
     domain = [z3.And(variables[k] >= 0, variables[k] < len(v)) for k, v in dimensions.items()]
+    
     def encode(node):
         validate_predicate(node, dimensions)
         op = node['op']
@@ -319,9 +356,11 @@ def verify_authorization_envelope(endpoint):
         if op == 'not': return z3.Not(encode(node['arg']))
         if op in ('and', 'or'): return (z3.And if op == 'and' else z3.Or)(*[encode(x) for x in node['args']])
         raise ValueError('Authorization envelopes must contain no unknown predicates')
+    
     checks = []
     if wanted.get('stateConstraint'): domain.append(encode(wanted['stateConstraint']))
     predicates = [('admission', envelope.get('mayPermit'))] + [(str(o['id']), o.get('mayReach')) for o in envelope.get('operations', [])]
+    
     for name, predicate in predicates:
         if predicate is None: continue
         solver = z3.Solver(); solver.set(timeout=2000)
@@ -331,17 +370,21 @@ def verify_authorization_envelope(endpoint):
         result = {'property': 'possible-overpermission:' + name, 'solverResult': str(answer),
                   'scope': 'conservative-authorization-control', 'conclusiveViolation': False,
                   'interpretation': 'SAT is a candidate for an isolated runtime test; unresolved source semantics may make the candidate infeasible. UNSAT excludes this candidate within the stated upper bound.'}
+        
         if answer == z3.sat:
             model = solver.model()
             result['witness'] = {k: values[model.eval(variables[k], model_completion=True).as_long()] for k, values in dimensions.items()}
         checks.append(result)
+   
     return checks
 
 
 def verify_policy(report, expected_policy=None):
     import z3
+    
     policy = compile_policy(report, expected_policy)
     results = []
+    
     for ep in policy["endpoints"]:
         result = {"endpointId": ep["endpointId"], "component": ep["component"], "status": "not-applicable" if ep["status"] == "not-applicable" else "unknown",
                   "expectedPolicyStatus": ep["expectedPolicyStatus"], "checks": [], "unknownReasons": ep["unknownReasons"]}
@@ -353,6 +396,7 @@ def verify_policy(report, expected_policy=None):
                 result['conformance'] = 'unknown-resource-binding' if binding_unresolved else 'unknown-partial-source-model'
             results.append(result)
             continue
+        
         variables = {k: z3.Int("d" + str(i)) for i, k in enumerate(ep["dimensions"])}
         domain = [z3.And(variables[k] >= 0, variables[k] < len(v)) for k, v in ep["dimensions"].items()]
 
@@ -380,12 +424,16 @@ def verify_policy(report, expected_policy=None):
                 output["witness"] = {k: values[m.eval(variables[k], model_completion=True).as_long()] for k, values in ep["dimensions"].items()}
             if answer == z3.unknown:
                 output["reason"] = "Solver could not decide the finite model within its budget"
+            
             return output
 
-        if ep['expectedPolicy'] and ep['expectedPolicy'].get('stateConstraint'): domain.append(encode(ep['expectedPolicy']['stateConstraint']))
+        if ep['expectedPolicy'] and ep['expectedPolicy'].get('stateConstraint'): 
+            domain.append(encode(ep['expectedPolicy']['stateConstraint']))
+        
         observed = encode(ep["admission"])
         result["checks"].append(check("observed-admission-reachability", observed, "SAT means an admitted state exists in the source model; it is not a security verdict"))
         expected = ep["expectedPolicy"]
+        
         if expected:
             intended = encode(expected["allow"])
             bypass = check("policy-overpermission", z3.And(observed, z3.Not(intended)), "SAT is a modeled admission contrary to the reviewed policy; UNSAT means no such state in this finite model")
@@ -409,6 +457,7 @@ def verify_policy(report, expected_policy=None):
     response["endpoints"] = [_endpoint_public(e) for e in policy["endpoints"]]
     response["verification"] = results
     response["solver"] = "z3"
+    
     return response
 
 
@@ -430,6 +479,7 @@ def generate_scenarios(report, expected_policy=None):
     response["endpoints"] = [_endpoint_public(e) for e in policy["endpoints"]]
     response["scenarios"] = scenarios
     response["count"] = len(scenarios)
+    
     return response
 
 
@@ -442,6 +492,7 @@ def generate_suite(report, expected_policy=None):
                          "requiresStateObservationForDenials": True}
     response["generated"] = len(scenarios)
     response["executableWithOracle"] = sum(bool(s["expectedStatuses"]) for s in scenarios)
+    
     return response
 
 

@@ -3,7 +3,6 @@ from .javascript_policy import verify_policy, policy_template
 
 router = APIRouter()
 
-
 @router.post("/verify/javascript")
 def verify_javascript(payload: dict):
     try:

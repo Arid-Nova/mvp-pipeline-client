@@ -27,6 +27,7 @@ def run_verification(ir_id: str, repo_mappings: list, ir_data=None, expected_pol
             reports = reports_from(ir_data)
         except ValueError:
             reports = []
+        
         # Older reports without typed models preserve the former explicit guard.
         if source_languages(ir_data).issubset({"java", "javascript", "typescript"}) and any(endpoint.get("policyModel") for report in reports for endpoint in report.get("endpoints", [])):
             policy = verify_policy(ir_data, expected_policy)
@@ -37,6 +38,7 @@ def run_verification(ir_id: str, repo_mappings: list, ir_data=None, expected_pol
                     "unsupported_components": unsupported.get("unsupported_components", []),
                     "reason": "No whole-system Java authorization verdict is assigned to the JavaScript finite model."}
         logs.append(unsupported["reason"])
+        
         return {
             "status": "UNSUPPORTED",
             "is_satisfiable": None,

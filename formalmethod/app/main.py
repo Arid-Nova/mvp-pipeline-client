@@ -1,6 +1,8 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+
 from .models import VerificationRequest, VerificationResponse
+
 from .services.git_manager import GitManager
 from .services.verifier import run_verification, _getIRData
 from .services.authorization_capability import unsupported_authorization
@@ -45,7 +47,11 @@ def verify(request: VerificationRequest, background_tasks: BackgroundTasks):
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "service": "formal-method", "description": "Formal Method Service is running."}
+    return {
+        "status": "ok", 
+        "service": "formal-method", 
+        "description": "Formal Method Service is running."
+    }
 
 # Use for local testing
 # if __name__ == "__main__":
