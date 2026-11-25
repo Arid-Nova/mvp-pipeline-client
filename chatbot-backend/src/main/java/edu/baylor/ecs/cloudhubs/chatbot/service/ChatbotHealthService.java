@@ -25,6 +25,7 @@ public class ChatbotHealthService {
             chatbotConfig.getProvider().name(),
             chatbotConfig.getModel(),
             sanitizeBaseUrl(chatbotConfig.getBaseUrl()),
+            chatbotConfig.getHistoryMaxMessages(),
             probe.getMessage(),
             probe.getCheckedAt() == null ? Instant.now() : probe.getCheckedAt(),
             probe.getLatencyMs()
