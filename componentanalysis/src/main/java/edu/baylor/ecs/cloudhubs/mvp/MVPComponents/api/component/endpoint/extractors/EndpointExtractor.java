@@ -91,7 +91,7 @@ public class EndpointExtractor {
                                         String serviceName, String controllerClass) {
         try {
             // 1. Generate method-based ID (existing, from IR)
-            String methodId = edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.id(method);
+            String methodId = CimetModelCompatibility.id(method);
 
             // 2. Extract HTTP method and URLs
             HttpMethod httpMethod = endpoint.getHttpMethod();
@@ -106,7 +106,7 @@ public class EndpointExtractor {
             }
 
             // Get original URL with actual parameter names for display
-            String fullUri = edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.originalUrl(endpoint);
+            String fullUri = CimetModelCompatibility.originalUrl(endpoint);
             if (fullUri == null || fullUri.isEmpty()) {
                 fullUri = simplifiedUri; // Fallback for backward compatibility
             }
@@ -115,7 +115,7 @@ public class EndpointExtractor {
             String endpointId = EndpointIdGenerator.generate(serviceName, simplifiedUri, httpMethod);
 
             // 4. Extract parameter details using original URL with parameter names
-            List<ParameterDetail> pathParams = parameterExtractor.extractPathParameters(method, fullUri, edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.originalParamNames(endpoint));
+            List<ParameterDetail> pathParams = parameterExtractor.extractPathParameters(method, fullUri, CimetModelCompatibility.originalParamNames(endpoint));
             List<ParameterDetail> queryParams = parameterExtractor.extractQueryParameters(method);
             ParameterDetail requestBody = parameterExtractor.extractRequestBody(method);
 

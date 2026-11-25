@@ -33,8 +33,13 @@
             <id>jitpack.io</id>
             <name>JitPack</name>
             <url>https://jitpack.io</url>
-            <releases><enabled>true</enabled><checksumPolicy>fail</checksumPolicy></releases>
-            <snapshots><enabled>false</enabled></snapshots>
+            <releases>
+				<enabled>true</enabled>
+				<checksumPolicy>fail</checksumPolicy>
+			</releases>
+            <snapshots>
+				<enabled>false</enabled>
+			</snapshots>
         </repository>
     </repositories>
 
@@ -106,8 +111,13 @@
 			<artifactId>mvp-cimet-extraction-library</artifactId>
 			<version>${cimet.version}</version>
 		</dependency>
+		
         <!-- Match the engine's JSON API; Spring Boot's managed version lacks newer overloads. -->
-        <dependency><groupId>org.json</groupId><artifactId>json</artifactId><version>20250517</version></dependency>
+        <dependency>
+			<groupId>org.json</groupId>
+			<artifactId>json</artifactId>
+			<version>20250517</version>
+		</dependency>
     </dependencies>
 
 	<build>

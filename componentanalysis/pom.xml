@@ -20,6 +20,7 @@
 		<cimet.version>v1.3.0</cimet.version>
 		<jackson-bom.version>2.19.1</jackson-bom.version>
 	</properties>
+	
 	<!-- Published JitPack release; coordinates and checksums match cimet-dependency.lock.json. -->
 	<repositories>
 		<repository>
@@ -31,10 +32,16 @@
 			<id>jitpack.io</id>
 			<name>JitPack</name>
 			<url>https://jitpack.io</url>
-			<releases><enabled>true</enabled><checksumPolicy>fail</checksumPolicy></releases>
-			<snapshots><enabled>false</enabled></snapshots>
+			<releases>
+				<enabled>true</enabled>
+				<checksumPolicy>fail</checksumPolicy>
+			</releases>
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
 		</repository>
 	</repositories>
+
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -53,7 +60,12 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
-            <exclusions><exclusion><groupId>com.vaadin.external.google</groupId><artifactId>android-json</artifactId></exclusion></exclusions>
+            <exclusions>
+				<exclusion>
+					<groupId>com.vaadin.external.google</groupId>
+					<artifactId>android-json</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>com.google.guava</groupId>
@@ -85,7 +97,11 @@
 			<artifactId>spring-boot-starter-actuator</artifactId>
 		</dependency>
         <!-- Match the engine's JSON API; Spring Boot's managed version lacks newer overloads. -->
-        <dependency><groupId>org.json</groupId><artifactId>json</artifactId><version>20250517</version></dependency>
+        <dependency>
+			<groupId>org.json</groupId>
+			<artifactId>json</artifactId>
+			<version>20250517</version>
+		</dependency>
     </dependencies>
 
 	<build>

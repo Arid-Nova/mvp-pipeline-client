@@ -1,5 +1,6 @@
 package edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.component;
 
+import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.component.indexers.ClassIndexer;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.di.DIContextBuilder;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.di.SpringDIResolver;
@@ -70,7 +71,7 @@ public class ComponentIndexingOrchestrator {
         for (Microservice microservice : system.getMicroservices()) {
             for (AbstractClass clazz : microservice.getClasses()) {
                 for (edu.university.ecs.lab.common.models.ir.Field field : clazz.getFields()) {
-                    fieldCache.put(edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.id(field), field);
+                    fieldCache.put(CimetModelCompatibility.id(field), field);
                 }
             }
         }
@@ -80,7 +81,7 @@ public class ComponentIndexingOrchestrator {
             if (orphan instanceof AbstractClass) {
                 AbstractClass orphanedClass = (AbstractClass) orphan;
                 for (edu.university.ecs.lab.common.models.ir.Field field : orphanedClass.getFields()) {
-                    fieldCache.put(edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.id(field), field);
+                    fieldCache.put(CimetModelCompatibility.id(field), field);
                 }
             }
         }

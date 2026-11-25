@@ -3,25 +3,17 @@ package edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.ComponentIndex;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.EndpointIndex;
-import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.ComponentIndexer;
-import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.EndpointIndexer;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.persistence.component.ComponentEntity;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.persistence.component.ComponentRepository;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.persistence.endpoint.EndpointEntity;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.persistence.endpoint.EndpointRepository;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.persistence.request.IRRequestModel;
-import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.persistence.request.SystemRepository;
 
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.persistence.systemindex.IndexEntity;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.persistence.systemindex.IndexRepository;
-
-import edu.university.ecs.lab.common.config.Config;
-import edu.university.ecs.lab.common.models.ir.MicroserviceSystem;
-import edu.university.ecs.lab.intermediate.create.services.IRExtractionService;
 
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;

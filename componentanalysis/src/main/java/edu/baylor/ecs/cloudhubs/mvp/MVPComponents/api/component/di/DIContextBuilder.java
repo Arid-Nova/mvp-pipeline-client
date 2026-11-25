@@ -2,17 +2,21 @@ package edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.di;
 
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
-import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
+import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
+
+import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.IndexedComponent;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.SpringDIContext;
+
 import edu.university.ecs.lab.common.models.ir.AbstractClass;
+import edu.university.ecs.lab.common.models.ir.Microservice;
 import edu.university.ecs.lab.common.models.ir.Annotation;
 import edu.university.ecs.lab.common.models.ir.JClass;
-import edu.university.ecs.lab.common.models.ir.Microservice;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -60,7 +64,7 @@ public class DIContextBuilder {
             BeanInfo beanInfo = extractBeanInfo(jClass);
 
             if (beanInfo.isBean) {
-                String classId = edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.id(jClass);
+                String classId = CimetModelCompatibility.id(jClass);
                 String fullyQualifiedName = jClass.getPackageName() + "." + jClass.getName();
                 Set<String> interfaces = resolveInterfaces(jClass, microservice);
 

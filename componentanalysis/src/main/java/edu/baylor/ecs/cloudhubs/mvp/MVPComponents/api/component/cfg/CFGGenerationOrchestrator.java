@@ -7,10 +7,12 @@ import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.IndexedMe
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.SpringDIContext;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.IndexedComponent;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.icfg.EnhancedICFG;
-import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.icfg.ImprovedCFGEdge;
-import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.icfg.ImprovedCFGNode;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.icfg.SourceLocation;
+import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.icfg.ImprovedCFGNode;
+import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.icfg.ImprovedCFGEdge;
+
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.utils.EndpointPatternIndex;
+import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.EnhancedASTControlFlowGenerator;
 
 import edu.university.ecs.lab.common.models.ir.*;
@@ -96,7 +98,7 @@ public class CFGGenerationOrchestrator {
 
         for (Method method : abstractClass.getMethods()) {
             // Find the indexed method in components
-            String methodId = edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.id(method);
+            String methodId = CimetModelCompatibility.id(method);
             IndexedComponent component = components.get(methodId);
 
             if (component == null) {
@@ -135,7 +137,7 @@ public class CFGGenerationOrchestrator {
      */
     private EnhancedICFG generateEnhancedICFG(Method method, Map<String, IndexedComponent> components,
                                              AbstractClass context) {
-        String methodId = edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.id(method);
+        String methodId = CimetModelCompatibility.id(method);
         EnhancedICFG icfg = new EnhancedICFG(methodId);
 
         // Create entry node with source location

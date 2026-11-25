@@ -1957,8 +1957,8 @@ public class EnhancedASTControlFlowGenerator extends VoidVisitorAdapter<Enhanced
         }
 
         // Fallback to IR's targetMethodId if DI resolution failed
-        if (edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.targetId(methodCall) != null) {
-            return edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.targetId(methodCall);
+        if (CimetModelCompatibility.targetId(methodCall) != null) {
+            return CimetModelCompatibility.targetId(methodCall);
         }
 
         return null;
@@ -2028,8 +2028,8 @@ public class EnhancedASTControlFlowGenerator extends VoidVisitorAdapter<Enhanced
     }
 
     private String resolveCanonicalId(MethodCall methodCall, String targetMethodId) {
-        if (edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.targetCanonicalId(methodCall) != null) {
-            return edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.targetCanonicalId(methodCall);
+        if (CimetModelCompatibility.targetCanonicalId(methodCall) != null) {
+            return CimetModelCompatibility.targetCanonicalId(methodCall);
         }
 
         if (targetMethodId != null) {

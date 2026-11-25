@@ -1,14 +1,17 @@
 package edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services;
 
-import com.github.javaparser.ast.body.MethodDeclaration;
-import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.stmt.*;
+import com.github.javaparser.ast.expr.MethodCallExpr;
+import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
+
+import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.IndexedComponent;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.IndexedMethod;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.icfg.ICFGEdge;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.icfg.ICFGNode;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.icfg.MinimizedICFG;
+
 import edu.university.ecs.lab.common.models.ir.Method;
 import edu.university.ecs.lab.common.models.ir.MethodCall;
 
@@ -655,8 +658,8 @@ public class ASTControlFlowGenerator extends VoidVisitorAdapter<ASTControlFlowGe
      * Resolve target method ID (simplified - could use IndexerService logic)
      */
     private String resolveTargetMethodId(MethodCall methodCall) {
-        if (edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.targetId(methodCall) != null) {
-            return edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.targetId(methodCall);
+        if (CimetModelCompatibility.targetId(methodCall) != null) {
+            return CimetModelCompatibility.targetId(methodCall);
         }
         
         // Simple lookup by method name
@@ -676,8 +679,8 @@ public class ASTControlFlowGenerator extends VoidVisitorAdapter<ASTControlFlowGe
      * Resolve canonical ID from target method
      */
     private String resolveCanonicalId(MethodCall methodCall, String targetMethodId) {
-        if (edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.targetCanonicalId(methodCall) != null) {
-            return edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility.targetCanonicalId(methodCall);
+        if (CimetModelCompatibility.targetCanonicalId(methodCall) != null) {
+            return CimetModelCompatibility.targetCanonicalId(methodCall);
         }
         
         if (targetMethodId != null) {
