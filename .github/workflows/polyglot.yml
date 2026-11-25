@@ -5,7 +5,6 @@ on:
     branches: [development]
 permissions:
   contents: read
-  packages: read
 jobs:
   jvm-source-integration:
     runs-on: ubuntu-latest
@@ -26,14 +25,10 @@ jobs:
         run: python -m unittest discover -s scripts/tests -v
       - name: Prepare released JavaScript runtime assets only
         run: python scripts/prepare_cimet_runtime.py
-      - name: Resolve published CIMET and verify backend
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: mvn -s .mvn/cimet-settings.xml -B -f backend/pom.xml verify
-      - name: Resolve published CIMET and verify components
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: mvn -s .mvn/cimet-settings.xml -B -f componentanalysis/pom.xml verify
+      - name: Resolve JitPack CIMET and verify backend
+        run: mvn -B -f backend/pom.xml verify
+      - name: Resolve JitPack CIMET and verify components
+        run: mvn -B -f componentanalysis/pom.xml verify
       - name: Verify packaged published dependency and runtime provenance
         run: python scripts/verify_cimet_dependency.py
       - run: mvn -B -f chatbot-backend/pom.xml verify
@@ -41,9 +36,7 @@ jobs:
       - run: npm --prefix javascript-security test
       - run: python scripts/sync_javascript_workflow.py --check
       - run: python javascript-policy/sync.py --check
-      - name: Build images with the published CIMET package
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+      - name: Build images with the JitPack CIMET package
         run: docker compose --progress plain build backend components
       - name: Check unprivileged Java and Node runtimes
         run: |

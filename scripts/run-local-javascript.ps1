@@ -11,7 +11,6 @@ $requestFile = (Resolve-Path -LiteralPath $Request).Path
 $outputRoot = [IO.Path]::GetFullPath($OutputDirectory)
 $resolvedMavenRepository = if ($MavenRepository) { [IO.Path]::GetFullPath($MavenRepository) } else { '' }
 if (Test-Path -LiteralPath $outputRoot) { throw 'Choose a new output directory; existing results are never overwritten.' }
-$mavenSettings = (Resolve-Path -LiteralPath (Join-Path $projectRoot '.mvn/cimet-settings.xml')).Path
 $dependencyLock = Get-Content -LiteralPath (Join-Path $projectRoot 'cimet-dependency.lock.json') -Raw | ConvertFrom-Json
 foreach ($serviceName in @('backend', 'componentanalysis')) {
     $provenancePath = Join-Path $projectRoot "$serviceName/vendor/cimet-dependency.json"
@@ -36,7 +35,7 @@ try {
         $serviceRoot = Join-Path $projectRoot $serviceName
         Push-Location $serviceRoot
         try {
-            $mavenArguments = @('-s',$mavenSettings,'-q','-DskipTests','package','dependency:build-classpath','-Dmdep.outputFile=target/runtime-classpath.txt')
+            $mavenArguments = @('-q','-DskipTests','package','dependency:build-classpath','-Dmdep.outputFile=target/runtime-classpath.txt')
             if ($resolvedMavenRepository) { $mavenArguments = @("-Dmaven.repo.local=$resolvedMavenRepository") + $mavenArguments }
             & mvn @mavenArguments *> (Join-Path $outputRoot "$serviceName-build.log")
             if ($LASTEXITCODE -ne 0) { throw "Build failed for $serviceName; see the output log." }

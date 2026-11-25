@@ -1,7 +1,7 @@
 # JavaScript and TypeScript source reports
 
-See [multi-language extraction](polyglot-integration.md) for the consolidated engine source
-pin, build instructions, mixed repositories and the generic per-file registry.
+See [multi-language extraction](polyglot-integration.md) for the consolidated engine dependency
+lock, build instructions, mixed repositories and the generic per-file registry.
 
 The richer JavaScript workflow preserves the TypeScript compiler adapter's source snapshots,
 architecture analysis, handler/import/local-call relationships, HTTP observations and supported
@@ -33,8 +33,8 @@ guide. Requests select registered URL/commit identities, never arbitrary source 
 Runtime settings:
 
 Before building or running either extraction service, prepare the released
-adapter with `python scripts/prepare_cimet_runtime.py`, resolve the published
-CIMET dependency through `.mvn/cimet-settings.xml`, then run
+adapter with `python scripts/prepare_cimet_runtime.py`, resolve the public
+JitPack dependency with `mvn -f backend/pom.xml verify` (or the component POM), then run
 `python scripts/verify_cimet_dependency.py`. The dependency lock binds the
 published Maven package to the matching released adapter; preparing files does
 not compile CIMET or independently prove which JAR Maven resolved.

@@ -61,9 +61,10 @@ class PublishedDependencyVerificationTests(unittest.TestCase):
 
     def write_war(self, content, duplicate=False):
         with zipfile.ZipFile(self.war, "w") as archive:
-            archive.writestr("WEB-INF/lib/cimet-extract-lib-published.jar", content)
+            artifact_id = self.lock["maven"]["artifactId"]
+            archive.writestr(f"WEB-INF/lib/{artifact_id}-published.jar", content)
             if duplicate:
-                archive.writestr("WEB-INF/lib/cimet-extract-lib-old-source.jar", b"old")
+                archive.writestr(f"WEB-INF/lib/{artifact_id}-old-source.jar", b"old")
 
     def write_manifest(self):
         (self.vendor / "cimet-dependency.json").write_text(json.dumps(self.manifest), encoding="utf-8")
@@ -100,6 +101,12 @@ class PublishedDependencyVerificationTests(unittest.TestCase):
 
     def test_multiple_engine_jars_are_rejected(self):
         self.write_war(self.jar, duplicate=True)
+        with self.assertRaisesRegex(ValueError, "exactly one"):
+            self.verify()
+
+    def test_previous_registry_engine_cannot_be_bundled_alongside_jitpack(self):
+        with zipfile.ZipFile(self.war, "a") as archive:
+            archive.writestr("WEB-INF/lib/cimet-extract-lib-old-source.jar", b"old")
         with self.assertRaisesRegex(ValueError, "exactly one"):
             self.verify()
 

@@ -63,8 +63,7 @@ def validate_lock(lock: dict) -> None:
             valid &= bool(re.fullmatch(r"[a-f0-9]{64}", value))
         for field in ("groupId", "artifactId", "version", "baseVersion", "repositoryId"):
             valid &= bool(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]*", artifact[field]))
-        valid &= artifact["repositoryUrl"] == (
-            "https://maven.pkg.github.com/arid-nova/mvp-cimet-extraction-library")
+        valid &= artifact["repositoryUrl"] == "https://jitpack.io"
         if not valid:
             raise ValueError("Invalid dependency lock")
     except (ValueError, KeyError, TypeError):

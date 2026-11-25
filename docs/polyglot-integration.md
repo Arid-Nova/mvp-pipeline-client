@@ -1,13 +1,11 @@
 # Multi-language extraction
 
-Both JVM services consume the separately published CIMET 1.3.0 package from
-[GitHub Packages](https://github.com/Arid-Nova/mvp-cimet-extraction-library/packages/3118900).
-This is the registry linked by the maintainer, rather than a JitPack artifact.
-`cimet-dependency.lock.json` records the exact package and matching released parser
-assets. The published Maven coordinates are
-`edu.university.ecs.lab:cimet-extract-lib:1.3.0-polyglot-20261124.050848-1`;
-the immutable timestamp selects the verified build from the package's
-`1.3.0-polyglot-SNAPSHOT` base version. The application build does not clone,
+Both JVM services consume CIMET v1.3.0 from
+[JitPack](https://jitpack.io/#Arid-Nova/mvp-cimet-extraction-library/v1.3.0).
+Both POMs declare `com.github.Arid-Nova:mvp-cimet-extraction-library:v1.3.0`
+and the public `https://jitpack.io` repository. `cimet-dependency.lock.json`
+records the exact JitPack artifact checksums and matching released parser assets.
+The application build resolves the dependency through Maven; it does not clone,
 compile or locally publish CIMET source, and no engine JAR is committed.
 
 ## Scope
@@ -31,20 +29,17 @@ An empty result must be read with parser diagnostics and capability metadata.
 
 Install Java 21, Maven, Node 22+, npm and Python 3.10+. Git is still needed when
 the application clones repositories to analyze; it is not used to build CIMET.
-Set `GITHUB_ACTOR` to the package-reading GitHub login and `GITHUB_TOKEN` to a
-credential with `read:packages` and access to this package. The checked-in
-`.mvn/cimet-settings.xml` references those environment values; it contains no
-credentials. CI grants package-read permission and must be permitted to read the
-package. From the repository root:
+JitPack is public, so package-registry credentials and custom Maven settings
+are not required. From the repository root:
 
 ```sh
 python scripts/prepare_cimet_runtime.py
-mvn -B -s .mvn/cimet-settings.xml -f backend/pom.xml verify
-mvn -B -s .mvn/cimet-settings.xml -f componentanalysis/pom.xml verify
+mvn -B -f backend/pom.xml verify
+mvn -B -f componentanalysis/pom.xml verify
 python scripts/verify_cimet_dependency.py
 ```
 
-Maven resolves the published package directly. The runtime preparer only fetches
+Maven resolves the JitPack package directly. The runtime preparer only fetches
 the checksum-verified official release archive and prepares its external
 JavaScript/TypeScript adapter plus the pipeline-owned security analyzer under
 each service's ignored `vendor/` directory. It does not run Git, Maven or Java
@@ -64,23 +59,18 @@ proof that Maven resolved the expected binary.
 
 To use an isolated Maven repository, pass `-Dmaven.repo.local=PATH` to each Maven
 command and `--maven-repository PATH` to the verifier. The local extraction helper
-accepts `-MavenRepository` and uses the same settings, verification and dependency
+accepts `-MavenRepository` and uses the same verification and dependency
 provenance. There is no dirty-source build override in the normal consumption flow.
 
 Docker builds use the repository root context so the dependency lock and canonical
-security adapter are available. `GITHUB_TOKEN` is passed as a BuildKit secret,
-never as an image argument, persistent environment value or copied settings file:
+security adapter are available. Both service builds resolve the public JitPack
+dependency without package-registry credentials:
 
 ```sh
 docker compose build backend components
 # Or build an individual service:
-docker build --secret id=github_token,env=GITHUB_TOKEN --build-arg GITHUB_ACTOR="$GITHUB_ACTOR" -f backend/dockerfile -t aridnova-backend .
+docker build -f backend/dockerfile -t aridnova-backend .
 ```
-
-These examples use a POSIX shell; PowerShell uses `$env:GITHUB_ACTOR` for the
-build-argument value. Compose reads both credential variables from the invoking
-environment and makes the token available only to dependency-resolution build
-steps. The runtime image does not need package-registry credentials.
 
 The full Compose deployment still requires its ordinary databases, secrets and service
 configuration. JVM tests and the local extraction CLIs require neither databases nor the

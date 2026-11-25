@@ -295,3 +295,33 @@ endpoints, languages retained, published extractor coordinate reported, and no
 Spring server, database, LLM or target application execution. Package credentials
 are supplied only through environment-backed Maven settings and a BuildKit secret;
 the final application images do not require registry credentials.
+
+## JitPack dependency consumption (2026-11-25)
+
+The services now consume `com.github.Arid-Nova:mvp-cimet-extraction-library:v1.3.0`
+from public `https://jitpack.io`. This supersedes the GitHub Packages distribution
+recorded above. Both POMs declare the JitPack dependency directly; application and
+Docker builds do not clone, compile or install CIMET. Package authentication,
+custom Maven settings and BuildKit package secrets have been removed together.
+
+The verified JitPack publication resolves release commit
+`90987152e3975e3b7fb47336e291c6fb26e31ac7`. Its JAR SHA-256 is
+`7448c5e43db754de64f8fe5316301dc0ef73f9bb97eb107050daf16bbcb1539b`;
+its POM SHA-256 is
+`9d290992a69ef03975505b3e7406d35a50220258bb4378010c9785744e4539ab`.
+All 159 compiled classes and all 26 declared dependency tuples match the
+previous publication; archive metadata differs. The matching external Node
+adapter still comes from the same checksum-locked release archive.
+
+Maven downloaded the JitPack POM/JAR directly without package credentials into
+an isolated repository. Clean `mvn verify` passed all 22 backend and 24 component
+tests and packaged both WARs. The verifier accepted each embedded JitPack JAR,
+resolved POM and matching runtime provenance. All 21 tooling tests passed,
+including rejection of an additional old-registry CIMET JAR.
+
+Both actual local CLIs also passed the authored mixed Java/TypeScript fixture:
+two expected endpoints, both languages retained and the JitPack extractor
+coordinate reported. Spring server, database, LLM and target-application
+execution flags were all false. CI retains direct JitPack resolution, both
+service tests, artifact/runtime verification, both Docker builds and
+unprivileged Java/Node probes, together with the full capability/frontend gates.

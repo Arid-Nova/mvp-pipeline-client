@@ -4,7 +4,7 @@ A comprehensive platform for visualizing, verifying, and introspecting microserv
 
 ## Multi-language contribution
 
-The backend and component service consume the published CIMET v1.3.0 dependency with per-file Java,
+The backend and component service consume CIMET v1.3.0 from JitPack with per-file Java,
 JavaScript/TypeScript, Python, Go and C# parsing, including mixed repositories and multiple
 repository inputs. Architecture and security coverage differ by language; unsupported policy
 stages remain explicit. See [build, requests, tests and extension guidance](docs/polyglot-integration.md)

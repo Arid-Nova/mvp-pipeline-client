@@ -18,11 +18,11 @@
 	<properties>
 		<java.version>21</java.version>
 		<lombok.version>1.18.30</lombok.version>
-		<cimet.version>1.3.0-polyglot-20261124.050848-1</cimet.version>
+		<cimet.version>v1.3.0</cimet.version>
 		<jackson-bom.version>2.19.1</jackson-bom.version>
 	</properties>
 
-	<!-- Published v1.3.0 package; immutable build coordinates match cimet-dependency.lock.json. -->
+	<!-- Published JitPack release; coordinates and checksums match cimet-dependency.lock.json. -->
 	<repositories>
         <repository>
             <id>central</id>
@@ -30,11 +30,11 @@
             <snapshots><enabled>false</enabled></snapshots>
         </repository>
         <repository>
-            <id>github-cimet</id>
-            <name>CIMET Packages</name>
-            <url>https://maven.pkg.github.com/arid-nova/mvp-cimet-extraction-library</url>
+            <id>jitpack.io</id>
+            <name>JitPack</name>
+            <url>https://jitpack.io</url>
             <releases><enabled>true</enabled><checksumPolicy>fail</checksumPolicy></releases>
-            <snapshots><enabled>true</enabled><checksumPolicy>fail</checksumPolicy></snapshots>
+            <snapshots><enabled>false</enabled></snapshots>
         </repository>
     </repositories>
 
@@ -102,8 +102,8 @@
 		
 		<!-- Resolve the separately published engine directly; do not compile CIMET here. -->
 		<dependency>
-			<groupId>edu.university.ecs.lab</groupId>
-			<artifactId>cimet-extract-lib</artifactId>
+			<groupId>com.github.Arid-Nova</groupId>
+			<artifactId>mvp-cimet-extraction-library</artifactId>
 			<version>${cimet.version}</version>
 		</dependency>
         <!-- Match the engine's JSON API; Spring Boot's managed version lacks newer overloads. -->

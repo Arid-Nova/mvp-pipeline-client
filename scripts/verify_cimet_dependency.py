@@ -62,8 +62,11 @@ def verify_service(root: Path, service: str, repository: Path, lock: dict) -> di
     if not war.is_file():
         raise ValueError(f"{service}: package the application before dependency verification")
     with zipfile.ZipFile(war) as archive:
+        # Reject a second engine under the previous registry's artifact name too.
+        prefixes = tuple("WEB-INF/lib/" + name + "-" for name in
+                         {artifact["artifactId"], "cimet-extract-lib"})
         libraries = [entry for entry in archive.infolist()
-                     if entry.filename.startswith("WEB-INF/lib/" + artifact["artifactId"] + "-")
+                     if entry.filename.startswith(prefixes)
                      and entry.filename.endswith(".jar")]
         if len(libraries) != 1 or libraries[0].file_size > 64 * 1024 * 1024:
             raise ValueError(f"{service}: application must contain exactly one bounded CIMET JAR")
