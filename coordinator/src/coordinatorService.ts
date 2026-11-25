@@ -4,16 +4,27 @@ import { runJavaScriptStage, securityReportFromPayload, unsupportedDownstreamRea
 
 /** Detect restored JavaScript inputs before choosing a language-specific stage. */
 export function requiresJavaScriptWorkflow(node: any): boolean {
-    if (sourceLanguages(node.data?.payload || {}).some(language => ['javascript', 'typescript'].includes(language))) return true;
+    if (sourceLanguages(node.data?.payload || {}).some(language => ['javascript', 'typescript'].includes(language))) 
+        return true;
+
     const repositories = node.data?.repositories || node.data?.payload?.metadata || [];
     if (Array.isArray(repositories) && repositories.some((repository: any) =>
-        ['javascript', 'typescript'].includes(String(repository?.language || '').toLowerCase()))) return true;
+        ['javascript', 'typescript'].includes(String(repository?.language || '').toLowerCase()))) 
+        return true;
+    
     const ir = node.data?.payload?.irJson;
-    if (!ir || typeof ir !== 'object') return false;
-    if (ir.javascriptExtraction || ir.metadata?.extractor === 'cimet-javascript') return true;
+    if (!ir || typeof ir !== 'object') 
+        return false;
+
+    if (ir.javascriptExtraction || ir.metadata?.extractor === 'cimet-javascript') 
+        return true;
+
     const isJavaScriptModule = (module: any) => module?.type === 'JSModule'
         || ['javascript', 'typescript'].includes(String(module?.metadata?.language || '').toLowerCase());
-    if (Array.isArray(ir.orphans) && ir.orphans.some(isJavaScriptModule)) return true;
+    
+    if (Array.isArray(ir.orphans) && ir.orphans.some(isJavaScriptModule)) 
+        return true;
+
     return Array.isArray(ir.microservices) && ir.microservices.some((service: any) =>
         service?.metadata?.componentKind === 'backend'
         || ['controllers', 'services', 'repositories', 'entities', 'unknowns', 'feignClients'].some(key =>
@@ -65,6 +76,7 @@ export class PipelineCoordinator {
                 } : {})
             });
         });
+        
         return summary;
     }
 
