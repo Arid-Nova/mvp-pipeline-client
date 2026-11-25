@@ -3,6 +3,7 @@ from copy import deepcopy
 import gzip
 import json
 import unittest
+
 from unittest.mock import Mock, patch
 from fastapi import HTTPException
 
@@ -10,7 +11,6 @@ import service
 from src.analysis.javascript_security import javascript_security_response
 from src.services.ir_reader import read_stored_ir
 from security_fixture import javascript_ir
-
 
 class JavaScriptSecurityTests(unittest.TestCase):
     def test_valid_report_remains_partial_and_unknown_is_not_public(self):
@@ -38,15 +38,18 @@ class JavaScriptSecurityTests(unittest.TestCase):
             ir = javascript_ir()
             ir['javascriptExtraction']['securityAnalysis']['components'][0][field] = value
             variants.append(ir)
+        
         ir = javascript_ir()
         ir['javascriptExtraction']['securityAnalysis']['components'][0]['component'] = {
             **ir['javascriptExtraction']['snapshots'][0]['component'], 'commit': 'c' * 40}
+        
         variants.append(ir)
         ir = javascript_ir()
         ir['javascriptExtraction']['securityAnalysis']['components'][0]['endpoints'][0]['authentication']['status'] = 'public'
         variants.append(ir)
         ir = javascript_ir()
         ir['javascriptExtraction']['securityAnalysis']['components'][0]['findings'][0]['endpointId'] = 'unextracted'
+        
         variants.append(ir)
         for number, ir in enumerate(variants):
             with self.subTest(case=number):
@@ -67,6 +70,7 @@ class JavaScriptSecurityTests(unittest.TestCase):
              patch.object(service, 'get_java_facade') as java:
             result = asyncio.run(service.analyze_endpoint({
                 'ir_id': 'saved1', 'repoUrl': 'ignored', 'sourcePath': 'ignored', 'serviceUrl': 'ignored'}))
+        
         self.assertEqual(result['status'], 'partial')
         reader.assert_called_once_with('saved1')
         java.assert_not_called()
@@ -75,9 +79,11 @@ class JavaScriptSecurityTests(unittest.TestCase):
         ir = {'microservices': [{'name': 'java'}]}
         engine = Mock()
         engine.run_analysis.return_value = {'vulnerabilities': []}
+        
         with patch.object(service, 'read_stored_ir', return_value=ir), \
              patch.object(service, 'get_java_facade', return_value=engine):
             result = asyncio.run(service.analyze_endpoint({'ir_id': 'java1'}))
+        
         self.assertEqual(result['status'], 'success')
         engine.run_analysis.assert_called_once_with({'ir_id': 'java1'}, ir_data=ir)
         engine.get_latent_vulnerabilities.assert_not_called()
@@ -85,8 +91,10 @@ class JavaScriptSecurityTests(unittest.TestCase):
     def test_saved_ir_reader_uses_configured_service_and_identifier_only(self):
         response = Mock()
         response.iter_content.return_value = [gzip.compress(json.dumps(javascript_ir()).encode())]
+        
         with patch('src.services.ir_reader.requests.post', return_value=response) as post:
             result = read_stored_ir('saved1', 'http://trusted-ir/ir')
+        
         self.assertIn('javascriptExtraction', result)
         self.assertEqual(post.call_args.args, ('http://trusted-ir/ir',))
         self.assertEqual(post.call_args.kwargs['json'], {'id': 'saved1', 'systemName': '', 'systemRepositories': []})
@@ -122,7 +130,6 @@ class JavaScriptSecurityTests(unittest.TestCase):
                 service.get_java_facade()
         self.assertEqual(caught.exception.status_code, 422)
         self.assertEqual(caught.exception.detail['status'], 'unsupported')
-
 
 if __name__ == '__main__':
     unittest.main()

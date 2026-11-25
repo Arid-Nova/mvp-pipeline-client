@@ -4,14 +4,15 @@ from unittest.mock import Mock, patch
 from src.analysis.javascript_llm import evidence_packets, review_javascript, validate_output
 from security_fixture import javascript_ir
 
-
 class JavaScriptLLMTests(unittest.TestCase):
     def test_quota_failure_is_explicit_and_does_not_retry_other_categories(self):
         response = Mock(ok=False, status_code=429)
         response.json.return_value = {'error': {'type': 'insufficient_quota', 'code': 'credit_balance_exhausted', 'message': 'SECRET'}}
+        
         with patch('src.analysis.javascript_llm.api_key', return_value='private-key'), \
              patch('src.analysis.javascript_llm.requests.post', return_value=response) as post:
             result = review_javascript(javascript_ir())
+        
         self.assertEqual(result['status'], 'blocked')
         self.assertEqual(result['completedCalls'], 0)
         self.assertEqual(post.call_count, 1)
@@ -22,6 +23,7 @@ class JavaScriptLLMTests(unittest.TestCase):
         body = {'summary': 'Example', 'limitations': [], 'recommendations': [{
             'title': 'Test', 'explanation': 'Test', 'improvement': 'Test', 'testPlan': 'Test',
             'evidenceIds': ['not-in-source']}]}
+        
         with self.assertRaisesRegex(ValueError, 'unrecognized-evidence'):
             validate_output(body, {'source'})
 
@@ -58,10 +60,12 @@ class JavaScriptLLMTests(unittest.TestCase):
 
     def test_equal_endpoint_ids_in_different_components_stay_distinct(self):
         from copy import deepcopy
+        
         ir = javascript_ir()
         second = deepcopy(ir['javascriptExtraction']['securityAnalysis']['components'][0])
         second['component']['name'] = 'other-api'
         ir['javascriptExtraction']['securityAnalysis']['components'].append(second)
+        
         packets, coverage = evidence_packets(ir)
         endpoints = [value for key, value in packets['security'].items() if key.startswith('endpoint-')]
         self.assertEqual(coverage['selectedEndpoints'], 2)
@@ -71,6 +75,7 @@ class JavaScriptLLMTests(unittest.TestCase):
     def test_model_requests_include_endpoint_data_for_relevant_categories(self):
         import json
         from src.analysis.javascript_llm import CATEGORIES
+        
         response = Mock(ok=True)
         response.json.return_value = {'id': 'response', 'model': 'fixture-model', 'usage': {},
             'choices': [{'finish_reason': 'stop', 'message': {'content': json.dumps({
@@ -78,6 +83,7 @@ class JavaScriptLLMTests(unittest.TestCase):
         with patch('src.analysis.javascript_llm.api_key', return_value='fixture-key'), \
              patch('src.analysis.javascript_llm.requests.post', return_value=response) as post:
             result = review_javascript(javascript_ir())
+        
         self.assertEqual(result['completedCalls'], 7)
         for category, call in zip(CATEGORIES, post.call_args_list):
             if category in ('database', 'security', 'test-planning'):

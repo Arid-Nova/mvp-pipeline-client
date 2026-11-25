@@ -3,13 +3,14 @@ import ast
 import gzip
 import json
 import os
+
 from pathlib import Path
 from types import SimpleNamespace
+
 import unittest
 from unittest.mock import Mock, MagicMock
 
 from src.services.mongo_service import MongoService
-
 
 def route_functions(mongo, query):
     source = Path(__file__).resolve().parents[1] / 'frontend.py'
@@ -20,8 +21,8 @@ def route_functions(mongo, query):
     namespace = {'MongoService': Mock(return_value=mongo), 'os': os, 'gzip': gzip,
                  'json': json, 'request': SimpleNamespace(args=query), 'render_template': Mock(side_effect=lambda name, **args: (name, args))}
     exec(compile(ast.Module(body=functions, type_ignores=[]), str(source), 'exec'), namespace)
+    
     return namespace
-
 
 class SavedResultsLookupTests(unittest.TestCase):
     def test_mongo_single_lookup_does_not_materialize_a_cursor(self):

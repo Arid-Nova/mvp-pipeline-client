@@ -70,10 +70,12 @@ class InputCapabilityTests(unittest.TestCase):
                 setattr(module, attribute, Mock())
             isolated[name] = module
         source = Path(__file__).resolve().parents[1] / 'main.py'
+        
         with patch.dict(sys.modules, isolated):
             spec = importlib.util.spec_from_file_location('aegis_facade_guard_test', source)
             loaded = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(loaded)
+            
             for ir, expected in [({'javascriptExtraction': {}}, 'unsupported'), (javascript_ir(), 'partial')]:
                 facade = object.__new__(loaded.AnalysisFacade)
                 facade._get_ir_for_analysis = Mock(return_value=ir)
@@ -93,6 +95,7 @@ class InputCapabilityTests(unittest.TestCase):
         main_module = ModuleType('main')
         main_module.AnalysisFacade = Mock()
         source = Path(__file__).resolve().parents[1] / 'service.py'
+        
         with patch.dict(sys.modules, {'main': main_module}):
             spec = importlib.util.spec_from_file_location('aegis_api_guard_test', source)
             loaded = importlib.util.module_from_spec(spec)
@@ -100,13 +103,13 @@ class InputCapabilityTests(unittest.TestCase):
         response = unsupported_source_analysis({'javascriptExtraction': {}})
         loaded.facade = Mock()
         loaded.facade.run_analysis.return_value = response
+        
         with patch.object(loaded, 'read_stored_ir', return_value={'javascriptExtraction': {}}):
             result = asyncio.run(loaded.analyze_endpoint({'ir_id': 'local-fixture'}))
         self.assertEqual(result['status'], 'unsupported')
         self.assertEqual(result['findings'], [])
         loaded.facade.run_analysis.assert_not_called()
         loaded.facade.get_latent_vulnerabilities.assert_not_called()
-
 
 if __name__ == '__main__':
     unittest.main()
@@ -115,11 +118,23 @@ class PolyglotCapabilityTests(unittest.TestCase):
     def test_generic_languages_do_not_enter_java_analysis(self):
         for language in ('python', 'go', 'csharp'):
             with self.subTest(language=language):
-                response = unsupported_source_analysis({'metadata': {'languages': ['java', language]}})
+                response = unsupported_source_analysis(
+                    {
+                        'metadata': {
+                            'languages': ['java', language]
+                        }
+                    }
+                )
                 self.assertEqual(response['status'], 'unsupported')
                 self.assertEqual(response['findings'], [])
 
 class NativeJavaScriptCapabilityTests(unittest.TestCase):
     def test_native_metadata_without_saved_security_never_falls_back_to_java(self):
-        response = unsupported_source_analysis({'metadata': {'languages': ['javascript']}})
+        response = unsupported_source_analysis(
+            {
+                'metadata': {
+                    'languages': ['javascript']
+                }
+            }
+        )
         self.assertEqual(response['status'], 'unsupported')

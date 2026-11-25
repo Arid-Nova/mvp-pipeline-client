@@ -10,7 +10,6 @@ from src.services.ir_reader import read_stored_ir
 
 facade = None
 
-
 def get_java_facade():
     """Load Java/model/database integrations only for a Java analysis request."""
     global facade

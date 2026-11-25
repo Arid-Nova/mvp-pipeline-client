@@ -9,15 +9,17 @@ from typing import List, Dict, Any
 # Import all our modules
 from src.config_loader import ConfigLoader
 from src.domain.models import ExecutionPath
-from src.services.graph_loader import GraphLoader
-from src.services.code_fetcher import CodeFetcher
-from src.services.neo4j_service import Neo4jService
-from src.services.mongo_service import MongoService
+
 from src.analysis.neuro_analyzer import NeuroAnalyzer
 from src.calculus.evidence_mapper import EvidenceMapper
 from src.analysis.symbolic_analyzer import SymbolicAnalyzer
 from src.analysis.analysis_strategies import AnalysisStrategyFactory
+
+from src.services.graph_loader import GraphLoader
+from src.services.code_fetcher import CodeFetcher
 from src.services.ir_reader import read_stored_ir
+from src.services.neo4j_service import Neo4jService
+from src.services.mongo_service import MongoService
 from src.services.graph_traversal_service import GraphTraversalService
 
 from src.calculus.subjective_logic import fuse_opinions_list

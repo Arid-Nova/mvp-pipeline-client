@@ -72,10 +72,13 @@ def evidence_packets(ir, history=None):
                   'sourceCoverage': arch.get('sourceCoverage'),
                   'limitations': js.get('limitations'),
                   'businessPolicy': os.getenv('ARIDNOVA_LLM_BUSINESS_POLICY') or study_policy})
+    
     for graph, data in arch.get('graphs', {}).items():
         add('graph-' + graph, {'metrics': data.get('metrics'), 'scope': data.get('scope')})
+    
     findings = arch.get('findings', [])
     add('architecture-counts', dict(Counter(x.get('kind') for x in findings)))
+   
     # Representatives per kind prevent one category from consuming the budget.
     counts = Counter()
     for f in findings:
@@ -83,20 +86,24 @@ def evidence_packets(ir, history=None):
         if counts[kind] < 4:
             add('architecture-' + f['id'], {k: f[k] for k in ('kind', 'classification', 'message', 'evidence') if k in f})
             counts[kind] += 1
+    
     add('http', arch.get('http', {}))
     add('cohesion', arch.get('cohesion', {}))
     add('semantics', arch.get('semantics', {}))
+    
     security = js.get('securityAnalysis', {})
     add('security-coverage', security.get('coverage', {}))
     observations = [(c.get('component', {}), e)
                     for c in security.get('components', []) for e in c.get('endpoints', [])]
     endpoints = [e for _, e in observations]
     add('security-counts', dict(Counter(e.get('authentication', {}).get('status', 'unknown') for e in endpoints)))
+    
     # Prioritize known study endpoint families, then bounded unresolved models.
     selected = sorted(observations, key=lambda observation: (
         not any(x.lower() in observation[1].get('path', '').lower() for x in
                 ('diet', 'article', 'emailsphones', 'report', 'discount', 'video', 'payment')),
         observation[1].get('path', '')))[:50]
+    
     for component, e in selected:
         # Fact identities are scoped independently of the upstream ID spelling.
         # Real endpoint IDs need not start with endpoint-, and separate source
@@ -110,14 +117,18 @@ def evidence_packets(ir, history=None):
                'ownershipCheckCount': len(e.get('ownershipChecks', [])),
                'policyStatus': e.get('policyModel', {}).get('status'),
                'unknownReasons': e.get('policyModel', {}).get('unknownReasons', [])})
+   
     for i, f in enumerate(security.get('findings', [])[:20]):
         add('security-finding-' + str(i), f)
     previous_js = (history or {}).get('javascriptExtraction') or {}
+    
     if not isinstance(previous_js, dict):
         previous_js = {}
     previous_architecture = previous_js.get('architecture') or {}
+    
     if not isinstance(previous_architecture, dict):
         previous_architecture = {}
+    
     if isinstance(previous_architecture.get('functions'), list):
         before = {f['id']: f for f in previous_architecture['functions']}
         after = {f['id']: f for f in arch.get('functions', [])}
@@ -131,6 +142,7 @@ def evidence_packets(ir, history=None):
         reason = ('Historical IR has no extracted JavaScript function history' if history
                   else 'No saved historical IR supplied for this LLM review')
         add('history', {'status': 'unavailable', 'reason': reason})
+    
     categories = {}
     for category in CATEGORIES:
         prefixes = {
@@ -141,6 +153,7 @@ def evidence_packets(ir, history=None):
             'test-planning': ('history', 'http', 'security-', 'endpoint-'),
         }[category]
         categories[category] = {'scope': facts['scope']} | {k: v for k, v in facts.items() if k.startswith(prefixes)}
+    
     return categories, {'availableArchitectureCandidates': len(findings),
                         'availableEndpoints': len(endpoints), 'selectedEndpoints': len(selected),
                         'inputScope': 'Bounded extracted evidence; no full source bodies, runtime fixtures, credentials or production data sent',
@@ -150,35 +163,43 @@ def evidence_packets(ir, history=None):
 def validate_output(body, valid_ids):
     if not isinstance(body, dict) or set(body) != {'summary', 'recommendations', 'limitations'}:
         raise ValueError('invalid-response-schema')
+    
     if not isinstance(body['summary'], str) or not isinstance(body['limitations'], list) or not all(isinstance(x, str) for x in body['limitations']):
         raise ValueError('invalid-response-schema')
+    
     if not isinstance(body['recommendations'], list) or len(body['recommendations']) > 10:
         raise ValueError('invalid-response-schema')
+    
     for r in body['recommendations']:
         if not isinstance(r, dict) or set(r) != {'title', 'explanation', 'improvement', 'testPlan', 'evidenceIds'}:
             raise ValueError('invalid-response-schema')
         if not all(isinstance(r[k], str) for k in ('title', 'explanation', 'improvement', 'testPlan')):
             raise ValueError('invalid-response-schema')
+        
         ids = r['evidenceIds']
         if not isinstance(ids, list) or not ids or not all(isinstance(x, str) and x in valid_ids for x in ids):
             raise ValueError('unrecognized-evidence-reference')
         r['classification'] = 'llm-review-candidate'
+    
     return redact(body)
 
 
 def review_javascript(ir, history=None):
     packets, coverage = evidence_packets(ir, history)
     model = os.getenv('LLM_MODEL', 'gpt-5-mini')
+    chat_url = os.getenv('OPENAI_CHAT_URL', 'https://api.openai.com/v1/chat/completions')
     result = {'analysis': 'javascript-openai-evidence-review', 'status': 'blocked',
               'ir_id': ir.get('id'), 'modelRequested': model, 'coverage': coverage,
               'categories': [], 'completedCalls': 0, 'attemptedCalls': 0, 'providerCallsSucceeded': 0,
               'usage': {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0},
               'limitations': ['LLM recommendations require human validation.',
                               'No inferred types, runtime verdicts or classic design-pattern detections are promoted to deterministic facts.']}
+    
     key = api_key()
     if not key:
         result['error'] = {'type': 'configuration', 'code': 'missing-api-key'}
         return result
+    
     halted = False
     for category, evidence in packets.items():
         encoded = json.dumps(evidence, sort_keys=True, separators=(',', ':'))
@@ -193,7 +214,7 @@ def review_javascript(ir, history=None):
             schema = deepcopy(SCHEMA)
             schema['properties']['recommendations']['items']['properties']['evidenceIds']['items']['enum'] = list(evidence)
             try:
-                response = requests.post('https://api.openai.com/v1/chat/completions', timeout=180,
+                response = requests.post(chat_url, timeout=180,
                     headers={'Authorization': 'Bearer ' + key}, json={
                         'model': model, 'reasoning_effort': 'low', 'max_completion_tokens': 5000,
                         'response_format': {'type': 'json_schema', 'json_schema': {'name': 'aridnova_review', 'strict': True, 'schema': schema}},
@@ -206,6 +227,7 @@ def review_javascript(ir, history=None):
                             'Return at most three focused recommendations, each under 100 words across its text fields. '
                             'Use exact top-level evidence keys as evidenceIds. Return the required JSON schema.'},
                             {'role': 'user', 'content': encoded}]})
+                
                 payload = response.json()
                 if not response.ok:
                     error = payload.get('error', {})
@@ -219,6 +241,7 @@ def review_javascript(ir, history=None):
                     result['providerCallsSucceeded'] += 1
                     choice = payload['choices'][0]
                     record['finishReason'] = choice.get('finish_reason')
+                    
                     if choice.get('finish_reason') != 'stop' or choice['message'].get('refusal'):
                         raise ValueError('refused-or-truncated-response')
                     review = validate_output(json.loads(choice['message']['content']), set(evidence))
@@ -229,6 +252,8 @@ def review_javascript(ir, history=None):
                     'refused-or-truncated-response', 'invalid-response-schema', 'unrecognized-evidence-reference') else 'request-or-response-invalid'
                 record.update(status='blocked', error={'type': 'provider-or-validation', 'code': code})
                 halted = True
+        
         result['categories'].append(record)
     result['status'] = 'completed' if result['completedCalls'] == len(CATEGORIES) else 'partial' if result['completedCalls'] else 'blocked'
+    
     return result
