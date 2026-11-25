@@ -128,8 +128,9 @@ The backend now supports local chatbot runtime configuration through environment
 - `CHATBOT_TIMEOUT_MS` (default: `30000`)
 - `CHATBOT_MAX_TOKENS` (default: `1024`)
 - `CHATBOT_TEMPERATURE` (default: `0.2`)
+- `CHATBOT_HISTORY_MAX_MESSAGES` (default: `4`, valid: `0`–`8`)
 
-`docker-compose.yaml` passes these into the `backend` service. You can override any value via shell env or `.env` file before `docker compose up`.
+`docker-compose.yaml` passes these into the `chatbot` service. You can override any value via shell env or `.env` file before `docker compose up`.
 
 Optional local model runtime:
 - `ollama` service is available behind the Compose profile `local-llm`.

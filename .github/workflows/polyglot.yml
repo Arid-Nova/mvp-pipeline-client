@@ -24,6 +24,7 @@ jobs:
       - run: python scripts/build_cimet.py
       - run: mvn -B -f backend/pom.xml verify
       - run: mvn -B -f componentanalysis/pom.xml verify
+      - run: mvn -B -f chatbot-backend/pom.xml verify
       - run: npm --prefix javascript-security ci --ignore-scripts --no-audit --no-fund
       - run: npm --prefix javascript-security test
       - run: python scripts/sync_javascript_workflow.py --check
@@ -42,6 +43,7 @@ jobs:
           path: |
             backend/target/surefire-reports
             componentanalysis/target/surefire-reports
+            chatbot-backend/target/surefire-reports
 
   capability-workflows:
     runs-on: ubuntu-latest
@@ -101,15 +103,17 @@ jobs:
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Typecheck frontend and test graph/source-evidence compatibility
+      - name: Typecheck frontend and test offline UI and pipeline compatibility
         working-directory: frontend
+        env:
+          RUN_LIVE_LLM: '0'
         run: |
           npx --no-install tsc --noEmit
-          npm test -- --watchAll=false --runInBand --testMatch='**/ExpressSecurityReport.test.tsx' '**/polyglotGraph.test.ts' '**/UploadIRCard.test.tsx' --testPathIgnorePatterns='node_modules'
+          npm test -- --watchAll=false --runInBand --testMatch='**/*.test.ts' '**/*.test.tsx' --testPathIgnorePatterns='node_modules'
       - name: Build production frontend
         working-directory: frontend
         # Upstream source-map, lint and bundle warnings are documented in docs/polyglot-validation.md.
-        # Compilation/type errors remain fatal. Existing unrelated chatbot tests are documented separately.
+        # Compilation/type errors remain fatal. Explicit test skips are documented separately.
         env:
           CI: 'false'
         run: npm run build

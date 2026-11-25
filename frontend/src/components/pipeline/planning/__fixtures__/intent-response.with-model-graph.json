@@ -1,0 +1,60 @@
+{
+  "outcome": "OK",
+  "suggestionSetId": "3f2b8c1e-9a4d-4e6f-b1c2-7d8e9f0a1b2c",
+  "requestId": "req-fixture-ok",
+  "catalogVersion": "pcat-0861a6885a178a",
+  "options": [
+    {
+      "tier": "focused",
+      "title": "Architecture and policy",
+      "analysisCardTypes": [
+        "VISUALIZATION",
+        "FORMAL_VIZ"
+      ],
+      "nodes": [
+        {
+          "key": "x",
+          "cardType": "AEGIS"
+        }
+      ],
+      "edges": [
+        {
+          "from": "system_input",
+          "to": "aegis"
+        }
+      ],
+      "config": {
+        "repoUrl": "https://example.invalid/repo"
+      },
+      "x": 10
+    },
+    {
+      "tier": "balanced",
+      "title": "Plus comparison",
+      "analysisCardTypes": [
+        "VISUALIZATION",
+        "FORMAL_VIZ",
+        "VERIFICATION_COMPARISON"
+      ],
+      "prerequisites": [
+        "UPLOAD_IR"
+      ]
+    },
+    {
+      "tier": "comprehensive",
+      "title": "Full analysis",
+      "analysisCardTypes": [
+        "VISUALIZATION",
+        "FORMAL_VIZ",
+        "VERIFICATION_COMPARISON",
+        "AEGIS",
+        "TEST_EXECUTOR"
+      ]
+    }
+  ],
+  "parseErrors": [],
+  "unsupportedReason": null,
+  "model": "llama3.2",
+  "provider": "OLLAMA",
+  "processingTimeMs": 9000
+}

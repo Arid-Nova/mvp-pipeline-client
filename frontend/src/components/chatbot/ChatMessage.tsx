@@ -7,6 +7,14 @@ import { ChatMessageModel } from "./useChatbotState";
 import QualificationNotice from "./QualificationNotice";
 
 export const ChatMessage: React.FC<{ message: ChatMessageModel }> = ({ message }) => {
+    if (message.kind === "pipeline_status") {
+        // Issue #60: next steps after a pipeline was added to the canvas (plain text, UI only).
+        return (
+            <div data-testid="pipeline-status" role="status" className="w-full mb-6 rounded-2xl px-4 py-3 text-[13px] leading-relaxed bg-emerald-950/30 border border-emerald-500/20 text-emerald-100 break-words">
+                {message.content}
+            </div>
+        );
+    }
     const isUser = message.role === "user";
     const flags: ChatbotFlag[] = message.response?.flags || [];
     const isUnavailable = flags.includes("model_unavailable");

@@ -118,22 +118,28 @@ succeeds; Create React App's strict `CI=true` warning policy rejects those warni
 The contribution does not suppress individual diagnostics or claim a warning-free
 frontend.
 
-## Existing unrelated frontend failures
+## Frontend validation after the development update (2026-11-25)
 
-The unchanged `ChatbotPanel.test.tsx` suite has nine failures and seven passes.
-The same nine failures were independently reproduced against clean upstream
-`160760a` source using the same installed dependencies. They concern health/error
-text, answer/confidence and follow-up metadata, context refresh, and citation
-`aria-expanded` expectations. No chatbot files are changed by this contribution.
-The targeted report tests and TypeScript/production builds are therefore the
-relevant frontend gates in this workflow; the complete frontend test suite is not
-claimed to pass.
+After merging `development` commit `2b21981e022e09843dfcb3ade98d0c06e1fc94cf`,
+all 29 frontend suites passed: 518 tests passed and three tests were explicitly
+skipped. Two skips are opt-in live-model probes; the third is the upstream
+`ChatbotPanel` citation-toggle `aria-expanded` case, already marked `it.skip`.
+`RUN_LIVE_LLM=0` prevents live model calls. TypeScript checking and the standard
+production build also passed.
 
-To reproduce that separate baseline check from `frontend`:
+The earlier nine-failure chatbot baseline was reproduced against the old
+`160760a` source; that historical claim no longer describes this merged branch.
+CI now runs the full offline frontend suite, including the new chatbot/planning
+tests and the existing polyglot report/graph/upload cases. From `frontend`:
 
 ```sh
-npm test -- --watchAll=false --runInBand --testMatch='**/ChatbotPanel.test.tsx' --testPathIgnorePatterns='node_modules'
+npm test -- --watchAll=false --runInBand --testMatch='**/*.test.ts' '**/*.test.tsx' --testPathIgnorePatterns='node_modules'
 ```
+
+Set `RUN_LIVE_LLM=0` in the environment before running this command. The chatbot
+backend's `mvn -B -f chatbot-backend/pom.xml verify` passed 196 tests and packaged
+the application. CI now includes that check alongside both extraction services.
+No local model, full application stack or model downloads were required.
 
 ## Source pin, JVM integration and containers
 
