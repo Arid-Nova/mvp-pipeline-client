@@ -15,14 +15,16 @@ public final class LocalComponentCli {
         if (Files.exists(output)) throw new IllegalArgumentException("Output already exists; choose a new file");
         ObjectMapper mapper = new ObjectMapper();
         IRRequestModel request = mapper.readValue(Path.of(args[1]).toFile(), IRRequestModel.class);
-        JavaScriptSourceService sources = new JavaScriptSourceService(env("CIMET_JAVASCRIPT_ADAPTER", "vendor/javascript"),
+        String adapter = env("CIMET_JAVASCRIPT_ADAPTER", "vendor/javascript");
+        String extractor = dependencyCoordinate(mapper, Path.of(adapter));
+        JavaScriptSourceService sources = new JavaScriptSourceService(adapter,
                 env("CIMET_NODE_EXECUTABLE", "node"), env("CIMET_LOCAL_SOURCES_FILE", ""), env("CIMET_JAVASCRIPT_CONFIG", ""));
         long start = System.nanoTime();
         IndexBundle result = new ComponentExtractionService(sources).extract(request);
         Files.createDirectories(output.getParent());
         ObjectNode summary = mapper.createObjectNode();
         summary.put("analysis", "upgraded-pipeline-component-extraction");
-        summary.put("extractor", "edu.university.ecs.lab:cimet-extract-lib:1.3.0-polyglot-SNAPSHOT");
+        summary.put("extractor", extractor);
         summary.put("indexedEndpoints", result.endpointIndex().getEndpoints().size());
         summary.put("indexedComponents", result.componentIndex().getComponents().size());
         summary.set("metadata", mapper.valueToTree(result.componentIndex().getMetadata()));
@@ -43,5 +45,18 @@ public final class LocalComponentCli {
     private static String env(String name, String fallback) {
         String value = System.getenv(name);
         return value == null || value.isBlank() ? fallback : value;
+    }
+
+    private static String dependencyCoordinate(ObjectMapper mapper, Path adapter) throws Exception {
+        Path metadata = adapter.toAbsolutePath().normalize().resolveSibling("cimet-dependency.json");
+        if (!Files.isRegularFile(metadata, LinkOption.NOFOLLOW_LINKS) || Files.size(metadata) > 1024 * 1024)
+            throw new IllegalStateException("Prepare released CIMET assets first: python scripts/prepare_cimet_runtime.py");
+        var artifact = mapper.readTree(metadata.toFile()).path("artifact");
+        for (String field : new String[] {"groupId", "artifactId", "version"}) {
+            if (!artifact.path(field).isTextual() || artifact.path(field).asText().isBlank())
+                throw new IllegalStateException("Released CIMET dependency metadata is incomplete");
+        }
+        return artifact.path("groupId").asText() + ":" + artifact.path("artifactId").asText()
+                + ":" + artifact.path("version").asText();
     }
 }

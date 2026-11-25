@@ -6,17 +6,22 @@ COPY --from=node /usr/local /usr/local
 # Installing Git for IR generation
 RUN apt-get update && apt-get install -y --no-install-recommends python3 git && rm -rf /var/lib/apt/lists/*
 WORKDIR /workspace
+ARG GITHUB_ACTOR=github-actions
 
-COPY cimet-source.lock.json ./
-COPY scripts/build_cimet.py scripts/vendor_javascript_security.py ./scripts/
+COPY cimet-dependency.lock.json ./
+COPY .mvn/cimet-settings.xml ./.mvn/cimet-settings.xml
+COPY scripts/prepare_cimet_runtime.py scripts/verify_cimet_dependency.py scripts/vendor_javascript_security.py ./scripts/
 COPY javascript-security ./javascript-security
-RUN python3 scripts/build_cimet.py
+RUN python3 scripts/prepare_cimet_runtime.py
 
 # Copy the source code and build the application
 COPY backend/pom.xml ./backend/pom.xml
 COPY backend/src ./backend/src
 
-RUN mvn -B -f backend/pom.xml -DskipTests package
+RUN --mount=type=secret,id=github_token,required=true \
+    GITHUB_TOKEN="$(cat /run/secrets/github_token)" \
+    mvn -s .mvn/cimet-settings.xml -B -f backend/pom.xml -DskipTests package
+RUN python3 scripts/verify_cimet_dependency.py --service backend
 
 # Stage 2: Create a lightweight image to run the application
 FROM eclipse-temurin:21-jre

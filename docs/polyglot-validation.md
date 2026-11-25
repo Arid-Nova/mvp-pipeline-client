@@ -232,7 +232,7 @@ no production provider, database or source-analysis deployment was exercised.
 
 ## Final reviewer follow-up (2026-11-22)
 
-The current source lock consumes engine
+The source lock for that review consumed engine
 `86f69788676ab5cd24af3c5446366f6889ab2e25`, including the reviewer's readability
 changes, enforced formatting and current multi-repository schema regressions.
 A clean exact-commit source build succeeded; both generated service manifests
@@ -259,3 +259,39 @@ identity cases. Native services reuse a matching URL/commit backend snapshot
 mapping while distinct frontend mappings, revisions, repositories and legacy
 branches remain separate. TypeScript checking passed; the focused CI command
 now includes `UploadIRCard.test.tsx` alongside the existing graph/report suites.
+
+## Published CIMET dependency migration (2026-11-25)
+
+Both services now declare the published GitHub Packages artifact
+`edu.university.ecs.lab:cimet-extract-lib:1.3.0-polyglot-20261124.050848-1`.
+This is the immutable build published for release `v1.3.0`; the publisher's POM
+retains the `1.3.0-polyglot-SNAPSHOT` base version. The consumer does not rename
+that publication or rebuild the library. Package/runtime coordinates and hashes
+are recorded in `cimet-dependency.lock.json`.
+
+The downloaded published JAR SHA-256 is
+`b63de1f4dfc5836df9b525c29463578e09af053bb3e65628c8070aff40fcac4a`;
+its published POM SHA-256 is
+`6031e0e1e9304af25aa47f348c5072704d52c1537229fcd439c45515cbf145c5`.
+The package does not bundle the newer filesystem-based adapter, so
+`scripts/prepare_cimet_runtime.py` prepares that adapter from the checksum-locked
+official release archive and the separate pipeline security analyzer. It never
+clones, installs or compiles CIMET. Production npm dependencies use lifecycle
+scripts disabled; staging/rollback prevents partial preparation from replacing
+the previous runtime on failure or interruption.
+
+All 20 dependency-tool regressions pass. Both services passed `mvn verify`
+against the downloaded published binary in an isolated Maven cache: 22 backend
+and 24 component tests, with both WARs packaged. The local GitHub CLI credential
+lacked package-read scope, so the two published files were obtained from the
+public package asset links and checksum-verified before local cache admission.
+That local check proves binary compatibility, not direct Maven authentication;
+CI separately resolves the package with its package-read token.
+
+The verifier checks the actual JAR embedded in each WAR, the resolved published
+POM, declared Maven coordinates and prepared adapter hashes. A mixed Java and
+TypeScript authored fixture also passed both actual local CLIs: two expected
+endpoints, languages retained, published extractor coordinate reported, and no
+Spring server, database, LLM or target application execution. Package credentials
+are supplied only through environment-backed Maven settings and a BuildKit secret;
+the final application images do not require registry credentials.

@@ -6,8 +6,8 @@ security evidence. Static extraction never imports or executes the analyzed
 application. The optional Nutrosal component fixture described below explicitly
 executes selected immutable source files against a seeded local database.
 
-Two pipeline-owned packages extend the source-pinned consolidated CIMET extraction and
-architecture build:
+Two pipeline-owned packages extend the published CIMET extraction and
+architecture dependency:
 
 - `javascript-security/`: TypeScript AST analysis of startup, middleware, request
   identity, role/ownership checks, execution paths and data operations.

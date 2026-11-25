@@ -32,9 +32,16 @@ guide. Requests select registered URL/commit identities, never arbitrary source 
 
 Runtime settings:
 
+Before building or running either extraction service, prepare the released
+adapter with `python scripts/prepare_cimet_runtime.py`, resolve the published
+CIMET dependency through `.mvn/cimet-settings.xml`, then run
+`python scripts/verify_cimet_dependency.py`. The dependency lock binds the
+published Maven package to the matching released adapter; preparing files does
+not compile CIMET or independently prove which JAR Maven resolved.
+
 | Variable | Purpose |
 | --- | --- |
-| `CIMET_JAVASCRIPT_ADAPTER` | Trusted adapter; `vendor/javascript` locally, `/app/vendor/javascript` in containers |
+| `CIMET_JAVASCRIPT_ADAPTER` | Released trusted adapter; `vendor/javascript` locally, `/app/vendor/javascript` in containers; dependency provenance is its sibling `cimet-dependency.json` |
 | `CIMET_NODE_EXECUTABLE` | Node 22+ executable, default `node` |
 | `CIMET_LOCAL_SOURCES_FILE` | Server-controlled registered export manifest |
 | `CIMET_JAVASCRIPT_CONFIG` | Optional trusted JSON configuration for supported call wrappers |

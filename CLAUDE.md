@@ -84,13 +84,11 @@ The visualization side (`/graph-visualize` route) is a separate flow: parse an I
 
 ## Backend (Spring) specifics
 
-- Build with the Maven wrapper from `backend/`:
-  - `./mvnw clean package` — produces `target/MVPBackend-0.0.1-SNAPSHOT.war`
-  - `./mvnw test` — full test suite; `./mvnw test -Dtest=ClassName#method` for a single test
-  - `./mvnw spring-boot:run` — local run (expects MariaDB on `cache_db:3306`, override `SPRING_DATASOURCE_URL` for localhost)
-- Depends on `cimet-extract-lib-1.1.1.jar` (vendored at `backend/cimet-extract-lib-1.1.1.jar`). The Dockerfile installs it into the Maven local repo before `mvn package`. For local builds, run the same `mvn install:install-file` step the Dockerfile uses, or you'll get an unresolved dependency.
+- Both extraction services consume the separately published CIMET 1.3.0 package from GitHub Packages; exact artifact/runtime hashes are in `cimet-dependency.lock.json`. Do not build CIMET source or install a replacement local JAR as part of application builds.
+- From the repository root, run `python scripts/prepare_cimet_runtime.py`, then build with `mvn -s .mvn/cimet-settings.xml -f backend/pom.xml verify`. Use the same settings for `componentanalysis/pom.xml`. Authentication comes from `GITHUB_ACTOR` and read-packages `GITHUB_TOKEN`, never committed values.
+- `mvn -s .mvn/cimet-settings.xml -f backend/pom.xml spring-boot:run` starts the backend (expects MariaDB on `cache_db:3306`; override `SPRING_DATASOURCE_URL` locally).
 - Package layout: `edu.baylor.ecs.cloudhubs.mvp.MVPBackend.{api,persistence,config}`. Controllers under `api/ir` and `api/graph` mount at `/ir/*` and `/graph/*`. Persistence is split between JPA (MariaDB, IR storage) and MongoDB (graph state).
-- `componentanalysis/` mirrors this layout but with `cimet-extract-lib-1.1.0.jar` — the two jars are not interchangeable; respect the version each module pins.
+- `componentanalysis/` mirrors this layout and consumes the same locked published dependency and matching external parser assets.
 
 ## Python services
 
@@ -111,10 +109,14 @@ LLM credentials for `testgenerator` are passed via `OPENAI_API_KEY` / `ANTHROPIC
 
 ## Polyglot extraction changes
 
-Build `python scripts/build_cimet.py` before either JVM service: both use the immutable source
-pin in `cimet-source.lock.json`. Do not commit generated engine JARs, `vendor/`, dependencies,
-source registries, credentials or analysis outputs. Build Docker images from the repository
-root with the service Dockerfile. See `docs/polyglot-integration.md`.
+Run `python scripts/prepare_cimet_runtime.py` before either JVM service to prepare the
+checksum-verified released Node adapter and pipeline-owned security analyzer. Maven resolves
+the published artifact identified by `cimet-dependency.lock.json`; the preparer does not clone
+or compile CIMET. After Maven verification, run `python scripts/verify_cimet_dependency.py`
+to check the resolved/embedded package and prepared provenance. Do not commit generated
+JARs, `vendor/`, dependencies, source registries, credentials or analysis outputs. Docker
+builds use the repository root and a BuildKit `github_token` secret. See
+`docs/polyglot-integration.md`.
 
 The request language is a validated hint; the engine registry selects per file. Preserve
 `metadata.languages`, parser diagnostics and capability metadata through persistence and

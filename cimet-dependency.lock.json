@@ -1,0 +1,21 @@
+{
+  "release": {
+    "tag": "v1.3.0",
+    "commit": "90987152e3975e3b7fb47336e291c6fb26e31ac7",
+    "packageUrl": "https://github.com/Arid-Nova/mvp-cimet-extraction-library/packages/3118900?version=1.3.0-polyglot-SNAPSHOT"
+  },
+  "maven": {
+    "repositoryId": "github-cimet",
+    "repositoryUrl": "https://maven.pkg.github.com/arid-nova/mvp-cimet-extraction-library",
+    "groupId": "edu.university.ecs.lab",
+    "artifactId": "cimet-extract-lib",
+    "version": "1.3.0-polyglot-20261124.050848-1",
+    "baseVersion": "1.3.0-polyglot-SNAPSHOT",
+    "jarSha256": "b63de1f4dfc5836df9b525c29463578e09af053bb3e65628c8070aff40fcac4a",
+    "pomSha256": "6031e0e1e9304af25aa47f348c5072704d52c1537229fcd439c45515cbf145c5"
+  },
+  "runtime": {
+    "url": "https://codeload.github.com/Arid-Nova/mvp-cimet-extraction-library/zip/90987152e3975e3b7fb47336e291c6fb26e31ac7",
+    "sha256": "996459e3dfcd6c35501c6cabdb8ba132e239642d7f9f6f96bf7d080e64716731"
+  }
+}

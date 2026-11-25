@@ -18,18 +18,25 @@
 	<properties>
 		<java.version>21</java.version>
 		<lombok.version>1.18.30</lombok.version>
-		<cimet.version>1.3.0-polyglot-SNAPSHOT</cimet.version>
+		<cimet.version>1.3.0-polyglot-20261124.050848-1</cimet.version>
 		<jackson-bom.version>2.19.1</jackson-bom.version>
 	</properties>
 
-	<!-- CIMET package is available either via GitHub or JitPack -->
-	<!-- <repositories>
+	<!-- Published v1.3.0 package; immutable build coordinates match cimet-dependency.lock.json. -->
+	<repositories>
         <repository>
-            <id>github</id>
+            <id>central</id>
+            <url>https://repo.maven.apache.org/maven2</url>
+            <snapshots><enabled>false</enabled></snapshots>
+        </repository>
+        <repository>
+            <id>github-cimet</id>
             <name>CIMET Packages</name>
             <url>https://maven.pkg.github.com/arid-nova/mvp-cimet-extraction-library</url>
+            <releases><enabled>true</enabled><checksumPolicy>fail</checksumPolicy></releases>
+            <snapshots><enabled>true</enabled><checksumPolicy>fail</checksumPolicy></snapshots>
         </repository>
-    </repositories> -->
+    </repositories>
 
 	<dependencies>
 		<dependency>
@@ -93,7 +100,7 @@
 			<artifactId>spring-boot-starter-actuator</artifactId>
 		</dependency>
 		
-		<!-- Build the source-pinned engine with scripts/build_cimet.py before Maven. -->
+		<!-- Resolve the separately published engine directly; do not compile CIMET here. -->
 		<dependency>
 			<groupId>edu.university.ecs.lab</groupId>
 			<artifactId>cimet-extract-lib</artifactId>
