@@ -84,13 +84,11 @@ The visualization side (`/graph-visualize` route) is a separate flow: parse an I
 
 ## Backend (Spring) specifics
 
-- Build with the Maven wrapper from `backend/`:
-  - `./mvnw clean package` — produces `target/MVPBackend-0.0.1-SNAPSHOT.war`
-  - `./mvnw test` — full test suite; `./mvnw test -Dtest=ClassName#method` for a single test
-  - `./mvnw spring-boot:run` — local run (expects MariaDB on `cache_db:3306`, override `SPRING_DATASOURCE_URL` for localhost)
-- Depends on `cimet-extract-lib-1.1.1.jar` (vendored at `backend/cimet-extract-lib-1.1.1.jar`). The Dockerfile installs it into the Maven local repo before `mvn package`. For local builds, run the same `mvn install:install-file` step the Dockerfile uses, or you'll get an unresolved dependency.
+- Both extraction services consume CIMET v1.3.0 from the public JitPack repository (`com.github.Arid-Nova:mvp-cimet-extraction-library:v1.3.0`); exact artifact/runtime hashes are in `cimet-dependency.lock.json`. Do not build CIMET source or install a replacement local JAR as part of application builds.
+- From the repository root, run `python scripts/prepare_cimet_runtime.py`, then build with `mvn -f backend/pom.xml verify` or `mvn -f componentanalysis/pom.xml verify`. JitPack resolution does not require package-registry credentials.
+- `mvn -f backend/pom.xml spring-boot:run` starts the backend (expects MariaDB on `cache_db:3306`; override `SPRING_DATASOURCE_URL` locally).
 - Package layout: `edu.baylor.ecs.cloudhubs.mvp.MVPBackend.{api,persistence,config}`. Controllers under `api/ir` and `api/graph` mount at `/ir/*` and `/graph/*`. Persistence is split between JPA (MariaDB, IR storage) and MongoDB (graph state).
-- `componentanalysis/` mirrors this layout but with `cimet-extract-lib-1.1.0.jar` — the two jars are not interchangeable; respect the version each module pins.
+- `componentanalysis/` mirrors this layout and consumes the same locked published dependency and matching external parser assets.
 
 ## Python services
 
@@ -108,3 +106,20 @@ LLM credentials for `testgenerator` are passed via `OPENAI_API_KEY` / `ANTHROPIC
 - Cross-service IDs are MongoDB ObjectIds passed as strings; do not assume integer IDs anywhere in the pipeline.
 - The frontend's pipeline canvas validates connections against `pipelineConfig.tsx` (`VALID_CONNECTIONS`); when adding a card type, register it there or the edge will be rejected silently in the UI.
 - The Aegis dashboard and API share the same image and `requirements.txt`; if you add a Python dep for one, it lands in both.
+
+## Polyglot extraction changes
+
+Run `python scripts/prepare_cimet_runtime.py` before either JVM service to prepare the
+checksum-verified released Node adapter and pipeline-owned security analyzer. Maven resolves
+the published artifact identified by `cimet-dependency.lock.json`; the preparer does not clone
+or compile CIMET. After Maven verification, run `python scripts/verify_cimet_dependency.py`
+to check the resolved/embedded package and prepared provenance. Do not commit generated
+JARs, `vendor/`, dependencies, source registries, credentials or analysis outputs. Docker
+builds use the repository root and resolve the public JitPack dependency without
+package-registry credentials. See
+`docs/polyglot-integration.md`.
+
+The request language is a validated hint; the engine registry selects per file. Preserve
+`metadata.languages`, parser diagnostics and capability metadata through persistence and
+indexing. Never apply Java/Spring security defaults to non-Java or mixed inputs. Add a parser
+through the engine contract, and validate downstream capability support separately.

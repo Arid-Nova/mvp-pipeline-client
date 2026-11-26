@@ -1,0 +1,8 @@
+{
+  "name": "aridnova-javascript-policy-fixture",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Isolated synthetic Express fixtures for source-policy integration tests",
+  "devDependencies": { "express": "4.21.2", "jsonwebtoken": "9.0.2" },
+  "scripts": { "test": "python -m unittest discover -s tests -v" }
+}

@@ -1,20 +1,21 @@
 package edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.endpoint.extractors;
 
-import com.github.javaparser.StaticJavaParser;
-import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
+import com.github.javaparser.ast.expr.*;
 import com.github.javaparser.ast.NodeList;
+import com.github.javaparser.ast.stmt.BlockStmt;
+import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.VariableDeclarator;
-import com.github.javaparser.ast.expr.*;
-import com.github.javaparser.ast.stmt.BlockStmt;
+
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.SecurityRule;
+import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.utils.JavaSourceSupport;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.utils.PathPatternMatcher;
 
+import java.util.ArrayList;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,7 +41,7 @@ public class SecurityConfigParser {
 
         try {
             // Parse the file
-            CompilationUnit cu = StaticJavaParser.parse(securityConfigPath.toFile());
+            CompilationUnit cu = JavaSourceSupport.parse(securityConfigPath);
 
             // Build variable value map for resolving constants
             Map<String, String> variableValues = extractVariableValues(cu);

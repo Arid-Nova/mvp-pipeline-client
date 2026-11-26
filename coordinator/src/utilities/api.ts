@@ -5,6 +5,11 @@ import { API_URLS } from './uris';
 import { decompressPayload } from './utils'
 
 export const api = {
+    postJavaScriptStage: async (service: string, path: string, body: any) => {
+        if (!['VERIFY', 'VECTOR', 'ANALYSIS', 'TEST', 'EXECUTOR'].includes(service)) throw new Error('Unsupported JavaScript pipeline stage');
+        const base = API_URLS[service as keyof typeof API_URLS];
+        return (await axios.post(`${base}${path}`, body)).data;
+    },
     // Fetches the saved session (pipeline configuration).
     fetchSessionCanvas: async (sessionId: string) => {
         const response = await axios.get(`${API_URLS.SESSION}/sessions/${sessionId}/canvas`, {

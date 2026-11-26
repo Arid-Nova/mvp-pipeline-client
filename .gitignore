@@ -22,3 +22,10 @@ coordinator/dist
 
 # macOS Finder metadata
 .DS_Store
+# Released parser assets, dependency provenance and trusted dependencies are regenerated.
+.cache/
+**/target/
+backend/vendor/
+componentanalysis/vendor/
+**/node_modules/
+*.log

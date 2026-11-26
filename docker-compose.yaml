@@ -43,8 +43,8 @@ services:
 
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/dockerfile
     container_name: cloudhub_backend
     ports:
       - "8080:8080" 
@@ -165,8 +165,8 @@ services:
 
   components:
     build:
-      context: ./componentanalysis
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: componentanalysis/dockerfile
     container_name: cloudhub_components
     ports:
       - "8060:8060"
@@ -317,6 +317,7 @@ services:
       LLM_PROVIDER: openai
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENAI_ENDPOINT: ${OPENAI_BASE_URL}
+      OPENAI_CHAT_URL: ${OPENAI_CHAT_URL}
       LLM_MODEL: gpt-5-mini
       MONGO_URI: ${MONGO_URI}
       MONGO_DB_NAME: aridnova-aegis

@@ -308,7 +308,13 @@ public class ResponseSchemaExtractor {
     private static String extractTypeFromCall(MethodCallExpr call) {
         // Try to infer from arguments
         if (!call.getArguments().isEmpty()) {
-            return call.getArguments().get(0).calculateResolvedType().describe();
+            try {
+                return call.getArguments().get(0).calculateResolvedType().describe();
+            } catch (RuntimeException unresolved) {
+                // Isolated source ASTs need not have a symbol solver. Keep the observed status
+                // even when the accompanying expression type cannot be established.
+                return "Object";
+            }
         }
         return "Object";
     }

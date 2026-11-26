@@ -56,4 +56,12 @@ public class IndexMetadata {
      * List of all unique roles across all microservices
      */
     private List<String> roles;
+
+    /** Unsupported analysis must not be interpreted as an empty successful result. */
+    private Map<String, String> analysisCapabilities;
+    private List<String> limitations;
+    private List<Map<String, String>> sourceRepositories;
+    private List<String> languages;
+    private String status;
+    private List<Map<String,Object>> diagnostics;
 }

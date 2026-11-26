@@ -1,5 +1,6 @@
 package edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.component.indexers;
 
+import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.IndexedAnnotation;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.IndexedComponent;
 import edu.university.ecs.lab.common.models.ir.Annotation;
@@ -41,8 +42,8 @@ public class AnnotationIndexer {
         return new IndexedAnnotation(
             "Annotation",
             annotation.getName(),
-            annotation.getID(),
-            annotation.getFullID(),
+            CimetModelCompatibility.id(annotation),
+            CimetModelCompatibility.fullId(annotation),
             microserviceName,
             className,
             annotation.getMetadata(),

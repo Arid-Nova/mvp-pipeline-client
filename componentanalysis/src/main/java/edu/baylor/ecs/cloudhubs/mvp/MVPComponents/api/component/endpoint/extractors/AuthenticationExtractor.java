@@ -2,7 +2,9 @@ package edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.endpoint.extrac
 
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.expr.*;
+
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.AuthenticationInfo;
 
 import java.util.ArrayList;
@@ -33,6 +35,10 @@ public class AuthenticationExtractor {
         MethodDeclaration method,
         com.github.javaparser.ast.body.ClassOrInterfaceDeclaration clazz
     ) {
+        return extractAuthentication(method, (TypeDeclaration<?>) clazz);
+    }
+
+    public static AuthenticationInfo extractAuthentication(MethodDeclaration method, TypeDeclaration<?> clazz) {
         // Check method-level annotations first
         AuthenticationInfo methodAuth = checkAnnotations(method.getAnnotations());
 

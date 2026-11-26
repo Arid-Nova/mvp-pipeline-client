@@ -1,5 +1,6 @@
 package edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.component.indexers;
 
+import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.IndexedComponent;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.IndexedField;
 import edu.university.ecs.lab.common.models.ir.Annotation;
@@ -41,7 +42,7 @@ public class FieldIndexer {
             componentCounts.put(type, componentCounts.getOrDefault(type, 0) + 1);
 
             // Index field annotations
-            for (Annotation annotation : field.getAnnotations()) {
+            for (Annotation annotation : CimetModelCompatibility.annotations(field)) {
                 annotationIndexer.indexAnnotation(annotation, microserviceName, className, components, componentCounts);
             }
         }
@@ -59,8 +60,8 @@ public class FieldIndexer {
         IndexedField indexed = new IndexedField(
             "Field",
             field.getName(),
-            field.getID(),
-            field.getFullID(),
+            CimetModelCompatibility.id(field),
+            CimetModelCompatibility.fullId(field),
             microserviceName,
             className,
             field.getMetadata(),
@@ -71,7 +72,7 @@ public class FieldIndexer {
         );
 
         // Check if field is autowired
-        boolean isAutowired = field.getAnnotations().stream()
+        boolean isAutowired = CimetModelCompatibility.annotations(field).stream()
             .anyMatch(ann -> ann.getName().equals("Autowired") ||
                            ann.getName().equals("Inject") ||
                            ann.getName().equals("Resource"));

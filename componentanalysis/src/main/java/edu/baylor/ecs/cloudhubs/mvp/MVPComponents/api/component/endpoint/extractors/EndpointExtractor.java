@@ -1,22 +1,19 @@
 package edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.endpoint.extractors;
 
-import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.MethodDeclaration;
-import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
+import com.github.javaparser.ast.body.TypeDeclaration;
 
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.*;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.utils.EndpointIdGenerator;
+import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility;
 
 import edu.university.ecs.lab.common.models.enums.HttpMethod;
-import edu.university.ecs.lab.common.models.ir.AbstractClass;
 import edu.university.ecs.lab.common.models.ir.Endpoint;
 import edu.university.ecs.lab.common.models.ir.Method;
 
 import lombok.Setter;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -94,7 +91,7 @@ public class EndpointExtractor {
                                         String serviceName, String controllerClass) {
         try {
             // 1. Generate method-based ID (existing, from IR)
-            String methodId = method.getID();
+            String methodId = CimetModelCompatibility.id(method);
 
             // 2. Extract HTTP method and URLs
             HttpMethod httpMethod = endpoint.getHttpMethod();
@@ -109,7 +106,7 @@ public class EndpointExtractor {
             }
 
             // Get original URL with actual parameter names for display
-            String fullUri = endpoint.getOriginalUrl();
+            String fullUri = CimetModelCompatibility.originalUrl(endpoint);
             if (fullUri == null || fullUri.isEmpty()) {
                 fullUri = simplifiedUri; // Fallback for backward compatibility
             }
@@ -118,7 +115,7 @@ public class EndpointExtractor {
             String endpointId = EndpointIdGenerator.generate(serviceName, simplifiedUri, httpMethod);
 
             // 4. Extract parameter details using original URL with parameter names
-            List<ParameterDetail> pathParams = parameterExtractor.extractPathParameters(method, fullUri, endpoint.getOriginalParamNames());
+            List<ParameterDetail> pathParams = parameterExtractor.extractPathParameters(method, fullUri, CimetModelCompatibility.originalParamNames(endpoint));
             List<ParameterDetail> queryParams = parameterExtractor.extractQueryParameters(method);
             ParameterDetail requestBody = parameterExtractor.extractRequestBody(method);
 
@@ -188,30 +185,12 @@ public class EndpointExtractor {
      */
     private AuthenticationInfo extractAuthenticationInfo(Method method) {
         try {
-            // Get the parent class
-            if (!method.getParent().isPresent() || !(method.getParent().get() instanceof AbstractClass)) {
-                return AuthenticationInfo.createPublic();
-            }
-
-            AbstractClass parentClass = (AbstractClass) method.getParent().get();
-
-            // Get the source file path
-            Path sourcePath = resolveSourcePath(parentClass);
-            if (sourcePath == null || !Files.exists(sourcePath)) {
-                return AuthenticationInfo.createPublic();
-            }
-
-            // Parse the source file
-            CompilationUnit cu = StaticJavaParser.parse(sourcePath.toFile());
-
-            // Find the method declaration
-            MethodDeclaration methodDecl = findMethodDeclaration(cu, method);
+            MethodDeclaration methodDecl = CimetModelCompatibility.declaration(method);
             if (methodDecl == null) {
                 return AuthenticationInfo.createPublic();
             }
 
-            // Find the class declaration
-            ClassOrInterfaceDeclaration classDecl = findClassDeclaration(cu, parentClass.getName());
+            TypeDeclaration<?> classDecl = methodDecl.findAncestor(TypeDeclaration.class).orElse(null);
 
             // Extract authentication using AuthenticationExtractor
             return AuthenticationExtractor.extractAuthentication(methodDecl, classDecl);
@@ -229,27 +208,11 @@ public class EndpointExtractor {
      */
     private ResponseSchemaInfo extractResponseSchemaInfo(Method method) {
         try {
-            // Get the parent class
-            if (method.getParent().isEmpty() || !(method.getParent().get() instanceof AbstractClass)) {
-                return ResponseSchemaInfo.createSimple(method.getReturnType());
-            }
-
-            AbstractClass parentClass = (AbstractClass) method.getParent().get();
-
-            // Get the source file path
-            Path sourcePath = resolveSourcePath(parentClass);
-            if (sourcePath == null || !Files.exists(sourcePath)) {
-                return ResponseSchemaInfo.createSimple(method.getReturnType());
-            }
-
-            // Parse the source file
-            CompilationUnit cu = StaticJavaParser.parse(sourcePath.toFile());
-
-            // Find the method declaration
-            MethodDeclaration methodDecl = findMethodDeclaration(cu, method);
+            MethodDeclaration methodDecl = CimetModelCompatibility.declaration(method);
             if (methodDecl == null) {
                 return ResponseSchemaInfo.createSimple(method.getReturnType());
             }
+            CompilationUnit cu = methodDecl.findCompilationUnit().orElseThrow();
 
             // Create exception handler registry and scan for exception handlers
             ExceptionHandlerRegistry exceptionRegistry = new ExceptionHandlerRegistry();
@@ -386,72 +349,4 @@ public class EndpointExtractor {
             .toLowerCase();
     }
 
-    /**
-     * Resolves the source path for a class, handling relative paths.
-     *
-     * @param clazz The class to resolve the path for
-     * @return Resolved absolute path, or null if not resolvable
-     */
-    private Path resolveSourcePath(AbstractClass clazz) {
-        Path path = clazz.getPath();
-        if (path == null) {
-            return null;
-        }
-
-        // If already absolute and exists, return as-is
-        if (path.isAbsolute() && Files.exists(path)) {
-            return path;
-        }
-
-        // Try to resolve relative to current directory
-        Path resolved = Path.of(System.getProperty("user.dir")).resolve(path);
-        if (Files.exists(resolved)) {
-            return resolved;
-        }
-
-        // Try parent directory (common in multi-module projects)
-        resolved = Path.of(System.getProperty("user.dir")).getParent().resolve(path);
-        if (resolved != null && Files.exists(resolved)) {
-            return resolved;
-        }
-
-        return null;
-    }
-
-    /**
-     * Finds a method declaration in a compilation unit.
-     *
-     * @param cu The compilation unit
-     * @param method The method to find
-     * @return MethodDeclaration, or null if not found
-     */
-    private MethodDeclaration findMethodDeclaration(CompilationUnit cu, Method method) {
-        String methodName = method.getName();
-        int paramCount = method.getParameters().size();
-
-        for (MethodDeclaration methodDecl : cu.findAll(MethodDeclaration.class)) {
-            if (methodDecl.getNameAsString().equals(methodName) &&
-                methodDecl.getParameters().size() == paramCount) {
-                return methodDecl;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Finds a class declaration in a compilation unit.
-     *
-     * @param cu The compilation unit
-     * @param className The class name to find
-     * @return ClassOrInterfaceDeclaration, or null if not found
-     */
-    private ClassOrInterfaceDeclaration findClassDeclaration(CompilationUnit cu, String className) {
-        for (ClassOrInterfaceDeclaration classDecl : cu.findAll(ClassOrInterfaceDeclaration.class)) {
-            if (classDecl.getNameAsString().equals(className)) {
-                return classDecl;
-            }
-        }
-        return null;
-    }
 }

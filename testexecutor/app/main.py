@@ -10,6 +10,8 @@ from .services.javaExecutor import execute_java_tests
 from .services.pythonExecutor import execute_python_tests
 
 app = FastAPI(title="Test Execution Proxy")
+from .javascript_api import router as javascript_router
+app.include_router(javascript_router)
 
 app.add_middleware(
     CORSMiddleware,
