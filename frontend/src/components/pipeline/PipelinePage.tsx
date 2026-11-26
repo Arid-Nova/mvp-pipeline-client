@@ -47,6 +47,8 @@ import { VerificationComparisonCard } from './cards/VerificationComparisonCard';
 
 // Canvas Components
 import ChatbotPanel from '../chatbot/ChatbotPanel';
+import { deriveWorkflowQuestionSuggestions } from './workflowQuestionSuggestions';
+import { deriveWorkflowEvidence } from './workflowEvidence';
 import { FeedbackModal } from './canvas/FeedbackModal';
 import { PipelineCanvas } from './canvas/PipelineCanvas';
 import { ToolboxSidebar } from './canvas/ToolboxSideBar';
@@ -739,6 +741,7 @@ const PipelinePage: React.FC = () => {
         // Send the IR content the frontend already holds so the chatbot can answer even when
         // the IR was never persisted server-side (e.g. a locally uploaded snapshot).
         const irPayload = irSource?.data?.payload?.irJson || irHolder?.data?.payload?.irJson;
+        const workflowEvidence = deriveWorkflowEvidence(nodes);
 
         return {
             systemName,
@@ -746,9 +749,15 @@ const PipelinePage: React.FC = () => {
             indexId,
             runId: pipelineRunId,
             commitId,
-            irPayload
+            irPayload,
+            workflowEvidence
         };
     }, [nodes, pipelineRunId]);
+
+    const workflowQuestionSuggestions = useMemo(
+        () => deriveWorkflowQuestionSuggestions(nodes, connections),
+        [nodes, connections]
+    );
 
     // --- Actions ---
     const addNode = (type: CardType) => {
@@ -2149,6 +2158,7 @@ const PipelinePage: React.FC = () => {
 
             <ChatbotPanel
                 activeContext={chatbotContext}
+                workflowQuestionSuggestions={workflowQuestionSuggestions}
                 onApplyPipelineSuggestion={applyPipelineSuggestion}
                 canvasIsEmpty={nodes.length === 0}
                 isPipelineRunning={isRunning}

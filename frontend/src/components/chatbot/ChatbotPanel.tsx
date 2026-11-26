@@ -17,6 +17,7 @@ import {
 import { PipelineSuggestionItem } from "./PipelineSuggestionCard";
 import { getPipelineFailurePresentation } from "./pipelineFailurePresentation";
 import { PlanFailure } from "../pipeline/planning/pipelinePlanner";
+import type { GuidedQuestionChoice, GuidedQuestionSuggestion } from "../pipeline/workflowQuestionSuggestions";
 
 type ChatbotMode = "ask" | "build";
 
@@ -24,6 +25,7 @@ const PLANNING_PROGRESS = "Designing three pipeline options… local models can 
 
 interface ChatbotPanelProps {
     activeContext?: ChatbotContext;
+    workflowQuestionSuggestions?: GuidedQuestionSuggestion[];
     /**
      * Issue #60 Build mode (P60-M1-008), shown only when this is provided. Applies a selected
      * suggestion. The two flags below are read-only projections of PipelinePage's canonical
@@ -55,12 +57,16 @@ const getContextEntries = (context?: ChatbotContext): Array<{ label: string; val
 
 const ChatbotPanel: React.FC<ChatbotPanelProps> = ({
     activeContext,
+    workflowQuestionSuggestions = [],
     onApplyPipelineSuggestion,
     canvasIsEmpty = false,
     isPipelineRunning = false,
     onOpenTemplateLibrary,
 }) => {
     const [input, setInput] = useState("");
+    const [hasGuidedDraft, setHasGuidedDraft] = useState(false);
+    const [activeGuidedSuggestion, setActiveGuidedSuggestion] = useState<GuidedQuestionSuggestion | null>(null);
+    const [guidedScope, setGuidedScope] = useState<Partial<ChatbotContext>>({});
     // Explicit mode (D2): Ask is Q&A only; only "Build a pipeline" plans pipelines. No keyword inference.
     const [mode, setMode] = useState<ChatbotMode>("ask");
     const buildAvailable = Boolean(onApplyPipelineSuggestion);
@@ -70,12 +76,20 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({
     // const [isContextExpanded, setIsContextExpanded] = useState(false);
     
     const contextEntries = useMemo(() => getContextEntries(activeContext), [activeContext]);
+    const guidedSuggestionKey = useMemo(
+        () => workflowQuestionSuggestions.map((suggestion) => `${suggestion.intentId}:${suggestion.choices.map((choice) => choice.id).join(",")}`).join("|"),
+        [workflowQuestionSuggestions]
+    );
     const {
         messages, loading, error, health, healthLoading, healthError,
         refreshLoading, refreshResult, refreshError, localStaleContext,
         sendQuestion, retryLastFailed, clearConversation, refreshHealth, refreshContext, canRetry,
         appendPipelineMessage, updatePipelineSuggestions
-    } = useChatbotState(contextEntries.length > 0 ? activeContext : undefined);
+    } = useChatbotState(
+        contextEntries.length > 0 || Boolean(activeContext?.workflowEvidence?.length)
+            ? activeContext
+            : undefined
+    );
 
     // Build mode: planning needs only the goal and the capability catalog, not an analysis context.
     const planner = usePipelinePlanner();
@@ -135,8 +149,23 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({
             return;
         }
         if (!text || loading) return;
-        await sendQuestion(text);
+        await sendQuestion(text, guidedScope);
         setInput("");
+        setHasGuidedDraft(false);
+        setGuidedScope({});
+        setActiveGuidedSuggestion(null);
+    };
+
+    const chooseGuidedFocus = (suggestion: GuidedQuestionSuggestion, choice: GuidedQuestionChoice) => {
+        setInput(suggestion.buildQuestion(choice));
+        setHasGuidedDraft(true);
+        setGuidedScope(choice.scope ?? {});
+        setActiveGuidedSuggestion(null);
+    };
+
+    const handleComposerChange = (value: string) => {
+        setInput(value);
+        setHasGuidedDraft(false);
     };
 
     const planningFailure =
@@ -161,8 +190,19 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({
     const selectMode = (next: ChatbotMode) => {
         // Leaving Build mode cancels a running plan; a Build result never appears in Ask mode.
         if (next !== "build" && planner.isPlanning) planner.cancel();
+        if (next === "build") {
+            setActiveGuidedSuggestion(null);
+            setGuidedScope({});
+            if (hasGuidedDraft) setInput("");
+            setHasGuidedDraft(false);
+        }
         setMode(next);
     };
+
+    useEffect(() => {
+        setActiveGuidedSuggestion(null);
+        setGuidedScope({});
+    }, [guidedSuggestionKey]);
 
     return (
         <>
@@ -397,6 +437,56 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({
                             )
                         )}
 
+                        {!isBuildMode && !loading && !input.trim() && workflowQuestionSuggestions.length > 0 && (
+                            <section data-testid="workflow-question-suggestions" className="mt-3 rounded-xl border border-cyan-800/30 bg-slate-950/50 p-3 shrink-0">
+                                <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-cyan-300/80">
+                                    Questions for this workflow
+                                </div>
+                                {activeGuidedSuggestion ? (
+                                    <div className="space-y-2">
+                                        <p className="text-xs text-slate-200">{activeGuidedSuggestion.clarifier}</p>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {activeGuidedSuggestion.choices.map((choice) => (
+                                                <button
+                                                    key={choice.id}
+                                                    type="button"
+                                                    data-testid="workflow-question-choice"
+                                                    onClick={() => chooseGuidedFocus(activeGuidedSuggestion, choice)}
+                                                    className="rounded-lg border border-white/10 bg-slate-800/70 px-2.5 py-1.5 text-[11px] text-slate-200 hover:border-cyan-500/40 hover:bg-cyan-950/40"
+                                                >
+                                                    {choice.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setActiveGuidedSuggestion(null)}
+                                            className="text-[10px] text-slate-500 hover:text-slate-300"
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {workflowQuestionSuggestions.map((suggestion) => (
+                                            <button
+                                                key={suggestion.intentId}
+                                                type="button"
+                                                data-testid="workflow-question-suggestion"
+                                                onClick={() => setActiveGuidedSuggestion(suggestion)}
+                                                className="rounded-lg border border-white/10 bg-slate-800/70 px-2.5 py-1.5 text-[11px] text-slate-200 hover:border-cyan-500/40 hover:bg-cyan-950/40"
+                                            >
+                                                {suggestion.title}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                                <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
+                                    Choose a focus to prepare a question. The assistant runs only after you send it.
+                                </p>
+                            </section>
+                        )}
+
                         {planner.isPlanning && (
                             <div data-testid="pipeline-planning-progress" role="status" aria-live="polite" className="flex items-center justify-between gap-3 text-[12px] text-slate-300 bg-slate-800/40 border border-white/5 rounded-lg px-3 py-2 shrink-0">
                                 <span>{PLANNING_PROGRESS}</span>
@@ -587,7 +677,7 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({
                     {/* Message Composer */}
                     <ChatComposer
                         value={input}
-                        onChange={setInput}
+                        onChange={handleComposerChange}
                         onSubmit={onSubmit}
                         disabled={isBuildMode ? false : loading}
                         submitDisabled={isBuildMode && (planner.isPlanning || planningUnavailable)}

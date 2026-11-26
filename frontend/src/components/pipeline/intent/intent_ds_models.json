@@ -1,0 +1,1390 @@
+{
+  "documentType": "aridnova-intent-ds-models",
+  "modelId": "aridnova.intent.inference.ds",
+  "version": "1.0.0",
+  "status": "active-for-suggestion-ranking",
+  "purpose": "Infer one or more likely analysis intents from the cards, directed connections, and configuration in an Aridnova canvas.",
+  "modelingNotes": {
+    "intentMultiplicity": "Intents are modeled independently as binary present/absent hypotheses so a canvas can express multiple simultaneous goals.",
+    "beliefMeaning": "A focal set containing both present and absent represents unresolved evidence, not simultaneous presence and absence.",
+    "openWorld": true,
+    "unknownIntentHandling": "Keep uncommitted mass on the full binary frame when the canvas is incomplete, ambiguous, or does not match known patterns. Do not force a known intent.",
+    "massStatus": "Mass profiles are configured for deterministic suggestion ordering.",
+    "decisionUse": "Only the ordering of deterministic question suggestions is exposed; numeric scores are not shown."
+  },
+  "inputGraphContract": {
+    "connectionsAreDirected": true,
+    "repeatableCardTypes": true,
+    "validConnections": {
+      "SYSTEM_INPUT": [
+        "MULTI_REPO",
+        "COMPONENT_GENERATE",
+        "VISUALIZATION",
+        "CHANGE_IMPACT"
+      ],
+      "MULTI_REPO": [
+        "IR_HOLDER",
+        "FORMAL_VERIFY",
+        "CHANGE_IMPACT"
+      ],
+      "UPLOAD_IR": [
+        "IR_HOLDER"
+      ],
+      "COMPONENT_GENERATE": [
+        "COMPONENT_HOLDER"
+      ],
+      "COMPONENT_HOLDER": [
+        "SCENARIO_GENERATE"
+      ],
+      "IR_HOLDER": [
+        "FORMAL_VERIFY",
+        "VISUALIZATION",
+        "AEGIS",
+        "CHANGE_IMPACT"
+      ],
+      "SCENARIO_GENERATE": [
+        "PROMPT_GENERATE",
+        "VERIFICATION_COMPARISON"
+      ],
+      "PROMPT_GENERATE": [
+        "TEST_GENERATE"
+      ],
+      "TEST_GENERATE": [
+        "TEST_EXECUTOR"
+      ],
+      "TEST_EXECUTOR": [],
+      "FORMAL_VERIFY": [
+        "FORMAL_VIZ",
+        "SCENARIO_GENERATE",
+        "VERIFICATION_COMPARISON",
+        "SECURITY_REGRESSION"
+      ],
+      "VISUALIZATION": [],
+      "AEGIS": [],
+      "FORMAL_VIZ": [],
+      "VERIFICATION_COMPARISON": [],
+      "CHANGE_IMPACT": [
+        "SCENARIO_GENERATE"
+      ],
+      "SECURITY_REGRESSION": [
+        "FORMAL_VIZ"
+      ]
+    }
+  },
+  "beliefModel": {
+    "theory": "Dempster-Shafer",
+    "framePerIntent": [
+      "present",
+      "absent"
+    ],
+    "normalizedMassAssignment": true,
+    "focalSetTemplate": [
+      {
+        "hypotheses": [
+          "present"
+        ],
+        "mass": null
+      },
+      {
+        "hypotheses": [
+          "absent"
+        ],
+        "mass": null
+      },
+      {
+        "hypotheses": [
+          "present",
+          "absent"
+        ],
+        "mass": null
+      }
+    ],
+    "massConstraints": {
+      "eachMassInRange": [
+        0.0,
+        1.0
+      ],
+      "sumPerEvidenceRule": 1.0,
+      "emptySetMass": 0.0,
+      "nullMeans": "uncalibrated and not executable"
+    },
+    "combination": {
+      "rule": "dempster-normalized",
+      "combineOnlyConditionallyIndependentEvidenceGroups": true,
+      "conflictMeasure": "K = sum(m1(A) * m2(B)) for all disjoint focal sets A and B",
+      "highConflictAction": "Return conflict and abstain or request clarification; do not hide high conflict by reporting only normalized scores.",
+      "avoidDoubleCounting": "Treat a matched graph motif as one evidence item. Do not separately combine card presence, its connecting edges, and the same derived motif as if they were independent."
+    },
+    "decisionProjection": {
+      "method": "pignistic",
+      "probabilityForPresent": "BetP(present) = m({present}) + 0.5 * m({present, absent})",
+      "interpretation": "Pignistic projection is used internally to order deterministic question suggestions; numeric values are not shown to users."
+    }
+  },
+  "evidenceSources": [
+    {
+      "id": "graph_motif",
+      "description": "A bound subgraph pattern using card types and directed edges as one evidence item."
+    },
+    {
+      "id": "node_configuration",
+      "description": "Configured repositories, branches, commits, snapshot identifiers, targets, and other card settings."
+    },
+    {
+      "id": "canvas_state",
+      "description": "Whether the canvas is a draft, saved, or explicitly marked complete."
+    },
+    {
+      "id": "user_confirmed_intent",
+      "description": "An explicit user-selected or user-confirmed intent label, when available."
+    }
+  ],
+  "intentModels": [
+    {
+      "intentId": "architecture_reconstruction",
+      "label": "Architecture reconstruction",
+      "description": "Build a system snapshot or IR from configured repositories.",
+      "evidenceRules": [
+        {
+          "id": "generated_snapshot",
+          "source": "graph_motif",
+          "requiredBindings": [
+            {
+              "id": "source",
+              "cardType": "SYSTEM_INPUT"
+            },
+            {
+              "id": "snapshot",
+              "cardType": "MULTI_REPO"
+            },
+            {
+              "id": "ir",
+              "cardType": "IR_HOLDER"
+            }
+          ],
+          "requiredEdges": [
+            [
+              "source",
+              "snapshot"
+            ],
+            [
+              "snapshot",
+              "ir"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "intentId": "snapshot_import",
+      "label": "Load or reuse an existing snapshot",
+      "description": "Import an existing IR into the canvas for downstream analysis.",
+      "evidenceRules": [
+        {
+          "id": "uploaded_snapshot",
+          "source": "graph_motif",
+          "requiredBindings": [
+            {
+              "id": "upload",
+              "cardType": "UPLOAD_IR"
+            },
+            {
+              "id": "ir",
+              "cardType": "IR_HOLDER"
+            }
+          ],
+          "requiredEdges": [
+            [
+              "upload",
+              "ir"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "intentId": "component_extraction",
+      "label": "Component and endpoint extraction",
+      "description": "Extract reusable component or endpoint information from a configured system.",
+      "evidenceRules": [
+        {
+          "id": "components_extracted",
+          "source": "graph_motif",
+          "requiredBindings": [
+            {
+              "id": "source",
+              "cardType": "SYSTEM_INPUT"
+            },
+            {
+              "id": "extractor",
+              "cardType": "COMPONENT_GENERATE"
+            },
+            {
+              "id": "components",
+              "cardType": "COMPONENT_HOLDER"
+            }
+          ],
+          "requiredEdges": [
+            [
+              "source",
+              "extractor"
+            ],
+            [
+              "extractor",
+              "components"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "intentId": "architecture_visualization",
+      "label": "Architecture visualization",
+      "description": "Visualize a system topology or dependency graph.",
+      "evidenceRules": [
+        {
+          "id": "ir_visualized",
+          "source": "graph_motif",
+          "requiredBindings": [
+            {
+              "id": "ir",
+              "cardType": "IR_HOLDER"
+            },
+            {
+              "id": "visualization",
+              "cardType": "VISUALIZATION"
+            }
+          ],
+          "requiredEdges": [
+            [
+              "ir",
+              "visualization"
+            ]
+          ]
+        },
+        {
+          "id": "source_visualized",
+          "source": "graph_motif",
+          "requiredBindings": [
+            {
+              "id": "source",
+              "cardType": "SYSTEM_INPUT"
+            },
+            {
+              "id": "visualization",
+              "cardType": "VISUALIZATION"
+            }
+          ],
+          "requiredEdges": [
+            [
+              "source",
+              "visualization"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "intentId": "formal_policy_verification",
+      "label": "Formal authorization policy verification",
+      "description": "Check system authorization or consistency constraints using formal verification.",
+      "evidenceRules": [
+        {
+          "id": "ir_formally_verified",
+          "source": "graph_motif",
+          "requiredBindings": [
+            {
+              "id": "ir",
+              "cardType": "IR_HOLDER"
+            },
+            {
+              "id": "verification",
+              "cardType": "FORMAL_VERIFY"
+            }
+          ],
+          "requiredEdges": [
+            [
+              "ir",
+              "verification"
+            ]
+          ]
+        },
+        {
+          "id": "snapshot_formally_verified",
+          "source": "graph_motif",
+          "requiredBindings": [
+            {
+              "id": "snapshot",
+              "cardType": "MULTI_REPO"
+            },
+            {
+              "id": "verification",
+              "cardType": "FORMAL_VERIFY"
+            }
+          ],
+          "requiredEdges": [
+            [
+              "snapshot",
+              "verification"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "intentId": "formal_results_visualization",
+      "label": "Formal verification results review",
+      "description": "Display formal verification findings or policy drift results.",
+      "evidenceRules": [
+        {
+          "id": "formal_results_visualized",
+          "source": "graph_motif",
+          "requiredBindings": [
+            {
+              "id": "verification",
+              "cardType": "FORMAL_VERIFY"
+            },
+            {
+              "id": "visualization",
+              "cardType": "FORMAL_VIZ"
+            }
+          ],
+          "requiredEdges": [
+            [
+              "verification",
+              "visualization"
+            ]
+          ]
+        },
+        {
+          "id": "drift_results_visualized",
+          "source": "graph_motif",
+          "requiredBindings": [
+            {
+              "id": "drift",
+              "cardType": "SECURITY_REGRESSION"
+            },
+            {
+              "id": "visualization",
+              "cardType": "FORMAL_VIZ"
+            }
+          ],
+          "requiredEdges": [
+            [
+              "drift",
+              "visualization"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "intentId": "latent_risk_assessment",
+      "label": "Latent vulnerability risk assessment",
+      "description": "Use Aegis to assess or rank potential latent security risks.",
+      "evidenceRules": [
+        {
+          "id": "ir_assessed_by_aegis",
+          "source": "graph_motif",
+          "requiredBindings": [
+            {
+              "id": "ir",
+              "cardType": "IR_HOLDER"
+            },
+            {
+              "id": "aegis",
+              "cardType": "AEGIS"
+            }
+          ],
+          "requiredEdges": [
+            [
+              "ir",
+              "aegis"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "intentId": "change_impact_analysis",
+      "label": "Change impact analysis",
+      "description": "Analyze architectural or security effects of changes, especially across versions.",
+      "evidenceRules": [
+        {
+          "id": "change_input",
+          "source": "graph_motif",
+          "requiredCardTypesAnyOf": [
+            "SYSTEM_INPUT",
+            "MULTI_REPO",
+            "IR_HOLDER"
+          ],
+          "targetCardType": "CHANGE_IMPACT",
+          "requiredEdge": true
+        },
+        {
+          "id": "two_version_change_comparison",
+          "source": "node_configuration",
+          "requiredConfiguration": [
+            "two distinct snapshot or version references"
+          ],
+          "note": "Stronger evidence when both versions are explicit; the current card-edge rules do not define baseline/current input roles."
+        }
+      ]
+    },
+    {
+      "intentId": "policy_drift_comparison",
+      "label": "Policy drift comparison",
+      "description": "Compare formal policy verification results from two system versions.",
+      "evidenceRules": [
+        {
+          "id": "two_verifications_converge_on_drift",
+          "source": "graph_motif",
+          "requiredBindings": [
+            {
+              "id": "verification1",
+              "cardType": "FORMAL_VERIFY"
+            },
+            {
+              "id": "verification2",
+              "cardType": "FORMAL_VERIFY",
+              "distinctFrom": "verification1"
+            },
+            {
+              "id": "drift",
+              "cardType": "SECURITY_REGRESSION"
+            }
+          ],
+          "requiredEdges": [
+            [
+              "verification1",
+              "drift"
+            ],
+            [
+              "verification2",
+              "drift"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "intentId": "security_scenario_generation",
+      "label": "Security scenario generation",
+      "description": "Generate security or RBAC scenarios from components, formal findings, and/or change impact.",
+      "evidenceRules": [
+        {
+          "id": "component_driven_scenarios",
+          "source": "graph_motif",
+          "requiredBindings": [
+            {
+              "id": "components",
+              "cardType": "COMPONENT_HOLDER"
+            },
+            {
+              "id": "scenarios",
+              "cardType": "SCENARIO_GENERATE"
+            }
+          ],
+          "requiredEdges": [
+            [
+              "components",
+              "scenarios"
+            ]
+          ]
+        },
+        {
+          "id": "formal_guided_scenarios",
+          "source": "graph_motif",
+          "requiredBindings": [
+            {
+              "id": "verification",
+              "cardType": "FORMAL_VERIFY"
+            },
+            {
+              "id": "scenarios",
+              "cardType": "SCENARIO_GENERATE"
+            }
+          ],
+          "requiredEdges": [
+            [
+              "verification",
+              "scenarios"
+            ]
+          ]
+        },
+        {
+          "id": "impact_guided_scenarios",
+          "source": "graph_motif",
+          "requiredBindings": [
+            {
+              "id": "impact",
+              "cardType": "CHANGE_IMPACT"
+            },
+            {
+              "id": "scenarios",
+              "cardType": "SCENARIO_GENERATE"
+            }
+          ],
+          "requiredEdges": [
+            [
+              "impact",
+              "scenarios"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "intentId": "verification_scenario_comparison",
+      "label": "Formal verification and scenario comparison",
+      "description": "Compare formal findings with generated scenarios for agreement, inconsistencies, or coverage gaps.",
+      "evidenceRules": [
+        {
+          "id": "formal_and_scenario_results_compared",
+          "source": "graph_motif",
+          "requiredBindings": [
+            {
+              "id": "verification",
+              "cardType": "FORMAL_VERIFY"
+            },
+            {
+              "id": "scenarios",
+              "cardType": "SCENARIO_GENERATE"
+            },
+            {
+              "id": "comparison",
+              "cardType": "VERIFICATION_COMPARISON"
+            }
+          ],
+          "requiredEdges": [
+            [
+              "verification",
+              "comparison"
+            ],
+            [
+              "scenarios",
+              "comparison"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "intentId": "llm_prompt_preparation",
+      "label": "LLM prompt preparation",
+      "description": "Turn generated scenarios into structured prompts for test generation.",
+      "evidenceRules": [
+        {
+          "id": "scenario_prompt",
+          "source": "graph_motif",
+          "requiredBindings": [
+            {
+              "id": "scenarios",
+              "cardType": "SCENARIO_GENERATE"
+            },
+            {
+              "id": "prompt",
+              "cardType": "PROMPT_GENERATE"
+            }
+          ],
+          "requiredEdges": [
+            [
+              "scenarios",
+              "prompt"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "intentId": "test_suite_generation",
+      "label": "Executable test suite generation",
+      "description": "Generate tests from prompts and scenarios.",
+      "evidenceRules": [
+        {
+          "id": "prompt_test_suite",
+          "source": "graph_motif",
+          "requiredBindings": [
+            {
+              "id": "prompt",
+              "cardType": "PROMPT_GENERATE"
+            },
+            {
+              "id": "testSuite",
+              "cardType": "TEST_GENERATE"
+            }
+          ],
+          "requiredEdges": [
+            [
+              "prompt",
+              "testSuite"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "intentId": "test_execution",
+      "label": "Generated test execution",
+      "description": "Configure and run a generated test suite.",
+      "evidenceRules": [
+        {
+          "id": "test_suite_executed",
+          "source": "graph_motif",
+          "requiredBindings": [
+            {
+              "id": "testSuite",
+              "cardType": "TEST_GENERATE"
+            },
+            {
+              "id": "executor",
+              "cardType": "TEST_EXECUTOR"
+            }
+          ],
+          "requiredEdges": [
+            [
+              "testSuite",
+              "executor"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "intentId": "impact_guided_regression_testing",
+      "label": "Impact-guided authorization regression testing",
+      "description": "Use change impact and component information to generate and execute focused regression tests.",
+      "evidenceRules": [
+        {
+          "id": "impact_components_to_executed_tests",
+          "source": "graph_motif",
+          "requiredBindings": [
+            {
+              "id": "impact",
+              "cardType": "CHANGE_IMPACT"
+            },
+            {
+              "id": "components",
+              "cardType": "COMPONENT_HOLDER"
+            },
+            {
+              "id": "scenarios",
+              "cardType": "SCENARIO_GENERATE"
+            },
+            {
+              "id": "prompt",
+              "cardType": "PROMPT_GENERATE"
+            },
+            {
+              "id": "testSuite",
+              "cardType": "TEST_GENERATE"
+            },
+            {
+              "id": "executor",
+              "cardType": "TEST_EXECUTOR"
+            }
+          ],
+          "requiredEdges": [
+            [
+              "impact",
+              "scenarios"
+            ],
+            [
+              "components",
+              "scenarios"
+            ],
+            [
+              "scenarios",
+              "prompt"
+            ],
+            [
+              "prompt",
+              "testSuite"
+            ],
+            [
+              "testSuite",
+              "executor"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "intentId": "parallel_integrated_assurance",
+      "label": "Parallel multi-analysis assurance",
+      "description": "Run multiple distinct analyses from a shared system representation.",
+      "evidenceRules": [
+        {
+          "id": "shared_ir_fans_out",
+          "source": "graph_motif",
+          "minimumDistinctAnalysisBranchesFromSameIR": 2,
+          "analysisCardTypes": [
+            "FORMAL_VERIFY",
+            "AEGIS",
+            "CHANGE_IMPACT",
+            "VISUALIZATION"
+          ],
+          "note": "This indicates parallel analyses. The current graph has no general result-fusion card that consumes all these outputs."
+        }
+      ]
+    }
+  ],
+  "calibration": {
+    "status": "configured-for-suggestion-ranking",
+    "massAssignmentTemplateAppliesTo": "Each evidence rule within each binary intent model.",
+    "trainingLabels": "Collect user-confirmed intent labels for saved canvases; preserve multiple labels when the canvas serves multiple goals.",
+    "templateExamples": "The authored workflow templates can seed structural examples, but should not be treated as representative user-behavior frequencies.",
+    "validation": [
+      "Evaluate each intent model on held-out workflows.",
+      "Check calibration of pignistic scores, not only top-ranked intent accuracy.",
+      "Report belief, plausibility, conflict, and the pignistic ranking.",
+      "Use a separate holdout split by project or user when possible."
+    ],
+    "unknownAndAbstention": {
+      "incompleteCanvas": "Missing cards do not count as negative evidence; assign uncommitted mass.",
+      "completedCanvas": "Absence may be used as negative evidence only after it is calibrated.",
+      "highConflict": "Return an ambiguous result or ask for clarification."
+    }
+  },
+  "massProfiles": [
+    {
+      "id": "architecture_reconstruction__generated_snapshot",
+      "intentId": "architecture_reconstruction",
+      "evidenceGroup": "workflow_graph_pattern",
+      "requiredEvidenceRuleIds": [
+        "generated_snapshot"
+      ],
+      "masses": [
+        {
+          "hypotheses": [
+            "present"
+          ],
+          "mass": 0.74
+        },
+        {
+          "hypotheses": [
+            "absent"
+          ],
+          "mass": 0.04
+        },
+        {
+          "hypotheses": [
+            "present",
+            "absent"
+          ],
+          "mass": 0.22
+        }
+      ]
+    },
+    {
+      "id": "snapshot_import__uploaded_snapshot",
+      "intentId": "snapshot_import",
+      "evidenceGroup": "workflow_graph_pattern",
+      "requiredEvidenceRuleIds": [
+        "uploaded_snapshot"
+      ],
+      "masses": [
+        {
+          "hypotheses": [
+            "present"
+          ],
+          "mass": 0.82
+        },
+        {
+          "hypotheses": [
+            "absent"
+          ],
+          "mass": 0.03
+        },
+        {
+          "hypotheses": [
+            "present",
+            "absent"
+          ],
+          "mass": 0.15
+        }
+      ]
+    },
+    {
+      "id": "component_extraction__components_extracted",
+      "intentId": "component_extraction",
+      "evidenceGroup": "workflow_graph_pattern",
+      "requiredEvidenceRuleIds": [
+        "components_extracted"
+      ],
+      "masses": [
+        {
+          "hypotheses": [
+            "present"
+          ],
+          "mass": 0.84
+        },
+        {
+          "hypotheses": [
+            "absent"
+          ],
+          "mass": 0.03
+        },
+        {
+          "hypotheses": [
+            "present",
+            "absent"
+          ],
+          "mass": 0.13
+        }
+      ]
+    },
+    {
+      "id": "architecture_visualization__ir_visualized",
+      "intentId": "architecture_visualization",
+      "evidenceGroup": "workflow_graph_pattern",
+      "requiredEvidenceRuleIds": [
+        "ir_visualized"
+      ],
+      "masses": [
+        {
+          "hypotheses": [
+            "present"
+          ],
+          "mass": 0.8
+        },
+        {
+          "hypotheses": [
+            "absent"
+          ],
+          "mass": 0.03
+        },
+        {
+          "hypotheses": [
+            "present",
+            "absent"
+          ],
+          "mass": 0.17
+        }
+      ]
+    },
+    {
+      "id": "architecture_visualization__source_visualized",
+      "intentId": "architecture_visualization",
+      "evidenceGroup": "workflow_graph_pattern",
+      "requiredEvidenceRuleIds": [
+        "source_visualized"
+      ],
+      "masses": [
+        {
+          "hypotheses": [
+            "present"
+          ],
+          "mass": 0.8
+        },
+        {
+          "hypotheses": [
+            "absent"
+          ],
+          "mass": 0.03
+        },
+        {
+          "hypotheses": [
+            "present",
+            "absent"
+          ],
+          "mass": 0.17
+        }
+      ]
+    },
+    {
+      "id": "formal_policy_verification__ir_formally_verified",
+      "intentId": "formal_policy_verification",
+      "evidenceGroup": "workflow_graph_pattern",
+      "requiredEvidenceRuleIds": [
+        "ir_formally_verified"
+      ],
+      "masses": [
+        {
+          "hypotheses": [
+            "present"
+          ],
+          "mass": 0.82
+        },
+        {
+          "hypotheses": [
+            "absent"
+          ],
+          "mass": 0.03
+        },
+        {
+          "hypotheses": [
+            "present",
+            "absent"
+          ],
+          "mass": 0.15
+        }
+      ]
+    },
+    {
+      "id": "formal_policy_verification__snapshot_formally_verified",
+      "intentId": "formal_policy_verification",
+      "evidenceGroup": "workflow_graph_pattern",
+      "requiredEvidenceRuleIds": [
+        "snapshot_formally_verified"
+      ],
+      "masses": [
+        {
+          "hypotheses": [
+            "present"
+          ],
+          "mass": 0.82
+        },
+        {
+          "hypotheses": [
+            "absent"
+          ],
+          "mass": 0.03
+        },
+        {
+          "hypotheses": [
+            "present",
+            "absent"
+          ],
+          "mass": 0.15
+        }
+      ]
+    },
+    {
+      "id": "formal_results_visualization__formal_results_visualized",
+      "intentId": "formal_results_visualization",
+      "evidenceGroup": "workflow_graph_pattern",
+      "requiredEvidenceRuleIds": [
+        "formal_results_visualized"
+      ],
+      "masses": [
+        {
+          "hypotheses": [
+            "present"
+          ],
+          "mass": 0.84
+        },
+        {
+          "hypotheses": [
+            "absent"
+          ],
+          "mass": 0.03
+        },
+        {
+          "hypotheses": [
+            "present",
+            "absent"
+          ],
+          "mass": 0.13
+        }
+      ]
+    },
+    {
+      "id": "formal_results_visualization__drift_results_visualized",
+      "intentId": "formal_results_visualization",
+      "evidenceGroup": "workflow_graph_pattern",
+      "requiredEvidenceRuleIds": [
+        "drift_results_visualized"
+      ],
+      "masses": [
+        {
+          "hypotheses": [
+            "present"
+          ],
+          "mass": 0.84
+        },
+        {
+          "hypotheses": [
+            "absent"
+          ],
+          "mass": 0.03
+        },
+        {
+          "hypotheses": [
+            "present",
+            "absent"
+          ],
+          "mass": 0.13
+        }
+      ]
+    },
+    {
+      "id": "latent_risk_assessment__ir_assessed_by_aegis",
+      "intentId": "latent_risk_assessment",
+      "evidenceGroup": "workflow_graph_pattern",
+      "requiredEvidenceRuleIds": [
+        "ir_assessed_by_aegis"
+      ],
+      "masses": [
+        {
+          "hypotheses": [
+            "present"
+          ],
+          "mass": 0.78
+        },
+        {
+          "hypotheses": [
+            "absent"
+          ],
+          "mass": 0.04
+        },
+        {
+          "hypotheses": [
+            "present",
+            "absent"
+          ],
+          "mass": 0.18
+        }
+      ]
+    },
+    {
+      "id": "change_impact_analysis__change_input",
+      "intentId": "change_impact_analysis",
+      "evidenceGroup": "workflow_graph_pattern",
+      "requiredEvidenceRuleIds": [
+        "change_input"
+      ],
+      "masses": [
+        {
+          "hypotheses": [
+            "present"
+          ],
+          "mass": 0.79
+        },
+        {
+          "hypotheses": [
+            "absent"
+          ],
+          "mass": 0.04
+        },
+        {
+          "hypotheses": [
+            "present",
+            "absent"
+          ],
+          "mass": 0.17
+        }
+      ]
+    },
+    {
+      "id": "policy_drift_comparison__two_verifications_converge_on_drift",
+      "intentId": "policy_drift_comparison",
+      "evidenceGroup": "workflow_graph_pattern",
+      "requiredEvidenceRuleIds": [
+        "two_verifications_converge_on_drift"
+      ],
+      "masses": [
+        {
+          "hypotheses": [
+            "present"
+          ],
+          "mass": 0.9
+        },
+        {
+          "hypotheses": [
+            "absent"
+          ],
+          "mass": 0.02
+        },
+        {
+          "hypotheses": [
+            "present",
+            "absent"
+          ],
+          "mass": 0.08
+        }
+      ]
+    },
+    {
+      "id": "security_scenario_generation__component_driven_scenarios",
+      "intentId": "security_scenario_generation",
+      "evidenceGroup": "workflow_graph_pattern",
+      "requiredEvidenceRuleIds": [
+        "component_driven_scenarios"
+      ],
+      "masses": [
+        {
+          "hypotheses": [
+            "present"
+          ],
+          "mass": 0.78
+        },
+        {
+          "hypotheses": [
+            "absent"
+          ],
+          "mass": 0.04
+        },
+        {
+          "hypotheses": [
+            "present",
+            "absent"
+          ],
+          "mass": 0.18
+        }
+      ]
+    },
+    {
+      "id": "security_scenario_generation__formal_guided_scenarios",
+      "intentId": "security_scenario_generation",
+      "evidenceGroup": "workflow_graph_pattern",
+      "requiredEvidenceRuleIds": [
+        "formal_guided_scenarios"
+      ],
+      "masses": [
+        {
+          "hypotheses": [
+            "present"
+          ],
+          "mass": 0.78
+        },
+        {
+          "hypotheses": [
+            "absent"
+          ],
+          "mass": 0.04
+        },
+        {
+          "hypotheses": [
+            "present",
+            "absent"
+          ],
+          "mass": 0.18
+        }
+      ]
+    },
+    {
+      "id": "security_scenario_generation__impact_guided_scenarios",
+      "intentId": "security_scenario_generation",
+      "evidenceGroup": "workflow_graph_pattern",
+      "requiredEvidenceRuleIds": [
+        "impact_guided_scenarios"
+      ],
+      "masses": [
+        {
+          "hypotheses": [
+            "present"
+          ],
+          "mass": 0.78
+        },
+        {
+          "hypotheses": [
+            "absent"
+          ],
+          "mass": 0.04
+        },
+        {
+          "hypotheses": [
+            "present",
+            "absent"
+          ],
+          "mass": 0.18
+        }
+      ]
+    },
+    {
+      "id": "verification_scenario_comparison__formal_and_scenario_results_compared",
+      "intentId": "verification_scenario_comparison",
+      "evidenceGroup": "workflow_graph_pattern",
+      "requiredEvidenceRuleIds": [
+        "formal_and_scenario_results_compared"
+      ],
+      "masses": [
+        {
+          "hypotheses": [
+            "present"
+          ],
+          "mass": 0.87
+        },
+        {
+          "hypotheses": [
+            "absent"
+          ],
+          "mass": 0.02
+        },
+        {
+          "hypotheses": [
+            "present",
+            "absent"
+          ],
+          "mass": 0.11
+        }
+      ]
+    },
+    {
+      "id": "llm_prompt_preparation__scenario_prompt",
+      "intentId": "llm_prompt_preparation",
+      "evidenceGroup": "workflow_graph_pattern",
+      "requiredEvidenceRuleIds": [
+        "scenario_prompt"
+      ],
+      "masses": [
+        {
+          "hypotheses": [
+            "present"
+          ],
+          "mass": 0.76
+        },
+        {
+          "hypotheses": [
+            "absent"
+          ],
+          "mass": 0.04
+        },
+        {
+          "hypotheses": [
+            "present",
+            "absent"
+          ],
+          "mass": 0.2
+        }
+      ]
+    },
+    {
+      "id": "test_suite_generation__prompt_test_suite",
+      "intentId": "test_suite_generation",
+      "evidenceGroup": "workflow_graph_pattern",
+      "requiredEvidenceRuleIds": [
+        "prompt_test_suite"
+      ],
+      "masses": [
+        {
+          "hypotheses": [
+            "present"
+          ],
+          "mass": 0.82
+        },
+        {
+          "hypotheses": [
+            "absent"
+          ],
+          "mass": 0.03
+        },
+        {
+          "hypotheses": [
+            "present",
+            "absent"
+          ],
+          "mass": 0.15
+        }
+      ]
+    },
+    {
+      "id": "test_execution__test_suite_executed",
+      "intentId": "test_execution",
+      "evidenceGroup": "workflow_graph_pattern",
+      "requiredEvidenceRuleIds": [
+        "test_suite_executed"
+      ],
+      "masses": [
+        {
+          "hypotheses": [
+            "present"
+          ],
+          "mass": 0.84
+        },
+        {
+          "hypotheses": [
+            "absent"
+          ],
+          "mass": 0.03
+        },
+        {
+          "hypotheses": [
+            "present",
+            "absent"
+          ],
+          "mass": 0.13
+        }
+      ]
+    },
+    {
+      "id": "impact_guided_regression_testing__impact_components_to_executed_tests",
+      "intentId": "impact_guided_regression_testing",
+      "evidenceGroup": "workflow_graph_pattern",
+      "requiredEvidenceRuleIds": [
+        "impact_components_to_executed_tests"
+      ],
+      "masses": [
+        {
+          "hypotheses": [
+            "present"
+          ],
+          "mass": 0.92
+        },
+        {
+          "hypotheses": [
+            "absent"
+          ],
+          "mass": 0.02
+        },
+        {
+          "hypotheses": [
+            "present",
+            "absent"
+          ],
+          "mass": 0.06
+        }
+      ]
+    },
+    {
+      "id": "parallel_integrated_assurance__shared_ir_fans_out",
+      "intentId": "parallel_integrated_assurance",
+      "evidenceGroup": "workflow_graph_pattern",
+      "requiredEvidenceRuleIds": [
+        "shared_ir_fans_out"
+      ],
+      "masses": [
+        {
+          "hypotheses": [
+            "present"
+          ],
+          "mass": 0.86
+        },
+        {
+          "hypotheses": [
+            "absent"
+          ],
+          "mass": 0.03
+        },
+        {
+          "hypotheses": [
+            "present",
+            "absent"
+          ],
+          "mass": 0.11
+        }
+      ]
+    },
+    {
+      "id": "change_impact_analysis__two_version_comparison",
+      "intentId": "change_impact_analysis",
+      "evidenceGroup": "workflow_graph_pattern",
+      "requiredEvidenceRuleIds": [
+        "change_input",
+        "two_version_change_comparison"
+      ],
+      "masses": [
+        {
+          "hypotheses": [
+            "present"
+          ],
+          "mass": 0.91
+        },
+        {
+          "hypotheses": [
+            "absent"
+          ],
+          "mass": 0.02
+        },
+        {
+          "hypotheses": [
+            "present",
+            "absent"
+          ],
+          "mass": 0.07
+        }
+      ]
+    }
+  ]
+}
