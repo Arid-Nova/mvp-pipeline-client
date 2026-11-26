@@ -402,7 +402,7 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({
                                 </div>
                             </div>
                         ) : messages.length === 0 ? (
-                            <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-4">
+                            <div className="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-4">
                                 <div className="w-14 h-14 rounded-full bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700/50 shadow-[0_0_20px_rgba(34,211,238,0.05)] flex items-center justify-center text-cyan-500/70 mb-1">
                                     <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -438,13 +438,30 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({
                         )}
 
                         {!isBuildMode && !loading && !input.trim() && workflowQuestionSuggestions.length > 0 && (
-                            <section data-testid="workflow-question-suggestions" className="mt-3 rounded-xl border border-cyan-800/30 bg-slate-950/50 p-3 shrink-0">
-                                <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-cyan-300/80">
-                                    Questions for this workflow
+                            <section
+                                data-testid="workflow-question-suggestions"
+                                className="mt-2 rounded-xl border border-cyan-500/20 bg-slate-950/50 p-3.5 shrink-0"
+                            >
+                                <div className="mb-2.5 flex items-center justify-between gap-2">
+                                    <div className="text-[10px] font-bold uppercase tracking-wider text-cyan-300/80">
+                                        Questions for this workflow
+                                    </div>
+                                    {activeGuidedSuggestion && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setActiveGuidedSuggestion(null)}
+                                            className="text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-slate-200 transition-colors"
+                                        >
+                                            Cancel
+                                        </button>
+                                    )}
                                 </div>
+
                                 {activeGuidedSuggestion ? (
                                     <div className="space-y-2">
-                                        <p className="text-xs text-slate-200">{activeGuidedSuggestion.clarifier}</p>
+                                        <p className="text-xs text-slate-200 leading-relaxed">
+                                            {activeGuidedSuggestion.clarifier}
+                                        </p>
                                         <div className="flex flex-wrap gap-1.5">
                                             {activeGuidedSuggestion.choices.map((choice) => (
                                                 <button
@@ -452,19 +469,12 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({
                                                     type="button"
                                                     data-testid="workflow-question-choice"
                                                     onClick={() => chooseGuidedFocus(activeGuidedSuggestion, choice)}
-                                                    className="rounded-lg border border-white/10 bg-slate-800/70 px-2.5 py-1.5 text-[11px] text-slate-200 hover:border-cyan-500/40 hover:bg-cyan-950/40"
+                                                    className="rounded-lg border border-white/10 bg-slate-800/60 px-2.5 py-1.5 text-left text-[11px] font-medium text-slate-200 hover:border-cyan-500/40 hover:bg-cyan-950/40 hover:text-cyan-200 transition-all duration-200"
                                                 >
                                                     {choice.label}
                                                 </button>
                                             ))}
                                         </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => setActiveGuidedSuggestion(null)}
-                                            className="text-[10px] text-slate-500 hover:text-slate-300"
-                                        >
-                                            Cancel
-                                        </button>
                                     </div>
                                 ) : (
                                     <div className="flex flex-wrap gap-1.5">
@@ -474,14 +484,15 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({
                                                 type="button"
                                                 data-testid="workflow-question-suggestion"
                                                 onClick={() => setActiveGuidedSuggestion(suggestion)}
-                                                className="rounded-lg border border-white/10 bg-slate-800/70 px-2.5 py-1.5 text-[11px] text-slate-200 hover:border-cyan-500/40 hover:bg-cyan-950/40"
+                                                className="rounded-lg border border-white/10 bg-slate-800/60 px-2.5 py-1.5 text-left text-[11px] font-medium text-slate-200 hover:border-cyan-500/40 hover:bg-cyan-950/40 hover:text-cyan-200 transition-all duration-200"
                                             >
                                                 {suggestion.title}
                                             </button>
                                         ))}
                                     </div>
                                 )}
-                                <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
+
+                                <p className="mt-2.5 text-[10px] leading-relaxed text-slate-500">
                                     Choose a focus to prepare a question. The assistant runs only after you send it.
                                 </p>
                             </section>

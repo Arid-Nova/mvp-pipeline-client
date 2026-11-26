@@ -586,7 +586,7 @@ const normalizeChatbotError = (error: any): string => {
                 : "";
 
     if (error?.response?.status === 503) {
-        return backendMessage || "Chatbot runtime is currently unavailable. Please ensure the local model runtime is running.";
+        return backendMessage || "Chatbot is currently unavailable. Please ensure the local model is running.";
     }
     if (error?.response?.status === 400) {
         return backendMessage || "Invalid chatbot request. Please check your question and context.";

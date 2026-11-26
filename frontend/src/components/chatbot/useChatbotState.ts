@@ -261,7 +261,7 @@ export const useChatbotState = (activeContext?: ChatbotContext) => {
                             processingTimeMs: 0,
                             model: health?.model || "unknown",
                             provider: health?.provider || "unknown",
-                            confidenceRationale: "Chatbot runtime is currently unavailable.",
+                            confidenceRationale: "Chatbot is currently unavailable.",
                             confidenceReasons: ["provider_unavailable"]
                         }
                     }
