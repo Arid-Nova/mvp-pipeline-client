@@ -18,6 +18,7 @@
 #   /api/repo/*             -> repohandler :8020
 #   /api/user/*             -> usermanager :8100
 #   /api/chatbot/*          -> chatbot :8081
+#   /api/slm/*              -> slm-backend :8071 (pipeline summaries)
 #   /aegis-ui/*             -> aegis_dashboard :5600 (Flask UI, served as HTML)
 
 {$DEMO_DOMAIN} {
@@ -61,11 +62,14 @@
 	handle_path /api/chatbot/* {
 		reverse_proxy chatbot:8081
 	}
+	handle_path /api/slm/* {
+		reverse_proxy slm-backend:8071
+	}
 	handle_path /aegis-ui/* {
 		reverse_proxy aegis_dashboard:5600
 	}
 
-	# Everything else -> frontend static bundle (http-server on :3000)
+	# Everything else -> frontend static bundle (serve -s on :3000)
 	handle {
 		reverse_proxy frontend:3000
 	}

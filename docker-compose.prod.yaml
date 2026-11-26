@@ -86,12 +86,22 @@ services:
     environment:
       MONGO_DB: aridnova_system
 
-  # New in development. No public ports; no Caddy route yet.
+  # CI/CD pipeline API (#148). Not started on the VM: exposing it publicly needs
+  # DNS for api.aridnova.net, a Caddy route and an auth review first. To run it:
+  #   docker compose --profile ci-api up -d coordinator
   coordinator:
     ports: !reset []
+    profiles:
+      - ci-api
 
+  # Pipeline summaries (#114), reached through Caddy at /api/slm. Ollama does not
+  # run on the VM, so use the Azure gpt-5-mini deployment the other services use.
   slm-backend:
     ports: !reset []
+    environment:
+      USE_EXTERNAL_SLM: "true"
+      EXTERNAL_API_KEY: ${OPENAI_API_KEY}
+      EXTERNAL_MODEL_NAME: ${OPENAI_API_MODEL:-gpt-5-mini}
 
   mariadb:
     ports: !reset []

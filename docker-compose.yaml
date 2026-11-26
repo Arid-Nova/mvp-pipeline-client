@@ -150,7 +150,8 @@ services:
     environment:
       PYTHONUNBUFFERED: 1
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
-      IR_SERVICE_URL: ${IR_SERVICE_URL:-http://cloudhub_backend:8080/ir/create}
+      # Service name, not container name: Tomcat rejects Host headers containing "_".
+      IR_SERVICE_URL: ${IR_SERVICE_URL:-http://backend:8080/ir/create}
     networks:
       - app_network
     volumes:
@@ -160,7 +161,8 @@ services:
       mongodb:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      # python:slim images ship without curl or wget.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9000/health', timeout=4)"]
       interval: 15s      
       timeout: 5s        
       retries: 3        
@@ -208,7 +210,8 @@ services:
         condition: service_healthy
     restart: always
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8050/health"]
+      # python:slim images ship without curl or wget.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8050/health', timeout=4)"]
       interval: 15s      
       timeout: 5s        
       retries: 3        
@@ -239,7 +242,8 @@ services:
       mongodb:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8040/health"]
+      # python:slim images ship without curl or wget.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8040/health', timeout=4)"]
       interval: 15s      
       timeout: 5s        
       retries: 3        
@@ -264,7 +268,8 @@ services:
       - app_network
     restart: always
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8030/health"]
+      # python:slim images ship without curl or wget.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8030/health', timeout=4)"]
       interval: 15s      
       timeout: 5s        
       retries: 3        
@@ -409,7 +414,8 @@ services:
       mongodb:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8020/health"]
+      # python:slim images ship without curl or wget.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8020/health', timeout=4)"]
       interval: 15s      
       timeout: 5s        
       retries: 3        
@@ -489,7 +495,8 @@ services:
       mongodb:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8100/health"]
+      # python:slim images ship without curl or wget.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8100/health', timeout=4)"]
       interval: 15s      
       timeout: 5s        
       retries: 3        
@@ -509,7 +516,8 @@ services:
     #   ollama:
     #     condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8071/health"]
+      # python:slim images ship without curl or wget.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8071/health', timeout=4)"]
       interval: 15s      
       timeout: 5s        
       retries: 3        
