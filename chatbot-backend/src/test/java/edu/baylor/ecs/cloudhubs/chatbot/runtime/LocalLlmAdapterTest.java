@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.net.ConnectException;
 import java.net.SocketTimeoutException;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -151,6 +152,79 @@ class LocalLlmAdapterTest {
         assertThatThrownBy(() -> providerErrorAdapter.generate(prompt, config))
             .isInstanceOf(LocalLlmException.class)
             .satisfies(ex -> assertThat(((LocalLlmException) ex).getCode()).isEqualTo(LocalLlmFailureCode.PROVIDER_ERROR));
+    }
+
+    @Test
+    void sendsJsonModeAndContextWindowForAnIntentSelectionPrompt() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
+        OllamaLocalLlmAdapter adapter = new OllamaLocalLlmAdapter(objectMapper, timeout -> restTemplate);
+
+        ChatbotConfig config = config(ChatbotConfig.Provider.OLLAMA, "http://ollama:11434");
+        config.setMaxTokens(512);
+        config.setTemperature(0.4);
+        ChatbotPrompt prompt = new ChatbotPrompt("Choose analyses.", "Analysis goal: \"x\"", List.of(), true, 4096);
+
+        server.expect(requestTo("http://ollama:11434/api/chat"))
+            .andExpect(method(HttpMethod.POST))
+            .andExpect(content().json("""
+                {
+                  "model": "llama3.2",
+                  "stream": false,
+                  "format": "json",
+                  "messages": [
+                    {"role":"system","content":"Choose analyses."},
+                    {"role":"user","content":"Analysis goal: \\"x\\""}
+                  ],
+                  "options": {"temperature": 0.4, "num_predict": 512, "num_ctx": 4096}
+                }
+                """, true))
+            .andRespond(withSuccess("""
+                {"model":"llama3.2","message":{"role":"assistant","content":"{\\"options\\":[]}"},"done_reason":"stop"}
+                """, MediaType.APPLICATION_JSON));
+
+        LocalLlmResult result = adapter.generate(prompt, config);
+
+        assertThat(result.getText()).isEqualTo("{\"options\":[]}");
+        server.verify();
+    }
+
+    @Test
+    void keepsTheQaOllamaPayloadUnchanged() {
+        OllamaLocalLlmAdapter adapter = new OllamaLocalLlmAdapter(objectMapper, timeout -> new RestTemplate());
+        ChatbotConfig config = config(ChatbotConfig.Provider.OLLAMA, "http://ollama:11434");
+
+        Map<String, Object> payload = adapter.buildPayload(new ChatbotPrompt("system", "question", List.of()), config);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> options = (Map<String, Object>) payload.get("options");
+        assertThat(payload).containsOnlyKeys("model", "messages", "stream", "options");
+        assertThat(options).containsOnlyKeys("temperature", "num_predict");
+        assertThat(options).containsEntry("temperature", 0.2).containsEntry("num_predict", 1024);
+    }
+
+    @Test
+    void requestsJsonObjectResponsesFromOpenAiCompatibleRuntimesOnlyWhenAsked() {
+        OpenAiStyleLocalLlmAdapter adapter = new OpenAiStyleLocalLlmAdapter(objectMapper, timeout -> new RestTemplate());
+        ChatbotConfig config = config(ChatbotConfig.Provider.OPENAI_COMPATIBLE, "http://llm:8000");
+
+        Map<String, Object> qa = adapter.buildPayload(new ChatbotPrompt(null, "question", List.of()), config);
+        Map<String, Object> intent = adapter.buildPayload(new ChatbotPrompt(null, "goal", List.of(), true, 4096), config);
+
+        assertThat(qa).containsOnlyKeys("model", "messages", "temperature", "max_tokens");
+        assertThat(intent).containsEntry("response_format", Map.of("type", "json_object"));
+        assertThat(intent).doesNotContainKey("num_ctx");
+    }
+
+    @Test
+    void leavesLlamaCppOnTolerantExtractionWithoutJsonMode() {
+        LlamaCppLocalLlmAdapter adapter = new LlamaCppLocalLlmAdapter(objectMapper);
+        ChatbotConfig config = config(ChatbotConfig.Provider.LLAMA_CPP, "http://llama-cpp:8080");
+
+        Map<String, Object> intent = adapter.buildPayload(new ChatbotPrompt(null, "goal", List.of(), true, 4096), config);
+
+        assertThat(intent).containsOnlyKeys("model", "messages", "temperature", "max_tokens");
+        assertThat(adapter.supportedProvider()).isEqualTo(ChatbotConfig.Provider.LLAMA_CPP);
     }
 
     @Test

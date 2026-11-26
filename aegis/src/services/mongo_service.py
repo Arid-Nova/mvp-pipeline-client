@@ -30,6 +30,14 @@ class MongoService:
             print(f"Error querying collection {collection}: {e}")
             return []
 
+    def find_one(self, collection: str, query: Dict[str, Any], projection: Dict[str, Any] = None) -> Optional[Dict[str, Any]]:
+        """Read one result for an exact IR identity without materializing a cursor."""
+        try:
+            return self.db[collection].find_one(query, projection)
+        except Exception as e:
+            print(f"Error querying collection {collection}: {e}")
+            return None
+
     def insert(self, collection: str, data: Dict[str, Any]) -> Optional[str]:
         try:
             result = self.db[collection].insert_one(data)

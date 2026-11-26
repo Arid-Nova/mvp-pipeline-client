@@ -1,4 +1,5 @@
 import type { IRData, Method } from '../parsers/getData';
+import { sourceModuleNodeName } from '../parsers/getData';
 import { showError } from './notifications';
 
 interface FilteredNode {
@@ -93,7 +94,11 @@ export default function filterNodes(
 
                 type MethodMap = { [key: string]: any };
                 for (const component of components) {
-                    const componentName = component.implementedTypes?.[0] || component.name;
+                    // Neutral modules are declarations in source files, not
+                    // globally named Java services or implementation aliases.
+                    const componentName = type === 'module'
+                        ? sourceModuleNodeName(msName, component)
+                        : component.implementedTypes?.[0] || component.name;
                     const methods: MappedMethod[] = component.methods.map((m: Method) => ({
                         name: m.name,
                         parameters: m.parameters,
@@ -108,7 +113,7 @@ export default function filterNodes(
 
                     finalNodes.push({
                         "nodeName": componentName,
-                        "nodeType": component.classRole || type.toUpperCase(),
+                        "nodeType": type === 'module' ? 'module' : component.classRole || type.toUpperCase(),
                         "microserviceName": msName,
                         "packageName": component.packageName,
                         "color": COLORS[colorIndex % COLORS.length],
@@ -119,6 +124,7 @@ export default function filterNodes(
 
             processComponents(microservice.services, 'service');
             processComponents(microservice.controllers, 'controller');
+            processComponents(microservice.unknowns || [], 'module');
             processComponents((microservice as any).entities, 'entity');
             processComponents((microservice as any).repositories, 'repository');
 

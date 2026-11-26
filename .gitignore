@@ -14,6 +14,18 @@ __pycache__/
 .pytest_cache/
 *.class
 chatbot-backend/target
+config.example.py
 
-# macOS
+# Build files 
+coordinator/node_modules
+coordinator/dist
+
+# macOS Finder metadata
 .DS_Store
+# Released parser assets, dependency provenance and trusted dependencies are regenerated.
+.cache/
+**/target/
+backend/vendor/
+componentanalysis/vendor/
+**/node_modules/
+*.log

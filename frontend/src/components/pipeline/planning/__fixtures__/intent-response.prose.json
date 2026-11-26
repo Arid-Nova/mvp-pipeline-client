@@ -1,0 +1,14 @@
+{
+  "outcome": "INVALID_MODEL_OUTPUT",
+  "suggestionSetId": "3f2b8c1e-9a4d-4e6f-b1c2-7d8e9f0a1b2c",
+  "requestId": "req-fixture-invalid_model_output",
+  "catalogVersion": "pcat-0861a6885a178a",
+  "options": [],
+  "parseErrors": [
+    "No JSON object found in model output."
+  ],
+  "unsupportedReason": null,
+  "model": "llama3.2",
+  "provider": "OLLAMA",
+  "processingTimeMs": 9000
+}

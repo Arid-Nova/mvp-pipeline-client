@@ -4,7 +4,7 @@ from openai import AsyncOpenAI
 
 class LLMAnalyzer():
     def __init__(self):
-        self.model_name = os.getenv("OPENAI_API_MODEL", "gpt-4o-mini")
+        self.model_name = os.getenv("OPENAI_API_MODEL", "gpt-5-mini")
         api_key = os.getenv("OPENAI_API_KEY", "").strip()
         base_url = os.getenv("OPENAI_BASE_URL", "").strip()
         self.client = None

@@ -1,4 +1,5 @@
 import posthog from 'posthog-js';
+import { env } from '../config';
 
 /**
  * Central analytics module for the pipeline frontend.
@@ -16,9 +17,9 @@ import posthog from 'posthog-js';
  * or break down by the `app` property.
  */
 
-const POSTHOG_KEY = process.env.REACT_APP_PUBLIC_POSTHOG_KEY;
+const POSTHOG_KEY = env.PUBLIC_POSTHOG_KEY;
 const POSTHOG_HOST =
-    process.env.REACT_APP_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com';
+    env.PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com';
 
 /** Super-property value that distinguishes this app from the marketing site. */
 export const APP_NAME = 'pipeline';

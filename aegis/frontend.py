@@ -1,14 +1,16 @@
 # ahp_tool.py
 import json
 import numpy as np
-import configparser
+
 import os
 import gzip
 import json
+
 from flask_cors import CORS
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+
 from src.services.mongo_service import MongoService
 from src.services.neo4j_service import Neo4jService
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from src.ahp_calculator import AHPCalculator
 
 app = Flask(__name__,
@@ -52,6 +54,10 @@ except Exception as e:
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/health')
+def health_check():
+    return {"status": "ok", "service": "aegis-dashboard", "description": "Aegis dashboard service is running"}, 200
 
 @app.route('/ahp')
 def ahp_startup():
@@ -216,8 +222,8 @@ def visualize():
         mongo_query = {}
         mongo_query['irID'] = ir_id
 
-        existing = mongo_service.find(
-            os.getenv('MONGO_COLLECTION_NAME'), 
+        existing = mongo_service.find_one(
+            os.getenv('MONGO_COLLECTION_NAME'),
             mongo_query)
         
         if existing:
@@ -226,27 +232,28 @@ def visualize():
             return render_template('notfound.html')
     except Exception:
         return render_template('errorpage.html')
+    finally:
+        mongo_service.close()
 
 @app.route('/api/results')
-def get_results(): 
+def get_results():
+    ir_id = request.args.get('irID')
+    if not ir_id:
+        return []
     mongo_service = MongoService(
         uri=os.getenv('MONGO_URI'),
         db_name=os.getenv('MONGO_DB_NAME')
     )
 
     try:
-        ir_id = request.args.get('irID')
+        mongo_query = {'irID': ir_id}
 
-        mongo_query = {}
-        if ir_id:
-            mongo_query['irID'] = ir_id
-
-        existing = mongo_service.find(
-            os.getenv('MONGO_COLLECTION_NAME'), 
+        existing = mongo_service.find_one(
+            os.getenv('MONGO_COLLECTION_NAME'),
             mongo_query)
         
         if existing:
-            result_doc = existing[0]
+            result_doc = dict(existing)
             
             if '_id' in result_doc:
                 del result_doc['_id']
@@ -271,6 +278,9 @@ def get_results():
         
     except Exception as e:
         print(f"Error retrieving results: {e}")
+
+    finally:
+        mongo_service.close()
 
     return []
 

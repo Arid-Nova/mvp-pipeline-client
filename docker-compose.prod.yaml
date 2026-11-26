@@ -6,18 +6,25 @@
 #     still gives containers DNS/port access to each other by service name.
 #   - Adds Caddy on :80/:443 as the only public-facing service. Caddy proxies
 #     /api/<service>/* to the right backend and serves the frontend at /.
-#   - Rebuilds the frontend bundle with REACT_APP_USE_PROXY=true so its API calls
-#     are same-origin (/api/<service>/...) instead of http://localhost:<port>.
+#   - Sets REACT_APP_USE_PROXY=true in the frontend's runtime config (env.sh writes
+#     it to env-config.js) so its API calls are same-origin (/api/<service>/...)
+#     instead of http://localhost:<port>.
+#   - Keeps the MongoDB database names the live data is stored under (aegis,
+#     aridnova_system). docker-compose.yaml uses newer names for local stacks;
+#     switching the VM to them needs a data migration first.
 
 services:
   frontend:
-    build:
-      args:
-        REACT_APP_USE_PROXY: "true"
     ports: !reset []
+    environment:
+      # NODE_ENV stays "development" (from docker-compose.yaml): env.sh writes
+      # env-config.js into the serve build folder only in that mode.
+      REACT_APP_USE_PROXY: "true"
 
   backend:
     ports: !reset []
+    environment:
+      SPRING_DATA_MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD}@cloudhub_mongo:27017/aegis?authSource=${MONGO_AUTH_SOURCE:-admin}
 
   chatbot:
     ports: !reset []
@@ -37,12 +44,18 @@ services:
 
   components:
     ports: !reset []
+    environment:
+      SPRING_DATA_MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD}@cloudhub_mongo:27017/aegis?authSource=${MONGO_AUTH_SOURCE:-admin}
 
   vectorgenerator:
     ports: !reset []
+    environment:
+      MONGO_DB: aegis
 
   scenariogenerator:
     ports: !reset []
+    environment:
+      MONGO_DB: aegis
 
   testgenerator:
     ports: !reset []
@@ -52,6 +65,8 @@ services:
 
   aegis_api:
     ports: !reset []
+    environment:
+      MONGO_DB_NAME: aegis
 
   aegis_dashboard:
     ports: !reset []
@@ -59,11 +74,23 @@ services:
       # Tells the Flask app it's served behind Caddy at /aegis-ui so url_for()
       # generates correctly-prefixed URLs for /static/* and redirects.
       AEGIS_URL_PREFIX: /aegis-ui
+      MONGO_DB_NAME: aegis
 
   repohandler:
     ports: !reset []
+    environment:
+      MONGO_DB: aridnova_system
 
   usermanager:
+    ports: !reset []
+    environment:
+      MONGO_DB: aridnova_system
+
+  # New in development. No public ports; no Caddy route yet.
+  coordinator:
+    ports: !reset []
+
+  slm-backend:
     ports: !reset []
 
   mariadb:

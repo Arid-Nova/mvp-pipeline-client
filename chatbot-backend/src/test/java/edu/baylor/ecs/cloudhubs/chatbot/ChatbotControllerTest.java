@@ -35,6 +35,7 @@ class ChatbotControllerTest {
                     "OLLAMA",
                     "llama3.2",
                     "http://ollama:11434",
+                    4,
                     "Runtime connection failed. Verify CHATBOT_BASE_URL and runtime container status.",
                     Instant.parse("2026-05-14T10:00:00Z"),
                     42L
@@ -51,6 +52,7 @@ class ChatbotControllerTest {
             .andExpect(jsonPath("$.provider").value("OLLAMA"))
             .andExpect(jsonPath("$.model").value("llama3.2"))
             .andExpect(jsonPath("$.baseUrl").value("http://ollama:11434"))
+            .andExpect(jsonPath("$.historyMaxMessages").value(4))
             .andExpect(jsonPath("$.latencyMs").value(42));
     }
 

@@ -1,21 +1,31 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getChatbotHealth, refreshChatbotContext, sendChatbotQuery } from "../../services/api";
 import { ChatbotContext, ChatbotContextRefreshResponse, ChatbotHealthResponse, ChatbotResponse } from "../../services/types";
+import type { PipelineSuggestionSetState } from "./PipelineSuggestionList";
+
+export type ChatMessageKind = "answer" | "pipeline_suggestions" | "pipeline_status";
 
 export type ChatMessageModel = {
     role: "user" | "assistant";
     content: string;
     response?: ChatbotResponse;
+    /** Absent for ordinary Q&A turns. Pipeline messages are UI-only (Issue #60, P60-M1-008). */
+    kind?: ChatMessageKind;
+    pipeline?: PipelineSuggestionSetState;
 };
 
-const MAX_MESSAGES = 20;
-const HISTORY_MESSAGES = 4;
+/** Pipeline suggestion and status messages are never sent back as conversational history. */
+export const isConversationalMessage = (message: ChatMessageModel): boolean =>
+    message.kind === undefined || message.kind === "answer";
+
+/** UI retention only; model history is controlled by the backend runtime configuration. */
+const MAX_UI_MESSAGES = 20;
 
 const trimMessages = (messages: ChatMessageModel[]): ChatMessageModel[] => {
-    if (messages.length <= MAX_MESSAGES) {
+    if (messages.length <= MAX_UI_MESSAGES) {
         return messages;
     }
-    return messages.slice(messages.length - MAX_MESSAGES);
+    return messages.slice(messages.length - MAX_UI_MESSAGES);
 };
 
 const toRequestContext = (context?: ChatbotContext): ChatbotContext | undefined => {
@@ -83,6 +93,19 @@ const toHistoryMessage = (msg: ChatMessageModel, contextId: string): { role: str
     };
 };
 
+/** The Q&A history sent with a question: the last conversational turns only. */
+export const buildHistoryMessages = (
+    messages: ChatMessageModel[],
+    contextId: string,
+    historyMaxMessages: number
+): { role: string; content: string }[] => {
+    if (historyMaxMessages <= 0) return [];
+    return messages
+        .filter(isConversationalMessage)
+        .slice(-historyMaxMessages)
+        .map((msg) => toHistoryMessage(msg, contextId));
+};
+
 export const useChatbotState = (activeContext?: ChatbotContext) => {
     const [messages, setMessages] = useState<ChatMessageModel[]>([]);
     const [loading, setLoading] = useState(false);
@@ -101,8 +124,8 @@ export const useChatbotState = (activeContext?: ChatbotContext) => {
     const lastContextIdRef = useRef(contextId);
 
     const historyMessages = useMemo(
-        () => messages.slice(-HISTORY_MESSAGES).map((msg) => toHistoryMessage(msg, contextId)),
-        [messages, contextId]
+        () => buildHistoryMessages(messages, contextId, health?.historyMaxMessages ?? 0),
+        [messages, contextId, health?.historyMaxMessages]
     );
 
     // Refresh the chatbot context and update the state
@@ -225,6 +248,30 @@ export const useChatbotState = (activeContext?: ChatbotContext) => {
         await sendQuestion(lastFailedQuestion);
     }, [lastFailedQuestion, loading, sendQuestion]);
 
+    /** Adds a UI-only pipeline message (suggestions or status). */
+    const appendPipelineMessage = useCallback((message: ChatMessageModel) => {
+        setMessages((prev) => trimMessages([...prev, message]));
+    }, []);
+
+    /** Updates the suggestion set with the given ID (or every set, for null) in the conversation. */
+    const updatePipelineSuggestions = useCallback(
+        (suggestionSetId: string | null, update: (state: PipelineSuggestionSetState) => PipelineSuggestionSetState) => {
+            setMessages((prev) => {
+                let changed = false;
+                const next = prev.map((message) => {
+                    if (message.kind !== "pipeline_suggestions" || !message.pipeline) return message;
+                    if (suggestionSetId !== null && message.pipeline.suggestionSetId !== suggestionSetId) return message;
+                    const updated = update(message.pipeline);
+                    if (updated === message.pipeline) return message;
+                    changed = true;
+                    return { ...message, pipeline: updated };
+                });
+                return changed ? next : prev;
+            });
+        },
+        []
+    );
+
     const clearConversation = useCallback(() => {
         setMessages([]);
         setError(null);
@@ -246,6 +293,8 @@ export const useChatbotState = (activeContext?: ChatbotContext) => {
         sendQuestion,
         retryLastFailed,
         clearConversation,
+        appendPipelineMessage,
+        updatePipelineSuggestions,
         refreshHealth,
         refreshContext,
         canRetry: Boolean(lastFailedQuestion) && !loading

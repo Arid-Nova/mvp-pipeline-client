@@ -1,5 +1,5 @@
 name: aridnova-toolkit
-version: '1.1.0'
+version: '1.1.1'
 
 services:
   mariadb:
@@ -35,29 +35,42 @@ services:
       - app_network
     volumes:
       - mongo_data:/data/db
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/dockerfile
     container_name: cloudhub_backend
     ports:
       - "8080:8080" 
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mariadb://cache_db:3306/msGraph
-      SPRING_DATASOURCE_USERNAME: root
+      IR_RETENTION_DAYS: ${IR_RETENTION_DAYS:-1}
+      SPRING_DATASOURCE_URL: ${MYSQL_URL}
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_ROOT_USERNAME:-root}
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      # Overrides the hardcoded uri in application.yml, whose password does not
-      # match the credential the mongo container is actually started with.
-      SPRING_DATA_MONGODB_URI: ${SPRING_DATA_MONGODB_URI:-mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD}@cloudhub_mongo:27017/aegis?authSource=${MONGO_AUTH_SOURCE:-admin}}
+      SPRING_DATA_MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD}@cloudhub_mongo:27017/aridnova-core?authSource=${MONGO_AUTH_SOURCE:-admin}
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:8080}
     depends_on:
       mariadb:
         condition: service_healthy
+      mongodb:
+        condition: service_healthy
     networks:
       - app_network
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   chatbot:
     build:
@@ -74,37 +87,58 @@ services:
       CHATBOT_TIMEOUT_MS: ${CHATBOT_TIMEOUT_MS:-240000}
       CHATBOT_MAX_TOKENS: ${CHATBOT_MAX_TOKENS:-1024}
       CHATBOT_TEMPERATURE: ${CHATBOT_TEMPERATURE:-0.2}
+      CHATBOT_HISTORY_MAX_MESSAGES: ${CHATBOT_HISTORY_MAX_MESSAGES:-4}
       CHATBOT_STRICT_EVIDENCE_ONLY: "false"
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:8080}
     networks:
       - app_network
+    # depends_on:
+    #   ollama:
+    #     condition: service_healthy
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8081/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      args:
-        # Leave empty for local dev (bundle calls http://localhost:<port> directly).
-        # Set to "true" in the prod override so the bundle uses /api/<service> paths.
-        # The per-service REACT_APP_*_SERVICE_URL args are gone: axiosSetup derives
-        # every base URL from this one flag.
-        REACT_APP_USE_PROXY: ${REACT_APP_USE_PROXY:-}
-        # Baked into the bundle so api.ts can send X-Internal-Service-Auth on
-        # calls to the repo/user services.
-        REACT_APP_INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
-        # PostHog analytics keys, baked into the bundle at build time.
-        REACT_APP_PUBLIC_POSTHOG_KEY: ${PUBLIC_POSTHOG_KEY}
-        REACT_APP_PUBLIC_POSTHOG_HOST: ${PUBLIC_POSTHOG_HOST:-https://us.i.posthog.com}
-        REACT_APP_IS_DEMO_VERSION: ${REACT_APP_IS_DEMO_VERSION:-true}
+      target: development
     container_name: cloudhub_frontend
     ports:
       - "3000:3000"
     networks:
       - app_network
     environment:
-      - NODE_ENV=production
-    restart: unless-stopped
+      - NODE_ENV=development
+      - REACT_APP_IR_SERVICE_URL=http://localhost:8080
+      - REACT_APP_VERIFY_SERVICE_URL=http://localhost:9000
+      - REACT_APP_COMPONENT_SERVICE_URL=http://localhost:8060
+      - REACT_APP_VECTOR_SERVICE_URL=http://localhost:8050
+      - REACT_APP_ANALYSIS_SERVICE_URL=http://localhost:8040
+      - REACT_APP_TEST_SERVICE_URL=http://localhost:8030
+      - REACT_APP_AEGIS_SERVICE_URL=http://localhost:8900
+      - REACT_APP_REPO_SERVICE_URL=http://localhost:8020
+      - REACT_APP_CHATBOT_SERVICE_URL=http://localhost:8081
+      - REACT_APP_USER_SERVICE_URL=http://localhost:8100
+      - REACT_APP_EXEC_SERVICE_URL=http://localhost:8010
+      - REACT_APP_SLMBACKEND_SERVICE_URL=http://localhost:8071
+      - REACT_APP_INTERNAL_SERVICE_KEY=${INTERNAL_SERVICE_KEY}
+      - REACT_APP_PUBLIC_POSTHOG_KEY=${PUBLIC_POSTHOG_KEY}
+      - REACT_APP_PUBLIC_POSTHOG_HOST=${PUBLIC_POSTHOG_HOST:-https://us.i.posthog.com}
+      - REACT_APP_IS_DEMO_VERSION=true
+      - REACT_APP_ARIDNOVA_API_URL=${ARIDNOVA_API_URL}
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   verifier:
     build:
@@ -116,28 +150,44 @@ services:
     environment:
       PYTHONUNBUFFERED: 1
       INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
-      BACKEND_BASE_URL: ${BACKEND_BASE_URL:-http://backend:8080}
+      IR_SERVICE_URL: ${IR_SERVICE_URL:-http://cloudhub_backend:8080/ir/create}
     networks:
       - app_network
     volumes:
       - verifier_cache:/tmp/ms_verifier_cache
     restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      interval: 15s      
+      timeout: 5s        
+      retries: 3        
+      start_period: 10s  
 
   components:
     build:
-      context: ./componentanalysis
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: componentanalysis/dockerfile
     container_name: cloudhub_components
     ports:
       - "8060:8060"
     environment:
-      # Overrides the hardcoded uri in application.yml, whose password does not
-      # match the credential the mongo container is actually started with.
-      SPRING_DATA_MONGODB_URI: ${SPRING_DATA_MONGODB_URI:-mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD}@cloudhub_mongo:27017/aegis?authSource=${MONGO_AUTH_SOURCE:-admin}}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:8080}
+      SPRING_DATA_MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD}@cloudhub_mongo:27017/aridnova-testing?authSource=${MONGO_AUTH_SOURCE:-admin}
     networks:
       - app_network
     restart: always
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8060/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   vectorgenerator:
     build:
@@ -148,12 +198,21 @@ services:
       - "8050:8050" 
     environment:
       - MONGO_URI=mongodb://cloudhub_mongo:27017
-      - MONGO_DB=aegis
+      - MONGO_DB=aridnova-testing
       - MONGO_USER=${MONGO_ROOT_USERNAME:-root}
       - MONGO_PASSWORD=${MONGO_ROOT_PASSWORD}
     networks:
       - app_network
+    depends_on:
+      mongodb:
+        condition: service_healthy
     restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8050/health"]
+      interval: 15s      
+      timeout: 5s        
+      retries: 3        
+      start_period: 10s  
 
   scenariogenerator:
     build:
@@ -164,7 +223,7 @@ services:
       - "8040:8040" 
     environment:
       - MONGO_URI=mongodb://cloudhub_mongo:27017
-      - MONGO_DB=aegis
+      - MONGO_DB=aridnova-testing
       - MONGO_USER=${MONGO_ROOT_USERNAME:-root}
       - MONGO_PASSWORD=${MONGO_ROOT_PASSWORD}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
@@ -176,6 +235,15 @@ services:
     networks:
       - app_network
     restart: always
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8040/health"]
+      interval: 15s      
+      timeout: 5s        
+      retries: 3        
+      start_period: 10s  
 
   testgenerator:
     build:
@@ -195,6 +263,12 @@ services:
     networks:
       - app_network
     restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8030/health"]
+      interval: 15s      
+      timeout: 5s        
+      retries: 3        
+      start_period: 10s  
 
   testexecutor:
     build:
@@ -206,6 +280,12 @@ services:
     networks:
       - app_network
     restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8010/health"]
+      interval: 15s      
+      timeout: 5s        
+      retries: 3        
+      start_period: 10s  
   
   aegis_neo4j:
     image: neo4j:5-community
@@ -243,11 +323,12 @@ services:
       LLM_PROVIDER: openai
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENAI_ENDPOINT: ${OPENAI_BASE_URL}
+      OPENAI_CHAT_URL: ${OPENAI_CHAT_URL}
       LLM_MODEL: ${OPENAI_API_MODEL:-gpt-5-mini}
       # aegis's MongoService takes only a URI, so credentials must be embedded here
       # (other services pass MONGO_USER/MONGO_PASSWORD separately).
       MONGO_URI: ${MONGO_URI:-mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD}@cloudhub_mongo:27017/?authSource=${MONGO_AUTH_SOURCE:-admin}}
-      MONGO_DB_NAME: aegis
+      MONGO_DB_NAME: aridnova-aegis
       MONGO_COLLECTION_NAME: opinionVectors
       NEO4J_URI: ${NEO4J_URI:-bolt://aegis_neo4j:7687}
       NEO4J_USERNAME: ${NEO4J_USERNAME}
@@ -255,9 +336,17 @@ services:
     depends_on:
       aegis_neo4j:
         condition: service_healthy
+      mongodb:        
+        condition: service_healthy
     networks:
       - app_network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8900/health"]
+      interval: 15s      
+      timeout: 5s        
+      retries: 3        
+      start_period: 10s  
 
   aegis_dashboard:
     build:
@@ -270,7 +359,7 @@ services:
       FLASK_DEBUG: 1
       PYTHONUNBUFFERED: 1
       MONGO_URI: ${MONGO_URI:-mongodb://${MONGO_ROOT_USERNAME:-root}:${MONGO_ROOT_PASSWORD}@cloudhub_mongo:27017/?authSource=${MONGO_AUTH_SOURCE:-admin}}
-      MONGO_DB_NAME: aegis
+      MONGO_DB_NAME: aridnova-aegis
       MONGO_COLLECTION_NAME: opinionVectors
       NEO4J_URI: ${NEO4J_URI:-bolt://aegis_neo4j:7687}
       NEO4J_USERNAME: ${NEO4J_USERNAME}
@@ -283,7 +372,13 @@ services:
     networks:
       - app_network
     restart: unless-stopped
-
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5600/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+  
   repohandler :
     build:
       context: ./repomanager
@@ -300,16 +395,56 @@ services:
       # Azure deployment name, not a model id — see OPENAI_API_MODEL in .env.example
       - OPENAI_API_MODEL=${OPENAI_API_MODEL:-gpt-5-mini}
       - MONGO_URI=mongodb://cloudhub_mongo:27017
-      - MONGO_DB=aridnova_system
+      - MONGO_DB=repo-management
       - MONGO_USER=${MONGO_ROOT_USERNAME:-root}
       - MONGO_PASSWORD=${MONGO_ROOT_PASSWORD}
+      - MONGO_AUTH_SOURCE=${MONGO_AUTH_SOURCE:-admin}
       - GITHUB_API_VERSION=2026-03-10
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - INTERNAL_SERVICE_KEY=${INTERNAL_SERVICE_KEY}
-      - MONGO_AUTH_SOURCE=${MONGO_AUTH_SOURCE:-admin}
     networks:
       - app_network
     restart: always
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8020/health"]
+      interval: 15s      
+      timeout: 5s        
+      retries: 3        
+      start_period: 10s  
+
+  coordinator:
+    build:
+      context: ./coordinator
+      dockerfile: Dockerfile
+    container_name: cloudhub_coordinator
+    ports:
+      - "3124:3124" 
+    environment:
+      - PORT=3124
+      - SESSION_API_URL=${SESSION_API_URL:-http://localhost:8080}
+      - IR_API_URL=${IR_API_URL:-http://localhost:8080}
+      - COMPONENT_API_URL=${COMPONENT_API_URL:-http://localhost:8060}
+      - VECTOR_API_URL=${VECTOR_API_URL:-http://localhost:8050}
+      - ANALYSIS_API_URL=${ANALYSIS_API_URL:-http://localhost:8040}
+      - VERIFY_API_URL=${VERIFY_API_URL:-http://localhost:9000}
+      - TEST_API_URL=${TEST_API_URL:-http://localhost:8030}
+      - AEGIS_API_URL=${AEGIS_API_URL:-http://localhost:8900}
+      - INTERNAL_SERVICE_KEY=${INTERNAL_SERVICE_KEY}
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - app_network
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3124/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   ollama:
     image: ollama/ollama:latest
@@ -323,6 +458,12 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:11434/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   usermanager :
     build:
@@ -333,7 +474,7 @@ services:
       - "8100:8100" 
     environment:
       - MONGO_URI=mongodb://cloudhub_mongo:27017
-      - MONGO_DB=aridnova_system
+      - MONGO_DB=aridnova-system
       - MONGO_USER=${MONGO_ROOT_USERNAME:-root}
       - MONGO_PASSWORD=${MONGO_ROOT_PASSWORD}
       - INTERNAL_SERVICE_KEY=${INTERNAL_SERVICE_KEY}
@@ -344,6 +485,35 @@ services:
     networks:
       - app_network
     restart: always
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8100/health"]
+      interval: 15s      
+      timeout: 5s        
+      retries: 3        
+      start_period: 10s  
+
+  slm-backend:
+    build: 
+      context: ./slm-backend
+      dockerfile: Dockerfile
+    container_name: cloudhub_slmbackend
+    ports:
+      - "8071:8071"
+    networks:
+      - app_network
+    restart: always
+    # depends_on:
+    #   ollama:
+    #     condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8071/health"]
+      interval: 15s      
+      timeout: 5s        
+      retries: 3        
+      start_period: 10s  
 
 volumes:
   mariadb_data:

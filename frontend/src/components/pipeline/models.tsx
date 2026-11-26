@@ -36,6 +36,8 @@ export interface RepositoryMeta {
     repoUrl: string;
     branch: string;
     commitId: string;
+    language?: 'auto' | 'polyglot' | 'java' | 'javascript' | 'typescript' | 'python' | 'go' | 'csharp';
+    componentKind?: 'backend' | 'frontend';
 }
 
 export interface PipelinePayload {
@@ -65,6 +67,10 @@ export interface NodeData {
         changeImpactPayload?: any;
         payload?: PipelinePayload; 
         verificationResult?: VerificationResponse;
+        securityReport?: any;
+        javascriptAnalysis?: any;
+        expectedPolicy?: any;
+        fixtureSet?: string;
         scenarioPayload?: ScenarioPayload;
         selectedScenarios?: string[];
         promptPayload?: PromptPayload;
@@ -122,9 +128,17 @@ export interface TestSuiteItem {
     test_code: string;
 }
 
+export interface GenerationFailure {
+    scenario_id: string;
+    error: string;
+}
+
 export interface TestSuitePayload {
     status: string;
     tests: TestSuiteItem[];
+    generated?: number;
+    failed?: number;
+    errors?: GenerationFailure[];
 }
 
 export interface MatrixData {

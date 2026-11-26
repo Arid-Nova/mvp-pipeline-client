@@ -1,5 +1,4 @@
-# Use Node.js 18 image as the base image
-FROM node:18-alpine
+FROM node:18-alpine AS base
 
 # Set the working directory inside the container
 WORKDIR /app
@@ -13,37 +12,49 @@ RUN npm install
 # Copy the entire React project to the working directory
 COPY . .
 
-# When set to "true" the bundle uses same-origin /api/<service> paths
-# (for the Caddy reverse-proxy deploy). Defaults to "" so local dev hits
-# http://localhost:<port> directly.
-ARG REACT_APP_USE_PROXY=""
-ENV REACT_APP_USE_PROXY=$REACT_APP_USE_PROXY
+# Making the env.sh script executable
+RUN chmod +x env.sh
 
-# Baked into the bundle so api.ts can send the X-Internal-Service-Auth header
-# on calls to the repo/user services.
-ARG REACT_APP_INTERNAL_SERVICE_KEY=""
-ENV REACT_APP_INTERNAL_SERVICE_KEY=$REACT_APP_INTERNAL_SERVICE_KEY
+# -------------------------
+# Builder stage (for CI/CD)
+# -------------------------
+FROM base AS builder
 
-# PostHog analytics keys, baked into the bundle at build time.
-ARG REACT_APP_PUBLIC_POSTHOG_KEY=""
-ENV REACT_APP_PUBLIC_POSTHOG_KEY=$REACT_APP_PUBLIC_POSTHOG_KEY
-ARG REACT_APP_PUBLIC_POSTHOG_HOST=""
-ENV REACT_APP_PUBLIC_POSTHOG_HOST=$REACT_APP_PUBLIC_POSTHOG_HOST
-
-# Gates demo-only behaviour in PipelinePage. Set "true" for the public demo build.
-ARG REACT_APP_IS_DEMO_VERSION=""
-ENV REACT_APP_IS_DEMO_VERSION=$REACT_APP_IS_DEMO_VERSION
-
-# Build the React application
 RUN npm run build
 
-# Install `serve` to host the React build. The `-s` flag does SPA fallback —
-# any unknown path is served /index.html so React Router can take over,
-# which is what makes deep links like /pipeline work after a hard refresh.
+# -----------------------------------
+# Local build stage (for development)
+# -----------------------------------
+FROM builder AS development
+
+ENV NODE_ENV=development
+
+# Install `serve` to host the build. Its -s flag serves index.html for unknown
+# paths so BrowserRouter deep links like /pipeline survive a hard refresh.
 RUN npm install -g serve
 
 # Expose the port the app will run on
 EXPOSE 3000
 
+# env.sh writes build/env-config.js from the container's REACT_APP_* variables.
+ENTRYPOINT ["./env.sh"]
+
 # Serve the build folder with SPA fallback
 CMD ["serve", "-s", "build", "-l", "3000"]
+
+# ---------------------------------------
+# Production build stage (for deployment)
+# ---------------------------------------
+
+FROM nginx:alpine AS production
+
+ENV NODE_ENV=production
+
+COPY --from=builder /app/build /usr/share/nginx/html
+
+COPY --from=builder /app/env.sh /docker-entrypoint.d/env.sh
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
+

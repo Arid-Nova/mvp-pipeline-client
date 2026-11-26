@@ -1,0 +1,21 @@
+{
+  "release": {
+    "tag": "v1.3.0",
+    "commit": "90987152e3975e3b7fb47336e291c6fb26e31ac7",
+    "packageUrl": "https://jitpack.io/#Arid-Nova/mvp-cimet-extraction-library/v1.3.0"
+  },
+  "maven": {
+    "repositoryId": "jitpack.io",
+    "repositoryUrl": "https://jitpack.io",
+    "groupId": "com.github.Arid-Nova",
+    "artifactId": "mvp-cimet-extraction-library",
+    "version": "v1.3.0",
+    "baseVersion": "v1.3.0",
+    "jarSha256": "7448c5e43db754de64f8fe5316301dc0ef73f9bb97eb107050daf16bbcb1539b",
+    "pomSha256": "9d290992a69ef03975505b3e7406d35a50220258bb4378010c9785744e4539ab"
+  },
+  "runtime": {
+    "url": "https://codeload.github.com/Arid-Nova/mvp-cimet-extraction-library/zip/90987152e3975e3b7fb47336e291c6fb26e31ac7",
+    "sha256": "996459e3dfcd6c35501c6cabdb8ba132e239642d7f9f6f96bf7d080e64716731"
+  }
+}

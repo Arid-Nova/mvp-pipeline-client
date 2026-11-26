@@ -17,7 +17,31 @@
 	<properties>
 		<java.version>21</java.version>
 		<lombok.version>1.18.30</lombok.version>
+		<cimet.version>v1.3.0</cimet.version>
+		<jackson-bom.version>2.19.1</jackson-bom.version>
 	</properties>
+	
+	<!-- Published JitPack release; coordinates and checksums match cimet-dependency.lock.json. -->
+	<repositories>
+		<repository>
+			<id>central</id>
+			<url>https://repo.maven.apache.org/maven2</url>
+			<snapshots><enabled>false</enabled></snapshots>
+		</repository>
+		<repository>
+			<id>jitpack.io</id>
+			<name>JitPack</name>
+			<url>https://jitpack.io</url>
+			<releases>
+				<enabled>true</enabled>
+				<checksumPolicy>fail</checksumPolicy>
+			</releases>
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+		</repository>
+	</repositories>
+
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -36,6 +60,12 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
+            <exclusions>
+				<exclusion>
+					<groupId>com.vaadin.external.google</groupId>
+					<artifactId>android-json</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>com.google.guava</groupId>
@@ -53,14 +83,24 @@
 			<artifactId>spring-boot-starter-validation</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>edu.university.ecs.lab</groupId>
-			<artifactId>cimet-extract-lib</artifactId>
-			<version>1.1.0</version>
+			<groupId>com.github.Arid-Nova</groupId>
+			<artifactId>mvp-cimet-extraction-library</artifactId>
+			<version>${cimet.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>com.fasterxml.jackson.core</groupId>
 			<artifactId>jackson-databind</artifactId>
 			<scope>compile</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator</artifactId>
+		</dependency>
+        <!-- Match the engine's JSON API; Spring Boot's managed version lacks newer overloads. -->
+        <dependency>
+			<groupId>org.json</groupId>
+			<artifactId>json</artifactId>
+			<version>20250517</version>
 		</dependency>
     </dependencies>
 

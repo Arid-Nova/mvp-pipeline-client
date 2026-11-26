@@ -158,3 +158,7 @@ async def notify_contact_request(lead: dict, lead_id: str, created_at: datetime)
     except Exception as exc:
         logging.exception("Contact notification failed for %s", lead_id)
         await config_db_service.set_contact_email_status(lead_id, "failed", error=str(exc)[:500])
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok", "service": "user-service", "description": "User Service is running."}

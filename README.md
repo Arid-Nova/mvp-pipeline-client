@@ -2,6 +2,14 @@
 
 A comprehensive platform for visualizing, verifying, and introspecting microservice architectures. This tool combines 3D architectural visualization with formal verification, neuro-symbolic risk analysis, and automated test generation to facilitate holistic analysis of a distributed system in one place.
 
+## Multi-language contribution
+
+The backend and component service consume CIMET v1.3.0 from JitPack with per-file Java,
+JavaScript/TypeScript, Python, Go and C# parsing, including mixed repositories and multiple
+repository inputs. Architecture and security coverage differ by language; unsupported policy
+stages remain explicit. See [build, requests, tests and extension guidance](docs/polyglot-integration.md)
+and [JavaScript source reports](docs/javascript-analysis.md).
+
 ## Core Modules
 ### 1. CIMET-IR Visualizer
 
@@ -120,8 +128,9 @@ The backend now supports local chatbot runtime configuration through environment
 - `CHATBOT_TIMEOUT_MS` (default: `30000`)
 - `CHATBOT_MAX_TOKENS` (default: `1024`)
 - `CHATBOT_TEMPERATURE` (default: `0.2`)
+- `CHATBOT_HISTORY_MAX_MESSAGES` (default: `4`, valid: `0`–`8`)
 
-`docker-compose.yaml` passes these into the `backend` service. You can override any value via shell env or `.env` file before `docker compose up`.
+`docker-compose.yaml` passes these into the `chatbot` service. You can override any value via shell env or `.env` file before `docker compose up`.
 
 Optional local model runtime:
 - `ollama` service is available behind the Compose profile `local-llm`.

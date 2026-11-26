@@ -10,6 +10,8 @@ from .services.javaExecutor import execute_java_tests
 from .services.pythonExecutor import execute_python_tests
 
 app = FastAPI(title="Test Execution Proxy")
+from .javascript_api import router as javascript_router
+app.include_router(javascript_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -54,6 +56,10 @@ async def execute_python(req: PythonExecuteRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok", "service": "test-executor", "description": "Test Execution Proxy is running."}
 
 # if __name__ == "__main__":
 #     import uvicorn

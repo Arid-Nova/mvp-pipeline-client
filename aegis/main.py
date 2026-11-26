@@ -6,18 +6,20 @@ import dataclasses
 import concurrent.futures
 from typing import List, Dict, Any
 
-import requests
-
 # Import all our modules
 from src.config_loader import ConfigLoader
 from src.domain.models import ExecutionPath
-from src.services.graph_loader import GraphLoader
-from src.services.code_fetcher import CodeFetcher
-from src.services.neo4j_service import Neo4jService
-from src.services.mongo_service import MongoService
+
 from src.analysis.neuro_analyzer import NeuroAnalyzer
 from src.calculus.evidence_mapper import EvidenceMapper
 from src.analysis.symbolic_analyzer import SymbolicAnalyzer
+from src.analysis.analysis_strategies import AnalysisStrategyFactory
+
+from src.services.graph_loader import GraphLoader
+from src.services.code_fetcher import CodeFetcher
+from src.services.ir_reader import read_stored_ir
+from src.services.neo4j_service import Neo4jService
+from src.services.mongo_service import MongoService
 from src.services.graph_traversal_service import GraphTraversalService
 
 from src.calculus.subjective_logic import fuse_opinions_list
@@ -72,54 +74,32 @@ class AnalysisFacade:
         return results
     
     def _get_ir_for_analysis(self, ir_id: str) -> Dict[str, Any]:
-        payload = {
-            "id": ir_id,
-            "systemName": "",
-            "systemRepositories": []
-        }
+        return read_stored_ir(ir_id, self.ir_endpoint)
 
-        headers = {
-            "Content-Type": "application/json",
-            "Accept": "application/gzip"
-        }
-        
-        try:
-            response = requests.post(self.ir_endpoint, json=payload, headers=headers, timeout=30)
-            if response.status_code != 200:
-                response.raise_for_status()
-
-            decompressed_data = gzip.decompress(response.content)
-            ir_data = json.loads(decompressed_data)
-            
-            return ir_data
-        except requests.exceptions.RequestException as e:
-            print(f"Error fetching IR data: {e}")
-            raise
-        except Exception as e:
-            print(f"Error parsing IR data: {e}")
-            raise
-
-    def run_analysis(self, payload: Dict[str, Any], max_workers: int = 3) -> List[ExecutionPath]:
+    def run_analysis(self, payload: Dict[str, Any], max_workers: int = 3, ir_data=None):
         # Executes the end-to-end analysis pipeline.
         print("\nStarting AEGIS analysis!")
         start_time = time.perf_counter()
 
+        # Check source support before cache reuse, cloning, graph replacement or LLM work.
+        ir = ir_data if ir_data is not None else self._get_ir_for_analysis(payload['ir_id'])
+        strategy = AnalysisStrategyFactory.for_ir(ir)
+        if not strategy.uses_java_pipeline:
+            return strategy.analyze(ir, payload=payload)
         # Checking if analysis has already been performed.
-        existing = self.mongo_service.find(os.getenv('MONGO_COLLECTION_NAME'), {
+        existing = self.mongo_service.find_one(os.getenv('MONGO_COLLECTION_NAME'), {
             "irID": payload['ir_id']
         })
 
         if existing:
             # print(f"Analysis already exists for system '{payload['name']}' with commit ID '{payload['commitID']}'.")
             # print("Returning existing results.")
-            return existing[0]
+            return existing
         
         # Initalizing the GIT code fetching mechanism.
         self.code_fetcher = CodeFetcher(payload['repoUrl'], payload['branch'])
 
-        # Load graph and get execution paths
-        # But, first need to fetch the IR 
-        ir = self._get_ir_for_analysis(payload['ir_id'])
+        # Load graph and get execution paths from the supported IR.
         execution_paths = self.graph_loader.load_graph_from_ir(ir, self.code_fetcher.get_temp_dir())
         
         if not execution_paths:
@@ -202,7 +182,7 @@ class AnalysisFacade:
     def update_results_with_vulnerabilities(self, ir_id: str, vulnerabilities: List[Dict[str, Any]]):
         # Updates the existing analysis results with the newly found latent vulnerabilities.
         try:
-            existing = self.mongo_service.find(os.getenv('MONGO_COLLECTION_NAME'), {
+            existing = self.mongo_service.find_one(os.getenv('MONGO_COLLECTION_NAME'), {
                 "irID": ir_id
             })
 
@@ -210,7 +190,7 @@ class AnalysisFacade:
                 print(f"No existing analysis found for IR ID '{ir_id}'. Cannot update vulnerabilities.")
                 return False
             
-            existing_result = existing[0]
+            existing_result = existing
 
             # Compressing before updating to DB
             vuln_json = json.dumps(vulnerabilities)
@@ -256,6 +236,7 @@ class AnalysisFacade:
 
     def cleanup(self):
         # print("\nCleaning up resources.")
-        self.code_fetcher.cleanup()
+        if getattr(self, 'code_fetcher', None) is not None:
+            self.code_fetcher.cleanup()
         self.neo4j_service.close()
         # print("Cleanup complete.")

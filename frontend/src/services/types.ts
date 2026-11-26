@@ -7,6 +7,9 @@ export interface RepositoryInput {
       branchName: string;
     };
     commitID?: string;
+    language?: 'auto' | 'polyglot' | 'java' | 'javascript' | 'typescript' | 'python' | 'go' | 'csharp';
+    componentKind?: 'backend' | 'frontend';
+    componentName?: string;
   }[];
 }
 
@@ -32,8 +35,10 @@ export interface Suggestion {
 }
 
 export interface VerificationResponse {
-    status: "SAT" | "UNSAT";
-    is_satisfiable: boolean;
+    status: "SAT" | "UNSAT" | "UNSUPPORTED" | "UNKNOWN";
+    is_satisfiable: boolean | null;
+    reason?: string;
+    capability_status?: string;
     suggestions: Suggestion[];
     logs: string[];
     processing_time_seconds: number;
@@ -140,10 +145,56 @@ export interface ChatbotHealthResponse {
     provider: string;
     model: string;
     baseUrl: string;
+    historyMaxMessages: number;
     message: string;
     checkedAt: string;
     latencyMs: number | null;
 }
+
+// Pipeline intent selection (Issue #60, P60-M1-015). Wire types for
+// POST /chatbot/pipeline/intents; the endpoint itself is P60-M1-005. The model's options are
+// untrusted (`unknown[]`) until frontend parseIntentPlan validates them.
+export type PipelineIntentOutcome = "OK" | "INVALID_MODEL_OUTPUT" | "UNSUPPORTED_GOAL" | "MODEL_UNAVAILABLE";
+
+export interface PipelineIntentRequest {
+    goal: string;
+    suggestionSetId: string;
+    attempt: number;
+    /** The serialized capability catalog (buildPipelineCapabilityCatalog()). */
+    catalog: unknown;
+    catalogVersion: string;
+    /** Frontend intent-plan contract limit; the backend includes it in the model prompt. */
+    maxAnalysisPerOption: number;
+    excludeCapabilitySets?: string[][];
+    rejectionFeedback?: string[];
+}
+
+export interface PipelineIntentResponse {
+    outcome: PipelineIntentOutcome;
+    suggestionSetId: string;
+    requestId: string;
+    catalogVersion: string;
+    options: unknown[];
+    parseErrors: string[];
+    unsupportedReason?: string | null;
+    model: string;
+    provider: string;
+    processingTimeMs: number;
+}
+
+/**
+ * Result of calling POST /chatbot/pipeline/intents (P60-M1-006). Expected failures are values,
+ * never thrown, so the planner can decide whether to retry. `data` is the untrusted response body;
+ * only the frontend intent parser may interpret its options.
+ */
+export type PipelineIntentsCallResult =
+    | { kind: "response"; status: number; data: unknown }
+    | { kind: "model_unavailable"; status: 503; data: unknown }
+    | { kind: "request_invalid"; status: 400 }
+    | { kind: "http_error"; status: number }
+    | { kind: "network_error" }
+    | { kind: "timeout" }
+    | { kind: "cancelled" };
 
 // Session Management Types
 export interface SessionSummary {

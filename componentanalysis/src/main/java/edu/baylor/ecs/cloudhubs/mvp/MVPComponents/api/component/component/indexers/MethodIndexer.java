@@ -1,5 +1,6 @@
 package edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.component.indexers;
 
+import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.services.CimetModelCompatibility;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.IndexedComponent;
 import edu.baylor.ecs.cloudhubs.mvp.MVPComponents.api.component.models.IndexedMethod;
 import edu.university.ecs.lab.common.models.ir.Annotation;
@@ -67,8 +68,8 @@ public class MethodIndexer {
         return new IndexedMethod(
             "Method",
             method.getName(),
-            method.getID(),
-            method.getFullID(),
+            CimetModelCompatibility.id(method),
+            CimetModelCompatibility.fullId(method),
             microserviceName,
             className,
             method.getMetadata(),
@@ -77,7 +78,7 @@ public class MethodIndexer {
             method.getIsAbstract(),
             method.getIsStatic(),
             method.getIsFinal(),
-            method.getIsConstructor(),
+            CimetModelCompatibility.isConstructor(method),
             method.getAnnotations(),
             method.getThrownExceptions()
         );

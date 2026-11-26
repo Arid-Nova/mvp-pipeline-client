@@ -1,3 +1,6 @@
+import { runJavaScriptStage, unsupportedDownstreamReason, sourceLanguages, securityReportFromPayload } from '../../utils/javascriptWorkflow';
+import { postJavaScriptStage } from '../../services/api';
+import { JavaScriptAnalysisCard } from './cards/JavaScriptAnalysisCard';
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { 
     fetchIRFromRepo, 
@@ -11,7 +14,8 @@ import {
     fetchChangeImpact,
     saveSession,
     loadSession,
-    recordUserFeedback
+    recordUserFeedback,
+    summarizePipelineResults
 } from '../../services/api';
 import { canonicalizeGithubUrl } from '../../utils/githubUrl';
 import { track, PipelineEvent } from '../../analytics/posthog';
@@ -20,6 +24,7 @@ import { RepositoryInput, VerificationInput } from '../../services/types';
 import { CardType, SystemPayload, ComponentPayload, PipelinePayload, NodeData, Connection, ScenarioPayload} from './models';
 
 // Configuration and Constants
+import { env } from '../../config';
 import {CATEGORIES, VALID_CONNECTIONS} from './pipelineConfig'
 import sessionDictionary from '../../utils/sessionDictionary.json';
 
@@ -56,7 +61,22 @@ import { Notification as ToastNotification } from '../../utils/notifications';
 import { PipelineTour } from './tour/PipelineTour';
 import { TemplateLibraryModal } from './canvas/TemplateLibraryModal';
 
+// CoT Summary Components 
+import { SummaryStep, SummaryModal } from './summary/SummaryModal';
+import { SummaryPrompt } from './summary/SummaryPrompt'
+
+// Utilities
 import { decompressPayload } from '../../utils/decompress';
+import { ExportModal } from './export/ExportModal';
+import { ValidatedSuggestion } from './planning/pipelineValidator';
+import { APPLY_FAILURE_MESSAGES, ApplyFailureReason } from './planning/pipelineApplyFailures';
+import {
+    ApplyError,
+    ApplyResult,
+    MaterializedSuggestion,
+    historyAfterApply,
+    materializeSuggestion,
+} from './planning/pipelineApplier';
 
 // In-browser cache to avoid data resetting
 let inMemoryPipelineCache: { 
@@ -89,6 +109,12 @@ const PipelinePage: React.FC = () => {
     // Feedback State
     const [showFeedback, setShowFeedback] = useState(false);
 
+    // Summary States
+    const [showSummaryPrompt, setShowSummaryPrompt] = useState(false);
+    const [showSummaryModal, setShowSummaryModal] = useState(false);
+    const [isSummarizing, setIsSummarizing] = useState(false);
+    const [summarySteps, setSummarySteps] = useState<SummaryStep[]>([]);
+
     // History States (Undo/Redo)
     const [history, setHistory] = useState<{nodes: NodeData[], connections: Connection[]}[]>([{ nodes: [], connections: [] }]);
     const [historyIndex, setHistoryIndex] = useState(0);
@@ -106,6 +132,9 @@ const PipelinePage: React.FC = () => {
 
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
     const lastSavedStateRef = useRef<string>('');
+
+    // Export Modal State (should be a saved session to export)
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
     useEffect(() => {
         lastSavedStateRef.current = JSON.stringify({ nodes, connections });
@@ -218,7 +247,7 @@ const PipelinePage: React.FC = () => {
     // Demo Warning 
     useEffect(() => {
         const checkWarning = () => {
-            const isDemo = process.env.REACT_APP_IS_DEMO_VERSION === 'true';
+            const isDemo = env.IS_DEMO_VERSION === 'true';
             const alreadyShown = sessionStorage.getItem('demo_warning_shown') === 'true';
             if (isDemo && !alreadyShown) {
                 setShowDemoWarning(true);
@@ -270,7 +299,7 @@ const PipelinePage: React.FC = () => {
         document.body.style.pointerEvents = 'auto';
         document.body.style.overflow = 'auto';
 
-        const isDemo = process.env.REACT_APP_IS_DEMO_VERSION === 'true';
+        const isDemo = env.IS_DEMO_VERSION === 'true';
         const alreadyShown = sessionStorage.getItem('demo_warning_shown') === 'true';
         if (isDemo && !alreadyShown) {
             setShowDemoWarning(true);
@@ -638,6 +667,52 @@ const PipelinePage: React.FC = () => {
     const [pipelineRunId, setPipelineRunId] = useState<string>();
     const runCounterRef = useRef<number>(1);
 
+    // Issue #60 (P60-M1-007): apply a selected ValidatedSuggestion, on an EMPTY canvas only.
+    // The handler reads live state through this ref, never the UI's rendered `canvasIsEmpty`,
+    // so even a stale handler reference cannot add a pipeline next to existing work.
+    const liveCanvasRef = useRef({ nodes, connections, isRunning, history, historyIndex });
+    liveCanvasRef.current = { nodes, connections, isRunning, history, historyIndex };
+
+    const applyPipelineSuggestion = (suggestion: ValidatedSuggestion): ApplyResult => {
+        const live = liveCanvasRef.current;
+        const fail = (reason: ApplyFailureReason): ApplyResult => ({ ok: false, reason, message: APPLY_FAILURE_MESSAGES[reason] });
+
+        // Guards, before anything is computed or changed. Never clears, saves, confirms or runs.
+        if (live.nodes.length > 0) return fail('canvas_not_empty');
+        if (live.isRunning) return fail('pipeline_running');
+
+        // Compute everything first: graph, history, viewport and notification.
+        let materialized: MaterializedSuggestion;
+        try {
+            materialized = materializeSuggestion(suggestion);
+        } catch (error) {
+            return fail(error instanceof ApplyError ? error.reason : 'invalid');
+        }
+        const next = historyAfterApply(
+            live.history,
+            live.historyIndex,
+            { nodes: live.nodes, connections: live.connections },
+            { nodes: materialized.nodes, connections: materialized.connections },
+            MAX_HISTORY_STATES
+        );
+        const toConfigure = materialized.pendingConfiguration.filter((p) => p.kind === 'before_run').map((p) => p.cardTitle);
+        const message = toConfigure.length
+            ? `Pipeline added. Next: configure ${toConfigure.join(', ')}, then press Run.`
+            : 'Pipeline added. Press Run when you are ready.';
+
+        // Commit in one synchronous step (React batches these into a single render).
+        setNodes(materialized.nodes);
+        setConnections(materialized.connections);
+        setHistory(next.history);
+        setHistoryIndex(next.historyIndex);
+        setScale(1);
+        setOffset({ x: 0, y: 0 });
+        setNotification({ type: 'success', message, duration: 5000 });
+        liveCanvasRef.current = { ...live, nodes: materialized.nodes, connections: materialized.connections, history: next.history, historyIndex: next.historyIndex };
+
+        return { ok: true, addedNodeIds: materialized.addedNodeIds, pendingConfiguration: materialized.pendingConfiguration };
+    };
+
     // Pipeline Stoppage States     
     const abortControllerRef = useRef<AbortController | null>(null);
     const killSwitchRef = useRef<boolean>(false);
@@ -900,6 +975,23 @@ const PipelinePage: React.FC = () => {
         track(PipelineEvent.LINK_DELETED);
     };
 
+    // -- Chain of Thought Summaries Logic ---
+    const handleAcceptSummary = async () => {
+        setShowSummaryPrompt(false);
+        setShowSummaryModal(true);
+        setIsSummarizing(true);
+        
+        try {
+            const response = await summarizePipelineResults(nodes, connections);
+            setSummarySteps(response.steps);
+        } catch {
+            // console.error("Failed to generate pipeline summary:", error);
+            setIsSummarizing(false);
+        } finally {
+            setIsSummarizing(false);
+        }
+    };
+
     // --- Execution Logic ---
     const runFromNode = async (nodeId: string) => {
         const node = nodes.find(n => n.id === nodeId);
@@ -1022,11 +1114,12 @@ const PipelinePage: React.FC = () => {
         const updateStatus = (id: string, status: any, log?: string, dataUpdate?: any) => {
             setNodes(prev => prev.map(n => {
                 if (n.id === id) {
+                    const evaluatedData = typeof dataUpdate === 'function' ? dataUpdate(n.data) : dataUpdate;
                     return {
                         ...n,
                         status: status,
                         logs: log ? [...n.logs, log] : n.logs,
-                        data: dataUpdate ? { ...n.data, ...dataUpdate } : n.data
+                        data: evaluatedData ? { ...n.data, ...evaluatedData } : n.data
                     };
                 }
                 return n;
@@ -1095,6 +1188,11 @@ const PipelinePage: React.FC = () => {
                 status: runStatus,
                 durationMs: Date.now() - runStartedAt,
             });
+
+            // Triggering the summary prompt only when 'completed', not otherwise.
+            if (runStatus === 'completed') {
+                setShowSummaryPrompt(true);
+            }
         }
     };
 
@@ -1119,6 +1217,23 @@ const PipelinePage: React.FC = () => {
             updateStatus(targetNode.id, 'running', `Receiving data...`);
             
             try {
+                const liveInputs = (nodesRef.current || nodes).filter(n =>
+                    connections.some(c => c.source === n.id && c.target === targetNode.id));
+                
+                const javascript = await runJavaScriptStage(targetNode.type, payload, {
+                    ...targetNode.data,
+                    javascriptComparisonInputs: liveInputs.map(n => ({ id: n.id, type: n.type, status: n.status, position: { y: n.y }, data: n.data }))
+                },
+                    (service, path, body) => postJavaScriptStage(service, path, body, options?.signal));
+                
+                if (javascript) {
+                    updateStatus(targetNode.id, javascript.waiting ? 'running' : 'completed', javascript.message, javascript.data);
+                    if (javascript.waiting) continue;
+                    await processNextNodes(targetNode.id, javascript.payload, updateStatus, options);
+                    
+                    continue;
+                }
+
                 if (targetNode.type === 'MULTI_REPO') {
                     if (payload.type !== 'SYSTEM_PAYLOAD') throw new Error("Expected System Source");
                     const sysPayload = payload as SystemPayload;
@@ -1132,13 +1247,16 @@ const PipelinePage: React.FC = () => {
                             existingPayload.metadata!.some(cachedRepo => 
                                 (currentRepo.repoUrl || "") === cachedRepo.repoUrl &&
                                 (currentRepo.branch || "master") === cachedRepo.branch &&
-                                (currentRepo.commitId || "HEAD") === cachedRepo.commitId
+                                (currentRepo.commitId || "HEAD") === cachedRepo.commitId &&
+                                (currentRepo.language || 'java') === (cachedRepo.language || 'java') &&
+                                (currentRepo.componentKind || 'backend') === (cachedRepo.componentKind || 'backend')
                             )
                         );
 
                     if (isCached) {
                         updateStatus(targetNode.id, 'completed', 'Using cached IR...', { payload: existingPayload });
                         await processNextNodes(targetNode.id, existingPayload, updateStatus, options);
+                        
                         continue; 
                     }
 
@@ -1146,7 +1264,9 @@ const PipelinePage: React.FC = () => {
                         systemName: sysPayload.systemName,
                         systemRepositories: sysPayload.repositories.map(repo => ({
                             repoBranchPair: { repositoryURL: canonicalizeGithubUrl(repo.repoUrl), branchName: repo.branch || "master" },
-                            commitID: repo.commitId || undefined
+                            commitID: repo.commitId || undefined,
+                            language: repo.language || 'java',
+                            componentKind: ['javascript', 'typescript'].includes(repo.language || '') ? (repo.componentKind || 'backend') : undefined
                         }))
                     };
 
@@ -1159,12 +1279,15 @@ const PipelinePage: React.FC = () => {
                         metadata: sysPayload.repositories.map(repo => ({
                             repoUrl: repo.repoUrl || "",
                             branch: repo.branch || "master",
-                            commitId: repo.commitId || "HEAD"
+                            commitId: repo.commitId || "HEAD",
+                            language: repo.language,
+                            componentKind: repo.componentKind
                         }))
                     };
                     updateStatus(targetNode.id, 'completed', 'IR generated.', { payload: nextPayload });
                     await processNextNodes(targetNode.id, nextPayload, updateStatus, options);
                 }
+
                 else if (targetNode.type === 'COMPONENT_GENERATE') {
                     if (payload.type !== 'SYSTEM_PAYLOAD') throw new Error("Expected System Source");
                     const sysPayload = payload as SystemPayload;
@@ -1177,7 +1300,9 @@ const PipelinePage: React.FC = () => {
                         systemName: sysPayload.systemName,
                         systemRepositories: sysPayload.repositories.map(repo => ({
                             repoBranchPair: { repositoryURL: repo.repoUrl, branchName: repo.branch || "master" },
-                            commitID: repo.commitId || undefined
+                            commitID: repo.commitId || undefined,
+                            language: repo.language || 'java',
+                            componentKind: ['javascript', 'typescript'].includes(repo.language || '') ? (repo.componentKind || 'backend') : undefined
                         })),
                         rolePriority: rolePriorityMap,
                         defaultRolePriority: 50
@@ -1194,7 +1319,19 @@ const PipelinePage: React.FC = () => {
                     };
 
                     // Retrieves the authorization vectors
-                    const authVectors = await generateAuthVectors(generatedComponents.id, { signal: options?.signal })
+                    const scopeUnsupported = unsupportedDownstreamReason({ 
+                        irJson: generatedComponents, 
+                        metadata: sysPayload.repositories 
+                        });
+
+                    const authorizationUnsupported = Boolean(scopeUnsupported) || rawResponse.analysisCapabilities?.authorization === 'unsupported'
+                        || generatedComponents.endpointIndex?.metadata?.analysisCapabilities?.authorization === 'unsupported'
+                        || generatedComponents.componentIndex?.metadata?.analysisCapabilities?.authorization === 'unsupported';
+                    
+                    const securityReport = generatedComponents.componentIndex?.javascriptExtraction?.securityAnalysis;
+                    const authVectors = scopeUnsupported ? null : securityReport
+                        ? await postJavaScriptStage('VECTOR', '/vectors/javascript', { report: securityReport, expectedPolicy: targetNode.data.expectedPolicy }, options?.signal)
+                        : authorizationUnsupported ? null : await generateAuthVectors(generatedComponents.id, { signal: options?.signal });
 
                     const nextPayload: PipelinePayload = {
                         irJson: generatedComponents,
@@ -1202,14 +1339,20 @@ const PipelinePage: React.FC = () => {
                         metadata: sysPayload.repositories.map(repo => ({
                             repoUrl: repo.repoUrl || "",
                             branch: repo.branch || "master",
-                            commitId: repo.commitId || "HEAD"
+                            commitId: repo.commitId || "HEAD",
+                            language: repo.language,
+                            componentKind: repo.componentKind
                         })),
                         additional: authVectors
                     };
 
-                    updateStatus(targetNode.id, 'completed', 'Components generated.', { payload: nextPayload });
+                    updateStatus(targetNode.id, 'completed', scopeUnsupported
+                        ? 'Components generated. Whole-system authorization is unsupported for this source scope.'
+                        : securityReport ? 'Components and scoped JavaScript policy evidence generated.'
+                        : authorizationUnsupported ? 'Components generated. Authorization is unsupported for this source scope.' : 'Components generated.', { payload: nextPayload });
                     await processNextNodes(targetNode.id, nextPayload, updateStatus, options);
                 }
+
                 else if (targetNode.type === 'COMPONENT_HOLDER') {
                     // Type Guard: Expects payload from COMPONENT_GENERATE
                     const incomingPayload = payload as PipelinePayload;
@@ -1227,7 +1370,7 @@ const PipelinePage: React.FC = () => {
                     
                     const compPayload: ComponentPayload = {
                         id: extractedId,
-                        authvecid: authVectors._id,
+                        authvecid: authVectors?._id || authVectors?.policyId || '',
                         endpoints: endpointsData,
                         components: componentsData
                     };
@@ -1237,7 +1380,7 @@ const PipelinePage: React.FC = () => {
                     await processNextNodes(targetNode.id, incomingPayload, updateStatus, options);
                 }
 
-                if (targetNode.type === 'IR_HOLDER') {
+                else if (targetNode.type === 'IR_HOLDER') {
                     // Type Guard: Expects IR
                     const irPayload = payload as PipelinePayload;
                     if (!irPayload.irJson) throw new Error("Invalid input: Expected IR JSON");
@@ -1245,7 +1388,8 @@ const PipelinePage: React.FC = () => {
                     updateStatus(targetNode.id, 'completed', 'IR Stored.', { payload: irPayload });
                     await processNextNodes(targetNode.id, irPayload, updateStatus, options);
                 } 
-                if (targetNode.type === 'TEST_EXECUTOR') {
+
+                else if (targetNode.type === 'TEST_EXECUTOR') {
                     const generatedTests = payload?.testSuitePayload?.tests;
 
                     if (!generatedTests || generatedTests.length === 0) {
@@ -1262,6 +1406,7 @@ const PipelinePage: React.FC = () => {
                         }
                     );
                 } 
+
                 else if (targetNode.type === 'FORMAL_VERIFY') {
                     // Type Guard: Expects IR
                     const irPayload = payload as PipelinePayload;
@@ -1295,6 +1440,7 @@ const PipelinePage: React.FC = () => {
                     // PASS RESULT DOWNSTREAM
                     await processNextNodes(targetNode.id, downstreamPackage, updateStatus, options); 
                 }
+
                 else if (targetNode.type === 'SCENARIO_GENERATE') {
                     // 1. Look back up the graph to find the connected COMPONENT_HOLDER
                     const componentHolderNode = nodes.find(n => 
@@ -1359,6 +1505,10 @@ const PipelinePage: React.FC = () => {
                     const indexId = componentHolderNode?.data.componentPayload?.id;
                     const authVecId = componentHolderNode?.data.componentPayload?.authvecid;
 
+                    if (!authVecId) {
+                        throw new Error("Authorization scenarios are unavailable: this component analysis has no supported authorization-policy vectors.");
+                    }
+
                     let scenarioJson = await generateScenarios(indexId, authVecId, { signal: options?.signal });
 
                     const scenarios: any[] = [];
@@ -1385,6 +1535,7 @@ const PipelinePage: React.FC = () => {
 
                     await processNextNodes(targetNode.id, { ...payload, scenarioPayload }, updateStatus, options);
                 }
+
                 else if (targetNode.type === 'TEST_GENERATE') {
                     // Find upstream prompt node
                     const promptNode = nodes.find(n => 
@@ -1401,14 +1552,30 @@ const PipelinePage: React.FC = () => {
                     const selectedLlm = targetNode.data.selectedLlm || 'gpt-5-mini'; 
                     updateStatus(targetNode.id, 'running', `Sending ${prompts.length} prompts to ${selectedLlm}...`);
 
-                    const data = await generateTestSuites(selectedLlm, prompts, { signal: options?.signal }); // Assumes { status: "success", tests: [...] }
-                    
-                    updateStatus(targetNode.id, 'completed', 'Test Suite Generated Successfully.', { 
-                        testSuitePayload: data 
-                    });
+                    const data = await generateTestSuites(selectedLlm, prompts, { signal: options?.signal });
+
+                    const generated = data?.generated ?? data?.tests?.length ?? 0;
+                    const failed = data?.failed ?? 0;
+
+                    if (generated === 0 && failed > 0) {
+                        // Halt: nothing usable downstream. Store the payload first so the
+                        // card can still show the aggregated error breakdown.
+                        updateStatus(targetNode.id, 'failed', undefined, { testSuitePayload: data });
+                        throw new Error(`All ${failed} test generations failed. ${data?.errors?.[0]?.error ?? 'Unknown error'}`);
+                    }
+
+                    updateStatus(
+                        targetNode.id,
+                        'completed',
+                        failed > 0
+                            ? `Generated ${generated} tests, ${failed} failed.`
+                            : 'Test Suite Generated Successfully.',
+                        { testSuitePayload: data }
+                    );
 
                     await processNextNodes(targetNode.id, { ...payload, testSuitePayload: data }, updateStatus, options);
                 }
+
                 else if (targetNode.type === 'PROMPT_GENERATE') {
                     const scenarioNode = nodes.find(n => 
                         n.type === 'SCENARIO_GENERATE' && 
@@ -1432,6 +1599,7 @@ const PipelinePage: React.FC = () => {
 
                     await processNextNodes(targetNode.id, { ...payload, promptPayload: data }, updateStatus, options);
                 }
+
                 else if (targetNode.type === 'VISUALIZATION') {
                     // 1. Look at the FRESH payload passed directly from the node that just triggered this
                     const incomingIr = (payload as any)?.irJson;
@@ -1497,53 +1665,54 @@ const PipelinePage: React.FC = () => {
                     // if(!irPayload.irJson) throw new Error("Invalid input for Visualization");
                     // updateStatus(targetNode.id, 'completed', 'Ready to Visualize.', { payload: irPayload });
                 }
+
                 else if (targetNode.type === 'AEGIS') {
-                    // Type Guard
                     const irPayload = payload as PipelinePayload;
-                    if (!irPayload.irJson) throw new Error("Invalid input: Expected IR JSON");
-
-                    updateStatus(targetNode.id, 'running', 'Analyzing in Background...');
-
-                    // Constructing payload for Neuro-Symbolic Engine
-                    // This is a temporary construct until AEGIS is really ready for multi-repo
+                    
+                    if (!irPayload.irJson?.id) 
+                        throw new Error('Aegis requires a saved IR identity. Save the source IR before analysis.');
+                    
+                    const sourceReport = securityReportFromPayload(payload);
+                    const javascript = Boolean(sourceReport) || sourceLanguages(payload).some(language => ['javascript', 'typescript'].includes(language));
+                    
+                    if (javascript && !['partial', 'complete'].includes(sourceReport?.status))
+                        throw new Error('This saved IR has no source-bound Express security evidence. Regenerate it with the JavaScript source-security extractor.');
+                    
+                    updateStatus(targetNode.id, 'running', 'Analyzing saved source evidence...');
+                   
                     const enginePayload = {
-                        branch: irPayload.metadata[0]?.branch,
-                        repoUrl: irPayload.metadata[0]?.repoUrl,
-                        ir_id: irPayload.irJson['id']
+                        branch: irPayload.metadata?.[0]?.branch,
+                        repoUrl: irPayload.metadata?.[0]?.repoUrl,
+                        ir_id: irPayload.irJson.id
                     };
 
-                    // Call the Python/Engine API
-                    analyzeAegis(enginePayload, { signal: options?.signal })
-                    .then(async (response) => {
-                        if (options?.killSwitch?.current) return;
+                    const response = await analyzeAegis(enginePayload, { signal: options?.signal });
+                    if (options?.killSwitch?.current) return;
 
-                        if (!response.ok) {
-                            throw new Error(`Engine Status: ${response.status}`);
-                        }
-                        
-                        // UI State Update
-                        updateStatus(targetNode.id, 'completed', 'Analysis Complete. Click to View.', { payload: irPayload });
-
-                        // Triggering the custom notification
-                        setNotification({
-                            type: 'success',
-                            message: 'Aegis Analysis Complete!',
-                            duration: 5000
-                        });
-
-                        // Triggering Browser Notification
-                        if (document.hidden && Notification.permission === 'granted') {
-                            new Notification('Aegis Analysis Complete', {
-                                body: 'You can now view the results!',
-                                icon: '/health.ico' 
-                            });
-                        }
-                    })
-                    .catch((error) => {
-                        console.error('Aegis background analysis failed:', error);
-                        updateStatus(targetNode.id, 'error', `Analysis Failed: ${error.message}`);
-                    });
+                    if (response?.ir_id !== undefined && String(response.ir_id) !== String(enginePayload.ir_id))
+                        throw new Error('Aegis returned evidence for a different saved IR identity.');
+                    
+                    if (response.status === 'unsupported')
+                        throw new Error(response.reason || 'Security analysis is unsupported for this input.');
+                    
+                    if (javascript && (response.analysis !== 'javascript-express-static-security' || !['partial', 'complete'].includes(response.status)))
+                        throw new Error('Aegis did not return the expected JavaScript source-security evidence.');
+                    
+                    if (!['success', 'partial', 'complete'].includes(response.status) && !response.ok)
+                        throw new Error(`Engine Status: ${response.status || 'unknown'}`);
+                    
+                    const expressReport = response.analysis === 'javascript-express-static-security' ? response : undefined;
+                    const next = { ...irPayload, ...(expressReport ? { javascriptReport: sourceReport, securityReport: expressReport } : { aegisResult: response }) };
+                    
+                    updateStatus(targetNode.id, 'completed', expressReport
+                        ? `Express source-security analysis: ${response.status}.`
+                        : 'Analysis complete. Click to view.', { payload: next, securityReport: expressReport });
+                    
+                    setNotification({ type: 'success', message: 'Aegis analysis complete.', duration: 5000 });
+                    
+                    await processNextNodes(targetNode.id, next, updateStatus, options);
                 }
+
                 else if (targetNode.type === 'FORMAL_VIZ') {
                     // Use the deadlock fix to safely get state
                     setTimeout(() => {
@@ -1604,6 +1773,7 @@ const PipelinePage: React.FC = () => {
                         });
                     }, 50);
                 }
+
                 else if (targetNode.type === 'VERIFICATION_COMPARISON') {
                     setTimeout(async () => {
                         if (options?.killSwitch?.current) return;
@@ -1623,6 +1793,11 @@ const PipelinePage: React.FC = () => {
 
                         if (verifyNode.status !== 'completed' || scenarioNode.status !== 'completed') {
                             updateStatus(targetNode.id, 'running', 'Awaiting upstream completion...');
+                            return;
+                        }
+
+                        if (!['SAT', 'UNSAT'].includes(verifyNode.data.verificationResult?.status || '')) {
+                            updateStatus(targetNode.id, 'failed', 'Comparison unavailable: authorization policy verification is unsupported or unknown.', { comparisonResult: undefined });
                             return;
                         }
 
@@ -1659,6 +1834,7 @@ const PipelinePage: React.FC = () => {
                         }
                     }, 50);
                 }
+
                 else if (targetNode.type === 'CHANGE_IMPACT') {
                     setTimeout(async () => {
                         if (options?.killSwitch?.current) return;
@@ -1668,7 +1844,7 @@ const PipelinePage: React.FC = () => {
                         const baseNode = liveNodes.find(n => (n.type === 'MULTI_REPO' || n.type === 'IR_HOLDER') 
                             && connections.some(c => c.source === n.id && c.target === targetNode.id));
                         
-                            const targetInputNode = liveNodes.find(n => n.type === 'SYSTEM_INPUT' 
+                        const targetInputNode = liveNodes.find(n => n.type === 'SYSTEM_INPUT' 
                             && connections.some(c => c.source === n.id && c.target === targetNode.id));
 
                         if (!baseNode || !targetInputNode) {
@@ -1700,11 +1876,11 @@ const PipelinePage: React.FC = () => {
                                 systemName: systemName,
                                 systemRepositories: baseMeta.map((m: any) => ({
                                     repoBranchPair: { repositoryURL: m.repoUrl, branchName: m.branch },
-                                    commitID: m.commitId
+                                    commitID: m.commitId, language: m.language || 'java', componentKind: m.componentKind
                                 })),
                                 comparingRepositories: targetMeta.map((m: any) => ({
                                     repoBranchPair: { repositoryURL: m.repoUrl, branchName: m.branch },
-                                    commitID: m.commitId
+                                    commitID: m.commitId, language: m.language || 'java', componentKind: m.componentKind
                                 }))
                             };
 
@@ -1723,6 +1899,7 @@ const PipelinePage: React.FC = () => {
 
                             updateStatus(targetNode.id, 'completed', 'Impact Analysis Complete.', {
                                 changeImpactPayload: result,
+                                ...(result.analysis === 'javascript-system-change' ? { javascriptAnalysis: result } : {}),
                                 targetedServices: Array.from(affectedSet) 
                             });
                             
@@ -1735,6 +1912,7 @@ const PipelinePage: React.FC = () => {
                         }
                     }, 50);
                 }
+                
                 else if (targetNode.type === 'SECURITY_REGRESSION') {
                     setTimeout(async () => {
                         if (options?.killSwitch?.current) return;
@@ -1756,6 +1934,11 @@ const PipelinePage: React.FC = () => {
                         // If still missing after the flush, one is genuinely still running
                         if (!baseResult || !prResult) {
                             updateStatus(targetNode.id, 'running', 'Awaiting both Verifications to finish...');
+                            return;
+                        }
+
+                        if (![baseResult.status, prResult.status].every(status => status === 'SAT' || status === 'UNSAT')) {
+                            updateStatus(targetNode.id, 'failed', 'Security drift is unavailable: both revisions require supported authorization verification.', { regressionPayload: undefined });
                             return;
                         }
 
@@ -1809,6 +1992,8 @@ const PipelinePage: React.FC = () => {
 
     // --- Renderers ---
     const renderCardContent = (node: NodeData) => {
+        if (node.data.javascriptAnalysis) 
+            return <JavaScriptAnalysisCard node={node} updateNodeData={updateNodeData} />;
         switch (node.type) {
             case 'SYSTEM_INPUT': return <SystemInputCard node={node} updateNodeData={updateNodeData} />;
             case 'MULTI_REPO': return <IRGenerationCard node={node} />;
@@ -1884,7 +2069,8 @@ const PipelinePage: React.FC = () => {
                 onUndo={handleUndo}
                 onRedo={handleRedo}
                 canUndo={historyIndex > 0}
-                canRedo={historyIndex < history.length - 1}      
+                canRedo={historyIndex < history.length - 1}
+                onExportClick={() => setIsExportModalOpen(true)}      
             />
             
             <div className="flex flex-1 overflow-hidden">
@@ -1947,7 +2133,36 @@ const PipelinePage: React.FC = () => {
                     onClose={handleWarningClose} 
                 />
             </div>
-            <ChatbotPanel activeContext={chatbotContext} />
+
+            <SummaryPrompt 
+                isOpen={showSummaryPrompt} 
+                onDismiss={() => setShowSummaryPrompt(false)} 
+                onAccept={handleAcceptSummary} 
+            />
+            
+            <SummaryModal 
+                isOpen={showSummaryModal} 
+                onClose={() => setShowSummaryModal(false)} 
+                isSummarizing={isSummarizing} 
+                summarySteps={summarySteps} 
+            />
+
+            <ChatbotPanel
+                activeContext={chatbotContext}
+                onApplyPipelineSuggestion={applyPipelineSuggestion}
+                canvasIsEmpty={nodes.length === 0}
+                isPipelineRunning={isRunning}
+                onOpenTemplateLibrary={() => setIsTemplateLibraryOpen(true)}
+            />
+
+            <ExportModal 
+                isOpen={isExportModalOpen}
+                onClose={() => setIsExportModalOpen(false)}
+                sessionId={sessionId}
+                sessionName={sessionName}
+                hasUnsavedChanges={hasUnsavedChanges}
+                onSaveRequested={() => handleSaveSession(sessionName)}
+            />
         </div>
     );
 };

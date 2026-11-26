@@ -22,6 +22,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -37,6 +39,7 @@ class ChatbotS12M2IntegrationTest {
         assertThat(response.getCitations())
             .anyMatch(c -> "IR".equals(c.getArtifactType()) || "SERVICE".equals(c.getArtifactType()));
         assertThat(response.getConfidence()).isNotNull();
+        assertThat(response.getFlags()).doesNotContain(ChatbotFlag.CITATION_VALIDATION_FAILED);
     }
 
     @Test
@@ -49,6 +52,7 @@ class ChatbotS12M2IntegrationTest {
         assertThat(response.getCitations())
             .anyMatch(c -> "GRAPH".equals(c.getArtifactType()) || "DEPENDENCY".equals(c.getArtifactType()));
         assertThat(response.getConfidence()).isNotNull();
+        assertThat(response.getFlags()).doesNotContain(ChatbotFlag.CITATION_VALIDATION_FAILED);
     }
 
     @Test
@@ -61,6 +65,7 @@ class ChatbotS12M2IntegrationTest {
         assertThat(response.getCitations())
             .anyMatch(c -> "ENDPOINT".equals(c.getArtifactType()) || "/orders".equals(c.getLocationHint()));
         assertThat(response.getConfidence()).isNotNull();
+        assertThat(response.getFlags()).doesNotContain(ChatbotFlag.CITATION_VALIDATION_FAILED);
     }
 
     @Test
@@ -214,6 +219,11 @@ class ChatbotS12M2IntegrationTest {
     }
 
     private static final class FakeLocalLlmClient implements LocalLlmClient {
+        // Matches the id=Ex positional labels PromptAssemblyService prints per evidence record
+        // (see StringUtils.evidenceLabel) - not the real artifactId values (E-IR-1, E-GR-1, ...)
+        // fixtures() below uses, which is exactly the mismatch the guardrail now guards against.
+        private static final Pattern EVIDENCE_LABEL_PATTERN = Pattern.compile("id=(E\\d+)");
+
         @Override
         public LocalLlmResult generate(ChatbotPrompt prompt, ChatbotConfig cfg) {
             String question = prompt == null || prompt.getUserQuestion() == null ? "" : prompt.getUserQuestion();
@@ -226,13 +236,34 @@ class ChatbotS12M2IntegrationTest {
                     "stop"
                 );
             }
+            String citation = evidenceLabelCitation(prompt);
             return new LocalLlmResult(
-                "Answer: Based on evidence, order-service topology and dependencies are identified [E-IR-1] [E-GR-1].\nQualification: medium confidence.",
+                "Answer: Based on evidence, order-service topology and dependencies are identified " + citation + ".\nQualification: medium confidence.",
                 cfg.getModel(),
                 cfg.getProvider().name(),
                 200,
                 "stop"
             );
+        }
+
+        private String evidenceLabelCitation(ChatbotPrompt prompt) {
+            String systemInstruction = prompt == null ? null : prompt.getSystemInstruction();
+            if (systemInstruction == null) {
+                return "";
+            }
+            List<String> labels = new ArrayList<>();
+            Matcher matcher = EVIDENCE_LABEL_PATTERN.matcher(systemInstruction);
+            while (matcher.find()) {
+                labels.add(matcher.group(1));
+            }
+            StringBuilder citation = new StringBuilder();
+            for (int i = 0; i < labels.size() && i < 2; i++) {
+                if (citation.length() > 0) {
+                    citation.append(' ');
+                }
+                citation.append('[').append(labels.get(i)).append(']');
+            }
+            return citation.toString();
         }
     }
 }

@@ -14,6 +14,15 @@ The repo's root `package.json` is a near-empty stub; do not treat the root as a 
 
 `dockerpush.sh` pushes prebuilt images to Docker Hub under the `cloudhub` org.
 
+**Local LLM (AI Assistant).** The Ollama runtime (`cloudhub_ollama`, port 11434) runs only with the `local-llm` compose profile, and nothing pulls a model automatically:
+
+```sh
+docker compose --profile local-llm up --build
+docker exec cloudhub_ollama ollama pull llama3.2
+```
+
+`llama3.2` is the reference model for both Q&A and pipeline planning (`CHATBOT_MODEL` in compose). The first call after the model loads is much slower, so warm it up (one Ask or Build request) before a demo.
+
 ## Services and their ports
 
 The compose file is the source of truth. Cross-service calls are hardcoded to `localhost:<port>` in the frontend (`frontend/src/services/api.ts`) and to compose hostnames (`cache_db`, `cloudhub_mongo`, `aegis_neo4j`) inside backends. When adding or moving a service, update both compose and the frontend's hardcoded URLs.
@@ -30,6 +39,8 @@ The compose file is the source of truth. Cross-service calls are hardcoded to `l
 | `cloudhub_testexecutor` | `testexecutor/` | Python FastAPI | 8010 |
 | `aegis_api` | `aegis/` (uvicorn `service:app`) | FastAPI + Neo4j | 8900 |
 | `aegis_dashboard` | `aegis/` (flask `frontend.py`) | Flask UI | 5600 |
+| `cloudhub_chatbot` | `chatbot-backend/` | Spring Boot 3.2 / Java 21 (AI Assistant: Q&A and pipeline intents) | 8081 |
+| `cloudhub_ollama` | image `ollama/ollama` (profile `local-llm`) | Local LLM runtime | 11434 |
 
 The `aegis/` directory builds one image used as both `aegis_api` and `aegis_dashboard` — the `command:` in compose decides which entrypoint runs.
 
@@ -49,6 +60,16 @@ The frontend's `PipelinePage` (`frontend/src/components/pipeline/`) is a visual 
 
 IDs threaded between cards (`indexId`, `vectorsId`, scenario IDs) are MongoDB document IDs. When debugging a broken pipeline step, check the upstream card actually returned the ID the next step expects.
 
+### Chatbot-assisted pipeline creation (Issue #60, Milestone 1)
+
+The AI Assistant (`frontend/src/components/chatbot/`) has two explicit modes. **Ask** is evidence-grounded Q&A (`POST /chatbot/query`); typing "build me a pipeline" in Ask is still just a question. **Build a pipeline** creates a new pipeline:
+
+1. The goal goes to `chatbot-backend` `POST /chatbot/pipeline/intents` (port 8081). The local model returns **analysis intent only**: three profiles (focused, balanced, comprehensive), each a list of analysis capability IDs from the capability catalog the frontend sends. The model never produces graphs, nodes, edges, prerequisites, positions or config, and the backend only shape-checks its JSON.
+2. The frontend does everything structural, deterministically (`frontend/src/components/pipeline/planning/`): `parseIntentPlan` (strict contract) → `pipelineComposer` (adds every prerequisite card and connection from `VALID_CONNECTIONS`, `CARD_INPUT_REQUIREMENTS` and the templates) → `validatePipelineSpec` → `candidateSet` (exactly three distinct suggestions), orchestrated by `pipelinePlanner` with one bounded retry and a 150 s budget.
+3. The user sees exactly three suggestions and explicitly picks one. It applies **only to an empty canvas** (`pipelineApplier` + `PipelinePage.applyPipelineSuggestion`, atomic, one Undo reverts it). The assistant never clears, saves, merges or runs anything: the user configures the required cards (e.g. System Source) and presses the normal **Run**.
+
+Failures (model unreachable, timeout, unusable output, unsupported goal) show safe messages with Retry and **Browse templates**; the canvas never changes. Design and decisions: `docs/issue-60-milestone-1-user-stories.md`.
+
 The visualization side (`/graph-visualize` route) is a separate flow: parse an IR JSON (uploaded or fetched from `/ir` history) → `parsers/getData.ts` → 3D force graph via `react-force-graph`.
 
 ## Frontend specifics
@@ -63,13 +84,11 @@ The visualization side (`/graph-visualize` route) is a separate flow: parse an I
 
 ## Backend (Spring) specifics
 
-- Build with the Maven wrapper from `backend/`:
-  - `./mvnw clean package` — produces `target/MVPBackend-0.0.1-SNAPSHOT.war`
-  - `./mvnw test` — full test suite; `./mvnw test -Dtest=ClassName#method` for a single test
-  - `./mvnw spring-boot:run` — local run (expects MariaDB on `cache_db:3306`, override `SPRING_DATASOURCE_URL` for localhost)
-- Depends on `cimet-extract-lib-1.1.1.jar` (vendored at `backend/cimet-extract-lib-1.1.1.jar`). The Dockerfile installs it into the Maven local repo before `mvn package`. For local builds, run the same `mvn install:install-file` step the Dockerfile uses, or you'll get an unresolved dependency.
+- Both extraction services consume CIMET v1.3.0 from the public JitPack repository (`com.github.Arid-Nova:mvp-cimet-extraction-library:v1.3.0`); exact artifact/runtime hashes are in `cimet-dependency.lock.json`. Do not build CIMET source or install a replacement local JAR as part of application builds.
+- From the repository root, run `python scripts/prepare_cimet_runtime.py`, then build with `mvn -f backend/pom.xml verify` or `mvn -f componentanalysis/pom.xml verify`. JitPack resolution does not require package-registry credentials.
+- `mvn -f backend/pom.xml spring-boot:run` starts the backend (expects MariaDB on `cache_db:3306`; override `SPRING_DATASOURCE_URL` locally).
 - Package layout: `edu.baylor.ecs.cloudhubs.mvp.MVPBackend.{api,persistence,config}`. Controllers under `api/ir` and `api/graph` mount at `/ir/*` and `/graph/*`. Persistence is split between JPA (MariaDB, IR storage) and MongoDB (graph state).
-- `componentanalysis/` mirrors this layout but with `cimet-extract-lib-1.1.0.jar` — the two jars are not interchangeable; respect the version each module pins.
+- `componentanalysis/` mirrors this layout and consumes the same locked published dependency and matching external parser assets.
 
 ## Python services
 
@@ -87,3 +106,20 @@ LLM credentials for `testgenerator` are passed via `OPENAI_API_KEY` / `ANTHROPIC
 - Cross-service IDs are MongoDB ObjectIds passed as strings; do not assume integer IDs anywhere in the pipeline.
 - The frontend's pipeline canvas validates connections against `pipelineConfig.tsx` (`VALID_CONNECTIONS`); when adding a card type, register it there or the edge will be rejected silently in the UI.
 - The Aegis dashboard and API share the same image and `requirements.txt`; if you add a Python dep for one, it lands in both.
+
+## Polyglot extraction changes
+
+Run `python scripts/prepare_cimet_runtime.py` before either JVM service to prepare the
+checksum-verified released Node adapter and pipeline-owned security analyzer. Maven resolves
+the published artifact identified by `cimet-dependency.lock.json`; the preparer does not clone
+or compile CIMET. After Maven verification, run `python scripts/verify_cimet_dependency.py`
+to check the resolved/embedded package and prepared provenance. Do not commit generated
+JARs, `vendor/`, dependencies, source registries, credentials or analysis outputs. Docker
+builds use the repository root and resolve the public JitPack dependency without
+package-registry credentials. See
+`docs/polyglot-integration.md`.
+
+The request language is a validated hint; the engine registry selects per file. Preserve
+`metadata.languages`, parser diagnostics and capability metadata through persistence and
+indexing. Never apply Java/Spring security defaults to non-Java or mixed inputs. Add a parser
+through the engine contract, and validate downstream capability support separately.
