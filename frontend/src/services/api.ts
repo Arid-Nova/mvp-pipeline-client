@@ -19,8 +19,17 @@ import { decompressPayload, decompressGzipResponse } from '../utils/decompress';
 import { compressData } from '../utils/compress'
 
 export const postJavaScriptStage = async (service: string, path: string, body: any, signal?: AbortSignal) => {
-    const clients: Record<string, typeof VERIFY_API> = { VERIFY: VERIFY_API, VECTOR: VECTOR_API, ANALYSIS: ANALYSIS_API, TEST: TEST_API, EXECUTOR: EXECUTOR_API };
-    if (!clients[service]) throw new Error('Unsupported JavaScript pipeline stage.');
+    const clients: Record<string, typeof VERIFY_API> = { 
+        VERIFY: VERIFY_API, 
+        VECTOR: VECTOR_API, 
+        ANALYSIS: ANALYSIS_API, 
+        TEST: TEST_API, 
+        EXECUTOR: EXECUTOR_API 
+    };
+
+    if (!clients[service]) 
+        throw new Error('Unsupported JavaScript pipeline stage.');
+    
     return (await clients[service].post(path, body, { signal })).data;
 };
 

@@ -1,8 +1,8 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { UploadIRCard, extractIRMetadata } from './UploadIRCard';
-import { NodeData } from '../models';
-import { fetchIRVersions, fetchSpecificIRs } from '../../../services/api';
+import { UploadIRCard, extractIRMetadata } from '../UploadIRCard';
+import { NodeData } from '../../models';
+import { fetchIRVersions, fetchSpecificIRs } from '../../../../services/api';
 
 jest.mock('../../../services/api', () => ({
     fetchIRVersions: jest.fn(),

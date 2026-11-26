@@ -6,11 +6,13 @@ export const ExpressSecurityReport: React.FC<{ report: any; onClose: () => void 
     const [tab, setTab] = useState<'findings' | 'endpoints'>('findings');
     const dialogRef = useRef<HTMLElement>(null);
     const closeRef = useRef<HTMLButtonElement>(null);
+    
     useLayoutEffect(() => {
         const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         closeRef.current?.focus();
         return () => { if (opener?.isConnected) opener.focus(); };
     }, []);
+
     const handleKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
         if (event.key === 'Escape') {
             event.preventDefault();
@@ -19,9 +21,11 @@ export const ExpressSecurityReport: React.FC<{ report: any; onClose: () => void 
         } else if (event.key === 'Tab') {
             const dialog = dialogRef.current;
             if (!dialog) return;
+            
             const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(
                 'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])'
             )).filter(element => element.tabIndex >= 0 && !element.closest('[hidden], [inert]'));
+            
             const first = focusable[0];
             const last = focusable[focusable.length - 1];
             if (!first) {
@@ -36,6 +40,7 @@ export const ExpressSecurityReport: React.FC<{ report: any; onClose: () => void 
             }
         }
     };
+
     const findings: any[] = Array.isArray(report.findings) ? report.findings : [];
     const endpoints: any[] = Array.isArray(report.endpoints) ? report.endpoints : [];
     const rows = (tab === 'findings' ? findings : endpoints).filter(row =>
@@ -49,6 +54,7 @@ export const ExpressSecurityReport: React.FC<{ report: any; onClose: () => void 
         link.click();
         URL.revokeObjectURL(url);
     };
+
     return createPortal(
         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 p-4"
             onClick={event => { event.stopPropagation(); if (event.target === event.currentTarget) onClose(); }}>
@@ -62,10 +68,12 @@ export const ExpressSecurityReport: React.FC<{ report: any; onClose: () => void 
                     </div>
                     <button ref={closeRef} onClick={onClose} className="rounded border border-slate-600 px-3 py-1">Close</button>
                 </div>
+
                 <p className="my-4 text-sm text-slate-300">
                     {endpoints.length} endpoint records · {findings.length} findings and review candidates.
                     Unobserved or unresolved checks do not establish public access, a vulnerability, or security correctness.
                 </p>
+
                 <div className="mb-4 flex flex-wrap gap-2">
                     <button onClick={() => setTab('findings')} aria-pressed={tab === 'findings'}
                         className={`rounded px-3 py-2 ${tab === 'findings' ? 'bg-blue-700' : 'bg-slate-700'}`}>Findings</button>
@@ -75,7 +83,9 @@ export const ExpressSecurityReport: React.FC<{ report: any; onClose: () => void 
                     <input aria-label="Filter security results" placeholder="Filter by route, file, or rule" value={query}
                         onChange={event => setQuery(event.target.value)} className="min-w-[240px] flex-1 rounded bg-slate-800 px-3 py-2" />
                 </div>
+
                 {rows.length === 0 && <p className="py-4 text-slate-300">No records match this view. This is not a security pass.</p>}
+                
                 <div className="space-y-2">
                     {rows.slice(0, 100).map((row, index) => <details key={row.id || row.endpointId || index} className="rounded border border-slate-700 p-3">
                         <summary className="cursor-pointer break-words">
@@ -96,12 +106,14 @@ export const ExpressSecurityReport: React.FC<{ report: any; onClose: () => void 
                         </pre>
                     </details>)}
                 </div>
+
                 {rows.length > 100 && <p className="mt-3 text-sm text-slate-400">Showing the first 100 matches. Filter further or download all records.</p>}
                 <details className="mt-5 border-t border-slate-700 pt-3">
                     <summary className="cursor-pointer">Coverage and limitations</summary>
                     <pre className="mt-2 whitespace-pre-wrap break-words text-xs text-slate-300">{JSON.stringify({ capabilities: report.capabilities, applicationAssembly: report.applicationAssembly, coverage: report.coverage, scope: report.scope, limitations: report.limitations }, null, 2)}</pre>
                 </details>
             </section>
-        </div>, document.body
+        </div>, 
+        document.body
     );
 };

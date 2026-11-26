@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NodeData, RepositoryMeta } from '../models';
-import { InlineDropzone } from './InlineDropZone';
+import { InlineDropzone } from './subcomponents/InlineDropZone';
 import { fetchIRVersions, fetchSpecificIRs, deleteIR } from '../../../services/api';
 
 interface UploadIRCardProps {

@@ -37,6 +37,7 @@ function getComparisonData(irData: IRData, nodes_array?: string[]): ComparisonGr
                 "parentController": null, 
                 "parentService": null,
             });
+
             const collectMethods = (components: (Controller | Service)[]) => {
                 for (const component of components) {
                     for (const method of component.methods) {
@@ -44,9 +45,11 @@ function getComparisonData(irData: IRData, nodes_array?: string[]): ComparisonGr
                     }
                 }
             };
+            
             collectMethods(microservice.controllers);
             collectMethods(microservice.services);
             collectMethods(microservice.unknowns || []);
+
             for (const module of microservice.unknowns || []) {
                 const moduleName = sourceModuleNodeName(microservice.name, module);
                 nodes.push({ nodeName: moduleName, displayName: module.name, nodeType: 'module',

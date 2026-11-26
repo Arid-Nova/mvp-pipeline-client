@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { format } from 'date-fns/format';
-import { BranchDropdown } from './BranchDropdown';
+import { BranchDropdown } from './subcomponents/BranchDropdown';
 import { RepoData } from '../../../services/types';
 import { NodeData, RepositoryMeta } from '../models';
 import { isValid as isValidDate } from 'date-fns/isValid';
@@ -649,7 +649,7 @@ const RepoRow: React.FC<{
                     />
                 </div>
 
-                <label className="block text-xs text-slate-300">
+                {/* <label className="block text-xs text-slate-300">
                     Extraction language
                     <select
                         className="mt-1 w-full bg-slate-950 border border-slate-700 rounded p-1.5"
@@ -678,6 +678,66 @@ const RepoRow: React.FC<{
                         </select>
                         <span className="block mt-1 text-slate-400">Bounded Express source-policy analysis is available when source evidence is extracted. Other frameworks remain partial.</span>
                     </label>
+                )} */}
+
+                <div>
+                    <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 ml-0.5">
+                        Extraction language
+                    </label>
+                    <div className="relative">
+                    <select
+                        className="w-full appearance-none text-xs text-slate-400 bg-slate-950 border border-slate-700 rounded py-1.5 pl-2 pr-7 outline-none focus:border-blue-500 hover:border-slate-600 transition-colors cursor-pointer"
+                        value={repo.language || 'java'}
+                        onChange={(e) => onUpdateField('language', e.target.value)}
+                    >
+                        <option value="auto" className="bg-slate-900 text-slate-200">Auto / mixed languages</option>
+                        <option value="java" className="bg-slate-900 text-slate-200">Java / Spring</option>
+                        <option value="javascript" className="bg-slate-900 text-slate-200">JavaScript / TypeScript</option>
+                        <option value="python" className="bg-slate-900 text-slate-200">Python</option>
+                        <option value="go" className="bg-slate-900 text-slate-200">Go</option>
+                        <option value="csharp" className="bg-slate-900 text-slate-200">C# / ASP.NET</option>
+                    </select>
+                    <svg
+                        className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                    >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                </div>
+                    <p className="mt-1 text-[10px] text-slate-500 leading-snug">
+                        Auto scans supported source files together. Snapshot extraction supports Java, JavaScript/TypeScript, Python, Go and C#. Policy stages report unsupported language combinations explicitly.
+                    </p>
+                </div>
+
+                {['javascript', 'typescript'].includes(repo.language || '') && (
+                    <div>
+                        <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 ml-0.5">
+                            Application type
+                        </label>
+                        <div className="relative">
+                            <select
+                                className="w-full appearance-none text-xs text-slate-200 bg-slate-950 border border-slate-700 rounded py-1.5 pl-2 pr-7 outline-none focus:border-blue-500 hover:border-slate-600 transition-colors cursor-pointer"
+                                value={repo.componentKind || 'backend'}
+                                onChange={(e) => onUpdateField('componentKind', e.target.value)}
+                            >
+                                <option value="backend" className="bg-slate-900 text-slate-200">Backend / Express</option>
+                                <option value="frontend" className="bg-slate-900 text-slate-200">Frontend / React</option>
+                            </select>
+                            <svg
+                                className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                            >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
+                        <p className="mt-1 text-[10px] text-slate-500 leading-snug">
+                            Bounded Express source-policy analysis is available when source evidence is extracted. Other frameworks remain partial.
+                        </p>
+                    </div>
                 )}
 
                 {branchInvalid && (
