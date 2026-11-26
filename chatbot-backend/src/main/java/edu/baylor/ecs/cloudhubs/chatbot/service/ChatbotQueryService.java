@@ -9,15 +9,16 @@ import edu.baylor.ecs.cloudhubs.chatbot.quality.ConfidenceService;
 import edu.baylor.ecs.cloudhubs.chatbot.quality.model.ConfidenceAssessment;
 import edu.baylor.ecs.cloudhubs.chatbot.retrieval.ContextBudgeter;
 import edu.baylor.ecs.cloudhubs.chatbot.retrieval.HybridRetriever;
+import edu.baylor.ecs.cloudhubs.chatbot.retrieval.PromptTokenBudgeter;
 import edu.baylor.ecs.cloudhubs.chatbot.retrieval.model.ContextBudgetResult;
 import edu.baylor.ecs.cloudhubs.chatbot.retrieval.model.HybridRetrievalResult;
-import edu.baylor.ecs.cloudhubs.chatbot.retrieval.model.QuestionIntent;
 import edu.baylor.ecs.cloudhubs.chatbot.runtime.LocalLlmClient;
 import edu.baylor.ecs.cloudhubs.chatbot.runtime.LocalLlmException;
 import edu.baylor.ecs.cloudhubs.chatbot.runtime.model.LocalLlmFailureCode;
 import edu.baylor.ecs.cloudhubs.chatbot.runtime.model.LocalLlmResult;
 import edu.baylor.ecs.cloudhubs.chatbot.util.StringUtils;
 import edu.baylor.ecs.cloudhubs.chatbot.ChatbotConfig;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -42,6 +43,7 @@ public class ChatbotQueryService {
     private final ContextBudgeter contextBudgeter;
     private final ConfidenceService confidenceService;
     private final LocalLlmClient localLlmClient;
+    private final PromptTokenBudgeter promptTokenBudgeter = new PromptTokenBudgeter();
 
     public ChatbotQueryService(
         ChatbotConfig chatbotConfig,
@@ -93,13 +95,7 @@ public class ChatbotQueryService {
             chatbotConfig.getContextBudgetMaxEvidenceItems(),
             chatbotConfig.getContextBudgetMaxEvidenceChars()
         );
-        List<EvidenceItem> evidenceItems = budgetResult.getRetainedEvidence();
-        response.setCitations(EvidenceCitationMapper.toCitations(evidenceItems));
-        response.setTraceMetadata(buildTraceMetadata(requestId, retrieval, budgetResult, response.getCitations().size()));
-        if (budgetResult.isTruncated()) {
-            addFlagIfMissing(response, ChatbotFlag.PARTIAL);
-            addFlagIfMissing(response, ChatbotFlag.TRUNCATED_CONTEXT);
-        }
+        List<EvidenceItem> evidenceItems = new ArrayList<>(budgetResult.getRetainedEvidence());
 
         if (isMicroserviceCountQuestion(request.getQuestion())) {
             // Count from the full ranked pool, not the context-budgeted subset: a count never
@@ -107,6 +103,8 @@ public class ChatbotQueryService {
             // must not silently undercount services present in the retrieved evidence.
             List<String> services = uniqueMicroserviceNames(retrieval.getRankedEvidence());
             if (!services.isEmpty()) {
+                response.setCitations(EvidenceCitationMapper.toCitations(evidenceItems));
+                response.setTraceMetadata(buildTraceMetadata(requestId, retrieval, budgetResult, response.getCitations().size(), null));
                 response.setAnswer("The system has " + services.size() + " microservices in the active IR evidence: "
                     + String.join(", ", services) + ".");
                 applyEvidenceDerivedConfidence(response, retrieval, evidenceItems);
@@ -131,6 +129,35 @@ public class ChatbotQueryService {
             contextFields,
             evidenceItems == null ? 0 : evidenceItems.size()
         );
+
+        PromptFitResult promptFit = fitPrompt(request, evidenceItems);
+        evidenceItems = new ArrayList<>(promptFit.evidenceItems());
+        response.setCitations(EvidenceCitationMapper.toCitations(evidenceItems));
+        if (promptFit.evidenceRemoved() > 0 || !promptFit.fits()) {
+            addFlagIfMissing(response, ChatbotFlag.PARTIAL);
+            addFlagIfMissing(response, ChatbotFlag.TRUNCATED_CONTEXT);
+        }
+        response.setTraceMetadata(buildTraceMetadata(
+            requestId, retrieval, budgetResult, response.getCitations().size(), promptFit));
+
+        if (!promptFit.fits()) {
+            response.setAnswer("The question and required context exceed the configured model input budget. Narrow the question or choose a specific service or endpoint, then retry.");
+            response.setConfidence(ChatbotConfidence.LOW);
+            response.setConfidenceRationale("The complete prompt could not fit the configured model context window.");
+            response.setConfidenceReasons(List.of("prompt_exceeds_context_budget"));
+            long latencyMs = System.currentTimeMillis() - startMs;
+            response.setProcessingTimeMs(latencyMs);
+            log.info(
+                "chatbot.query.completed requestId={} provider={} model={} latencyMs={} flags={}",
+                requestId,
+                response.getProvider(),
+                response.getModel(),
+                latencyMs,
+                response.getFlags()
+            );
+            return response;
+        }
+
         response = evidenceGuardrailService.enforcePreGeneration(
             request.getQuestion(),
             retrieval.getIntent(),
@@ -160,17 +187,6 @@ public class ChatbotQueryService {
             return response;
         }
 
-        PromptAssemblyResult assembled = promptAssemblyService.assemble(
-            request.getQuestion(),
-            request.getContext(),
-            toPromptEvidence(evidenceItems),
-            request.getMessages(),
-            new PromptAssemblyMetadata(
-                budgetResult.isTruncated(),
-                response.getFlags() != null && response.getFlags().contains(ChatbotFlag.STALE_CONTEXT)
-            )
-        );
-
         try {
             log.info(
                 "chatbot.query.provider_invoked requestId={} provider={} model={}",
@@ -178,7 +194,8 @@ public class ChatbotQueryService {
                 chatbotConfig.getProvider().name(),
                 chatbotConfig.getModel()
             );
-            LocalLlmResult llmResult = localLlmClient.generate(assembled.toChatbotPrompt(), chatbotConfig);
+            LocalLlmResult llmResult = localLlmClient.generate(
+                promptFit.assembled().toChatbotPrompt(chatbotConfig.getContextTokens()), chatbotConfig);
             response.setAnswer(llmResult.getText());
             response.setModel(llmResult.getModel() == null || llmResult.getModel().isBlank() ? chatbotConfig.getModel() : llmResult.getModel());
             response.setProvider(llmResult.getProvider() == null || llmResult.getProvider().isBlank() ? chatbotConfig.getProvider().name() : llmResult.getProvider());
@@ -193,11 +210,13 @@ public class ChatbotQueryService {
             long latencyMs = System.currentTimeMillis() - startMs;
             response.setProcessingTimeMs(latencyMs);
             log.info(
-                "chatbot.query.provider_success requestId={} provider={} model={} latencyMs={} flags={}",
+                "chatbot.query.provider_success requestId={} provider={} model={} latencyMs={} finishReason={} estimatedInputTokens={} flags={}",
                 requestId,
                 response.getProvider(),
                 response.getModel(),
                 latencyMs,
+                llmResult.getFinishReason(),
+                promptFit.estimatedInputTokens(),
                 response.getFlags()
             );
             log.info(
@@ -287,6 +306,66 @@ public class ChatbotQueryService {
             promptItems.add(promptItem);
         }
         return promptItems;
+    }
+
+    private PromptFitResult fitPrompt(ChatbotQueryRequest request, List<EvidenceItem> originalEvidence) {
+        List<EvidenceItem> evidence = new ArrayList<>(originalEvidence == null ? List.of() : originalEvidence);
+        List<ChatbotMessage> history = new ArrayList<>(request.getMessages() == null ? List.of() : request.getMessages());
+        int originalEvidenceCount = evidence.size();
+        int originalHistoryCount = history.size();
+        int inputTokenBudget = promptTokenBudgeter.availableInputTokens(chatbotConfig);
+
+        while (true) {
+            boolean evidenceRemoved = evidence.size() < originalEvidenceCount;
+            PromptAssemblyResult assembled = promptAssemblyService.assemble(
+                request.getQuestion(),
+                request.getContext(),
+                toPromptEvidence(evidence),
+                history,
+                new PromptAssemblyMetadata(evidenceRemoved, false)
+            );
+            var prompt = assembled.toChatbotPrompt(chatbotConfig.getContextTokens());
+            int estimatedTokens = promptTokenBudgeter.estimateInputTokens(
+                prompt, chatbotConfig.getPromptBytesPerToken());
+
+            if (estimatedTokens <= inputTokenBudget) {
+                return new PromptFitResult(
+                    evidence,
+                    history,
+                    assembled,
+                    estimatedTokens,
+                    inputTokenBudget,
+                    originalEvidenceCount - evidence.size(),
+                    originalHistoryCount - history.size(),
+                    true
+                );
+            }
+
+            // Evidence is already in the existing ranked order. Remove its lowest-ranked tail
+            // first, preserving the retriever and budgeter's ranking formulas.
+            if (!evidence.isEmpty()) {
+                evidence.remove(evidence.size() - 1);
+                continue;
+            }
+
+            // The frontend normally bounds history. This protects direct API callers too, while
+            // preserving the latest turn and leaving evidence selection untouched.
+            if (!history.isEmpty()) {
+                history.remove(0);
+                continue;
+            }
+
+            return new PromptFitResult(
+                evidence,
+                history,
+                assembled,
+                estimatedTokens,
+                inputTokenBudget,
+                originalEvidenceCount,
+                originalHistoryCount,
+                false
+            );
+        }
     }
 
     private String extractAntiPatternMarkers(EvidenceItem item) {
@@ -390,7 +469,23 @@ public class ChatbotQueryService {
         return names.stream().sorted().toList();
     }
 
-    private Map<String, Object> buildTraceMetadata(String requestId, HybridRetrievalResult retrieval, ContextBudgetResult budgetResult, int citationsCount) {
+    private Map<String, Object> buildTraceMetadata(
+        String requestId,
+        HybridRetrievalResult retrieval,
+        ContextBudgetResult budgetResult,
+        int citationsCount,
+        PromptFitResult promptFit
+    ) {
+        Map<String, Object> promptBudget = promptFit == null
+            ? Map.of("measured", false)
+            : Map.of(
+                "measured", true,
+                "estimatedInputTokens", promptFit.estimatedInputTokens(),
+                "inputTokenBudget", promptFit.inputTokenBudget(),
+                "evidenceRemovedToFit", promptFit.evidenceRemoved(),
+                "historyMessagesRemovedToFit", promptFit.historyRemoved(),
+                "fits", promptFit.fits()
+            );
         return Map.of(
             "requestId", requestId,
             "retrieval", Map.of(
@@ -405,11 +500,25 @@ public class ChatbotQueryService {
                 "originalEvidenceCount", budgetResult.getOriginalEvidenceCount(),
                 "retainedEvidenceCount", budgetResult.getRetainedEvidenceCount(),
                 "truncated", budgetResult.isTruncated(),
+                "candidatePoolReduced", budgetResult.isTruncated(),
                 "omittedArtifactTypeCounts", budgetResult.getOmittedArtifactTypeCounts(),
                 "maxEvidenceItems", budgetResult.getMaxEvidenceItems(),
                 "maxEvidenceChars", budgetResult.getMaxEvidenceChars()
-            )
+            ),
+            "promptBudget", promptBudget
         );
+    }
+
+    private record PromptFitResult(
+        List<EvidenceItem> evidenceItems,
+        List<ChatbotMessage> conversationHistory,
+        PromptAssemblyResult assembled,
+        int estimatedInputTokens,
+        int inputTokenBudget,
+        int evidenceRemoved,
+        int historyRemoved,
+        boolean fits
+    ) {
     }
 
 }

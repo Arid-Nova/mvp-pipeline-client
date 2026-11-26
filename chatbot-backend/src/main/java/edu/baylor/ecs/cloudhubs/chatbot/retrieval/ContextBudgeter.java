@@ -1,14 +1,11 @@
 package edu.baylor.ecs.cloudhubs.chatbot.retrieval;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.baylor.ecs.cloudhubs.chatbot.model.EvidenceArtifactType;
 import edu.baylor.ecs.cloudhubs.chatbot.model.EvidenceItem;
 import edu.baylor.ecs.cloudhubs.chatbot.retrieval.model.ContextBudgetResult;
 import edu.baylor.ecs.cloudhubs.chatbot.retrieval.model.QuestionIntent;
 import org.springframework.stereotype.Component;
 
-import java.io.IOException;
-import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -21,8 +18,6 @@ import java.util.Set;
 
 @Component
 public class ContextBudgeter {
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public ContextBudgetResult budget(
         List<EvidenceItem> rankedEvidence,
@@ -46,7 +41,7 @@ public class ContextBudgeter {
         RankedCandidate directMatch = firstDirectMatch(sorted, matchedEntities);
         if (directMatch != null && maxEvidenceItems > 0) {
             int chars = charEstimates.get(directMatch.item());
-            if (chars <= maxEvidenceChars || retained.isEmpty()) {
+            if (chars <= maxEvidenceChars) {
                 retained.add(directMatch.item());
                 retainedIndexes.add(directMatch.originalIndex());
                 usedChars += chars;
@@ -190,6 +185,25 @@ public class ContextBudgeter {
                     && (item.getHttpMethod() + " " + item.getEndpointPath()).toLowerCase(Locale.ROOT).equals(e))) {
                 return true;
             }
+            if ("WORKFLOW_CARD".equalsIgnoreCase(safe(item.getEntityType()))
+                && containsEntityText(item.getContent(), e)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean containsEntityText(String content, String entity) {
+        String normalized = safe(content).toLowerCase(Locale.ROOT);
+        int fromIndex = 0;
+        while (fromIndex < normalized.length()) {
+            int index = normalized.indexOf(entity, fromIndex);
+            if (index < 0) return false;
+            int end = index + entity.length();
+            boolean leftBoundary = index == 0 || !Character.isLetterOrDigit(normalized.charAt(index - 1));
+            boolean rightBoundary = end == normalized.length() || !Character.isLetterOrDigit(normalized.charAt(end));
+            if (leftBoundary && rightBoundary) return true;
+            fromIndex = index + 1;
         }
         return false;
     }
@@ -200,29 +214,41 @@ public class ContextBudgeter {
     }
 
     private int estimateChars(EvidenceItem item) {
-        int size = safe(item.getContentText()).length()
-            + safe(item.getEntityName()).length()
-            + safe(item.getServiceName()).length()
-            + safe(item.getEndpointPath()).length()
-            + safe(item.getLocationHint()).length();
-
-        if (item.getStructuredPayload() != null) {
-            try {
-                CountingWriter cw = new CountingWriter();
-                objectMapper.writeValue(cw, item.getStructuredPayload());
-                size += cw.count;
-            } catch (IOException ex) {
-                size += item.getStructuredPayload().toString().length();
-            }
-        }
-        return size;
+        // Estimate the prompt representation, not the source object. The prompt renderer emits
+        // these fields and a fixed record wrapper; it does not serialize structuredPayload.
+        return 192
+            + promptValueLength(item.getArtifactTypeValue())
+            + promptValueLength(item.getArtifactId())
+            + promptValueLength(item.getArtifactVersion())
+            + promptValueLength(item.getLocationHint())
+            + promptValueLength(item.getEntityName())
+            + promptValueLength(item.getServiceName())
+            + promptValueLength(item.getEndpointPath())
+            + promptValueLength(extractAntiPatternMarkers(item))
+            + promptValueLength(item.getContent());
     }
 
-    private static final class CountingWriter extends Writer {
-        int count;
-        @Override public void write(char[] cbuf, int off, int len) { count += len; }
-        @Override public void flush() {}
-        @Override public void close() {}
+    private int promptValueLength(String value) {
+        return value == null || value.isBlank() ? 3 : value.length();
+    }
+
+    private String extractAntiPatternMarkers(EvidenceItem item) {
+        if (item == null || item.getStructuredPayload() == null) {
+            return null;
+        }
+        var payload = item.getStructuredPayload();
+        List<String> markers = new ArrayList<>();
+        if (payload.has("antiPattern") && payload.path("antiPattern").isTextual()) {
+            markers.add(payload.path("antiPattern").asText());
+        }
+        if (payload.has("antiPatterns") && payload.path("antiPatterns").isArray()) {
+            payload.path("antiPatterns").forEach(node -> {
+                if (node.isTextual()) {
+                    markers.add(node.asText());
+                }
+            });
+        }
+        return markers.stream().distinct().reduce((left, right) -> left + ", " + right).orElse(null);
     }
 
     private boolean hasValue(String value) {

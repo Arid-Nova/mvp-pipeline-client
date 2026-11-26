@@ -2,6 +2,7 @@ package edu.baylor.ecs.cloudhubs.chatbot.prompt.model;
 
 import edu.baylor.ecs.cloudhubs.chatbot.model.ChatbotMessage;
 import edu.baylor.ecs.cloudhubs.chatbot.runtime.model.ChatbotPrompt;
+
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -24,5 +25,10 @@ public class PromptAssemblyResult {
     public ChatbotPrompt toChatbotPrompt() {
         String combinedSystem = systemInstructions + "\n\n" + developerInstructions + "\n\n" + evidenceBlock;
         return new ChatbotPrompt(combinedSystem, userPrompt, conversationHistory);
+    }
+
+    public ChatbotPrompt toChatbotPrompt(Integer contextTokens) {
+        String combinedSystem = systemInstructions + "\n\n" + developerInstructions + "\n\n" + evidenceBlock;
+        return new ChatbotPrompt(combinedSystem, userPrompt, conversationHistory, false, contextTokens);
     }
 }

@@ -9,6 +9,7 @@ import edu.baylor.ecs.cloudhubs.chatbot.model.EvidenceItem;
 import edu.baylor.ecs.cloudhubs.chatbot.model.MissingEvidence;
 import edu.baylor.ecs.cloudhubs.chatbot.retrieval.model.QuestionIntent;
 import edu.baylor.ecs.cloudhubs.chatbot.util.StringUtils;
+
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -39,6 +40,13 @@ public class EvidenceGuardrailService {
         ensureFlagListExists(safeResponse);
 
         boolean supportedEvidenceIntent = isSupportedEvidenceRequiredIntent(intent) || asksForFactualArchitectureClaim(question);
+        if (safeEvidence.isEmpty()) {
+            addFlagIfMissing(safeResponse, ChatbotFlag.INSUFFICIENT_EVIDENCE);
+            safeResponse.setConfidence(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
+            safeResponse.setAnswer("Insufficient evidence: no result or architecture evidence is available for this question.");
+            return safeResponse;
+        }
+        
         if (!supportedEvidenceIntent) {
             return safeResponse;
         }
@@ -81,11 +89,6 @@ public class EvidenceGuardrailService {
         ChatbotResponse safeResponse = response == null ? new ChatbotResponse() : response;
         List<EvidenceItem> safeEvidence = evidenceItems == null ? List.of() : evidenceItems;
         ensureFlagListExists(safeResponse);
-
-        boolean supportedEvidenceIntent = isSupportedEvidenceRequiredIntent(intent) || asksForFactualArchitectureClaim(question);
-        if (!supportedEvidenceIntent) {
-            return safeResponse;
-        }
 
         // Two distinct ID spaces: the model is asked to cite the short positional label shown in
         // the prompt (e.g. [E1]), never the raw artifactId, since long punctuation-heavy real IDs
