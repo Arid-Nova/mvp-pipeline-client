@@ -132,7 +132,8 @@ public class ChatbotQueryService {
 
         PromptFitResult promptFit = fitPrompt(request, evidenceItems);
         evidenceItems = new ArrayList<>(promptFit.evidenceItems());
-        response.setCitations(EvidenceCitationMapper.toCitations(evidenceItems));
+        // Candidate evidence is not a response citation until the generated answer cites it.
+        response.setCitations(List.of());
         if (promptFit.evidenceRemoved() > 0 || !promptFit.fits()) {
             addFlagIfMissing(response, ChatbotFlag.PARTIAL);
             addFlagIfMissing(response, ChatbotFlag.TRUNCATED_CONTEXT);
@@ -206,6 +207,8 @@ public class ChatbotQueryService {
                 response,
                 chatbotConfig.isStrictEvidenceOnly()
             );
+            response.setTraceMetadata(buildTraceMetadata(
+                requestId, retrieval, budgetResult, response.getCitations().size(), promptFit));
             applyEvidenceDerivedConfidence(response, retrieval, evidenceItems);
             long latencyMs = System.currentTimeMillis() - startMs;
             response.setProcessingTimeMs(latencyMs);

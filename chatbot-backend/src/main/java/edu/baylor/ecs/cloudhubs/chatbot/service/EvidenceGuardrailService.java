@@ -90,18 +90,16 @@ public class EvidenceGuardrailService {
         List<EvidenceItem> safeEvidence = evidenceItems == null ? List.of() : evidenceItems;
         ensureFlagListExists(safeResponse);
 
-        // Two distinct ID spaces: the model is asked to cite the short positional label shown in
-        // the prompt (e.g. [E1]), never the raw artifactId, since long punctuation-heavy real IDs
-        // (ir:v1:service:order-service) are unreliable for local models to reproduce verbatim.
-        // validArtifactIds still uses the real IDs because it filters response.getCitations(),
-        // which is built directly from EvidenceItem.getArtifactId() (see EvidenceCitationMapper).
+        // The model cites short positional labels (e.g. [E1]); those labels map to retained
+        // evidence here. Only the referenced evidence records become response citations.
         Set<String> validCitationLabels = new LinkedHashSet<>();
-        Set<String> validArtifactIds = new LinkedHashSet<>();
+        Map<String, EvidenceItem> evidenceByLabel = new LinkedHashMap<>();
         for (int i = 0; i < safeEvidence.size(); i++) {
             EvidenceItem item = safeEvidence.get(i);
-            validCitationLabels.add(StringUtils.evidenceLabel(i));
-            if (hasValue(item.getArtifactId())) {
-                validArtifactIds.add(item.getArtifactId());
+            if (item != null) {
+                String label = StringUtils.evidenceLabel(i);
+                validCitationLabels.add(label);
+                evidenceByLabel.put(label, item);
             }
         }
 
@@ -111,26 +109,12 @@ public class EvidenceGuardrailService {
             safeResponse.setConfidence(ChatbotConfidence.LOW);
         }
 
-        if (hasAnswerText(safeResponse) && (safeResponse.getCitations() == null || safeResponse.getCitations().isEmpty())) {
-            addFlagIfMissing(safeResponse, ChatbotFlag.CITATION_VALIDATION_FAILED);
-            addFlagIfMissing(safeResponse, ChatbotFlag.INSUFFICIENT_EVIDENCE);
-            safeResponse.setConfidence(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
-            safeResponse.setAnswer("Insufficient citation support: generated answer did not include valid evidence citations.");
-            return safeResponse;
-        }
-
-        List<CitationItem> filtered = filterToValidCitations(safeResponse.getCitations(), validArtifactIds);
-        if (filtered.size() != safeResponse.getCitations().size()) {
-            safeResponse.setCitations(filtered);
-            addFlagIfMissing(safeResponse, ChatbotFlag.CITATION_VALIDATION_FAILED);
-            safeResponse.setConfidence(ChatbotConfidence.LOW);
-        }
+        List<EvidenceItem> citedEvidence = evidenceCitedByAnswer(safeResponse.getAnswer(), evidenceByLabel);
+        safeResponse.setCitations(EvidenceCitationMapper.toCitations(citedEvidence));
 
         if (hasAnswerText(safeResponse) && safeResponse.getCitations().isEmpty()) {
-            addFlagIfMissing(safeResponse, ChatbotFlag.INSUFFICIENT_EVIDENCE);
-            safeResponse.setConfidence(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
-            safeResponse.setAnswer("Insufficient citation support: no valid citations remain after validation.");
-            return safeResponse;
+            addFlagIfMissing(safeResponse, ChatbotFlag.CITATION_VALIDATION_FAILED);
+            safeResponse.setConfidence(ChatbotConfidence.LOW);
         }
 
         if (strictEvidenceOnly && hasWeakOnlyEvidence(safeEvidence)) {
@@ -140,6 +124,26 @@ public class EvidenceGuardrailService {
         }
 
         return safeResponse;
+    }
+
+    private List<EvidenceItem> evidenceCitedByAnswer(
+        String answer,
+        Map<String, EvidenceItem> evidenceByLabel
+    ) {
+        if (!hasValue(answer) || evidenceByLabel.isEmpty()) return List.of();
+
+        Matcher matcher = CITATION_PATTERN.matcher(answer);
+        Set<String> seenLabels = new LinkedHashSet<>();
+        Set<String> seenArtifactIds = new LinkedHashSet<>();
+        List<EvidenceItem> cited = new ArrayList<>();
+        while (matcher.find()) {
+            String label = matcher.group(1);
+            EvidenceItem item = evidenceByLabel.get(label);
+            if (item == null || !seenLabels.add(label)) continue;
+            String artifactId = item.getArtifactId();
+            if (!hasValue(artifactId) || seenArtifactIds.add(artifactId)) cited.add(item);
+        }
+        return cited;
     }
 
     private boolean sanitizeUnknownCitationIds(ChatbotResponse response, Set<String> validCitationIds) {
@@ -166,22 +170,6 @@ public class EvidenceGuardrailService {
             response.setAnswer(rebuilt.toString());
         }
         return invalidFound;
-    }
-
-    private List<CitationItem> filterToValidCitations(List<CitationItem> citations, Set<String> validCitationIds) {
-        if (citations == null || citations.isEmpty()) {
-            return List.of();
-        }
-        List<CitationItem> filtered = new ArrayList<>();
-        for (CitationItem citation : citations) {
-            if (citation == null) {
-                continue;
-            }
-            if (hasValue(citation.getArtifactId()) && validCitationIds.contains(citation.getArtifactId())) {
-                filtered.add(citation);
-            }
-        }
-        return filtered;
     }
 
     private List<String> computeMissingSources(QuestionIntent intent, List<EvidenceItem> evidenceItems, List<MissingEvidence> retrievalMissing) {
@@ -324,3 +312,4 @@ public class EvidenceGuardrailService {
         }
     }
 }
+

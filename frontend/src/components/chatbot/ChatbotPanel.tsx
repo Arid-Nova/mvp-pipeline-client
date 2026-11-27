@@ -166,6 +166,7 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({
     const handleComposerChange = (value: string) => {
         setInput(value);
         setHasGuidedDraft(false);
+        setGuidedScope({});
     };
 
     const planningFailure =
@@ -475,6 +476,13 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({
                                                 </button>
                                             ))}
                                         </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setActiveGuidedSuggestion(null)}
+                                            className="text-[10px] text-slate-500 hover:text-slate-300"
+                                        >
+                                            Cancel
+                                        </button>
                                     </div>
                                 ) : (
                                     <div className="flex flex-wrap gap-1.5">
