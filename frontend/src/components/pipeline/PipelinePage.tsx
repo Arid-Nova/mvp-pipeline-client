@@ -47,7 +47,7 @@ import { VerificationComparisonCard } from './cards/VerificationComparisonCard';
 
 // Canvas Components
 import ChatbotPanel from '../chatbot/ChatbotPanel';
-import { deriveWorkflowQuestionSuggestions } from './workflowQuestionSuggestions';
+import { deriveWorkflowQuestionSuggestions, workflowQuestionSuggestionSignature } from './workflowQuestionSuggestions';
 import { deriveWorkflowEvidence } from './workflowEvidence';
 import { FeedbackModal } from './canvas/FeedbackModal';
 import { PipelineCanvas } from './canvas/PipelineCanvas';
@@ -754,10 +754,19 @@ const PipelinePage: React.FC = () => {
         };
     }, [nodes, pipelineRunId]);
 
-    const workflowQuestionSuggestions = useMemo(
-        () => deriveWorkflowQuestionSuggestions(nodes, connections),
-        [nodes, connections]
-    );
+    const workflowQuestionSuggestionCacheRef = useRef<{
+        signature: string;
+        suggestions: ReturnType<typeof deriveWorkflowQuestionSuggestions>;
+    } | null>(null);
+    const workflowQuestionSuggestions = useMemo(() => {
+        const signature = workflowQuestionSuggestionSignature(nodes, connections);
+        const cached = workflowQuestionSuggestionCacheRef.current;
+        if (cached?.signature === signature) return cached.suggestions;
+
+        const suggestions = deriveWorkflowQuestionSuggestions(nodes, connections);
+        workflowQuestionSuggestionCacheRef.current = { signature, suggestions };
+        return suggestions;
+    }, [nodes, connections]);
 
     // --- Actions ---
     const addNode = (type: CardType) => {

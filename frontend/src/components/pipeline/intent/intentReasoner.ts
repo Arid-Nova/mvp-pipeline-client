@@ -294,34 +294,43 @@ function enumerateBindings(
 ): Array<Record<string, string>> {
   const results: Array<Record<string, string>> = [];
   const bindings: Record<string, string> = {};
+  const candidatesByRequirement = requirements.map((requirement) =>
+    graph.nodes.filter((node) => node.cardType === requirement.cardType)
+  );
+
+  const partialConstraintsHold = (): boolean => {
+    for (const requirement of requirements) {
+      if (!requirement.distinctFrom) continue;
+      const current = bindings[requirement.id];
+      const other = bindings[requirement.distinctFrom];
+      if (current !== undefined && other !== undefined && current === other) return false;
+    }
+
+    for (const [from, to] of requiredEdges) {
+      const source = bindings[from];
+      const target = bindings[to];
+      if (source !== undefined && target !== undefined && !graph.edgeKeys.has(edgeKey(source, target))) {
+        return false;
+      }
+    }
+    return true;
+  };
 
   const visit = (index: number): void => {
     if (results.length >= limit) return;
     if (index === requirements.length) {
-      const distinctConstraintsHold = requirements.every((requirement) =>
-        !requirement.distinctFrom ||
-        bindings[requirement.id] !== bindings[requirement.distinctFrom]
-      );
-      if (!distinctConstraintsHold) return;
-      const allEdgesExist = requiredEdges.every(([from, to]) => {
-        const source = bindings[from];
-        const target = bindings[to];
-        return source !== undefined && target !== undefined &&
-          graph.edgeKeys.has(edgeKey(source, target));
-      });
-      if (allEdgesExist) results.push({ ...bindings });
+      if (partialConstraintsHold()) results.push({ ...bindings });
       return;
     }
 
     const requirement = requirements[index];
-    for (const node of graph.nodes) {
-      if (node.cardType !== requirement.cardType) continue;
+    for (const node of candidatesByRequirement[index]) {
       if (requirement.distinctFrom) {
         const distinctNodeId = bindings[requirement.distinctFrom];
         if (distinctNodeId !== undefined && distinctNodeId === node.id) continue;
       }
       bindings[requirement.id] = node.id;
-      visit(index + 1);
+      if (partialConstraintsHold()) visit(index + 1);
       delete bindings[requirement.id];
       if (results.length >= limit) return;
     }
@@ -373,6 +382,15 @@ function matchEvidenceRule(
       return {
         matches,
         unsupportedReason: `Binding "${invalidDistinctReference.id}" refers to missing distinctFrom binding "${invalidDistinctReference.distinctFrom}".`
+      };
+    }
+    const invalidEdgeReference = requiredEdges.find(([from, to]) =>
+      !bindingIds.has(from) || !bindingIds.has(to)
+    );
+    if (invalidEdgeReference) {
+      return {
+        matches,
+        unsupportedReason: `Required edge refers to missing binding "${!bindingIds.has(invalidEdgeReference[0]) ? invalidEdgeReference[0] : invalidEdgeReference[1]}".`
       };
     }
     matches.push(...enumerateBindings(requiredBindings, requiredEdges, graph, limit));

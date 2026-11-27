@@ -169,6 +169,51 @@ export function deriveWorkflowQuestionSuggestions(
         });
 }
 
+/** Stable key for intent/question inputs; canvas coordinates and unrelated card data are excluded. */
+export function workflowQuestionSuggestionSignature(
+    nodes: NodeData[],
+    connections: Connection[],
+): string {
+    const readinessPaths: Array<{ type: string; key: string }> = [];
+    Object.keys(COMPLETED_OUTPUTS).forEach((intentId) => {
+        COMPLETED_OUTPUTS[intentId].forEach(({ type, key }) => {
+            if (!key) return;
+            const path = `${type}|${key}`;
+            if (!readinessPaths.some((candidate) => `${candidate.type}|${candidate.key}` === path)) {
+                readinessPaths.push({ type, key });
+            }
+        });
+    });
+
+    const graphNodes = nodes.map((node) => {
+        const data = node.data as unknown as Record<string, unknown>;
+        const readiness: Record<string, boolean> = {};
+        readinessPaths.forEach(({ type, key }) => {
+            if (node.type === type) readiness[key] = hasMaterializedValue(readPath(data, key));
+        });
+        if (node.type === "TEST_EXECUTOR") {
+            readiness.tests = Array.isArray(data.tests) && data.tests.length > 0;
+            readiness.executionStarted = data.executionStarted === true;
+            ["testResults", "executionResults", "results", "resultSummary"].forEach((key) => {
+                readiness[key] = hasMaterializedValue(data[key]);
+            });
+        }
+        return {
+            id: node.id,
+            type: node.type,
+            completed: node.status === "completed",
+            reasonerData: toReasonerNode(node).data,
+            readiness,
+        };
+    }).sort((left, right) => left.id.localeCompare(right.id));
+
+    const graphEdges = connections
+        .map(({ source, target }) => `${source}\u0000${target}`)
+        .sort();
+    const focusChoiceIds = buildFocusChoices(nodes).map((choice) => choice.id);
+    return JSON.stringify({ graphNodes, graphEdges, focusChoiceIds });
+}
+
 function isResultReady(intentId: string, nodes: NodeData[]): boolean {
     if (intentId === "parallel_integrated_assurance") {
         return ASSURANCE_BRANCHES.filter((type) => nodes.some((node) => isCompletedOutput(node, type))).length >= 2;
@@ -269,12 +314,16 @@ function isCompletedOutput(node: NodeData, type: string, key?: string): boolean 
     if (!key) return true;
 
     const data = node.data as unknown as Record<string, unknown>;
-    let value: unknown = data;
-    for (const segment of key.split(".")) {
-        if (!value || typeof value !== "object") return false;
+    return hasMaterializedValue(readPath(data, key));
+}
+
+function readPath(source: Record<string, unknown>, path: string): unknown {
+    let value: unknown = source;
+    for (const segment of path.split(".")) {
+        if (!value || typeof value !== "object") return undefined;
         value = (value as Record<string, unknown>)[segment];
     }
-    return hasMaterializedValue(value);
+    return value;
 }
 
 function hasMaterializedValue(value: unknown): boolean {
