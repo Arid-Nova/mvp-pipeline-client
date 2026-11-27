@@ -26,6 +26,15 @@ import java.util.regex.Pattern;
 public class EvidenceGuardrailService {
 
     private static final Pattern CITATION_PATTERN = Pattern.compile("\\[(E[^\\]]+)\\]");
+    private static final Pattern FORMAL_VERIFICATION_PATTERN = Pattern.compile("\\bformal\\s+verification\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern VERIFICATION_RESULT_PATTERN = Pattern.compile(
+        "\\b(?:result|results|finding|findings|find|finds|found|outcome|outcomes|verdict|verdicts)\\b",
+        Pattern.CASE_INSENSITIVE
+    );
+    private static final Pattern COMPARISON_QUESTION_PATTERN = Pattern.compile(
+        "\\b(?:compare|comparison|compared|difference|differences|different|contrast|between|versus|vs\\.?|drift|changed|change)\\b",
+        Pattern.CASE_INSENSITIVE
+    );
 
     public ChatbotResponse enforcePreGeneration(
         String question,
@@ -48,7 +57,9 @@ public class EvidenceGuardrailService {
             safeResponse.setAnswer("Insufficient evidence: no result or architecture evidence is available for this question.");
             return safeResponse;
         }
-        
+        if (hasMatchingDirectWorkflowEvidence(question, safeEvidence)) {
+            return safeResponse;
+        }
         if (!supportedEvidenceIntent) {
             return safeResponse;
         }
@@ -62,7 +73,7 @@ public class EvidenceGuardrailService {
             return safeResponse;
         }
 
-        if (strictEvidenceOnly && hasWeakOnlyEvidence(safeEvidence)) {
+        if (strictEvidenceOnly && hasWeakOnlyEvidence(question, safeEvidence)) {
             addFlagIfMissing(safeResponse, ChatbotFlag.INSUFFICIENT_EVIDENCE);
             safeResponse.setConfidence(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
             safeResponse.setAnswer("Insufficient evidence: strict evidence-only mode blocks weak or inferred-only support.");
@@ -119,7 +130,7 @@ public class EvidenceGuardrailService {
             safeResponse.setConfidence(ChatbotConfidence.LOW);
         }
 
-        if (strictEvidenceOnly && hasWeakOnlyEvidence(safeEvidence)) {
+        if (strictEvidenceOnly && hasWeakOnlyEvidence(question, safeEvidence)) {
             addFlagIfMissing(safeResponse, ChatbotFlag.INSUFFICIENT_EVIDENCE);
             safeResponse.setConfidence(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
             safeResponse.setAnswer("Insufficient evidence: strict evidence-only mode requires stronger direct support.");
@@ -266,9 +277,12 @@ public class EvidenceGuardrailService {
         return response != null && response.getAnswer() != null && !response.getAnswer().isBlank();
     }
 
-    private boolean hasWeakOnlyEvidence(List<EvidenceItem> evidenceItems) {
+    private boolean hasWeakOnlyEvidence(String question, List<EvidenceItem> evidenceItems) {
         if (evidenceItems == null || evidenceItems.isEmpty()) {
             return true;
+        }
+        if (hasMatchingDirectWorkflowEvidence(question, evidenceItems)) {
+            return false;
         }
         boolean hasStrongType = evidenceItems.stream().anyMatch(item -> item.getArtifactType() == EvidenceArtifactType.IR
             || item.getArtifactType() == EvidenceArtifactType.GRAPH
@@ -282,6 +296,31 @@ public class EvidenceGuardrailService {
             String confidence = item.getConfidenceSource();
             return confidence != null && confidence.toLowerCase(Locale.ROOT).contains("inferred");
         });
+    }
+
+    private boolean hasMatchingDirectWorkflowEvidence(String question, List<EvidenceItem> evidenceItems) {
+        if (!asksForFormalVerificationResult(question) || evidenceItems == null || evidenceItems.isEmpty()) {
+            return false;
+        }
+        for (EvidenceItem item : evidenceItems) {
+            if (item != null
+                && item.getArtifactType() == EvidenceArtifactType.CONTEXT_METADATA
+                && "WORKFLOW_CARD".equals(item.getEntityType())
+                && "completed-card:FORMAL_VERIFY".equals(item.getLocationHint())
+                && WorkflowResultEvidenceContextProvider.DIRECT_FORMAL_VERIFICATION_SOURCE.equals(item.getConfidenceSource())
+                && item.getArtifactId() != null
+                && item.getArtifactId().matches("workflow:FORMAL_VERIFY:[A-Za-z0-9:_-]{1,128}")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean asksForFormalVerificationResult(String question) {
+        return question != null
+            && FORMAL_VERIFICATION_PATTERN.matcher(question).find()
+            && VERIFICATION_RESULT_PATTERN.matcher(question).find()
+            && !COMPARISON_QUESTION_PATTERN.matcher(question).find();
     }
 
     private boolean allowsRecommendation(QuestionIntent intent) {

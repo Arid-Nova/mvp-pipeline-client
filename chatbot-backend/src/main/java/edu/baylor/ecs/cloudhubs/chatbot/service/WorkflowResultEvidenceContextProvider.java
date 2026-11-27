@@ -20,6 +20,8 @@ import java.util.Set;
 @Component
 public class WorkflowResultEvidenceContextProvider implements EvidenceContextProvider {
 
+    /** Marker the guardrail trusts only for a matching formal-verification result question. */
+    static final String DIRECT_FORMAL_VERIFICATION_SOURCE = "direct-workflow-card-result:FORMAL_VERIFY";
     private static final int MAX_RECORDS = 24;
     private static final int MAX_SUMMARY_CHARS = 2200;
     private static final Set<String> ALLOWED_CARD_TYPES = Set.of(
@@ -78,7 +80,9 @@ public class WorkflowResultEvidenceContextProvider implements EvidenceContextPro
             item.setEntityType("WORKFLOW_CARD");
             String serviceName = text(record, "serviceName");
             item.setServiceName(serviceName != null && serviceName.length() <= 256 ? serviceName : null);
-            item.setConfidenceSource("completed-workflow-card-output");
+            item.setConfidenceSource("FORMAL_VERIFY".equals(cardType)
+                ? DIRECT_FORMAL_VERIFICATION_SOURCE
+                : "completed-workflow-card-output");
             item.setSupportStrength(1.0);
             item.setTimestamp(Instant.now());
             item.setContentText("Completed workflow card result for " + cardLabel + " (type=" + cardType
