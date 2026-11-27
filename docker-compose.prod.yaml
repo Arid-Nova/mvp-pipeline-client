@@ -46,6 +46,9 @@ services:
   ollama:
     ports: !reset []
     profiles: !reset []
+    healthcheck:
+      # The ollama image ships without curl or wget; its own CLI queries the server.
+      test: ["CMD", "ollama", "list"]
 
   verifier:
     ports: !reset []
