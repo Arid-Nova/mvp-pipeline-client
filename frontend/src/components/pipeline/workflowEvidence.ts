@@ -14,7 +14,7 @@ const RESULT_PATHS: Partial<Record<CardType, string[]>> = {
     VERIFICATION_COMPARISON: ["comparisonResult"],
     PROMPT_GENERATE: ["promptPayload"],
     TEST_GENERATE: ["testSuitePayload"],
-    TEST_EXECUTOR: ["testResults", "executionResults", "results", "resultSummary", "executionStarted", "tests"],
+    TEST_EXECUTOR: ["testExecutionSummary"],
     FORMAL_VIZ: ["verificationResult", "regressionPayload"],
 };
 
@@ -61,8 +61,6 @@ function toWorkflowEvidence(node: NodeData): ChatbotWorkflowEvidence | null {
     const selected: Record<string, unknown> = {};
     for (const path of paths) {
         const value = readPath(data, path);
-        if (path === "executionStarted" && value !== true) continue;
-        if (path === "tests" && data.executionStarted !== true) continue;
         if (hasMaterializedValue(value)) selected[path.replace(/\./g, "_")] = value;
     }
     if (Object.keys(selected).length === 0) return null;

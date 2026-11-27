@@ -741,7 +741,6 @@ const PipelinePage: React.FC = () => {
         // Send the IR content the frontend already holds so the chatbot can answer even when
         // the IR was never persisted server-side (e.g. a locally uploaded snapshot).
         const irPayload = irSource?.data?.payload?.irJson || irHolder?.data?.payload?.irJson;
-        const workflowEvidence = deriveWorkflowEvidence(nodes);
 
         return {
             systemName,
@@ -749,24 +748,9 @@ const PipelinePage: React.FC = () => {
             indexId,
             runId: pipelineRunId,
             commitId,
-            irPayload,
-            workflowEvidence
+            irPayload
         };
     }, [nodes, pipelineRunId]);
-
-    const workflowQuestionSuggestionCacheRef = useRef<{
-        signature: string;
-        suggestions: ReturnType<typeof deriveWorkflowQuestionSuggestions>;
-    } | null>(null);
-    const workflowQuestionSuggestions = useMemo(() => {
-        const signature = workflowQuestionSuggestionSignature(nodes, connections);
-        const cached = workflowQuestionSuggestionCacheRef.current;
-        if (cached?.signature === signature) return cached.suggestions;
-
-        const suggestions = deriveWorkflowQuestionSuggestions(nodes, connections);
-        workflowQuestionSuggestionCacheRef.current = { signature, suggestions };
-        return suggestions;
-    }, [nodes, connections]);
 
     // --- Actions ---
     const addNode = (type: CardType) => {
@@ -2167,7 +2151,6 @@ const PipelinePage: React.FC = () => {
 
             <ChatbotPanel
                 activeContext={chatbotContext}
-                workflowQuestionSuggestions={workflowQuestionSuggestions}
                 onApplyPipelineSuggestion={applyPipelineSuggestion}
                 canvasIsEmpty={nodes.length === 0}
                 isPipelineRunning={isRunning}

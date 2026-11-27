@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { NodeData } from '../models';
 
 interface TestExecutorCardProps {
@@ -11,6 +11,7 @@ interface TestExecutorCardProps {
 
 export const TestExecutorCard: React.FC<TestExecutorCardProps> = ({ node, nodes, connections, updateNodeData }) => {
     const navigate = useNavigate();
+    const location = useLocation();
 
     const testNode = nodes.find(n => 
         n.type === 'TEST_GENERATE' && 
@@ -49,6 +50,26 @@ export const TestExecutorCard: React.FC<TestExecutorCardProps> = ({ node, nodes,
     const hasTests = tests.length > 0;
     const targetLanguage = promptNode?.data.language || 'java';
     const targetUrl = node.data.targetUrl || 'http://localhost:1234';
+    const lastExecution = node.data.testExecutionSummary;
+
+    const launchExecutor = () => {
+        // A new run supersedes the previous completed result until the executor returns a new summary.
+        updateNodeData(node.id, { testExecutionSummary: undefined });
+        navigate('/executor', {
+            state: {
+                tests,
+                language: targetLanguage,
+                targetUrl,
+                roles: systemRoles,
+                testExecutionReturn: {
+                    nodeId: node.id,
+                    pathname: location.pathname,
+                    search: location.search,
+                    hash: location.hash,
+                },
+            },
+        });
+    };
 
     return (
         <div className="mt-2 space-y-3">
@@ -103,32 +124,23 @@ export const TestExecutorCard: React.FC<TestExecutorCardProps> = ({ node, nodes,
                         <div className="text-xs text-white text-center mb-1">
                             <span className="font-bold text-fuchsia-300">{tests.length}</span> {targetLanguage.toUpperCase()} tests loaded
                         </div>
+                        {lastExecution && (
+                            <div className="text-[10px] text-slate-400 text-center">
+                                {lastExecution.passedTests} passed · {lastExecution.failedTests} failed · {lastExecution.errorTests} errors
+                            </div>
+                        )}
                     </div>
 
                     {/* Launch Button */}
                     <button 
                         onClick={(e) => {
                             e.stopPropagation(); 
-                            navigate('/executor', { 
-                                state: { 
-                                    tests: tests, 
-                                    language: targetLanguage,
-                                    targetUrl: targetUrl,
-                                    roles: systemRoles 
-                                } 
-                            });
+                            launchExecutor();
                         }}
                         onTouchEnd={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            navigate('/executor', { 
-                                state: { 
-                                    tests: tests, 
-                                    language: targetLanguage,
-                                    targetUrl: targetUrl,
-                                    roles: systemRoles 
-                                } 
-                            });
+                            launchExecutor();
                         }}
                         className="w-full py-2 text-xs bg-fuchsia-600 hover:bg-fuchsia-500 text-white rounded font-bold shadow-[0_0_15px_rgba(217,70,239,0.3)] hover:shadow-[0_0_20px_rgba(217,70,239,0.5)] transition-all flex items-center justify-center gap-2"
                     >

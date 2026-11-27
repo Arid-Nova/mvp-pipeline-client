@@ -1,4 +1,4 @@
-import type { Connection, NodeData } from "./models";
+import type { Connection, NodeData, TestExecutionSummary } from "./models";
 import type { ChatbotContext } from "../../services/types";
 import intentModelJson from "./intent/intent_ds_models.json";
 import { deriveWorkflowEvidence } from "./workflowEvidence";
@@ -219,10 +219,7 @@ export function workflowQuestionSuggestionSignature(
         });
         if (node.type === "TEST_EXECUTOR") {
             readiness.tests = Array.isArray(data.tests) && data.tests.length > 0;
-            readiness.executionStarted = data.executionStarted === true;
-            ["testResults", "executionResults", "results", "resultSummary"].forEach((key) => {
-                readiness[key] = hasMaterializedValue(data[key]);
-            });
+            readiness.testExecutionComplete = isCompletedTestExecutionSummary(data.testExecutionSummary);
         }
         return {
             id: node.id,
@@ -380,11 +377,23 @@ function hasExecutedTests(nodes: NodeData[]): boolean {
     return nodes.some((node) => {
         if (node.type !== "TEST_EXECUTOR" || node.status !== "completed") return false;
         const data = node.data as unknown as Record<string, unknown>;
-        if (!Array.isArray(data.tests) || data.tests.length === 0) return false;
-        return data.executionStarted === true
-            || ["testResults", "executionResults", "results", "resultSummary"]
-                .some((field) => hasMaterializedValue(data[field]));
+        return Array.isArray(data.tests)
+            && data.tests.length > 0
+            && isCompletedTestExecutionSummary(data.testExecutionSummary);
     });
+}
+
+export function isCompletedTestExecutionSummary(value: unknown): value is TestExecutionSummary {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    const summary = value as Record<string, unknown>;
+    if (summary.completed !== true || typeof summary.totalTests !== "number"
+        || !Number.isFinite(summary.totalTests) || summary.totalTests <= 0) {
+        return false;
+    }
+    return ["passedTests", "failedTests", "skippedTests", "errorTests"].every((field) =>
+        typeof summary[field] === "number"
+        && Number.isFinite(summary[field])
+        && (summary[field] as number) >= 0);
 }
 
 function completedOutputRoots(intentId: string, nodes: NodeData[]): NodeData[] {
