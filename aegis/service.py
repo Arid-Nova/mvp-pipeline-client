@@ -31,10 +31,11 @@ async def lifespan(app: FastAPI):
     if facade is not None:
         facade.cleanup()
 
+
 app = FastAPI(title='Aegis Security Analysis API', lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=['http://localhost:3000', 'https://aridnova-demo.eastus.cloudapp.azure.com'],
+    allow_origins=['http://localhost:3000'],
     allow_credentials=True,
     allow_methods=['*'],
     allow_headers=['*'],

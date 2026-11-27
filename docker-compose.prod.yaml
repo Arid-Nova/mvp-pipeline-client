@@ -6,9 +6,9 @@
 #     still gives containers DNS/port access to each other by service name.
 #   - Adds Caddy on :80/:443 as the only public-facing service. Caddy proxies
 #     /api/<service>/* to the right backend and serves the frontend at /.
-#   - Sets REACT_APP_USE_PROXY=true in the frontend's runtime config (env.sh writes
-#     it to env-config.js) so its API calls are same-origin (/api/<service>/...)
-#     instead of http://localhost:<port>.
+#   - Points the frontend's runtime service URLs (env.sh writes them to
+#     env-config.js) at Caddy's same-origin /api/<service> routes instead of
+#     http://localhost:<port>. No frontend code changes are needed for this.
 #   - Keeps the MongoDB database names the live data is stored under (aegis,
 #     aridnova_system). docker-compose.yaml uses newer names for local stacks;
 #     switching the VM to them needs a data migration first.
@@ -19,7 +19,18 @@ services:
     environment:
       # NODE_ENV stays "development" (from docker-compose.yaml): env.sh writes
       # env-config.js into the serve build folder only in that mode.
-      REACT_APP_USE_PROXY: "true"
+      REACT_APP_IR_SERVICE_URL: /api/backend
+      REACT_APP_VERIFY_SERVICE_URL: /api/verifier
+      REACT_APP_COMPONENT_SERVICE_URL: /api/components
+      REACT_APP_VECTOR_SERVICE_URL: /api/vector
+      REACT_APP_ANALYSIS_SERVICE_URL: /api/scenario
+      REACT_APP_TEST_SERVICE_URL: /api/test
+      REACT_APP_AEGIS_SERVICE_URL: /api/aegis
+      REACT_APP_REPO_SERVICE_URL: /api/repo
+      REACT_APP_CHATBOT_SERVICE_URL: /api/chatbot
+      REACT_APP_USER_SERVICE_URL: /api/user
+      REACT_APP_EXEC_SERVICE_URL: /api/executor
+      REACT_APP_SLMBACKEND_SERVICE_URL: /api/slm
 
   backend:
     ports: !reset []

@@ -35,7 +35,7 @@ from .javascript_api import router as javascript_router
 app.include_router(javascript_router)
 
 origins = [
-    "http://localhost:3000", "https://aridnova-demo.eastus.cloudapp.azure.com",
+    "http://localhost:3000",
     "http://localhost:8060"
 ]
 
