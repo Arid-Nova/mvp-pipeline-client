@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { getChatbotHealth, refreshChatbotContext, sendChatbotQuery } from "../../services/api";
 import { ChatbotContext, ChatbotContextRefreshResponse, ChatbotHealthResponse, ChatbotResponse } from "../../services/types";
 import type { PipelineSuggestionSetState } from "./PipelineSuggestionList";
@@ -138,6 +138,17 @@ export const useChatbotState = (activeContext?: ChatbotContext) => {
     const refreshContextId = useMemo(() => toContextId(context, false), [context]);
     const lastContextIdRef = useRef(refreshContextId);
     const lastConversationContextIdRef = useRef(contextId);
+    const conversationRequestContextRef = useRef({ contextId, generation: 0 });
+
+    useLayoutEffect(() => {
+        const current = conversationRequestContextRef.current;
+        if (current.contextId !== contextId) {
+            conversationRequestContextRef.current = {
+                contextId,
+                generation: current.generation + 1
+            };
+        }
+    }, [contextId]);
 
     const historyMessages = useMemo(
         () => buildHistoryMessages(messages, contextId, health?.historyMaxMessages ?? 0),
@@ -181,6 +192,8 @@ export const useChatbotState = (activeContext?: ChatbotContext) => {
             setLastFailedQuestion(null);
             setLastFailedScope({});
             setLocalStaleContext(false);
+            // Let the new workflow accept a question while requests for the previous one settle.
+            setLoading(false);
             lastConversationContextIdRef.current = contextId;
         }
 
@@ -217,6 +230,9 @@ export const useChatbotState = (activeContext?: ChatbotContext) => {
             return;
         }
 
+        const requestContext = conversationRequestContextRef.current;
+        const isRequestContextCurrent = () => conversationRequestContextRef.current === requestContext;
+
         setError(null);
         setLoading(true);
         setLastFailedQuestion(null);
@@ -231,23 +247,33 @@ export const useChatbotState = (activeContext?: ChatbotContext) => {
                 messages: historyMessages
             });
 
-            setMessages((prev) =>
-                trimMessages([
+            if (!isRequestContextCurrent()) {
+                return;
+            }
+
+            setMessages((prev) => {
+                if (!isRequestContextCurrent()) return prev;
+                return trimMessages([
                     ...prev,
                     {
                         role: "assistant",
                         content: response.answer,
                         response
                     }
-                ])
-            );
+                ]);
+            });
         } catch (requestError: any) {
+            if (!isRequestContextCurrent()) {
+                return;
+            }
+
             const message = requestError?.message || "Failed to send query.";
-            setError(message);
-            setLastFailedQuestion(question);
-            setLastFailedScope(scopeOverride);
-            setMessages((prev) =>
-                trimMessages([
+            setError((previous) => isRequestContextCurrent() ? message : previous);
+            setLastFailedQuestion((previous) => isRequestContextCurrent() ? question : previous);
+            setLastFailedScope((previous) => isRequestContextCurrent() ? scopeOverride : previous);
+            setMessages((prev) => {
+                if (!isRequestContextCurrent()) return prev;
+                return trimMessages([
                     ...prev,
                     {
                         role: "assistant",
@@ -265,10 +291,10 @@ export const useChatbotState = (activeContext?: ChatbotContext) => {
                             confidenceReasons: ["provider_unavailable"]
                         }
                     }
-                ])
-            );
+                ]);
+            });
         } finally {
-            setLoading(false);
+            setLoading((previous) => isRequestContextCurrent() ? false : previous);
         }
     }, [context, health?.model, health?.provider, historyMessages, loading]);
 
