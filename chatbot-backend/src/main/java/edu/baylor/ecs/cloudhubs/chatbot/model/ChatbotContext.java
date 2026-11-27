@@ -1,9 +1,13 @@
 package edu.baylor.ecs.cloudhubs.chatbot.model;
 
 import com.fasterxml.jackson.databind.JsonNode;
+
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Setter
@@ -17,6 +21,8 @@ public class ChatbotContext {
     private String selectedService;
     private String selectedEndpoint;
     private Boolean expandedScope;
+    /** Bounded summaries of completed canvas-card outputs. Never contains raw card state. */
+    private List<JsonNode> workflowEvidence = new ArrayList<>();
 
     /**
      * Optional raw IR JSON the frontend already has in memory for the active canvas node

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { getChatbotHealth, refreshChatbotContext, sendChatbotQuery } from "../../services/api";
 import { ChatbotContext, ChatbotContextRefreshResponse, ChatbotHealthResponse, ChatbotResponse } from "../../services/types";
 import type { PipelineSuggestionSetState } from "./PipelineSuggestionList";
@@ -37,11 +37,20 @@ const toRequestContext = (context?: ChatbotContext): ChatbotContext | undefined 
     return hasValue ? context : undefined;
 };
 
-const toContextId = (context?: ChatbotContext): string => {
+const toContextId = (context?: ChatbotContext, includeWorkflowEvidence = true): string => {
     if (!context) {
         return "no-context";
     }
-    return [
+
+    const evidenceFingerprint = includeWorkflowEvidence ? (context.workflowEvidence ?? []).reduce((hash, item) => {
+        const value = `${item.cardId}|${item.cardType}|${item.summary}`;
+        for (let index = 0; index < value.length; index++) {
+            hash = Math.imul(hash ^ value.charCodeAt(index), 16777619);
+        }
+        return hash >>> 0;
+    }, 2166136261).toString(16) : "";
+
+    const identifiers = [
         context.systemName,
         context.irId,
         context.indexId,
@@ -49,7 +58,9 @@ const toContextId = (context?: ChatbotContext): string => {
         context.commitId,
         context.selectedService,
         context.selectedEndpoint
-    ].map((v) => (v || "").trim()).join("|");
+    ].map((v) => (v || "").trim());
+
+    return [...identifiers, ...(includeWorkflowEvidence ? [evidenceFingerprint] : [])].join("|");
 };
 
 const summarizeAnswer = (response?: ChatbotResponse): string => {
@@ -81,8 +92,10 @@ const toHistoryMessage = (msg: ChatMessageModel, contextId: string): { role: str
             content: `PREV_USER_QUESTION: ${msg.content}\nACTIVE_CONTEXT_ID: ${contextId}`
         };
     }
+
     const summary = summarizeAnswer(msg.response);
     const entities = citedEntities(msg.response);
+    
     return {
         role: "assistant",
         content: [
@@ -114,6 +127,7 @@ export const useChatbotState = (activeContext?: ChatbotContext) => {
     const [healthLoading, setHealthLoading] = useState(false);
     const [healthError, setHealthError] = useState<string | null>(null);
     const [lastFailedQuestion, setLastFailedQuestion] = useState<string | null>(null);
+    const [lastFailedScope, setLastFailedScope] = useState<Partial<ChatbotContext>>({});
     const [refreshLoading, setRefreshLoading] = useState(false);
     const [refreshResult, setRefreshResult] = useState<ChatbotContextRefreshResponse | null>(null);
     const [refreshError, setRefreshError] = useState<string | null>(null);
@@ -121,7 +135,20 @@ export const useChatbotState = (activeContext?: ChatbotContext) => {
 
     const context = useMemo(() => toRequestContext(activeContext), [activeContext]);
     const contextId = useMemo(() => toContextId(context), [context]);
-    const lastContextIdRef = useRef(contextId);
+    const refreshContextId = useMemo(() => toContextId(context, false), [context]);
+    const lastContextIdRef = useRef(refreshContextId);
+    const lastConversationContextIdRef = useRef(contextId);
+    const conversationRequestContextRef = useRef({ contextId, generation: 0 });
+
+    useLayoutEffect(() => {
+        const current = conversationRequestContextRef.current;
+        if (current.contextId !== contextId) {
+            conversationRequestContextRef.current = {
+                contextId,
+                generation: current.generation + 1
+            };
+        }
+    }, [contextId]);
 
     const historyMessages = useMemo(
         () => buildHistoryMessages(messages, contextId, health?.historyMaxMessages ?? 0),
@@ -154,20 +181,32 @@ export const useChatbotState = (activeContext?: ChatbotContext) => {
 
     // Automatic refresh trigger when the context changes
     useEffect(() => {
-        if (lastContextIdRef.current !== contextId) {
-            setMessages([]);
+        const conversationContextChanged = lastConversationContextIdRef.current !== contextId;
+        const refreshScopeChanged = lastContextIdRef.current !== refreshContextId;
+
+        if (conversationContextChanged) {
+            // A new result/context invalidates Q&A history, but build-mode pipeline cards are
+            // independent UI messages and should remain visible in the transcript.
+            setMessages((previous) => previous.filter((message) => !isConversationalMessage(message)));
             setError(null);
             setLastFailedQuestion(null);
+            setLastFailedScope({});
+            setLocalStaleContext(false);
+            // Let the new workflow accept a question while requests for the previous one settle.
+            setLoading(false);
+            lastConversationContextIdRef.current = contextId;
+        }
+
+        if (refreshScopeChanged) {
             setRefreshResult(null);
             setRefreshError(null);
-            setLocalStaleContext(false);
-            lastContextIdRef.current = contextId;
+            lastContextIdRef.current = refreshContextId;
 
-            if (contextId !== "no-context") {
+            if (refreshContextId !== "no-context") {
                 refreshContext();
             }
         }
-    }, [contextId, refreshContext]);
+    }, [contextId, refreshContextId, refreshContext]);
 
     const refreshHealth = useCallback(async () => {
         try {
@@ -182,41 +221,60 @@ export const useChatbotState = (activeContext?: ChatbotContext) => {
         }
     }, []);
 
-    const sendQuestion = useCallback(async (questionInput: string) => {
+    const sendQuestion = useCallback(async (
+        questionInput: string,
+        scopeOverride: Partial<ChatbotContext> = {}
+    ) => {
         const question = questionInput.trim();
         if (!question || loading) {
             return;
         }
 
+        const requestContext = conversationRequestContextRef.current;
+        const isRequestContextCurrent = () => conversationRequestContextRef.current === requestContext;
+        const queryContext = toRequestContext({ ...(context ?? {}), ...scopeOverride });
+
         setError(null);
         setLoading(true);
         setLastFailedQuestion(null);
+        setLastFailedScope({});
 
         setMessages((prev) => trimMessages([...prev, { role: "user", content: question }]));
 
         try {
             const response = await sendChatbotQuery({
                 question,
-                context,
+                context: queryContext,
                 messages: historyMessages
             });
 
-            setMessages((prev) =>
-                trimMessages([
+            if (!isRequestContextCurrent()) {
+                return;
+            }
+
+            setMessages((prev) => {
+                if (!isRequestContextCurrent()) return prev;
+                return trimMessages([
                     ...prev,
                     {
                         role: "assistant",
                         content: response.answer,
                         response
                     }
-                ])
-            );
+                ]);
+            });
         } catch (requestError: any) {
+            if (!isRequestContextCurrent()) {
+                return;
+            }
+
             const message = requestError?.message || "Failed to send query.";
-            setError(message);
-            setLastFailedQuestion(question);
-            setMessages((prev) =>
-                trimMessages([
+            setError((previous) => isRequestContextCurrent() ? message : previous);
+            setLastFailedQuestion((previous) => isRequestContextCurrent() ? question : previous);
+            setLastFailedScope((previous) => isRequestContextCurrent() ? scopeOverride : previous);
+            setMessages((prev) => {
+                if (!isRequestContextCurrent()) return prev;
+                return trimMessages([
                     ...prev,
                     {
                         role: "assistant",
@@ -230,14 +288,14 @@ export const useChatbotState = (activeContext?: ChatbotContext) => {
                             processingTimeMs: 0,
                             model: health?.model || "unknown",
                             provider: health?.provider || "unknown",
-                            confidenceRationale: "Chatbot runtime is currently unavailable.",
+                            confidenceRationale: "Chatbot is currently unavailable.",
                             confidenceReasons: ["provider_unavailable"]
                         }
                     }
-                ])
-            );
+                ]);
+            });
         } finally {
-            setLoading(false);
+            setLoading((previous) => isRequestContextCurrent() ? false : previous);
         }
     }, [context, health?.model, health?.provider, historyMessages, loading]);
 
@@ -245,8 +303,8 @@ export const useChatbotState = (activeContext?: ChatbotContext) => {
         if (!lastFailedQuestion || loading) {
             return;
         }
-        await sendQuestion(lastFailedQuestion);
-    }, [lastFailedQuestion, loading, sendQuestion]);
+        await sendQuestion(lastFailedQuestion, lastFailedScope);
+    }, [lastFailedQuestion, lastFailedScope, loading, sendQuestion]);
 
     /** Adds a UI-only pipeline message (suggestions or status). */
     const appendPipelineMessage = useCallback((message: ChatMessageModel) => {
@@ -276,6 +334,7 @@ export const useChatbotState = (activeContext?: ChatbotContext) => {
         setMessages([]);
         setError(null);
         setLastFailedQuestion(null);
+        setLastFailedScope({});
     }, []);
 
     return {
@@ -290,6 +349,7 @@ export const useChatbotState = (activeContext?: ChatbotContext) => {
         refreshError,
         localStaleContext,
         context,
+        lastFailedScope,
         sendQuestion,
         retryLastFailed,
         clearConversation,

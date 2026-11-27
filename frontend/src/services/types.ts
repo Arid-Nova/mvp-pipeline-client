@@ -67,10 +67,20 @@ export interface ChatbotContext {
     commitId?: string;
     selectedService?: string;
     selectedEndpoint?: string;
+    // Bounded, deterministic summaries from completed analysis cards; 
+    // raw card objects are not forwarded. 
+    workflowEvidence?: ChatbotWorkflowEvidence[];
     // Raw IR JSON already held by the frontend for the active canvas node (generated,
     // DB-loaded, or locally uploaded). Lets the chatbot answer from IRs that were never
     // persisted to the backend, without the chatbot service having to fetch them.
     irPayload?: unknown;
+}
+
+export interface ChatbotWorkflowEvidence {
+    cardId: string;
+    cardType: string;
+    summary: string;
+    serviceName?: string;
 }
 
 export interface ChatbotContextRefreshRequest {

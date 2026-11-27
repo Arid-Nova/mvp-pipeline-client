@@ -279,7 +279,7 @@ describe("ChatbotPanel", () => {
             latencyMs: 20
         });
 
-        mockedSendQuery.mockRejectedValueOnce(new Error("Chatbot runtime is currently unavailable. Please ensure the local model runtime is running."));
+        mockedSendQuery.mockRejectedValueOnce(new Error("Chatbot is currently unavailable. Please ensure the local model is running."));
 
         render(<ChatbotPanel activeContext={{ systemName: "TrainTicket" }} />);
         fireEvent.click(screen.getByTestId("chatbot-toggle"));

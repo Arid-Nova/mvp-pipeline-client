@@ -269,6 +269,15 @@ public class HybridRetriever {
             && normalizedEntities.contains(item.getArtifactName().trim().toLowerCase(Locale.ROOT))) {
             return true;
         }
+        if ("WORKFLOW_CARD".equalsIgnoreCase(safe(item.getEntityType()))) {
+            String content = safe(item.getContentText());
+            for (String entity : normalizedEntities) {
+                if (Pattern.compile("(?<![a-zA-Z0-9])" + Pattern.quote(entity) + "(?![a-zA-Z0-9])", Pattern.CASE_INSENSITIVE)
+                    .matcher(content).find()) {
+                    return true;
+                }
+            }
+        }
         return false;
     }
 

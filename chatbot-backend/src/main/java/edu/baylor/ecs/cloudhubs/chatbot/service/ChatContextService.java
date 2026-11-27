@@ -10,6 +10,7 @@ import edu.baylor.ecs.cloudhubs.chatbot.model.EvidenceQueryContext;
 import edu.baylor.ecs.cloudhubs.chatbot.model.EvidenceRetrievalResult;
 import edu.baylor.ecs.cloudhubs.chatbot.model.EvidenceScope;
 import edu.baylor.ecs.cloudhubs.chatbot.model.MissingEvidence;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -58,11 +59,13 @@ public class ChatContextService {
         }
 
         EvidenceQueryContext queryContext = toQueryContext(request);
-        if (!queryContext.isExpandedScopeAllowed() && !hasAnyContextIdentifier(queryContext.getScope())) {
+        if (!queryContext.isExpandedScopeAllowed()
+            && !hasAnyContextIdentifier(queryContext.getScope())
+            && !hasWorkflowEvidence(request.getContext())) {
             EvidenceRetrievalResult blocked = new EvidenceRetrievalResult();
             blocked.setMissingEvidence(List.of(new MissingEvidence(
                 EvidenceArtifactType.CONTEXT_METADATA,
-                "Insufficient active context. Scoped evidence retrieval is blocked to prevent cross-system leakage.",
+                "Insufficient active context or workflow-card result data. Scoped evidence retrieval is blocked to prevent cross-system leakage.",
                 "systemName|irId|indexId|runId|commitId|selectedService|selectedEndpoint"
             )));
             return blocked;
@@ -140,10 +143,12 @@ public class ChatContextService {
         response.setMessage("Validated provider-backed request-scoped evidence context (no persisted retrieval index).");
 
         EvidenceQueryContext queryContext = toQueryContext(request);
-        if (!queryContext.isExpandedScopeAllowed() && !hasAnyContextIdentifier(queryContext.getScope())) {
+        if (!queryContext.isExpandedScopeAllowed()
+            && !hasAnyContextIdentifier(queryContext.getScope())
+            && !hasWorkflowEvidence(context)) {
             response.setSuccess(false);
             response.setStaleContext(true);
-            response.setMessage("No active context identifiers were supplied. Select an active system/IR/session and retry refresh.");
+            response.setMessage("No active context identifiers or workflow-card results were supplied.");
             return response;
         }
 
@@ -200,6 +205,12 @@ public class ChatContextService {
             || hasValue(scope.getServiceName())
             || hasValue(scope.getEndpointPath())
             || hasValue(scope.getSessionId()));
+    }
+
+    private boolean hasWorkflowEvidence(ChatbotContext context) {
+        return context != null
+            && context.getWorkflowEvidence() != null
+            && !context.getWorkflowEvidence().isEmpty();
     }
 
     private boolean hasValue(String value) {

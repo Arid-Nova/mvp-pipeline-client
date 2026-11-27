@@ -47,6 +47,20 @@ export interface PipelinePayload {
     additional?: any;
 }
 
+export interface TestExecutionSummary {
+    completed: true;
+    totalTests: number;
+    passedTests: number;
+    failedTests: number;
+    skippedTests: number;
+    errorTests: number;
+    durationMs?: number;
+    failures?: Array<{
+        testName: string;
+        message?: string;
+    }>;
+}
+
 export interface NodeData {
     id: string;
     type: CardType;
@@ -75,6 +89,7 @@ export interface NodeData {
         selectedScenarios?: string[];
         promptPayload?: PromptPayload;
         testSuitePayload?: TestSuitePayload;
+        testExecutionSummary?: TestExecutionSummary;
         selectedLlm?: string;
         language?: string;
         isExpanded?: boolean;
@@ -148,3 +163,4 @@ export interface MatrixData {
     riskFactors: Record<string, Set<string>>;
     centralities: Record<string, number>;
 }
+

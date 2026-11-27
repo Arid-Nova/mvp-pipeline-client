@@ -2,6 +2,7 @@ import { runJavaScriptStage, unsupportedDownstreamReason, sourceLanguages, secur
 import { postJavaScriptStage } from '../../services/api';
 import { JavaScriptAnalysisCard } from './cards/JavaScriptAnalysisCard';
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { 
     fetchIRFromRepo, 
     verifySystem, 
@@ -47,6 +48,12 @@ import { VerificationComparisonCard } from './cards/VerificationComparisonCard';
 
 // Canvas Components
 import ChatbotPanel from '../chatbot/ChatbotPanel';
+import { 
+    deriveWorkflowQuestionSuggestions, 
+    workflowQuestionSuggestionSignature,
+    normalizeTestExecutionSummary 
+} from './workflowQuestionSuggestions';
+import { deriveWorkflowEvidence } from './workflowEvidence';
 import { FeedbackModal } from './canvas/FeedbackModal';
 import { PipelineCanvas } from './canvas/PipelineCanvas';
 import { ToolboxSidebar } from './canvas/ToolboxSideBar';
@@ -87,6 +94,9 @@ let inMemoryPipelineCache: {
 } | null = null;
 
 const PipelinePage: React.FC = () => {
+    const location = useLocation();
+    const navigate = useNavigate();
+
     // Pipeline Tour State
     const [runTour, setRunTour] = useState(false);
 
@@ -739,6 +749,7 @@ const PipelinePage: React.FC = () => {
         // Send the IR content the frontend already holds so the chatbot can answer even when
         // the IR was never persisted server-side (e.g. a locally uploaded snapshot).
         const irPayload = irSource?.data?.payload?.irJson || irHolder?.data?.payload?.irJson;
+        const workflowEvidence = deriveWorkflowEvidence(nodes);
 
         return {
             systemName,
@@ -746,9 +757,24 @@ const PipelinePage: React.FC = () => {
             indexId,
             runId: pipelineRunId,
             commitId,
-            irPayload
+            irPayload,
+            workflowEvidence
         };
     }, [nodes, pipelineRunId]);
+
+    const workflowQuestionSuggestionCacheRef = useRef<{
+        signature: string;
+        suggestions: ReturnType<typeof deriveWorkflowQuestionSuggestions>;
+    } | null>(null);
+    const workflowQuestionSuggestions = useMemo(() => {
+        const signature = workflowQuestionSuggestionSignature(nodes, connections);
+        const cached = workflowQuestionSuggestionCacheRef.current;
+        if (cached?.signature === signature) return cached.suggestions;
+
+        const suggestions = deriveWorkflowQuestionSuggestions(nodes, connections);
+        workflowQuestionSuggestionCacheRef.current = { signature, suggestions };
+        return suggestions;
+    }, [nodes, connections]);
 
     // --- Actions ---
     const addNode = (type: CardType) => {
@@ -799,14 +825,45 @@ const PipelinePage: React.FC = () => {
     };
 
     const updateNodeData = useCallback((id: string, newData: Partial<NodeData['data']>) => {
-        setNodes(prevNodes => 
-            prevNodes.map(node => 
-                node.id === id 
-                    ? { ...node, data: { ...node.data, ...newData } } 
-                    : node
-            )
+        const updatedNodes = nodesRef.current.map(node =>
+            node.id === id
+                ? { ...node, data: { ...node.data, ...newData } }
+                : node
         );
+        nodesRef.current = updatedNodes;
+        if (inMemoryPipelineCache) {
+            inMemoryPipelineCache = { ...inMemoryPipelineCache, nodes: updatedNodes };
+        }
+        setNodes(updatedNodes);
     }, []);
+
+    useEffect(() => {
+        const routeState = location.state;
+        if (!routeState || typeof routeState !== 'object'
+            || !Object.prototype.hasOwnProperty.call(routeState, 'testExecutionCompletion')) {
+            return;
+        }
+
+        const completion = (routeState as Record<string, unknown>).testExecutionCompletion;
+        if (completion && typeof completion === 'object' && !Array.isArray(completion)) {
+            const { nodeId, summary } = completion as Record<string, unknown>;
+            const targetNode = typeof nodeId === 'string'
+                ? nodes.find((node) => node.id === nodeId && node.type === 'TEST_EXECUTOR')
+                : undefined;
+            const normalizedSummary = normalizeTestExecutionSummary(summary);
+
+            if (targetNode && normalizedSummary) {
+                updateNodeData(targetNode.id, { testExecutionSummary: normalizedSummary });
+            }
+        }
+
+        // Router state is a one-time handoff. Remove it after consumption so remounts
+        // cannot apply the same completion to a later canvas state.
+        navigate(`${location.pathname}${location.search}${location.hash}`, {
+            replace: true,
+            state: null,
+        });
+    }, [location.state, location.pathname, location.search, location.hash, nodes, updateNodeData, navigate]);
 
     const handleNodeDragStart = (e: React.DragEvent, id: string) => {
         setDragNodeId(id);
@@ -1402,7 +1459,8 @@ const PipelinePage: React.FC = () => {
                         `Received ${generatedTests.length} tests. Ready for execution.`, 
                         { 
                             tests: generatedTests,
-                            executionStarted: false 
+                            executionStarted: false,
+                            testExecutionSummary: undefined,
                         }
                     );
                 } 
@@ -2149,6 +2207,7 @@ const PipelinePage: React.FC = () => {
 
             <ChatbotPanel
                 activeContext={chatbotContext}
+                workflowQuestionSuggestions={workflowQuestionSuggestions}
                 onApplyPipelineSuggestion={applyPipelineSuggestion}
                 canvasIsEmpty={nodes.length === 0}
                 isPipelineRunning={isRunning}

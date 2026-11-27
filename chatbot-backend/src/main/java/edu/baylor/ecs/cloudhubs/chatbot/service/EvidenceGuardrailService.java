@@ -3,19 +3,22 @@ package edu.baylor.ecs.cloudhubs.chatbot.service;
 import edu.baylor.ecs.cloudhubs.chatbot.model.ChatbotConfidence;
 import edu.baylor.ecs.cloudhubs.chatbot.model.ChatbotFlag;
 import edu.baylor.ecs.cloudhubs.chatbot.model.ChatbotResponse;
-import edu.baylor.ecs.cloudhubs.chatbot.model.CitationItem;
 import edu.baylor.ecs.cloudhubs.chatbot.model.EvidenceArtifactType;
+import edu.baylor.ecs.cloudhubs.chatbot.model.EvidenceCitationMapper;
 import edu.baylor.ecs.cloudhubs.chatbot.model.EvidenceItem;
 import edu.baylor.ecs.cloudhubs.chatbot.model.MissingEvidence;
 import edu.baylor.ecs.cloudhubs.chatbot.retrieval.model.QuestionIntent;
 import edu.baylor.ecs.cloudhubs.chatbot.util.StringUtils;
+
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -23,6 +26,15 @@ import java.util.regex.Pattern;
 public class EvidenceGuardrailService {
 
     private static final Pattern CITATION_PATTERN = Pattern.compile("\\[(E[^\\]]+)\\]");
+    private static final Pattern FORMAL_VERIFICATION_PATTERN = Pattern.compile("\\bformal\\s+verification\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern VERIFICATION_RESULT_PATTERN = Pattern.compile(
+        "\\b(?:result|results|finding|findings|find|finds|found|outcome|outcomes|verdict|verdicts)\\b",
+        Pattern.CASE_INSENSITIVE
+    );
+    private static final Pattern COMPARISON_QUESTION_PATTERN = Pattern.compile(
+        "\\b(?:compare|comparison|compared|difference|differences|different|contrast|between|versus|vs\\.?|drift|changed|change)\\b",
+        Pattern.CASE_INSENSITIVE
+    );
 
     public ChatbotResponse enforcePreGeneration(
         String question,
@@ -39,6 +51,15 @@ public class EvidenceGuardrailService {
         ensureFlagListExists(safeResponse);
 
         boolean supportedEvidenceIntent = isSupportedEvidenceRequiredIntent(intent) || asksForFactualArchitectureClaim(question);
+        if (safeEvidence.isEmpty()) {
+            addFlagIfMissing(safeResponse, ChatbotFlag.INSUFFICIENT_EVIDENCE);
+            safeResponse.setConfidence(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
+            safeResponse.setAnswer("Insufficient evidence: no result or architecture evidence is available for this question.");
+            return safeResponse;
+        }
+        if (hasMatchingDirectWorkflowEvidence(question, safeEvidence)) {
+            return safeResponse;
+        }
         if (!supportedEvidenceIntent) {
             return safeResponse;
         }
@@ -52,7 +73,7 @@ public class EvidenceGuardrailService {
             return safeResponse;
         }
 
-        if (strictEvidenceOnly && hasWeakOnlyEvidence(safeEvidence)) {
+        if (strictEvidenceOnly && hasWeakOnlyEvidence(question, safeEvidence)) {
             addFlagIfMissing(safeResponse, ChatbotFlag.INSUFFICIENT_EVIDENCE);
             safeResponse.setConfidence(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
             safeResponse.setAnswer("Insufficient evidence: strict evidence-only mode blocks weak or inferred-only support.");
@@ -82,23 +103,16 @@ public class EvidenceGuardrailService {
         List<EvidenceItem> safeEvidence = evidenceItems == null ? List.of() : evidenceItems;
         ensureFlagListExists(safeResponse);
 
-        boolean supportedEvidenceIntent = isSupportedEvidenceRequiredIntent(intent) || asksForFactualArchitectureClaim(question);
-        if (!supportedEvidenceIntent) {
-            return safeResponse;
-        }
-
-        // Two distinct ID spaces: the model is asked to cite the short positional label shown in
-        // the prompt (e.g. [E1]), never the raw artifactId, since long punctuation-heavy real IDs
-        // (ir:v1:service:order-service) are unreliable for local models to reproduce verbatim.
-        // validArtifactIds still uses the real IDs because it filters response.getCitations(),
-        // which is built directly from EvidenceItem.getArtifactId() (see EvidenceCitationMapper).
+        // The model cites short positional labels (e.g. [E1]); those labels map to retained
+        // evidence here. Only the referenced evidence records become response citations.
         Set<String> validCitationLabels = new LinkedHashSet<>();
-        Set<String> validArtifactIds = new LinkedHashSet<>();
+        Map<String, EvidenceItem> evidenceByLabel = new LinkedHashMap<>();
         for (int i = 0; i < safeEvidence.size(); i++) {
             EvidenceItem item = safeEvidence.get(i);
-            validCitationLabels.add(StringUtils.evidenceLabel(i));
-            if (hasValue(item.getArtifactId())) {
-                validArtifactIds.add(item.getArtifactId());
+            if (item != null) {
+                String label = StringUtils.evidenceLabel(i);
+                validCitationLabels.add(label);
+                evidenceByLabel.put(label, item);
             }
         }
 
@@ -108,35 +122,41 @@ public class EvidenceGuardrailService {
             safeResponse.setConfidence(ChatbotConfidence.LOW);
         }
 
-        if (hasAnswerText(safeResponse) && (safeResponse.getCitations() == null || safeResponse.getCitations().isEmpty())) {
-            addFlagIfMissing(safeResponse, ChatbotFlag.CITATION_VALIDATION_FAILED);
-            addFlagIfMissing(safeResponse, ChatbotFlag.INSUFFICIENT_EVIDENCE);
-            safeResponse.setConfidence(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
-            safeResponse.setAnswer("Insufficient citation support: generated answer did not include valid evidence citations.");
-            return safeResponse;
-        }
+        List<EvidenceItem> citedEvidence = evidenceCitedByAnswer(safeResponse.getAnswer(), evidenceByLabel);
+        safeResponse.setCitations(EvidenceCitationMapper.toCitations(citedEvidence));
 
-        List<CitationItem> filtered = filterToValidCitations(safeResponse.getCitations(), validArtifactIds);
-        if (filtered.size() != safeResponse.getCitations().size()) {
-            safeResponse.setCitations(filtered);
+        if (hasAnswerText(safeResponse) && safeResponse.getCitations().isEmpty()) {
             addFlagIfMissing(safeResponse, ChatbotFlag.CITATION_VALIDATION_FAILED);
             safeResponse.setConfidence(ChatbotConfidence.LOW);
         }
 
-        if (hasAnswerText(safeResponse) && safeResponse.getCitations().isEmpty()) {
-            addFlagIfMissing(safeResponse, ChatbotFlag.INSUFFICIENT_EVIDENCE);
-            safeResponse.setConfidence(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
-            safeResponse.setAnswer("Insufficient citation support: no valid citations remain after validation.");
-            return safeResponse;
-        }
-
-        if (strictEvidenceOnly && hasWeakOnlyEvidence(safeEvidence)) {
+        if (strictEvidenceOnly && hasWeakOnlyEvidence(question, safeEvidence)) {
             addFlagIfMissing(safeResponse, ChatbotFlag.INSUFFICIENT_EVIDENCE);
             safeResponse.setConfidence(ChatbotConfidence.INSUFFICIENT_EVIDENCE);
             safeResponse.setAnswer("Insufficient evidence: strict evidence-only mode requires stronger direct support.");
         }
 
         return safeResponse;
+    }
+
+    private List<EvidenceItem> evidenceCitedByAnswer(
+        String answer,
+        Map<String, EvidenceItem> evidenceByLabel
+    ) {
+        if (!hasValue(answer) || evidenceByLabel.isEmpty()) return List.of();
+
+        Matcher matcher = CITATION_PATTERN.matcher(answer);
+        Set<String> seenLabels = new LinkedHashSet<>();
+        Set<String> seenArtifactIds = new LinkedHashSet<>();
+        List<EvidenceItem> cited = new ArrayList<>();
+        while (matcher.find()) {
+            String label = matcher.group(1);
+            EvidenceItem item = evidenceByLabel.get(label);
+            if (item == null || !seenLabels.add(label)) continue;
+            String artifactId = item.getArtifactId();
+            if (!hasValue(artifactId) || seenArtifactIds.add(artifactId)) cited.add(item);
+        }
+        return cited;
     }
 
     private boolean sanitizeUnknownCitationIds(ChatbotResponse response, Set<String> validCitationIds) {
@@ -163,22 +183,6 @@ public class EvidenceGuardrailService {
             response.setAnswer(rebuilt.toString());
         }
         return invalidFound;
-    }
-
-    private List<CitationItem> filterToValidCitations(List<CitationItem> citations, Set<String> validCitationIds) {
-        if (citations == null || citations.isEmpty()) {
-            return List.of();
-        }
-        List<CitationItem> filtered = new ArrayList<>();
-        for (CitationItem citation : citations) {
-            if (citation == null) {
-                continue;
-            }
-            if (hasValue(citation.getArtifactId()) && validCitationIds.contains(citation.getArtifactId())) {
-                filtered.add(citation);
-            }
-        }
-        return filtered;
     }
 
     private List<String> computeMissingSources(QuestionIntent intent, List<EvidenceItem> evidenceItems, List<MissingEvidence> retrievalMissing) {
@@ -273,9 +277,12 @@ public class EvidenceGuardrailService {
         return response != null && response.getAnswer() != null && !response.getAnswer().isBlank();
     }
 
-    private boolean hasWeakOnlyEvidence(List<EvidenceItem> evidenceItems) {
+    private boolean hasWeakOnlyEvidence(String question, List<EvidenceItem> evidenceItems) {
         if (evidenceItems == null || evidenceItems.isEmpty()) {
             return true;
+        }
+        if (hasMatchingDirectWorkflowEvidence(question, evidenceItems)) {
+            return false;
         }
         boolean hasStrongType = evidenceItems.stream().anyMatch(item -> item.getArtifactType() == EvidenceArtifactType.IR
             || item.getArtifactType() == EvidenceArtifactType.GRAPH
@@ -289,6 +296,31 @@ public class EvidenceGuardrailService {
             String confidence = item.getConfidenceSource();
             return confidence != null && confidence.toLowerCase(Locale.ROOT).contains("inferred");
         });
+    }
+
+    private boolean hasMatchingDirectWorkflowEvidence(String question, List<EvidenceItem> evidenceItems) {
+        if (!asksForFormalVerificationResult(question) || evidenceItems == null || evidenceItems.isEmpty()) {
+            return false;
+        }
+        for (EvidenceItem item : evidenceItems) {
+            if (item != null
+                && item.getArtifactType() == EvidenceArtifactType.CONTEXT_METADATA
+                && "WORKFLOW_CARD".equals(item.getEntityType())
+                && "completed-card:FORMAL_VERIFY".equals(item.getLocationHint())
+                && WorkflowResultEvidenceContextProvider.DIRECT_FORMAL_VERIFICATION_SOURCE.equals(item.getConfidenceSource())
+                && item.getArtifactId() != null
+                && item.getArtifactId().matches("workflow:FORMAL_VERIFY:[A-Za-z0-9:_-]{1,128}")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean asksForFormalVerificationResult(String question) {
+        return question != null
+            && FORMAL_VERIFICATION_PATTERN.matcher(question).find()
+            && VERIFICATION_RESULT_PATTERN.matcher(question).find()
+            && !COMPARISON_QUESTION_PATTERN.matcher(question).find();
     }
 
     private boolean allowsRecommendation(QuestionIntent intent) {
@@ -321,3 +353,4 @@ public class EvidenceGuardrailService {
         }
     }
 }
+
