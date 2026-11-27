@@ -384,16 +384,51 @@ function hasExecutedTests(nodes: NodeData[]): boolean {
 }
 
 export function isCompletedTestExecutionSummary(value: unknown): value is TestExecutionSummary {
-    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    return normalizeTestExecutionSummary(value) !== null;
+}
+
+export function normalizeTestExecutionSummary(value: unknown): TestExecutionSummary | null {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
     const summary = value as Record<string, unknown>;
-    if (summary.completed !== true || typeof summary.totalTests !== "number"
-        || !Number.isFinite(summary.totalTests) || summary.totalTests <= 0) {
-        return false;
+    const isCount = (candidate: unknown): candidate is number =>
+        typeof candidate === "number" && Number.isSafeInteger(candidate) && candidate >= 0;
+
+    if (summary.completed !== true || !isCount(summary.totalTests) || summary.totalTests === 0
+        || !["passedTests", "failedTests", "skippedTests", "errorTests"]
+            .every((field) => isCount(summary[field]))) {
+        return null;
     }
-    return ["passedTests", "failedTests", "skippedTests", "errorTests"].every((field) =>
-        typeof summary[field] === "number"
-        && Number.isFinite(summary[field])
-        && (summary[field] as number) >= 0);
+
+    const normalized: TestExecutionSummary = {
+        completed: true,
+        totalTests: summary.totalTests,
+        passedTests: summary.passedTests as number,
+        failedTests: summary.failedTests as number,
+        skippedTests: summary.skippedTests as number,
+        errorTests: summary.errorTests as number,
+    };
+
+    if (typeof summary.durationMs === "number" && Number.isFinite(summary.durationMs) && summary.durationMs >= 0) {
+        normalized.durationMs = summary.durationMs;
+    }
+
+    if (Array.isArray(summary.failures)) {
+        const failures: NonNullable<TestExecutionSummary["failures"]> = [];
+        summary.failures.slice(0, 8).forEach((failure) => {
+            if (!failure || typeof failure !== "object" || Array.isArray(failure)) return;
+            const item = failure as Record<string, unknown>;
+            if (typeof item.testName !== "string" || !item.testName.trim()) return;
+            failures.push({
+                testName: item.testName.trim().replace(/\s+/g, " ").slice(0, 160),
+                ...(typeof item.message === "string" && item.message.trim()
+                    ? { message: item.message.trim().replace(/\s+/g, " ").slice(0, 240) }
+                    : {}),
+            });
+        });
+        if (failures.length) normalized.failures = failures;
+    }
+
+    return normalized;
 }
 
 function completedOutputRoots(intentId: string, nodes: NodeData[]): NodeData[] {

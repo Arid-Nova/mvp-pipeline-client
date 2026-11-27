@@ -5,12 +5,28 @@ import Editor from '@monaco-editor/react';
 import { TestTour } from './tour/TestTour';
 import { executeTest } from '../../services/api';
 
+interface TestExecutionReturnTarget {
+    nodeId: string;
+    pathname: string;
+    search?: string;
+    hash?: string;
+}
+
 const ExecutorPage: React.FC = () => {
     const location = useLocation();
     const navigate = useNavigate();
     
     // Grab the payload, including the dynamically passed roles
-    const { tests = [], language = 'curl', targetUrl = 'http://localhost:1234', roles = [] } = location.state || {};
+    const routeState = (location.state || {}) as Record<string, unknown>;
+    const tests = Array.isArray(routeState.tests) ? routeState.tests as any[] : [];
+    const language = typeof routeState.language === 'string' ? routeState.language : 'curl';
+    const targetUrl = typeof routeState.targetUrl === 'string'
+        ? routeState.targetUrl
+        : 'http://localhost:1234';
+    const roles = Array.isArray(routeState.roles)
+        ? routeState.roles.filter((role): role is string => typeof role === 'string')
+        : [];
+    const testExecutionReturn = routeState.testExecutionReturn as TestExecutionReturnTarget | undefined;
 
     const [activeTestIndex, setActiveTestIndex] = useState(0);
     const [results, setResults] = useState<Record<string, ExecutionResult>>({});
@@ -242,6 +258,76 @@ const ExecutorPage: React.FC = () => {
         }
     };
 
+    const buildCompletedRunSummary = () => {
+        if (!tests.length) return undefined;
+
+        const outcomes = tests.map((test: any) => ({
+            test,
+            result: results[test.scenario_id] as (ExecutionResult & {
+                proxyPassed?: boolean;
+                testPassed?: boolean;
+            }) | undefined,
+        }));
+        const allTestsFinished = outcomes.every(({ result }) =>
+            result?.status === 'success' || result?.status === 'error');
+        if (!allTestsFinished) return undefined;
+
+        const passedTests = outcomes.filter(({ result }) => result?.status === 'success').length;
+        const failedTests = outcomes.filter(({ result }) =>
+            result?.status === 'error' && result?.proxyPassed === true && result?.testPassed === false
+        ).length;
+        const errorTests = outcomes.length - passedTests - failedTests;
+        const failures: Array<{ testName: string; message?: string }> = [];
+
+        outcomes.forEach(({ test, result }) => {
+            if (!result || result.status !== 'error' || failures.length >= 8) return;
+            const assertionFailure = result.proxyPassed === true && result.testPassed === false;
+            const failedAssertion = result.assertions?.find((assertion: any) => assertion?.passed === false);
+            const testName = [test.scenario_id, test.method, test.endpoint]
+                .filter((part) => typeof part === 'string' && part.trim())
+                .join(' ')
+                .slice(0, 160);
+            const message = assertionFailure
+                ? (typeof failedAssertion?.description === 'string'
+                    ? failedAssertion.description
+                    : 'One or more test assertions failed.')
+                : 'Test execution did not complete successfully.';
+            failures.push({
+                testName: testName || 'Test',
+                message: message.slice(0, 240),
+            });
+        });
+
+        return {
+            completed: true as const,
+            totalTests: outcomes.length,
+            passedTests,
+            failedTests,
+            skippedTests: 0,
+            errorTests,
+            failures,
+        };
+    };
+
+    const handleReturnToPipeline = () => {
+        const hasInternalReturnPath = typeof testExecutionReturn?.pathname === 'string'
+            && testExecutionReturn.pathname.startsWith('/')
+            && !testExecutionReturn.pathname.startsWith('//');
+        const search = typeof testExecutionReturn?.search === 'string' ? testExecutionReturn.search : '';
+        const hash = typeof testExecutionReturn?.hash === 'string' ? testExecutionReturn.hash : '';
+        const returnPath = hasInternalReturnPath
+            ? `${testExecutionReturn.pathname}${search}${hash}`
+            : '/pipeline';
+        const summary = buildCompletedRunSummary();
+        const completion = summary && typeof testExecutionReturn?.nodeId === 'string' && testExecutionReturn.nodeId
+            ? { nodeId: testExecutionReturn.nodeId, summary }
+            : undefined;
+
+        navigate(returnPath, {
+            state: completion ? { testExecutionCompletion: completion } : null,
+        });
+    };
+
     if (!tests || tests.length === 0) {
         return (
             <div className="h-screen w-screen bg-slate-950 flex items-center justify-center text-slate-400 font-mono">
@@ -265,7 +351,7 @@ const ExecutorPage: React.FC = () => {
             <div className="w-80 bg-slate-900/50 border-r border-slate-700/50 flex flex-col shadow-2xl z-10">
                 {/* Header */}
                 <div className="h-16 px-5 border-b border-slate-700/50 flex items-center gap-4 bg-slate-900/80">
-                    <button onClick={() => navigate('/pipeline')} className="text-slate-400 hover:text-white transition-colors">
+                    <button onClick={handleReturnToPipeline} className="text-slate-400 hover:text-white transition-colors">
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                     </button>
                     <div>
