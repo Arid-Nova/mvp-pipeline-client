@@ -32,6 +32,12 @@ const NORMAL_LIMITS: CompactLimits = {
     maxStringChars: 240,
 };
 
+const OMITTED_OUTPUT_FIELD_TOKENS = new Set([
+    "log", "logs", "stdout", "stderr", "output", "outputs", "console", "terminal", "trace", "traces", "traceback",
+]);
+const OMITTED_OUTPUT_FIELD_SUFFIX = /(?:logs?|stdout|stderr|outputs?|console|terminal|traces?|traceback)(?:text|content|data|message|lines|entries)?$/;
+const OMITTED_SOURCE_FIELD = /^(?:code|raw|.*(?:source.?code|test.?code|code.?snippet|stack.?trace))$/i;
+
 const TIGHT_LIMITS: CompactLimits = {
     maxDepth: 3,
     maxArrayItems: 4,
@@ -125,7 +131,7 @@ function compactValue(value: unknown, limits: CompactLimits, depth = 0, ancestor
     }
 
     const entries = Object.entries(value as Record<string, unknown>)
-        .filter(([key]) => !/^(?:code|raw|.*(?:source.?code|test.?code|code.?snippet|stack.?trace))$/i.test(key));
+        .filter(([key]) => !isExcludedEvidenceField(key));
     const compacted: Record<string, unknown> = {};
     for (const [key, child] of entries.slice(0, limits.maxObjectFields)) {
         compacted[key] = compactValue(child, limits, depth + 1, nextAncestors);
@@ -134,4 +140,18 @@ function compactValue(value: unknown, limits: CompactLimits, depth = 0, ancestor
         compacted.omittedFields = entries.length - limits.maxObjectFields;
     }
     return compacted;
+}
+
+function isExcludedEvidenceField(key: string): boolean {
+    if (OMITTED_SOURCE_FIELD.test(key)) return true;
+
+    // Split camelCase and punctuation so nested names such as `executionLogs`,
+    // `stdoutText`, and `raw_output` are handled like `logs`, `stdout`, and `output`.
+    const separated = key.replace(/([a-z0-9])([A-Z])/g, "$1 $2").toLowerCase();
+    const tokens = separated.split(/[^a-z0-9]+/).filter(Boolean);
+    if (tokens.some((token) => OMITTED_OUTPUT_FIELD_TOKENS.has(token))) return true;
+
+    // Also catch unseparated variants such as `executionlog` and `stderrdata`.
+    const compact = key.replace(/[^a-z0-9]/gi, "").toLowerCase();
+    return OMITTED_OUTPUT_FIELD_SUFFIX.test(compact);
 }
