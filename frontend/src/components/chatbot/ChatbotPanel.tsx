@@ -55,6 +55,21 @@ const getContextEntries = (context?: ChatbotContext): Array<{ label: string; val
         .map((entry) => ({ label: entry.label, value: entry.value }));
 };
 
+const guidedBranchContextKey = (scope?: GuidedQuestionChoice["scope"]): string => {
+    let hash = 2166136261;
+    const values = [scope?.systemName, scope?.irId, scope?.indexId, scope?.commitId];
+    (scope?.workflowEvidence ?? []).forEach((item) => {
+        values.push(item.cardId, item.cardType, item.serviceName, item.summary);
+    });
+    values.forEach((value) => {
+        if (!value) return;
+        for (let index = 0; index < value.length; index++) {
+            hash = Math.imul(hash ^ value.charCodeAt(index), 16777619);
+        }
+    });
+    return `${scope?.irId ?? ""}:${(hash >>> 0).toString(16)}`;
+};
+
 const ChatbotPanel: React.FC<ChatbotPanelProps> = ({
     activeContext,
     workflowQuestionSuggestions = [],
@@ -75,11 +90,22 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({
     const [minSpin, setMinSpin] = useState(false);
     // const [isContextExpanded, setIsContextExpanded] = useState(false);
     
-    const contextEntries = useMemo(() => getContextEntries(activeContext), [activeContext]);
+    const contextEntries = useMemo(() => {
+        const hasGuidedScope = Object.values(guidedScope).some((value) => Boolean(value));
+        const effectiveContext = (activeContext !== undefined || hasGuidedScope)
+            ? { ...(activeContext ?? {}), ...guidedScope }
+            : undefined;
+        return getContextEntries(effectiveContext);
+    }, [activeContext, guidedScope]);
     const guidedSuggestionKey = useMemo(
-        () => workflowQuestionSuggestions.map((suggestion) => `${suggestion.intentId}:${suggestion.choices.map((choice) => choice.id).join(",")}`).join("|"),
+        () => workflowQuestionSuggestions.map((suggestion) => {
+            const branchKey = suggestion.contextKey ?? guidedBranchContextKey(suggestion.choices[0]?.scope);
+            return `${suggestion.intentId}:${branchKey}:${suggestion.choices.map((choice) => choice.id).join(",")}`;
+        }).join("|"),
         [workflowQuestionSuggestions]
     );
+    const previousGuidedSuggestionKeyRef = useRef(guidedSuggestionKey);
+    const guidedDraftContextKeyRef = useRef<string | null>(null);
     const {
         messages, loading, error, health, healthLoading, healthError,
         refreshLoading, refreshResult, refreshError, localStaleContext,
@@ -153,6 +179,7 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({
         setInput("");
         setHasGuidedDraft(false);
         setGuidedScope({});
+        guidedDraftContextKeyRef.current = null;
         setActiveGuidedSuggestion(null);
     };
 
@@ -160,6 +187,7 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({
         setInput(suggestion.buildQuestion(choice));
         setHasGuidedDraft(true);
         setGuidedScope(choice.scope ?? {});
+        guidedDraftContextKeyRef.current = guidedSuggestionKey;
         setActiveGuidedSuggestion(null);
     };
 
@@ -167,6 +195,7 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({
         setInput(value);
         setHasGuidedDraft(false);
         setGuidedScope({});
+        guidedDraftContextKeyRef.current = null;
     };
 
     const planningFailure =
@@ -196,13 +225,21 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({
             setGuidedScope({});
             if (hasGuidedDraft) setInput("");
             setHasGuidedDraft(false);
+            guidedDraftContextKeyRef.current = null;
         }
         setMode(next);
     };
 
     useEffect(() => {
+        if (previousGuidedSuggestionKeyRef.current === guidedSuggestionKey) return;
+        previousGuidedSuggestionKeyRef.current = guidedSuggestionKey;
         setActiveGuidedSuggestion(null);
         setGuidedScope({});
+        if (guidedDraftContextKeyRef.current !== null && guidedDraftContextKeyRef.current !== guidedSuggestionKey) {
+            guidedDraftContextKeyRef.current = null;
+            setInput("");
+            setHasGuidedDraft(false);
+        }
     }, [guidedSuggestionKey]);
 
     return (
@@ -439,23 +476,9 @@ const ChatbotPanel: React.FC<ChatbotPanelProps> = ({
                         )}
 
                         {!isBuildMode && !loading && !input.trim() && workflowQuestionSuggestions.length > 0 && (
-                            <section
-                                data-testid="workflow-question-suggestions"
-                                className="mt-2 rounded-xl border border-cyan-500/20 bg-slate-950/50 p-3.5 shrink-0"
-                            >
-                                <div className="mb-2.5 flex items-center justify-between gap-2">
-                                    <div className="text-[10px] font-bold uppercase tracking-wider text-cyan-300/80">
-                                        Questions for this workflow
-                                    </div>
-                                    {activeGuidedSuggestion && (
-                                        <button
-                                            type="button"
-                                            onClick={() => setActiveGuidedSuggestion(null)}
-                                            className="text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-slate-200 transition-colors"
-                                        >
-                                            Cancel
-                                        </button>
-                                    )}
+                            <section data-testid="workflow-question-suggestions" className="mt-3 rounded-xl border border-cyan-800/30 bg-slate-950/50 p-3 shrink-0">
+                                <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-cyan-300/80">
+                                    Questions for this workflow
                                 </div>
 
                                 {activeGuidedSuggestion ? (

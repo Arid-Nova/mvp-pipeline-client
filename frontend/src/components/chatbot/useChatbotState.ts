@@ -232,6 +232,7 @@ export const useChatbotState = (activeContext?: ChatbotContext) => {
 
         const requestContext = conversationRequestContextRef.current;
         const isRequestContextCurrent = () => conversationRequestContextRef.current === requestContext;
+        const queryContext = toRequestContext({ ...(context ?? {}), ...scopeOverride });
 
         setError(null);
         setLoading(true);
@@ -243,7 +244,7 @@ export const useChatbotState = (activeContext?: ChatbotContext) => {
         try {
             const response = await sendChatbotQuery({
                 question,
-                context: context ? { ...context, ...scopeOverride } : undefined,
+                context: queryContext,
                 messages: historyMessages
             });
 

@@ -1,17 +1,28 @@
 import type { Connection, NodeData } from "./models";
 import type { ChatbotContext } from "../../services/types";
 import intentModelJson from "./intent/intent_ds_models.json";
+import { deriveWorkflowEvidence } from "./workflowEvidence";
 import { AridnovaIntentReasoner, NormalizedGraph } from "./intent/intentReasoner";
+
+type BranchContextScope = Pick<ChatbotContext,
+    "systemName" | "irId" | "indexId" | "commitId" | "selectedService" | "selectedEndpoint" | "workflowEvidence" | "irPayload">;
+
+interface CompletedBranch {
+    nodes: NodeData[];
+    distances: Map<string, number>;
+}
 
 export interface GuidedQuestionChoice {
     id: string;
     label: string;
     focus: string;
-    scope?: Pick<ChatbotContext, "selectedService" | "selectedEndpoint">;
+    scope?: Pick<ChatbotContext,
+        "systemName" | "irId" | "indexId" | "commitId" | "selectedService" | "selectedEndpoint" | "workflowEvidence" | "irPayload">;
 }
 
 export interface GuidedQuestionSuggestion {
     intentId: string;
+    contextKey?: string;
     title: string;
     clarifier: string;
     choices: GuidedQuestionChoice[];
@@ -130,6 +141,8 @@ const COMPLETED_OUTPUTS: Record<string, Array<{ type: string; key?: string }>> =
 };
 
 const ASSURANCE_BRANCHES = ["FORMAL_VERIFY", "AEGIS", "CHANGE_IMPACT", "VISUALIZATION"];
+const nodeDataIdentity = new WeakMap<object, number>();
+let nextNodeDataIdentity = 1;
 
 const reasoner = AridnovaIntentReasoner.fromJson(JSON.stringify(intentModelJson), {
     configurationMatcher: matchConfigurationRequirements,
@@ -148,28 +161,41 @@ export function deriveWorkflowQuestionSuggestions(
     });
     if (!result.graphValid) return [];
 
-    return result.estimates
+    const estimates = result.estimates
         .filter((estimate) => estimate.status === "scored" && Boolean(QUESTION_DEFINITIONS[estimate.intentId]))
         .filter((estimate) => isResultReady(estimate.intentId, nodes))
         .sort((left, right) =>
             (right.pignisticProbability?.present ?? 0) - (left.pignisticProbability?.present ?? 0)
             || left.intentId.localeCompare(right.intentId))
-        .slice(0, 3)
-        .map((estimate) => {
-            const definition = QUESTION_DEFINITIONS[estimate.intentId];
-            const choices = buildFocusChoices(nodes);
-            return {
-                intentId: estimate.intentId,
-                title: definition.title,
-                clarifier: definition.clarifier,
-                choices,
-                buildQuestion: (choice: GuidedQuestionChoice) =>
-                    `${definition.question} Focus on ${choice.focus}.`,
-            };
+        .slice(0, 3);
+
+    const suggestions: GuidedQuestionSuggestion[] = [];
+    for (const estimate of estimates) {
+        const branch = buildCompletedBranch(estimate.intentId, nodes, connections);
+        if (branch.nodes.length === 0) continue;
+
+        const definition = QUESTION_DEFINITIONS[estimate.intentId];
+        const branchScope = buildBranchScope(branch);
+        suggestions.push({
+            intentId: estimate.intentId,
+            contextKey: [
+                ...branch.nodes.map((node) => `${node.id}:${objectReferenceToken(node.data)}`),
+                branchScope.systemName ?? "",
+                branchScope.irId ?? "",
+                branchScope.indexId ?? "",
+                branchScope.commitId ?? "",
+            ].join("|"),
+            title: definition.title,
+            clarifier: definition.clarifier,
+            choices: buildFocusChoices(branch.nodes, branchScope),
+            buildQuestion: (choice: GuidedQuestionChoice) =>
+                `${definition.question} Focus on ${choice.focus}.`,
         });
+    }
+    return suggestions;
 }
 
-/** Stable key for intent/question inputs; canvas coordinates and unrelated card data are excluded. */
+/** Stable key for intent inputs; canvas coordinates are excluded and completed branch data identity is included. */
 export function workflowQuestionSuggestionSignature(
     nodes: NodeData[],
     connections: Connection[],
@@ -210,8 +236,24 @@ export function workflowQuestionSuggestionSignature(
     const graphEdges = connections
         .map(({ source, target }) => `${source}\u0000${target}`)
         .sort();
-    const focusChoiceIds = buildFocusChoices(nodes).map((choice) => choice.id);
-    return JSON.stringify({ graphNodes, graphEdges, focusChoiceIds });
+    const focusChoiceIds = buildFocusChoices(nodes, {}).map((choice) => choice.id);
+    const completedBranchNodeIds = new Set<string>();
+    Object.keys(QUESTION_DEFINITIONS).forEach((intentId) => {
+        if (!isResultReady(intentId, nodes)) return;
+        buildCompletedBranch(intentId, nodes, connections).nodes.forEach((node) => completedBranchNodeIds.add(node.id));
+    });
+    const branchDataReferences = nodes
+        .filter((node) => completedBranchNodeIds.has(node.id))
+        .map((node) => [node.id, objectReferenceToken(node.data)]);
+    return JSON.stringify({ graphNodes, graphEdges, focusChoiceIds, branchDataReferences });
+}
+
+function objectReferenceToken(value: object): number {
+    const existing = nodeDataIdentity.get(value);
+    if (existing !== undefined) return existing;
+    const token = nextNodeDataIdentity++;
+    nodeDataIdentity.set(value, token);
+    return token;
 }
 
 function isResultReady(intentId: string, nodes: NodeData[]): boolean {
@@ -345,11 +387,139 @@ function hasExecutedTests(nodes: NodeData[]): boolean {
     });
 }
 
-function buildFocusChoices(nodes: NodeData[]): GuidedQuestionChoice[] {
+function completedOutputRoots(intentId: string, nodes: NodeData[]): NodeData[] {
+    const roots = new Map<string, NodeData>();
+    const addRoots = (type: string, key?: string) => {
+        nodes.forEach((node) => {
+            const completed = type === "TEST_EXECUTOR"
+                ? hasExecutedTests([node])
+                : isCompletedOutput(node, type, key);
+            if (completed) roots.set(node.id, node);
+        });
+    };
+
+    if (intentId === "parallel_integrated_assurance") {
+        ASSURANCE_BRANCHES.forEach((type) => addRoots(type));
+    } else if (intentId === "test_execution") {
+        addRoots("TEST_EXECUTOR");
+    } else {
+        (COMPLETED_OUTPUTS[intentId] ?? []).forEach(({ type, key }) => addRoots(type, key));
+    }
+    return Array.from(roots.values());
+}
+
+function buildCompletedBranch(intentId: string, nodes: NodeData[], connections: Connection[]): CompletedBranch {
+    const roots = completedOutputRoots(intentId, nodes);
+    const upstreamByTarget = new Map<string, string[]>();
+    connections.forEach(({ source, target }) => {
+        const upstream = upstreamByTarget.get(target) ?? [];
+        upstream.push(source);
+        upstreamByTarget.set(target, upstream);
+    });
+
+    const distances = new Map<string, number>();
+    const queue: string[] = [];
+    roots.forEach((root) => {
+        if (distances.has(root.id)) return;
+        distances.set(root.id, 0);
+        queue.push(root.id);
+    });
+    for (let index = 0; index < queue.length; index++) {
+        const nodeId = queue[index];
+        const distance = distances.get(nodeId) ?? 0;
+        (upstreamByTarget.get(nodeId) ?? []).forEach((sourceId) => {
+            if (distances.has(sourceId)) return;
+            distances.set(sourceId, distance + 1);
+            queue.push(sourceId);
+        });
+    }
+
+    return {
+        nodes: nodes.filter((node) => node.status === "completed" && distances.has(node.id)),
+        distances,
+    };
+}
+
+function buildBranchScope(branch: CompletedBranch): BranchContextScope {
+    const irCandidates = branch.nodes.flatMap((node) => {
+        const data = node.data as unknown as Record<string, unknown>;
+        const payload = data.payload as Record<string, unknown> | undefined;
+        const rawIrJson = payload?.irJson;
+        if (!rawIrJson || typeof rawIrJson !== "object" || Array.isArray(rawIrJson)) return [];
+        const irJson = rawIrJson as Record<string, unknown>;
+        if (!hasMaterializedValue(irJson)) return [];
+        const metadataEntries = payload?.metadata;
+        const metadata = Array.isArray(metadataEntries) && metadataEntries[0] && typeof metadataEntries[0] === "object"
+            ? metadataEntries[0] as Record<string, unknown>
+            : undefined;
+        return [{
+            node,
+            distance: branch.distances.get(node.id) ?? Number.MAX_SAFE_INTEGER,
+            irJson,
+            systemName: firstNonEmptyString(data.systemName, payload?.systemName, metadata?.systemName, irJson.systemName),
+            irId: firstNonEmptyString(data.irId, irJson.id),
+            commitId: firstNonEmptyString(metadata?.commitId, metadata?.commitID, irJson.commitId, irJson.commitID),
+        }];
+    }).sort((left, right) =>
+        left.distance - right.distance
+        || irSourcePriority(left.node.type) - irSourcePriority(right.node.type)
+        || left.node.id.localeCompare(right.node.id));
+
+    const componentHolder = branch.nodes
+        .filter((node) => node.type === "COMPONENT_HOLDER")
+        .sort((left, right) =>
+            (branch.distances.get(left.id) ?? Number.MAX_SAFE_INTEGER)
+            - (branch.distances.get(right.id) ?? Number.MAX_SAFE_INTEGER)
+            || left.id.localeCompare(right.id))
+        .find((node) => {
+            const data = node.data as unknown as Record<string, unknown>;
+            const componentPayload = data.componentPayload as Record<string, unknown> | undefined;
+            return typeof componentPayload?.id === "string" && componentPayload.id.trim().length > 0;
+        });
+    const componentData = componentHolder?.data as unknown as Record<string, unknown> | undefined;
+    const componentPayload = componentData?.componentPayload as Record<string, unknown> | undefined;
+    const selectedIr = irCandidates[0];
+
+    return {
+        systemName: selectedIr?.systemName
+            ?? firstBranchSystemName(branch.nodes, branch.distances),
+        irId: selectedIr?.irId,
+        indexId: typeof componentPayload?.id === "string" ? componentPayload.id : undefined,
+        commitId: selectedIr?.commitId,
+        selectedService: undefined,
+        selectedEndpoint: undefined,
+        workflowEvidence: deriveWorkflowEvidence(branch.nodes),
+        irPayload: selectedIr?.irJson,
+    };
+}
+
+function firstBranchSystemName(nodes: NodeData[], distances: Map<string, number>): string | undefined {
+    return nodes
+        .filter((node) => node.type === "SYSTEM_INPUT")
+        .sort((left, right) =>
+            (distances.get(left.id) ?? Number.MAX_SAFE_INTEGER)
+            - (distances.get(right.id) ?? Number.MAX_SAFE_INTEGER)
+            || left.id.localeCompare(right.id))
+        .map((node) => (node.data as unknown as Record<string, unknown>).systemName)
+        .find((value): value is string => typeof value === "string" && value.trim().length > 0);
+}
+
+function firstNonEmptyString(...values: unknown[]): string | undefined {
+    return values.find((value): value is string => typeof value === "string" && value.trim().length > 0)?.trim();
+}
+
+function irSourcePriority(type: string): number {
+    if (type === "IR_HOLDER") return 0;
+    if (type === "UPLOAD_IR") return 1;
+    return 2;
+}
+
+function buildFocusChoices(nodes: NodeData[], branchScope: BranchContextScope): GuidedQuestionChoice[] {
     const choices: GuidedQuestionChoice[] = [{
         id: "workflow-overview",
         label: "Overall result",
         focus: "the overall workflow result",
+        scope: branchScope,
     }];
 
     const serviceNames = extractServiceNames(nodes).slice(0, 4);
@@ -357,7 +527,7 @@ function buildFocusChoices(nodes: NodeData[]): GuidedQuestionChoice[] {
         id: `service:${serviceName}`,
         label: serviceName,
         focus: `service ${serviceName}`,
-        scope: { selectedService: serviceName },
+        scope: { ...branchScope, selectedService: serviceName },
     }));
 
     const endpoints = extractEndpoints(nodes).slice(0, 3);
@@ -365,7 +535,7 @@ function buildFocusChoices(nodes: NodeData[]): GuidedQuestionChoice[] {
         id: `endpoint:${serviceName}:${method}:${path}`,
         label: `${method} ${path}`,
         focus: `${method} ${path} in service ${serviceName}`,
-        scope: { selectedService: serviceName, selectedEndpoint: path },
+        scope: { ...branchScope, selectedService: serviceName, selectedEndpoint: path },
     }));
 
     return choices;
