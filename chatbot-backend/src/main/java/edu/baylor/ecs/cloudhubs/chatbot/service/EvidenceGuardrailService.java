@@ -3,8 +3,8 @@ package edu.baylor.ecs.cloudhubs.chatbot.service;
 import edu.baylor.ecs.cloudhubs.chatbot.model.ChatbotConfidence;
 import edu.baylor.ecs.cloudhubs.chatbot.model.ChatbotFlag;
 import edu.baylor.ecs.cloudhubs.chatbot.model.ChatbotResponse;
-import edu.baylor.ecs.cloudhubs.chatbot.model.CitationItem;
 import edu.baylor.ecs.cloudhubs.chatbot.model.EvidenceArtifactType;
+import edu.baylor.ecs.cloudhubs.chatbot.model.EvidenceCitationMapper;
 import edu.baylor.ecs.cloudhubs.chatbot.model.EvidenceItem;
 import edu.baylor.ecs.cloudhubs.chatbot.model.MissingEvidence;
 import edu.baylor.ecs.cloudhubs.chatbot.retrieval.model.QuestionIntent;
@@ -14,9 +14,11 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 

@@ -344,17 +344,23 @@ public class ChatbotQueryService {
                 );
             }
 
-            // Evidence is already in the existing ranked order. Remove its lowest-ranked tail
-            // first, preserving the retriever and budgeter's ranking formulas.
-            if (!evidence.isEmpty()) {
+            // Keep the highest-ranked remaining evidence record while trimming prior turns.
+            // This avoids losing the only supporting record when history alone causes overflow.
+            if (evidence.size() > 1) {
                 evidence.remove(evidence.size() - 1);
                 continue;
             }
 
-            // The frontend normally bounds history. This protects direct API callers too, while
-            // preserving the latest turn and leaving evidence selection untouched.
+            // The frontend normally bounds history. This protects direct API callers too.
             if (!history.isEmpty()) {
                 history.remove(0);
+                continue;
+            }
+
+            // Drop the last evidence record only when the question, context, history, and that
+            // record still cannot fit together.
+            if (!evidence.isEmpty()) {
+                evidence.remove(evidence.size() - 1);
                 continue;
             }
 
